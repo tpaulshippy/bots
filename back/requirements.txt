@@ -2,3 +2,8 @@ asgiref
 Django
 sqlparse
 django-extensions
+
+pytest
+pytest-describe
+mockito
+pytest-django
