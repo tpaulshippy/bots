@@ -13,6 +13,7 @@ def get_bedrock_client():
 
 class Chat(models.Model):
     chat_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
