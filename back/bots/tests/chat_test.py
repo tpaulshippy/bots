@@ -41,6 +41,10 @@ def describe_chat_model():
         def ai_output():
             class Output:
                 content = "Hello! How can I assist you today?"
+                usage_metadata = {
+                    "input_tokens": 1,
+                    "output_tokens": 2
+                }
 
             output = Output()
             return output
@@ -55,3 +59,5 @@ def describe_chat_model():
             assert chat.messages.count() == 2
             assert chat.messages.last().text == "Hello! How can I assist you today?"
             assert chat.messages.last().role == "assistant"
+            assert chat.messages.last().input_tokens == 1
+            assert chat.messages.last().output_tokens == 2

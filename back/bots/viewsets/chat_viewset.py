@@ -5,7 +5,16 @@ import uuid
 class MessageSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Message
-        fields = ['id', 'message_id', 'order', 'role', 'text', 'created_at', 'modified_at']
+        fields = [
+            'id', 
+            'message_id', 
+            'order', 
+            'role', 
+            'text', 
+            'input_tokens',
+            'output_tokens',
+            'created_at', 
+            'modified_at']
 
 class MessageViewSet(viewsets.ModelViewSet):
     queryset = Message.objects.all()

@@ -28,8 +28,15 @@ class Chat(models.Model):
         )
 
         response_text = response.content
+        usage_metadata = response.usage_metadata
         message_order = self.messages.count()
-        self.messages.create(text=response_text, role='assistant', order=message_order)
+        self.messages.create(
+            text=response_text, 
+            role='assistant', 
+            order=message_order,
+            input_tokens=usage_metadata['input_tokens'],
+            output_tokens=usage_metadata['output_tokens']
+        )
         return response_text
         
 
@@ -37,3 +44,6 @@ class Chat(models.Model):
         messages = self.messages.all()
         message_list = [{"role": message.role, "content": [{"text": message.text}]} for message in messages]
         return message_list
+    
+    def get_system_message(self):
+        return "Please respond in around 20 words."
