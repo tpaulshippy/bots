@@ -46,7 +46,10 @@ def describe_chat_model():
             return output
         
         def it_should_add_message_from_ai(chat, ai, ai_output):
-            when(ai).invoke(...).thenReturn(ai_output)
+            when(ai).invoke([{
+                "role": "user",
+                "content": [{"text": "Hello"}]
+            }]).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
             assert chat.messages.count() == 2
