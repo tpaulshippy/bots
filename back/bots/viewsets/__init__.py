@@ -1,1 +1,1 @@
-from .user_viewset import UserViewSet
+from .chat_viewset import ChatViewSet

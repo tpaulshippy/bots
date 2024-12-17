@@ -18,15 +18,21 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth.models import User
 from rest_framework import routers
-from bots.viewsets.user_viewset import UserViewSet
-
+from rest_framework_nested.routers import NestedDefaultRouter
+from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
+from bots.views import get_response_api
 
 router = routers.DefaultRouter()
-router.register(r'users', UserViewSet)
+router.register(r'chats', ChatViewSet)
+
+chats_router = NestedDefaultRouter(router, r'chats', lookup='chat')
+chats_router.register(r'messages', MessageViewSet, basename='chat-messages')
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include(router.urls)),
-    path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
+    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path('api/chats/<str:chat_id>', get_response_api, name='get_response_api'),
+
 ]

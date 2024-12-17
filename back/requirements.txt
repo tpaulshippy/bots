@@ -6,6 +6,7 @@ langchain_aws
 djangorestframework
 markdown
 django-filter
+drf-nested-routers
 
 pytest
 pytest-describe

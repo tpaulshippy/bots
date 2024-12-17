@@ -7,6 +7,7 @@ class Message(models.Model):
     message_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     text = models.TextField()
     role = models.CharField(max_length=50, default='user')
+    order = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

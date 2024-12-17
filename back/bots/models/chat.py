@@ -27,8 +27,9 @@ class Chat(models.Model):
         )
 
         response_text = response.content
-        self.messages.create(text=response_text, role='assistant')
-
+        message_order = self.messages.count()
+        self.messages.create(text=response_text, role='assistant', order=message_order)
+        return response_text
         
 
     def get_input(self):
