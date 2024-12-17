@@ -3,7 +3,9 @@ Django
 sqlparse
 django-extensions
 langchain_aws
-boto3
+djangorestframework
+markdown
+django-filter
 
 pytest
 pytest-describe
