@@ -39,10 +39,14 @@ def describe_chat_model():
         
         @pytest.fixture
         def ai_output():
-            return get_ai_output()
+            class Output:
+                content = "Hello! How can I assist you today?"
+
+            output = Output()
+            return output
         
         def it_should_add_message_from_ai(chat, ai, ai_output):
-            when(ai).converse(...).thenReturn(ai_output)
+            when(ai).invoke(...).thenReturn(ai_output)
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
             assert chat.messages.count() == 2

@@ -1,12 +1,12 @@
 from django.db import models
 import uuid
-import boto3
 import json
+from langchain_aws import ChatBedrock
 
 MODEL_ID = "us.amazon.nova-lite-v1:0"
 
 def get_bedrock_client():
-    llm = boto3.client("bedrock-runtime", region_name="us-west-2")
+    llm = ChatBedrock(model_id=MODEL_ID)
 
     return llm
 
@@ -22,11 +22,11 @@ class Chat(models.Model):
     def get_response(self, ai=get_bedrock_client()):
         message_list = self.get_input()
 
-        response = ai.converse(
-            modelId=MODEL_ID, 
-            messages=message_list
+        response = ai.invoke(
+            message_list
         )
-        response_text = response["output"]["message"]["content"][0]["text"]
+
+        response_text = response.content
         self.messages.create(text=response_text, role='assistant')
 
         
