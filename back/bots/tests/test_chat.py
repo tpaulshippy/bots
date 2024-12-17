@@ -1,8 +1,9 @@
 import pytest
 from django.utils import timezone
-from mockito import when, unstub
+from mockito import when, unstub, mock, any
 from bots.models.chat import Chat
 import uuid
+
 
 @pytest.mark.django_db
 def describe_chat_model():
@@ -28,10 +29,18 @@ def describe_chat_model():
         unstub()
 
     def describe_get_response():
-        def it_should_add_message_from_ai():
-            chat = Chat.objects.create()
+        @pytest.fixture
+        def chat():
+            return Chat.objects.create()
+        
+        @pytest.fixture
+        def ai():
+            return mock()
+        
+        def it_should_add_message_from_ai(chat, ai):
+            when(ai).get_response(...).thenReturn("Hi! How can I help you?")
             chat.messages.create(text="Hello", role="user")
-            chat.get_response()
-            assert chat.messages.count() == 1
-            assert chat.messages.first().text == "Hi! How can I help you?"
-            assert chat.messages.first().role == "assistant"
+            chat.get_response(ai=ai)
+            assert chat.messages.count() == 2
+            assert chat.messages.last().text == "Hi! How can I help you?"
+            assert chat.messages.last().role == "assistant"

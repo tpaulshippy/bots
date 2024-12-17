@@ -8,3 +8,7 @@ class Chat(models.Model):
 
     def __str__(self):
         return str(self.chat_id)
+
+    def get_response(self, ai):
+        response = ai.get_response(messages=self.messages.all())
+        self.messages.create(text=response, role='assistant')
