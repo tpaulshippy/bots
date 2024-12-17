@@ -3,7 +3,7 @@ from django.utils import timezone
 from mockito import when, unstub, mock, any
 from bots.models.chat import Chat
 import uuid
-
+from ai_fixtures import get_ai_output
 
 @pytest.mark.django_db
 def describe_chat_model():
@@ -37,10 +37,14 @@ def describe_chat_model():
         def ai():
             return mock()
         
-        def it_should_add_message_from_ai(chat, ai):
-            when(ai).get_response(...).thenReturn("Hi! How can I help you?")
+        @pytest.fixture
+        def ai_output():
+            return get_ai_output()
+        
+        def it_should_add_message_from_ai(chat, ai, ai_output):
+            when(ai).converse(...).thenReturn(ai_output)
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
             assert chat.messages.count() == 2
-            assert chat.messages.last().text == "Hi! How can I help you?"
+            assert chat.messages.last().text == "Hello! How can I assist you today?"
             assert chat.messages.last().role == "assistant"
