@@ -3,7 +3,7 @@ import uuid
 import json
 from langchain_aws import ChatBedrock
 
-MODEL_ID = "us.amazon.nova-lite-v1:0"
+MODEL_ID = "us.amazon.nova-micro-v1:0"
 
 def get_bedrock_client():
     llm = ChatBedrock(model_id=MODEL_ID)
@@ -46,4 +46,4 @@ class Chat(models.Model):
         return message_list
     
     def get_system_message(self):
-        return "Please respond in around 20 words."
+        return "You are chatting with a teen. Please keep the conversation appropriate and respectful."
