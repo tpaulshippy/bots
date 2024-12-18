@@ -42,7 +42,7 @@ class ChatSerializer(serializers.HyperlinkedModelSerializer):
         fields = ['id', 'chat_id', 'title', 'messages', 'created_at', 'modified_at']
 
 class ChatViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Chat.objects.annotate(message_count=Count('messages'))
+    queryset = Chat.objects.annotate(message_count=Count('messages')).order_by('id')
 
     def get_serializer_class(self):
         if self.action == 'list':
