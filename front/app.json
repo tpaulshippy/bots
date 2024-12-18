@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tpaulshippy.botsforkids"
     },
     "android": {
       "adaptiveIcon": {
@@ -45,6 +46,12 @@
         "projectId": "c5f43f2f-c295-4b8e-b4ee-fb40063ee003"
       }
     },
-    "owner": "tpaulshippy"
+    "owner": "tpaulshippy",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c5f43f2f-c295-4b8e-b4ee-fb40063ee003"
+    }
   }
 }
