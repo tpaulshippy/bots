@@ -32,6 +32,7 @@ chats_router.register(r'messages', MessageViewSet, basename='chat-messages')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include(router.urls)),
+    path('', include(chats_router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('api/chats/<str:chat_id>', get_response_api, name='get_response_api'),
 
