@@ -1,5 +1,5 @@
 from rest_framework import viewsets, serializers
-
+from django.db.models import Count
 from bots.models import Chat, Message
 import uuid
 
@@ -28,9 +28,11 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
     
 
 class ChatListSerializer(serializers.HyperlinkedModelSerializer):
+    message_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Chat
-        fields = ['id', 'chat_id', 'title', 'created_at', 'modified_at', 'url']
+        fields = ['id', 'chat_id', 'title', 'message_count', 'created_at', 'modified_at', 'url']
 
 class ChatSerializer(serializers.HyperlinkedModelSerializer):
     messages = MessageSerializer(many=True, read_only=True)
@@ -40,7 +42,8 @@ class ChatSerializer(serializers.HyperlinkedModelSerializer):
         fields = ['id', 'chat_id', 'title', 'messages', 'created_at', 'modified_at']
 
 class ChatViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Chat.objects.all()
+    queryset = Chat.objects.annotate(message_count=Count('messages'))
+
     def get_serializer_class(self):
         if self.action == 'list':
             return ChatListSerializer
