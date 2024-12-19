@@ -41,8 +41,13 @@ class Chat(models.Model):
         
 
     def get_input(self):
-        messages = self.messages.all()
+        messages = self.messages.exclude(role='system').order_by('-id')[:10]
+        messages = sorted(messages, key=lambda message: message.id)
         message_list = [{"role": message.role, "content": [{"text": message.text}]} for message in messages]
+        
+        system_message = {"role": "system", "content": [{"text": self.get_system_message()}]}
+        message_list.insert(0, system_message)
+    
         return message_list
     
     def get_system_message(self):
