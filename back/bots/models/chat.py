@@ -46,4 +46,4 @@ class Chat(models.Model):
         return message_list
     
     def get_system_message(self):
-        return "You are chatting with a teen. Please keep the conversation appropriate and respectful."
+        return "You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."
