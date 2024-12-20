@@ -1,7 +1,9 @@
-import { StyleSheet, FlatList, TouchableOpacity } from "react-native";
-
+import { StyleSheet, View, FlatList } from "react-native";
+import { Link } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { IconSymbol } from "@/components/ui/IconSymbol";
+
 import { useEffect, useState } from "react";
 import { fetchChats, Chat } from "@/api/chats";
 
@@ -16,13 +18,25 @@ export default function ChatList() {
   }, []);
 
   return (
-    <FlatList
-      style={styles.list}
-      data={chats}
-      renderItem={({ item }) => (
-        <ThemedText key={item.chat_id}>{item.title}</ThemedText>
-      )}
-    />
+    <ThemedView style={styles.container}>
+      <ThemedText style={styles.titleContainer} type="title">
+        Chats
+      </ThemedText>
+      <View style={styles.addButton}>
+        <Link href="/screens/chat">
+          <IconSymbol name="text.bubble" color="black"></IconSymbol>
+        </Link>
+      </View>
+      {showList ? (
+        <FlatList
+          style={styles.list}
+          data={chats}
+          renderItem={({ item }) => (
+            <ThemedText key={item.chat_id}>{item.title}</ThemedText>
+          )}
+        />
+      ) : null}
+    </ThemedView>
   );
 }
 
