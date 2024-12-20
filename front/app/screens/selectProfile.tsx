@@ -7,15 +7,44 @@ import { useEffect, useState } from "react";
 import { fetchProfiles, Profile } from "@/api/profiles";
 import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SelectProfile() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     fetchProfiles().then((data) => {
       setProfiles(data);
     });
+    const loadSelectedProfile = async () => {
+      try {
+        const profileData = await AsyncStorage.getItem('selectedProfile');
+        if (profileData) {
+          const profile = JSON.parse(profileData);
+          setSelectedProfile(profile);
+        }
+      } catch (error) {
+        console.error('Failed to load the profile from local storage', error);
+      }
+    };
+
+    loadSelectedProfile();
   }, []);
+
+
+  const handleProfilePress = async (profile: Profile) => {
+    if (process.env.EXPO_OS === "ios") {
+      // Add a soft haptic feedback when pressing down on the tabs.
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    try {
+      setSelectedProfile(profile);
+      await AsyncStorage.setItem('selectedProfile', JSON.stringify(profile));
+    } catch (error) {
+      console.error('Failed to save the profile to local storage', error);
+    }
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -26,13 +55,11 @@ export default function SelectProfile() {
         {profiles.map((profile) => (
           <PlatformPressable
             key={profile.profile_id}
-            style={styles.profile}
-            onPressIn={(ev) => {
-              if (process.env.EXPO_OS === "ios") {
-                // Add a soft haptic feedback when pressing down on the tabs.
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-            }}
+            style={[
+              styles.profile,
+              selectedProfile?.profile_id === profile.profile_id && styles.selectedProfile
+            ]}
+            onPressIn={(ev) => handleProfilePress(profile)}
           >
             <ThemedText style={styles.profileText}>{profile.name}</ThemedText>
           </PlatformPressable>
@@ -57,6 +84,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     width: "100%",
   },
+  selectedProfile: {
+    backgroundColor: '#444',
+  },
   titleContainer: {
     flexDirection: "row",
     fontSize: 16,
@@ -67,7 +97,7 @@ const styles = StyleSheet.create({
     margin: 5,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "darkgray",
+    backgroundColor: "#222",
     borderRadius: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
