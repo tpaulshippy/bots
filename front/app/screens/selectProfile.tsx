@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { fetchProfiles, Profile } from "@/api/profiles";
 import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 
 export default function SelectProfile() {
@@ -20,19 +20,18 @@ export default function SelectProfile() {
     });
     const loadSelectedProfile = async () => {
       try {
-        const profileData = await AsyncStorage.getItem('selectedProfile');
+        const profileData = await AsyncStorage.getItem("selectedProfile");
         if (profileData) {
           const profile = JSON.parse(profileData);
           setSelectedProfile(profile);
         }
       } catch (error) {
-        console.error('Failed to load the profile from local storage', error);
+        console.error("Failed to load the profile from local storage", error);
       }
     };
 
     loadSelectedProfile();
   }, []);
-
 
   const handleProfilePress = async (profile: Profile) => {
     if (process.env.EXPO_OS === "ios") {
@@ -40,10 +39,19 @@ export default function SelectProfile() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     try {
-      setSelectedProfile(profile);
-      await AsyncStorage.setItem('selectedProfile', JSON.stringify(profile));
+      if (
+        selectedProfile &&
+        selectedProfile.profile_id === profile.profile_id
+      ) {
+        setSelectedProfile(null);
+        await AsyncStorage.removeItem("selectedProfile");
+        return;
+      } else {
+        setSelectedProfile(profile);
+        await AsyncStorage.setItem("selectedProfile", JSON.stringify(profile));
+      }
     } catch (error) {
-      console.error('Failed to save the profile to local storage', error);
+      console.error("Failed to save the profile to local storage", error);
     }
   };
 
@@ -58,11 +66,17 @@ export default function SelectProfile() {
             key={profile.profile_id}
             style={[
               styles.profile,
-              selectedProfile?.profile_id === profile.profile_id && styles.selectedProfile
+              selectedProfile?.profile_id === profile.profile_id &&
+                styles.selectedProfile,
             ]}
             onPressIn={(ev) => handleProfilePress(profile)}
           >
-            <IconSymbol name="person.fill" color="#555" size={120} style={styles.profileIcon}></IconSymbol>
+            <IconSymbol
+              name="person.fill"
+              color="#555"
+              size={120}
+              style={styles.profileIcon}
+            ></IconSymbol>
             <ThemedText style={styles.profileText}>{profile.name}</ThemedText>
           </PlatformPressable>
         ))}
@@ -90,7 +104,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectedProfile: {
-    backgroundColor: '#444',
+    backgroundColor: "#444",
   },
   titleContainer: {
     flexDirection: "row",

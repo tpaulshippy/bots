@@ -28,11 +28,13 @@ export interface ChatResponse {
 
 export const sendChat = async (
     chatId: string = "new", 
-    message: string): Promise<ChatResponse | null> => {
+    message: string,
+    profile: string
+    ): Promise<ChatResponse | null> => {
     try {
         const { data, ok, status } = await apiClient<ChatResponse>(`/api/chats/${chatId}`, {
             method: 'POST',
-            body: JSON.stringify({ message }),
+            body: JSON.stringify({ message, profile }),
         });
 
         if (!ok) {

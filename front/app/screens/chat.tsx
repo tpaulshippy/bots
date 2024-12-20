@@ -4,6 +4,7 @@ import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { useState } from "react";
 import { sendChat } from "@/api/chats";
 import { FlatList } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KeyboardAvoidingView, Platform } from "react-native";
 
 interface ChatMessage {
@@ -16,19 +17,36 @@ export default function Chat() {
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  const sendChatToServer = () => {
-    sendChat(chatId, input).then((chatResponse) => {
-      if (chatResponse) {
-        setInput("");
-        const newUserMessage: ChatMessage = { role: "user", text: input };
-        const newAssistantMessage: ChatMessage = {
-          role: "assistant",
-          text: chatResponse.response,
-        };
-        setMessages([...messages, newUserMessage, newAssistantMessage]);
-        setChatId(chatResponse.chat_id);
-      }
-    });
+  const getProfileId = async () => {
+    const profileData = await AsyncStorage.getItem('selectedProfile');
+    if (profileData) {
+      const profile = JSON.parse(profileData);
+      return profile.profile_id;
+    }
+    return null;
+  };
+
+  const sendChatToServer = async () => {
+    const profileId = await getProfileId();
+    if (!profileId) {
+      const newAssistantMessage: ChatMessage = {
+        role: "assistant",
+        text: "Please select a profile first.",
+      };
+      setMessages([newAssistantMessage]);
+      return;
+    }
+    const chatResponse = await sendChat(chatId, input, profileId);
+    if (chatResponse) {
+      setInput("");
+      const newUserMessage: ChatMessage = { role: "user", text: input };
+      const newAssistantMessage: ChatMessage = {
+        role: "assistant",
+        text: chatResponse.response,
+      };
+      setMessages([...messages, newUserMessage, newAssistantMessage]);
+      setChatId(chatResponse.chat_id);
+    }
   };
 
   return (
