@@ -32,7 +32,14 @@ class ChatListSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Chat
-        fields = ['id', 'chat_id', 'title', 'message_count', 'created_at', 'modified_at', 'url']
+        fields = ['id', 
+                  'chat_id', 
+                  'profile',
+                  'title', 
+                  'message_count', 
+                  'created_at', 
+                  'modified_at', 
+                  'url']
 
 class ChatSerializer(serializers.HyperlinkedModelSerializer):
     messages = MessageSerializer(many=True, read_only=True)
@@ -40,8 +47,8 @@ class ChatSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Chat
         fields = ['id', 
-                  'chat_id', 
-                  'profile_id',
+                  'chat_id',
+                  'profile',
                   'title', 
                   'messages', 
                   'created_at', 
