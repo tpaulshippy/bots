@@ -39,7 +39,13 @@ class ChatSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Chat
-        fields = ['id', 'chat_id', 'title', 'messages', 'created_at', 'modified_at']
+        fields = ['id', 
+                  'chat_id', 
+                  'profile_id',
+                  'title', 
+                  'messages', 
+                  'created_at', 
+                  'modified_at']
 
 class ChatViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Chat.objects.annotate(message_count=Count('messages')).order_by('-id')

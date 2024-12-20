@@ -20,13 +20,16 @@ from django.contrib.auth.models import User
 from rest_framework import routers
 from rest_framework_nested.routers import NestedDefaultRouter
 from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
+from bots.viewsets.profile_viewset import ProfileViewSet
 from bots.views import get_response_api
 
 router = routers.DefaultRouter()
 router.register(r'chats', ChatViewSet)
+router.register(r'profiles', ProfileViewSet)
 
 chats_router = NestedDefaultRouter(router, r'chats', lookup='chat')
 chats_router.register(r'messages', MessageViewSet, basename='chat-messages')
+
 
 
 urlpatterns = [
