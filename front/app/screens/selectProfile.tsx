@@ -8,6 +8,7 @@ import { fetchProfiles, Profile } from "@/api/profiles";
 import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IconSymbol } from "@/components/ui/IconSymbol";
 
 export default function SelectProfile() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -61,6 +62,7 @@ export default function SelectProfile() {
             ]}
             onPressIn={(ev) => handleProfilePress(profile)}
           >
+            <IconSymbol name="person.fill" color="#555" size={120} style={styles.profileIcon}></IconSymbol>
             <ThemedText style={styles.profileText}>{profile.name}</ThemedText>
           </PlatformPressable>
         ))}
@@ -84,6 +86,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     width: "100%",
   },
+  profileIcon: {
+    flex: 1,
+  },
   selectedProfile: {
     backgroundColor: '#444',
   },
@@ -93,7 +98,9 @@ const styles = StyleSheet.create({
   },
   profile: {
     width: "45%",
+    height: 180,
     aspectRatio: 1,
+    padding: 5,
     margin: 5,
     justifyContent: "center",
     alignItems: "center",

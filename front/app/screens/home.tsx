@@ -1,16 +1,11 @@
 import { StyleSheet, View } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 
-
-import SelectProfile from "./selectProfile";
 import ChatList from "./chatList";
 
 export default function Home() {
-  const showList = false;
-
   return (
     <ThemedView style={styles.container}>
-      <SelectProfile />
       <ChatList />
     </ThemedView>
   );
