@@ -2,6 +2,7 @@ from django.db import models
 import uuid
 import json
 from langchain_aws import ChatBedrock
+from .profile import Profile
 
 MODEL_ID = "us.amazon.nova-micro-v1:0"
 
@@ -12,6 +13,7 @@ def get_bedrock_client():
 
 
 class Chat(models.Model):
+    profile = models.ForeignKey(Profile, related_name='profiles', on_delete=models.CASCADE, null=True)
     chat_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
