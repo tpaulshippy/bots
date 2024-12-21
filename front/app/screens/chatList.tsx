@@ -102,7 +102,11 @@ export default function ChatList() {
           <ThemedText style={styles.header}>{item[0]}</ThemedText>
           {item[1].map((record) => (
             <PlatformPressable key={record.id} onPress={() => handleChatPress(record)}>
-              <ThemedText key={record.id} style={[styles.item, 
+              <ThemedText 
+              key={record.id} 
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.item, 
                 selectedChat?.id === record.id && styles.selectedItem
               ]}>
                 {record.title}
