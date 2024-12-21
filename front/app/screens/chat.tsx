@@ -23,7 +23,6 @@ export default function Chat() {
 
       // Fetch the chat messages
       fetchChatMessages(chatId).then((data) => {
-        console.log(data);
         setMessages(data);
       });
     }
