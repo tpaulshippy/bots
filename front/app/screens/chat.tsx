@@ -121,16 +121,17 @@ const styles = {
     borderColor: "white",
   },
   userMessage: {
-    backgroundColor: "#003540",
+    backgroundColor: "#2fd05a",
     padding: 10,
     margin: 10,
     borderRadius: 10,
+    alignSelf: "flex-end",
   },
   assistantMessage: {
-    // dark green
-    backgroundColor: "#003900",
+    backgroundColor: "#333",
     padding: 10,
     margin: 10,
     borderRadius: 10,
+    alignSelf: "flex-start",
   },
 };
