@@ -36,6 +36,8 @@ export default function RootLayout() {
         }} />
         <Stack.Screen name="screens/chat" options={{ 
           headerShown: true,
+          headerBackTitle: "Back to List",
+          headerTintColor: '#BBB',
           title: "Chat"
          }} />
         <Stack.Screen name="+not-found" />
