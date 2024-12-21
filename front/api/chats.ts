@@ -6,6 +6,9 @@ export interface Chat {
     title: string;
     modified_at: string;
     messages: ChatMessage[];
+    profile: {
+        profile_id: string;
+    }
 }
 
 export interface ChatMessage {
@@ -14,13 +17,18 @@ export interface ChatMessage {
     isLoading?: boolean | undefined;
 }
 
-export const fetchChats = async (): Promise<Chat[]> => {
+export const fetchChats = async (profileId: string | null): Promise<Chat[]> => {
     try {
         const { data, ok, status } = await apiClient<Chat[]>('/chats.json');
 
         if (!ok) {
             throw new Error(`Failed to fetch chats with status ${status}`);
         }
+
+        if (profileId) {
+             return data.filter((chat) => chat.profile && chat.profile.profile_id === profileId);
+        }
+
         return data;
     }
     catch (error: any) {

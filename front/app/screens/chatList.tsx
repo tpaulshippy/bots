@@ -5,9 +5,11 @@ import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatDistance, format, toDate } from 'date-fns';
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useFocusEffect } from '@react-navigation/native';
+
 import { fetchChats, Chat } from "@/api/chats";
 
 type ChatsByDay = {
@@ -52,11 +54,20 @@ export default function ChatList() {
     }, {});
   };
   
+  const getProfileId = async () => {
+    const profileData = await AsyncStorage.getItem("selectedProfile");
+    if (profileData) {
+      const profile = JSON.parse(profileData);
+      return profile.profile_id;
+    }
+    return null;
+  };
   
-  const onRefresh = async () => {
+  const refresh = async () => {
     setRefreshing(true);
     try {
-      const data = await fetchChats();
+      const profileId = await getProfileId();
+      const data = await fetchChats(profileId);
       setChats(groupByDay(data));
     } catch (error) {
       console.error("Failed to fetch chats", error);
@@ -66,10 +77,15 @@ export default function ChatList() {
   };
 
   useEffect(() => {
-    onRefresh();
+    refresh();
   }, []);
 
-
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [])
+  );
+  
   const handleChatPress = async (chat: Chat) => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.
@@ -95,7 +111,7 @@ export default function ChatList() {
         data={Object.entries(chats)}
         keyExtractor={(item) => item[0]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
         }
         renderItem={({ item }) => (
           <View>

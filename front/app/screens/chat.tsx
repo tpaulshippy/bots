@@ -2,11 +2,12 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { useEffect, useState } from "react";
-import { fetchChatMessages, sendChat, ChatMessage } from "@/api/chats";
 import { ActivityIndicator, FlatList } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams } from 'expo-router';
+
+import { fetchChatMessages, sendChat, ChatMessage } from "@/api/chats";
 
 
 export default function Chat() {
