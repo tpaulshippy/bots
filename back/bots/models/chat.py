@@ -14,6 +14,7 @@ def get_bedrock_client():
 
 class Chat(models.Model):
     profile = models.ForeignKey(Profile, related_name='profiles', on_delete=models.CASCADE, null=True)
+    bot = models.ForeignKey('Bot', related_name='chats', on_delete=models.CASCADE, null=True)
     chat_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

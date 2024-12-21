@@ -41,6 +41,7 @@ class ChatListSerializer(serializers.HyperlinkedModelSerializer):
         fields = ['id', 
                   'chat_id', 
                   'profile',
+                  'bot',
                   'title', 
                   'message_count', 
                   'created_at', 
