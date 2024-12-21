@@ -6,7 +6,7 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 
-import { formatDistance, format } from 'date-fns';
+import { formatDistance, format, toDate } from 'date-fns';
 import { useEffect, useState } from "react";
 import { fetchChats, Chat } from "@/api/chats";
 
@@ -16,7 +16,17 @@ type ChatsByDay = {
 
 function getRelativeDate(inputDate: string): string {
   try {
-    return formatDistance(new Date(inputDate), new Date(), { addSuffix: true });
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const dayInput = format(new Date(inputDate), 'yyyy-MM-dd');
+
+    if (dayInput == today) {
+      return "Today";
+    }
+    const relativeDate = formatDistance(new Date(inputDate), new Date(), { addSuffix: true });
+    if (relativeDate === "1 day ago") {
+      return "Yesterday";
+    }
+    return relativeDate;
   }
   catch (error) {
     console.error("Failed to format the date: " + inputDate, error);
@@ -32,8 +42,7 @@ export default function ChatList() {
 
   const groupByDay = (data: Chat[]): ChatsByDay => {
     return data.reduce((groups: any, record: Chat) => {
-      const date = new Date(record.modified_at);
-      const day = format(date, 'yyyy-MM-dd');
+      const day = getRelativeDate(record.modified_at);
   
       if (!groups[day]) {
         groups[day] = [];
@@ -90,7 +99,7 @@ export default function ChatList() {
         }
         renderItem={({ item }) => (
           <View>
-          <ThemedText style={styles.header}>{getRelativeDate(item[0])}</ThemedText>
+          <ThemedText style={styles.header}>{item[0]}</ThemedText>
           {item[1].map((record) => (
             <PlatformPressable key={record.id} onPress={() => handleChatPress(record)}>
               <ThemedText key={record.id} style={[styles.item, 
