@@ -11,6 +11,7 @@ export interface Chat {
 export interface ChatMessage {
     text: string;
     role: string;
+    isLoading?: boolean | undefined;
 }
 
 export const fetchChats = async (): Promise<Chat[]> => {
@@ -70,7 +71,7 @@ export const sendChat = async (
         return data;
     }
     catch (error: any) {
-        console.error(error.toString());
+        console.error(error.toString(), JSON.stringify({ message, profile }));
         return null;
     }
 }

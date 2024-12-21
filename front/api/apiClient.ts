@@ -18,7 +18,8 @@ export const apiClient = async <T>(
         },
     });
 
-    const data = (await response.json()) as T;
+    const text = await response.text();
+    const data = JSON.parse(text) as T;
 
     return {
         data,

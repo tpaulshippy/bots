@@ -1,4 +1,4 @@
-import { StyleSheet, View, FlatList } from "react-native";
+import { StyleSheet, View, FlatList, RefreshControl } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -28,6 +28,7 @@ export default function ChatList() {
   const router = useRouter();
   const [chats, setChats] = useState<ChatsByDay>({});
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const groupByDay = (data: Chat[]): ChatsByDay => {
     return data.reduce((groups: any, record: Chat) => {
@@ -43,11 +44,20 @@ export default function ChatList() {
   };
   
   
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await fetchChats();
+      setChats(groupByDay(data));
+    } catch (error) {
+      console.error("Failed to fetch chats", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    fetchChats().then((data) => {
-      const groupedData = groupByDay(data);
-      setChats(groupedData);
-    });
+    onRefresh();
   }, []);
 
 
@@ -75,6 +85,9 @@ export default function ChatList() {
         style={styles.list}
         data={Object.entries(chats)}
         keyExtractor={(item) => item[0]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         renderItem={({ item }) => (
           <View>
           <ThemedText style={styles.header}>{getRelativeDate(item[0])}</ThemedText>

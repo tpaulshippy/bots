@@ -3,7 +3,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { useEffect, useState } from "react";
 import { fetchChatMessages, sendChat, ChatMessage } from "@/api/chats";
-import { FlatList } from "react-native";
+import { ActivityIndicator, FlatList } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams } from 'expo-router';
@@ -48,16 +48,23 @@ export default function Chat() {
       setMessages([newAssistantMessage]);
       return;
     }
+
+    const newUserMessage: ChatMessage = { role: "user", text: input };
+    const loadingMessage: ChatMessage = { role: "assistant", isLoading: true, text: "..." };
+
+    setMessages([...messages, newUserMessage, loadingMessage]);
+
+
     const chatResponse = await sendChat(chatId, input, profileId);
     if (chatResponse) {
       setInput("");
-      const newUserMessage: ChatMessage = { role: "user", text: input };
       const newAssistantMessage: ChatMessage = {
         role: "assistant",
         text: chatResponse.response,
       };
       setMessages([...messages, newUserMessage, newAssistantMessage]);
       setChatId(chatResponse.chat_id);
+
     }
   };
 
@@ -72,6 +79,7 @@ export default function Chat() {
           style={styles.list}
           data={messages}
           renderItem={({ item }) => (
+            item.isLoading ? <ActivityIndicator /> :
             <ThemedText
               style={
                 item.role == "user"
