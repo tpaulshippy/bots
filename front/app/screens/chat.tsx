@@ -117,8 +117,16 @@ const styles = {
     height: 40,
     width: "90%",
     margin: 12,
+    padding: 10,
     borderWidth: 1,
-    borderColor: "white",
+    borderColor: "#555",
+    borderRadius: 10,
+    backgroundColor: "#222", // Added background color
+    shadowColor: "#000", // Added shadow for better appearance
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2, // Added elevation for Android shadow
   },
   userMessage: {
     backgroundColor: "#2fd05a",
