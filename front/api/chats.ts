@@ -4,6 +4,13 @@ export interface Chat {
     id: number;
     chat_id: string;
     title: string;
+    modified_at: string;
+    messages: ChatMessage[];
+}
+
+export interface ChatMessage {
+    text: string;
+    role: string;
 }
 
 export const fetchChats = async (): Promise<Chat[]> => {
@@ -20,6 +27,26 @@ export const fetchChats = async (): Promise<Chat[]> => {
         return [];
     }
 };
+
+
+export const fetchChatMessages = async (chatId: string): Promise<ChatMessage[]> => {
+    try {
+        const { data, ok, status } = await apiClient<Chat>(`/chats/${chatId}.json`);
+
+        if (!ok) {
+            throw new Error(`Failed to fetch chat messages with status ${status}`);
+        }
+
+        // filter out system messages
+        data.messages = data.messages.filter((message) => message.role !== 'system');
+
+        return data.messages;
+    }
+    catch (error: any) {
+        console.error(error.toString());
+        return [];
+    }
+}
 
 export interface ChatResponse {
     chat_id: string;

@@ -1,24 +1,36 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { useState } from "react";
-import { sendChat } from "@/api/chats";
+import { useEffect, useState } from "react";
+import { fetchChatMessages, sendChat, ChatMessage } from "@/api/chats";
 import { FlatList } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAvoidingView, Platform } from "react-native";
+import { useLocalSearchParams } from 'expo-router';
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  text: string;
-}
 
 export default function Chat() {
+  const local = useLocalSearchParams();
   const [chatId, setChatId] = useState<string>();
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
+  // Read the chatId from the URL
+  useEffect(() => {
+    const chatId = local.chatId;
+    if (chatId) {
+      setChatId(chatId);
+
+      // Fetch the chat messages
+      fetchChatMessages(chatId).then((data) => {
+        console.log(data);
+        setMessages(data);
+      });
+    }
+  }, []);
+
   const getProfileId = async () => {
-    const profileData = await AsyncStorage.getItem('selectedProfile');
+    const profileData = await AsyncStorage.getItem("selectedProfile");
     if (profileData) {
       const profile = JSON.parse(profileData);
       return profile.profile_id;
