@@ -6,11 +6,16 @@ from .profile import Profile
 
 MODEL_ID = "us.amazon.nova-micro-v1:0"
 
-def get_bedrock_client():
-    llm = ChatBedrock(model_id=MODEL_ID)
+class AiClientWrapper:
+    def __init__(self, model_id, client=None):
+        self.model_id = model_id
+        if client:
+            self.client = client
+        else:
+            self.client = ChatBedrock(model_id=model_id)
 
-    return llm
-
+    def invoke(self, message_list):
+        return self.client.invoke(message_list)
 
 class Chat(models.Model):
     profile = models.ForeignKey(Profile, related_name='profiles', on_delete=models.CASCADE, null=True)
@@ -19,14 +24,22 @@ class Chat(models.Model):
     title = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ai = None
 
     def __str__(self):
         return str(self.chat_id)
 
-    def get_response(self, ai=get_bedrock_client()):
+    def get_response(self, ai=None):
+        if self.bot and self.bot.model:
+            self.ai = AiClientWrapper(model_id=self.bot.model, client=ai)
+        else:
+            self.ai = AiClientWrapper(model_id=MODEL_ID, client=ai)
         message_list = self.get_input()
 
-        response = ai.invoke(
+        response = self.ai.invoke(
             message_list
         )
 
@@ -54,4 +67,6 @@ class Chat(models.Model):
         return message_list
     
     def get_system_message(self):
+        if self.bot and self.bot.system_prompt:
+            return self.bot.system_prompt
         return "You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."
