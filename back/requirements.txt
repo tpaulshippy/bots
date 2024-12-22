@@ -9,6 +9,8 @@ django-filter
 drf-nested-routers
 django-cors-headers
 django-environ
+django-allauth
+cryptography
 
 pytest
 pytest-describe
