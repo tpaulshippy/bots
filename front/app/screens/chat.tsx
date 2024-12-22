@@ -38,8 +38,18 @@ export default function Chat() {
     return null;
   };
 
+  const getBotId = async () => {
+    const botData = await AsyncStorage.getItem("selectedBot");
+    if (botData) {
+      const bot = JSON.parse(botData);
+      return bot.bot_id;
+    }
+    return null;
+  };
+
   const sendChatToServer = async () => {
     const profileId = await getProfileId();
+    const botId = await getBotId();
     if (!profileId) {
       const newAssistantMessage: ChatMessage = {
         role: "assistant",
@@ -55,7 +65,7 @@ export default function Chat() {
     setMessages([...messages, newUserMessage, loadingMessage]);
 
 
-    const chatResponse = await sendChat(chatId, input, profileId);
+    const chatResponse = await sendChat(chatId, input, profileId, botId);
     if (chatResponse) {
       setInput("");
       const newAssistantMessage: ChatMessage = {
