@@ -4,6 +4,7 @@ sqlparse
 django-extensions
 langchain_aws
 djangorestframework
+djangorestframework-simplejwt
 markdown
 django-filter
 drf-nested-routers
