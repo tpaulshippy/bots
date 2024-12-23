@@ -20,7 +20,6 @@ export const apiClient = async <T>(
     options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
     const user = await loggedInUser();
-    console.log(user);
     const response = await fetch(`${BASE_URL}${endpoint}`, {
         ...options,
         headers: {
