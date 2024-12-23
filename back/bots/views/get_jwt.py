@@ -2,7 +2,15 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from django.http import JsonResponse, HttpResponseRedirect
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
+import environ
 
+# Initialize environ
+env = environ.Env(
+    DEBUG=(bool, False)  # Set default values and casting types
+)
+
+# Read from .env file
+environ.Env.read_env('.env')
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -28,6 +36,6 @@ def get_jwt(self):
     if self.COOKIES.get('from-web'):
         return HttpResponseRedirect(f'http://localhost:8081?access={response_data["access"]}&refresh={response_data["refresh"]}')
     else:
-        HttpResponseRedirect.allowed_schemes.append('botsforkids')
-        return HttpResponseRedirect(f'botsforkids://?access={response_data["access"]}&refresh={response_data["refresh"]}')
+        HttpResponseRedirect.allowed_schemes.append('exp')
+        return HttpResponseRedirect(f'{env("PREVIEW_URL")}?access={response_data["access"]}&refresh={response_data["refresh"]}')
 
