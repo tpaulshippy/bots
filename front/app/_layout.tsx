@@ -14,6 +14,7 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import LoginScreen from "./screens/login";
 import { loggedInUser } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -25,35 +26,39 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
+  const logInFromWeb = async () => {
+    if (Platform.OS === "web") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const access = urlParams.get("access");
+      const refresh = urlParams.get("refresh");
+      if (access && refresh) {
+        console.log("Setting user from query string");
+        const user = { access, refresh };
+        setUser(user);
+        AsyncStorage.setItem("loggedInUser", JSON.stringify(user));
+      }
+    }
+  };
+
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
     }
+    logInFromWeb();
+    loggedInUser().then((user) => {
+      if (user) {
+        console.log("Setting user from storage");
+        setUser(user);
+      }
+      else {
+        console.log("No user found in storage");
+      }
+    });
   }, [loaded]);
 
   if (!loaded) {
     return null;
   }
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const access = urlParams.get("access");
-    const refresh = urlParams.get("refresh");
-    if (access && refresh) {
-      console.log("Setting user from query string");
-      const user = { access, refresh };
-      setUser(user);
-      AsyncStorage.setItem("loggedInUser", JSON.stringify(user));
-    }
-  }, []);
-  
-  useEffect(() => {
-    loggedInUser().then((user) => {
-      if (user) {
-        setUser(user);
-      }
-    });
-  }, []);
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>

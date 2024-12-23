@@ -185,3 +185,4 @@ SIMPLE_JWT = {
 }
 
 ACCOUNT_LOGOUT_REDIRECT_URL='/api/login'
+
