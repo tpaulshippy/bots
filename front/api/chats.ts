@@ -18,23 +18,18 @@ export interface ChatMessage {
 }
 
 export const fetchChats = async (profileId: string | null): Promise<Chat[]> => {
-    try {
-        const { data, ok, status } = await apiClient<Chat[]>('/chats.json');
 
-        if (!ok) {
-            throw new Error(`Failed to fetch chats with status ${status}`);
-        }
+    const { data, ok, status } = await apiClient<Chat[]>('/chats.json');
 
-        if (profileId) {
-             return data.filter((chat) => chat.profile && chat.profile.profile_id === profileId);
-        }
-
-        return data;
+    if (!ok) {
+        throw new Error(`Failed to fetch chats with status ${status}`);
     }
-    catch (error: any) {
-        console.error(error.toString());
-        return [];
+
+    if (profileId) {
+            return data.filter((chat) => chat.profile && chat.profile.profile_id === profileId);
     }
+
+    return data;
 };
 
 

@@ -19,7 +19,6 @@ const LoginScreen = () => {
     const refresh = urlParams.get("refresh");
     if (!access && !refresh) {
       const router = useRouter();
-      console.log("Redirecting to login page");
       router.push("http://localhost:8000/api/login/web");
     }
   }
@@ -35,8 +34,6 @@ const LoginScreen = () => {
         ) {
           const access = queryParams["access"];
           const refresh = queryParams["refresh"];
-          console.log("Setting user from query string");
-          console.log({ access, refresh });
           AsyncStorage.setItem(
             "loggedInUser",
             JSON.stringify({ access, refresh })

@@ -11,6 +11,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useFocusEffect } from '@react-navigation/native';
 
 import { fetchChats, Chat } from "@/api/chats";
+import { UnauthorizedError } from "@/api/apiClient";
 
 type ChatsByDay = {
   [key: string]: Chat[];
@@ -70,6 +71,9 @@ export default function ChatList() {
       const data = await fetchChats(profileId);
       setChats(groupByDay(data));
     } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        router.push("/screens/login");
+      }
       console.error("Failed to fetch chats", error);
     } finally {
       setRefreshing(false);

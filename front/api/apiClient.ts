@@ -8,12 +8,19 @@ export interface ApiResponse<T> {
     ok: boolean;
 }
 
+export class UnauthorizedError extends Error {
+    constructor() {
+        super('Unauthorized');
+        this.name = 'UnauthorizedError';
+    }
+}
+
 export const apiClient = async <T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
     const user = await loggedInUser();
-
+    console.log(user);
     const response = await fetch(`${BASE_URL}${endpoint}`, {
         ...options,
         headers: {
@@ -22,6 +29,12 @@ export const apiClient = async <T>(
             ...options.headers,
         },
     });
+
+    if (response.status === 401) {
+        // Try using refresh token to get new access token
+        await refresh(user);
+        return apiClient(endpoint, options);
+    }
 
     const text = await response.text();
     const data = JSON.parse(text) as T;
@@ -44,3 +57,25 @@ export const loggedInUser = async () => {
       console.error("Failed to load the loggedInUser from local storage", error);
     }
   };
+
+export const refresh = async (user: any) => {
+    const response = await fetch(`${BASE_URL}/api/token/refresh/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: user.refresh }),
+    });
+
+    if (response.status !== 200) {
+        throw new UnauthorizedError();
+    }
+
+    const text = await response.text();
+    const data = JSON.parse(text);
+
+    await AsyncStorage.setItem(
+        "loggedInUser",
+        JSON.stringify({ access: data.access, refresh: user.refresh })
+    );
+};

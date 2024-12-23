@@ -32,7 +32,6 @@ export default function RootLayout() {
       const access = urlParams.get("access");
       const refresh = urlParams.get("refresh");
       if (access && refresh) {
-        console.log("Setting user from query string");
         const user = { access, refresh };
         setUser(user);
         AsyncStorage.setItem("loggedInUser", JSON.stringify(user));
@@ -47,11 +46,7 @@ export default function RootLayout() {
     logInFromWeb();
     loggedInUser().then((user) => {
       if (user) {
-        console.log("Setting user from storage");
         setUser(user);
-      }
-      else {
-        console.log("No user found in storage");
       }
     });
   }, [loaded]);
