@@ -32,7 +32,7 @@ export const apiClient = async <T>(
 
     if (response.status === 401) {
         // Try using refresh token to get new access token
-        await refresh(user);
+        await refreshWithRefreshToken(user);
         return apiClient(endpoint, options);
     }
 
@@ -58,7 +58,7 @@ export const loggedInUser = async () => {
     }
   };
 
-export const refresh = async (user: any) => {
+export const refreshWithRefreshToken = async (user: any) => {
     const response = await fetch(`${BASE_URL}/api/token/refresh/`, {
         method: 'POST',
         headers: {

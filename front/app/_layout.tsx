@@ -20,7 +20,8 @@ import { Platform } from "react-native";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [user, setUser] = useState(null);
+  type User = { access: string; refresh: string } | null;
+  const [user, setUser] = useState<User>(null);
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
