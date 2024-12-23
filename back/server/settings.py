@@ -159,16 +159,19 @@ SOCIALACCOUNT_PROVIDERS = {
 
 SITE_ID = 1  # Default for a single-site Django project
 
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = '/api/login'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'server.debug_jwt.DebugJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication'
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',  # Require authentication by default
     ),
 }
+
+X_FRAME_OPTIONS = 'ALLOWALL'
 
 from datetime import timedelta
 
