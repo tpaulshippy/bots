@@ -1,5 +1,4 @@
 import { StyleSheet } from "react-native";
-import { Link } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
@@ -10,7 +9,11 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 
-export default function SelectBot() {
+type Props = {
+  setBotSelected: (bot: Bot) => void;
+}
+
+export default function SelectBot({ setBotSelected }: Props) {
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
 
@@ -48,6 +51,8 @@ export default function SelectBot() {
         return;
       } else {
         setSelectedBot(bot);
+        if (setBotSelected)
+          setBotSelected(bot);
         await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
       }
     } catch (error) {

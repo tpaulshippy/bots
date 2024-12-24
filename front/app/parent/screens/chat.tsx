@@ -16,13 +16,11 @@ export default function Chat() {
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  // Read the chatId from the URL
   useEffect(() => {
     const chatId = local.chatId;
     if (chatId) {
       setChatId(chatId);
 
-      // Fetch the chat messages
       fetchChatMessages(chatId).then((data) => {
         setMessages(data);
       });
