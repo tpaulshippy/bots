@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 40,
+    marginTop: 20,
   },
   botContainer: {
     flex: 1,

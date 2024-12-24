@@ -147,7 +147,7 @@ export default function ChatList() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 1
   },
   header: {
     fontSize: 12,
@@ -166,7 +166,6 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: "row",
     paddingLeft: 10,
-    marginTop: 40,
   },
   list: {
     marginHorizontal: 10,

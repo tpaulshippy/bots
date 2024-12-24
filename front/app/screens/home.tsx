@@ -14,11 +14,11 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    marginTop: 20,
   },
   titleContainer: {
     flexDirection: "row",
-    paddingLeft: 20,
-    marginTop: 40,
+    paddingLeft: 20
   },
   list: {
     padding: 20,
