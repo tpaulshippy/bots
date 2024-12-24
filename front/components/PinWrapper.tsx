@@ -13,7 +13,17 @@ export default function PinWrapper({ children }: Props) {
   return (
     <>
       {pinCorrect ? (
-        children
+        <View style={styles.container}>
+          {children}
+          <TouchableOpacity
+            onPress={() => {
+              setPin("");
+              setPinCorrect(false);
+            }}
+          ><ThemedText style={styles.exitButton}>Exit Parent Screens</ThemedText></TouchableOpacity>
+        </View>
+
+
       ) : (
         <ThemedView style={styles.outerContainer}>
           <ThemedView style={styles.innerContainer}>
@@ -41,6 +51,14 @@ export default function PinWrapper({ children }: Props) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    flexDirection: "column"
+  },
+  exitButton: {
+    textAlign: "center",
+    padding: 5,
+  },
   outerContainer: {
     flex: 1,
     flexDirection: "row",
