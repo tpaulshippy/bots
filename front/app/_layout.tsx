@@ -8,13 +8,12 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
-
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Drawer } from "expo-router/drawer";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import LoginScreen from "./screens/login";
 import { loggedInUser } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
-import ParentLayout from "./screens/parentLayout";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -58,12 +57,40 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      {user ? (
-        <ParentLayout />
-      ) : (
-        <LoginScreen />
-      )}
-
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Drawer>
+          <Drawer.Screen
+            name="parent"
+            options={{
+              drawerLabel: "Home",
+              title: "",
+              drawerItemStyle: { display: user ? "flex" : "none" },
+            }}
+          />
+          <Drawer.Screen
+            name="screens/login"
+            options={{
+              drawerLabel: "Login",
+              title: "Login",
+              drawerItemStyle: { display: user ? "none" : "flex" }
+            }}
+          />
+          <Drawer.Screen
+            name="+not-found"
+            options={{
+              drawerLabel: "Not Found",
+              title: "Not Found",
+              drawerItemStyle: { display: "none" }
+            }}
+          />
+          <Drawer.Screen
+            name="index"
+            options={{
+              drawerItemStyle: { display: "none" }
+            }}
+          />
+        </Drawer>
+      </GestureHandlerRootView>
       <StatusBar style="auto" />
     </ThemeProvider>
   );

@@ -98,14 +98,15 @@ export default function ChatList() {
     }
     setSelectedChat(chat);
     router.push({
-      pathname: `/screens/chat?chatId=${chat.chat_id}&title=${chat.bot?.name || chat.title}`,
+      pathname: `/parent/screens/chat`,
+      params: { chatId: chat.chat_id, title: chat.bot?.name || chat.title },
     });
   };
 
   return (
     <ThemedView style={styles.container}>
       <View style={styles.addButton}>
-        <Link href="/screens/chat">
+        <Link href="/parent/screens/chat">
           <IconSymbol name="text.bubble" color="black"></IconSymbol>
         </Link>
       </View>

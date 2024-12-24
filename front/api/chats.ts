@@ -10,6 +10,7 @@ export interface Chat {
         profile_id: string;
     }, 
     bot: {
+        name: string;
         bot_id: string;
     }
 }
