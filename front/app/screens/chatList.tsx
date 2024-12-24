@@ -101,9 +101,6 @@ export default function ChatList() {
 
     return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.titleContainer} type="title">
-        Chats
-      </ThemedText>
       <View style={styles.addButton}>
         <Link href="/screens/chat">
           <IconSymbol name="text.bubble" color="black"></IconSymbol>

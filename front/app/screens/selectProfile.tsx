@@ -57,9 +57,6 @@ export default function SelectProfile() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.titleContainer} type="title">
-        Select Profile
-      </ThemedText>
       <ThemedView style={styles.profileContainer}>
         {profiles.map((profile) => (
           <PlatformPressable

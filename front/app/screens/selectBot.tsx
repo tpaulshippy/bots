@@ -57,9 +57,6 @@ export default function SelectBot() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.titleContainer} type="title">
-        Select Bot
-      </ThemedText>
       <ThemedView style={styles.botContainer}>
         {bots.map((bot) => (
           <PlatformPressable

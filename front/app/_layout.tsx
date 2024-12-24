@@ -71,9 +71,8 @@ export default function RootLayout() {
             name="screens/chat"
             options={{
               headerShown: true,
-              headerBackTitle: "Back to List",
               headerTintColor: "#BBB",
-              title: "Chat",
+              title: "",
             }}
           />
           <Stack.Screen name="+not-found" />
