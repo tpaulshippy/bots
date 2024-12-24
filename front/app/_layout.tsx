@@ -52,27 +52,24 @@ export default function RootLayout() {
     });
   }, [loaded]);
 
+  const stackRouteNames = useNavigationState((state) => {
+    const parentStackNavigator = state.routes.find((r) => r.name === 'parent');
+    const childStackNavigator = state.routes.find((r) => r.name === 'child');
+    const parentRouteName = parentStackNavigator?.state?.routes?.[parentStackNavigator?.state?.index]?.name;
+    const childRouteName = childStackNavigator?.state?.routes?.[childStackNavigator?.state?.index]?.name;
+    return { parentRouteName, childRouteName };
+  });
+
   if (!loaded) {
     return null;
   }
 
-  const childStackRouteName = useNavigationState((state) => {
-    const stackNavigator = state.routes.find((r) => r.name === 'child');
-    const name = stackNavigator?.state?.routes?.[stackNavigator?.state?.index]?.name;
-    return name;
-  });
-  const parentStackRouteName = useNavigationState((state) => {
-    const stackNavigator = state.routes.find((r) => r.name === 'parent');
-    const name = stackNavigator?.state?.routes?.[stackNavigator?.state?.index]?.name;
-    return name;
-  });
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <Drawer
           screenOptions={() => {
-            const childRouteName = childStackRouteName;
-            const parentRouteName = parentStackRouteName;
+          const { parentRouteName, childRouteName } = stackRouteNames;
             return {
              headerShown: childRouteName !== "chat" && parentRouteName !== "screens/chat",
              headerTintColor: "#BBB",
