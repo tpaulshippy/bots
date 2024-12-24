@@ -3,10 +3,11 @@ from rest_framework.response import Response
 from bots.models import Chat, Profile, Bot
 
 @api_view(['GET', 'POST'])
-def get_response_api(request, chat_id):
+def get_chat_response(request, chat_id):
     user_input = request.data.get('message')
     profile_id = request.data.get('profile')
     bot_id = request.data.get('bot')
+    user = request.user
 
     if chat_id == 'new':
         if profile_id:
@@ -17,7 +18,7 @@ def get_response_api(request, chat_id):
             bot = Bot.objects.get(bot_id=bot_id)
         else:
             bot = None
-        chat = Chat.objects.create(title=user_input, profile=profile, bot=bot)
+        chat = Chat.objects.create(title=user_input, profile=profile, bot=bot, user=user)
         system_prompt = chat.get_system_message()
         if bot:
             system_prompt = bot.system_prompt

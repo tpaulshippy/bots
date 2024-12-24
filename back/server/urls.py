@@ -22,7 +22,7 @@ from rest_framework_nested.routers import NestedDefaultRouter
 from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
 from bots.viewsets.profile_viewset import ProfileViewSet
 from bots.viewsets.bot_viewset import BotViewSet
-from bots.views.get_response_api import get_response_api
+from bots.views.get_chat_response import get_chat_response
 from bots.views.get_jwt import get_jwt, start_web_login
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -45,7 +45,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('', include(chats_router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('api/chats/<str:chat_id>', get_response_api, name='get_response_api'),
+    path('api/chats/<str:chat_id>', get_chat_response, name='get_chat_response'),
     path('api/login', get_jwt, name='get_jwt'),
     path('api/login/web', start_web_login, name='start_web_login'),
     path('accounts/', include('allauth.urls')),

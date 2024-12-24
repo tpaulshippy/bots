@@ -21,11 +21,11 @@ class MessageSerializer(serializers.HyperlinkedModelSerializer):
 class MessageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
-    
+
     def get_queryset(self):
+        user = self.request.user
         chat_id = self.kwargs['chat_pk']  # Extract chat ID from the URL
-        return Message.objects.filter(chat_id=chat_id)
-    
+        return Chat.objects.filter(user=user).get(chat_id=chat_id).messages.all()    
 
 class ProfileIdSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -62,7 +62,11 @@ class ChatSerializer(serializers.HyperlinkedModelSerializer):
                   'modified_at']
 
 class ChatViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Chat.objects.annotate(message_count=Count('messages')).order_by('-id')
+    queryset = Chat.objects.all()
+    
+    def get_queryset(self):
+        user = self.request.user
+        return Chat.objects.filter(user=user).annotate(message_count=Count('messages')).order_by('-id')
 
     def get_serializer_class(self):
         if self.action == 'list':

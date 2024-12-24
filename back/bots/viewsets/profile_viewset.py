@@ -15,6 +15,10 @@ class ProfileSerializer(serializers.HyperlinkedModelSerializer):
 class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        return Profile.objects.filter(user=user)
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]

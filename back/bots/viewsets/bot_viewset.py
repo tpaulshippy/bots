@@ -17,6 +17,10 @@ class BotSerializer(serializers.HyperlinkedModelSerializer):
 class BotViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Bot.objects.all()
     serializer_class = BotSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        return Bot.objects.filter(user=user)
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]
