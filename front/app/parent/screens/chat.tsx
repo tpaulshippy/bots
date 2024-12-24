@@ -131,12 +131,12 @@ const styles = {
     borderWidth: 1,
     borderColor: "#555",
     borderRadius: 10,
-    backgroundColor: "#222", // Added background color
-    shadowColor: "#000", // Added shadow for better appearance
+    backgroundColor: "#222",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 2, // Added elevation for Android shadow
+    elevation: 2,
   },
   userMessage: {
     backgroundColor: "#2fd05a",
