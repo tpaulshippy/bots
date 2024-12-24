@@ -10,7 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 
 type Props = {
-  setBotSelected: (bot: Bot) => void;
+  setBotSelected: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function SelectBot({ setBotSelected }: Props) {
@@ -33,7 +33,8 @@ export default function SelectBot({ setBotSelected }: Props) {
       }
     };
 
-    loadSelectedBot();
+    if (!setBotSelected) // When the component is used in the child app, require them to select a bot
+      loadSelectedBot();
   }, []);
 
   const handleBotPress = async (bot: Bot) => {
