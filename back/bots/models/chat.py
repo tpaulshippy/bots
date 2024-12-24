@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 import uuid
 import json
@@ -18,6 +19,11 @@ class AiClientWrapper:
         return self.client.invoke(message_list)
 
 class Chat(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True
+    )
     profile = models.ForeignKey(Profile, related_name='profiles', on_delete=models.CASCADE, null=True)
     bot = models.ForeignKey('Bot', related_name='chats', on_delete=models.CASCADE, null=True)
     chat_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)

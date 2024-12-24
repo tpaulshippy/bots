@@ -1,7 +1,13 @@
+from django.conf import settings
 from django.db import models
 import uuid
     
 class Bot(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True
+    )
     bot_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255)
     model = models.CharField(max_length=255)
