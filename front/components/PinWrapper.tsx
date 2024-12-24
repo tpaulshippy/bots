@@ -15,8 +15,8 @@ export default function PinWrapper({ children }: Props) {
       {pinCorrect ? (
         children
       ) : (
-        <View>
-          <ThemedView style={styles.container}>
+        <ThemedView style={styles.outerContainer}>
+          <ThemedView style={styles.innerContainer}>
             <ThemedTextInput
               style={styles.pinTextInput}
               secureTextEntry={true}
@@ -34,20 +34,27 @@ export default function PinWrapper({ children }: Props) {
                 <ThemedText>Submit</ThemedText>
             </TouchableOpacity>
           </ThemedView>
-        </View>
+        </ThemedView>
       )}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outerContainer: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
+  },
+  innerContainer: {
     flex: 1,
     flexDirection: "row",
     alignContent: "center",
     padding: 10,
   },
   pinTextInput: {
+    minWidth: 100,
     padding: 10,
     borderWidth: 1,
     borderColor: "#555",

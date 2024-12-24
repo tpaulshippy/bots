@@ -18,7 +18,6 @@ export default function Home({ rootPath }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    marginTop: 20,
   },
   titleContainer: {
     flexDirection: "row",

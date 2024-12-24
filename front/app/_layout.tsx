@@ -70,9 +70,15 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <Drawer
-          screenOptions={() => ({
-            headerShown: childStackRouteName !== "chat" && parentStackRouteName !== "screens/chat",
-          })}
+          screenOptions={() => {
+            const childRouteName = childStackRouteName;
+            const parentRouteName = parentStackRouteName;
+            return {
+             headerShown: childRouteName !== "chat" && parentRouteName !== "screens/chat",
+             headerTintColor: "#BBB",
+            }
+          }
+        }
         >
           <Drawer.Screen
             name="child"
