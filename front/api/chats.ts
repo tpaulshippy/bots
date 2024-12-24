@@ -8,6 +8,9 @@ export interface Chat {
     messages: ChatMessage[];
     profile: {
         profile_id: string;
+    }, 
+    bot: {
+        bot_id: string;
     }
 }
 

@@ -59,7 +59,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       {user ? (
-        <Stack>
+        <Stack screenOptions={({ route }) => ({ title: route.params?.title || "" })}>
           <Stack.Screen
             name="(tabs)"
             options={{
@@ -72,7 +72,6 @@ export default function RootLayout() {
             options={{
               headerShown: true,
               headerTintColor: "#BBB",
-              title: "",
             }}
           />
           <Stack.Screen name="+not-found" />

@@ -6,9 +6,9 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { formatDistance, format, toDate } from 'date-fns';
+import { formatDistance, format, toDate } from "date-fns";
 import { useEffect, useState, useCallback } from "react";
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchChats, Chat } from "@/api/chats";
 import { UnauthorizedError } from "@/api/apiClient";
@@ -19,19 +19,20 @@ type ChatsByDay = {
 
 function getRelativeDate(inputDate: string): string {
   try {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const dayInput = format(new Date(inputDate), 'yyyy-MM-dd');
+    const today = format(new Date(), "yyyy-MM-dd");
+    const dayInput = format(new Date(inputDate), "yyyy-MM-dd");
 
     if (dayInput == today) {
       return "Today";
     }
-    const relativeDate = formatDistance(new Date(inputDate), new Date(), { addSuffix: true });
+    const relativeDate = formatDistance(new Date(inputDate), new Date(), {
+      addSuffix: true,
+    });
     if (relativeDate === "1 day ago") {
       return "Yesterday";
     }
     return relativeDate;
-  }
-  catch (error) {
+  } catch (error) {
     console.error("Failed to format the date: " + inputDate, error);
     return "";
   }
@@ -46,7 +47,7 @@ export default function ChatList() {
   const groupByDay = (data: Chat[]): ChatsByDay => {
     return data.reduce((groups: any, record: Chat) => {
       const day = getRelativeDate(record.modified_at);
-  
+
       if (!groups[day]) {
         groups[day] = [];
       }
@@ -54,7 +55,7 @@ export default function ChatList() {
       return groups;
     }, {});
   };
-  
+
   const getProfileId = async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");
     if (profileData) {
@@ -63,7 +64,7 @@ export default function ChatList() {
     }
     return null;
   };
-  
+
   const refresh = async () => {
     setRefreshing(true);
     try {
@@ -89,17 +90,19 @@ export default function ChatList() {
       refresh();
     }, [])
   );
-  
+
   const handleChatPress = async (chat: Chat) => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     setSelectedChat(chat);
-    router.push(`/screens/chat?chatId=${chat.chat_id}`);
-  }
+    router.push({
+      pathname: `/screens/chat?chatId=${chat.chat_id}&title=${chat.bot.name}`
+    });
+  };
 
-    return (
+  return (
     <ThemedView style={styles.container}>
       <View style={styles.addButton}>
         <Link href="/screens/chat">
@@ -116,21 +119,26 @@ export default function ChatList() {
         }
         renderItem={({ item }) => (
           <View>
-          <ThemedText style={styles.header}>{item[0]}</ThemedText>
-          {item[1].map((record) => (
-            <PlatformPressable key={record.id} onPress={() => handleChatPress(record)}>
-              <ThemedText 
-              key={record.id} 
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[styles.item, 
-                selectedChat?.id === record.id && styles.selectedItem
-              ]}>
-                {record.title}
-              </ThemedText>
-            </PlatformPressable>
-          ))}
-        </View>
+            <ThemedText style={styles.header}>{item[0]}</ThemedText>
+            {item[1].map((record) => (
+              <PlatformPressable
+                key={record.id}
+                onPress={() => handleChatPress(record)}
+              >
+                <ThemedText
+                  key={record.id}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={[
+                    styles.item,
+                    selectedChat?.id === record.id && styles.selectedItem,
+                  ]}
+                >
+                  {record.title}
+                </ThemedText>
+              </PlatformPressable>
+            ))}
+          </View>
         )}
       />
     </ThemedView>
@@ -144,7 +152,7 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 12,
     color: "#888",
-    padding: 6
+    padding: 6,
   },
   item: {
     padding: 8,
