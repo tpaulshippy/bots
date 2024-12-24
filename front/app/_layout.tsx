@@ -60,10 +60,18 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <Drawer>
           <Drawer.Screen
-            name="parent"
+            name="child/index"
             options={{
               drawerLabel: "Home",
               title: "",
+              drawerItemStyle: { display: user ? "flex" : "none" },
+            }}
+          />
+          <Drawer.Screen
+            name="parent"
+            options={{
+              drawerLabel: "Settings",
+              title: "Settings",
               drawerItemStyle: { display: user ? "flex" : "none" },
             }}
           />
