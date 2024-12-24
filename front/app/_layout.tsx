@@ -4,7 +4,6 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -15,6 +14,7 @@ import LoginScreen from "./screens/login";
 import { loggedInUser } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
+import ParentLayout from "./screens/parentLayout";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -59,23 +59,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       {user ? (
-        <Stack screenOptions={({ route }: { route: { params?: { title?: string } } }) => ({ title: route.params?.title || "" })}>
-          <Stack.Screen
-            name="(tabs)"
-            options={{
-              headerShown: false,
-              title: "Chats",
-            }}
-          />
-          <Stack.Screen
-            name="screens/chat"
-            options={{
-              headerShown: true,
-              headerTintColor: "#BBB",
-            }}
-          />
-          <Stack.Screen name="+not-found" />
-        </Stack>
+        <ParentLayout />
       ) : (
         <LoginScreen />
       )}
