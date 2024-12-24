@@ -69,7 +69,7 @@ export default function SelectBot() {
               selectedBot?.bot_id === bot.bot_id &&
                 styles.selectedBot,
             ]}
-            onPressIn={(ev) => handleBotPress(bot)}
+            onPress={(ev) => handleBotPress(bot)}
           >
             <IconSymbol
               name="cpu"

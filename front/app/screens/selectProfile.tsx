@@ -69,7 +69,7 @@ export default function SelectProfile() {
               selectedProfile?.profile_id === profile.profile_id &&
                 styles.selectedProfile,
             ]}
-            onPressIn={(ev) => handleProfilePress(profile)}
+            onPress={(ev) => handleProfilePress(profile)}
           >
             <IconSymbol
               name="person.fill"
@@ -80,6 +80,15 @@ export default function SelectProfile() {
             <ThemedText style={styles.profileText}>{profile.name}</ThemedText>
           </PlatformPressable>
         ))}
+        {profiles.length === 0 && (
+          <PlatformPressable
+            onPress={() => {
+              AsyncStorage.removeItem("loggedInUser");
+            }}
+          >
+            <ThemedText style={styles.profileText}>Log out</ThemedText>
+          </PlatformPressable>
+        )}
       </ThemedView>
     </ThemedView>
   );
