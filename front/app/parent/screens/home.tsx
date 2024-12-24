@@ -3,10 +3,14 @@ import { ThemedView } from "@/components/ThemedView";
 
 import ChatList from "./chatList";
 
-export default function Home() {
+type Props = {
+  rootPath: string;
+};
+
+export default function Home({ rootPath }: Props) {
   return (
     <ThemedView style={styles.container}>
-      <ChatList />
+      <ChatList rootPath={rootPath} />
     </ThemedView>
   );
 }

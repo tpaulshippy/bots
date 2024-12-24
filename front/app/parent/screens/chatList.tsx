@@ -38,7 +38,11 @@ function getRelativeDate(inputDate: string): string {
   }
 }
 
-export default function ChatList() {
+type Props = {
+  rootPath: string;
+};
+
+export default function ChatList({ rootPath }: Props) {
   const router = useRouter();
   const [chats, setChats] = useState<ChatsByDay>({});
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -98,7 +102,7 @@ export default function ChatList() {
     }
     setSelectedChat(chat);
     router.push({
-      pathname: `/parent/screens/chat`,
+      pathname: `${rootPath}/chat`,
       params: { chatId: chat.chat_id, title: chat.bot?.name || chat.title },
     });
   };
@@ -106,7 +110,7 @@ export default function ChatList() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.addButton}>
-        <Link href="/parent/screens/chat">
+        <Link href="{`${rootPath}/chat`}">
           <IconSymbol name="text.bubble" color="black"></IconSymbol>
         </Link>
       </View>
