@@ -98,7 +98,7 @@ export default function ChatList() {
     }
     setSelectedChat(chat);
     router.push({
-      pathname: `/screens/chat?chatId=${chat.chat_id}&title=${chat.bot.name}`
+      pathname: `/screens/chat?chatId=${chat.chat_id}&title=${chat.bot?.name || chat.title}`,
     });
   };
 
