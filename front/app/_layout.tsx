@@ -2,6 +2,7 @@ import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
+  useNavigationState,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
@@ -55,22 +56,26 @@ export default function RootLayout() {
     return null;
   }
 
+  const stackRouteName = useNavigationState((state) => {
+    // Access the current route name of the Stack navigator
+    const stackNavigator = state.routes.find((r) => r.name === 'child');
+    const name = stackNavigator?.state?.routes?.[stackNavigator?.state?.index]?.name;
+    return name;
+  });
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <Drawer>
+        <Drawer
+          screenOptions={() => ({
+            headerShown: stackRouteName !== "chat",
+          })}
+        >
           <Drawer.Screen
             name="child"
             options={{
               drawerLabel: "Home",
               title: "",
               drawerItemStyle: { display: user ? "flex" : "none" },
-            }}
-          />
-          <Drawer.Screen
-            name="child/chat"
-            options={{
-              drawerItemStyle: { display: "none" }
             }}
           />
           <Drawer.Screen
@@ -86,7 +91,7 @@ export default function RootLayout() {
             options={{
               drawerLabel: "Login",
               title: "Login",
-              drawerItemStyle: { display: user ? "none" : "flex" }
+              drawerItemStyle: { display: user ? "none" : "flex" },
             }}
           />
           <Drawer.Screen
@@ -94,13 +99,13 @@ export default function RootLayout() {
             options={{
               drawerLabel: "Not Found",
               title: "Not Found",
-              drawerItemStyle: { display: "none" }
+              drawerItemStyle: { display: "none" },
             }}
           />
           <Drawer.Screen
             name="index"
             options={{
-              drawerItemStyle: { display: "none" }
+              drawerItemStyle: { display: "none" },
             }}
           />
         </Drawer>

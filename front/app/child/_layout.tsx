@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import { Button } from "react-native";
 
 export default function ChildLayout() {
   return (
@@ -7,7 +8,9 @@ export default function ChildLayout() {
         route,
       }: {
         route: { params?: { title?: string } };
-      }) => ({ title: route.params?.title || "" })}
+      }) => ({ 
+        title: route.params?.title || ""
+      })}
     >
       <Stack.Screen
         name="index"
