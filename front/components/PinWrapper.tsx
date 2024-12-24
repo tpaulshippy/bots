@@ -9,6 +9,11 @@ type Props = PropsWithChildren<{}>;
 export default function PinWrapper({ children }: Props) {
   const [pin, setPin] = React.useState("");
   const [pinCorrect, setPinCorrect] = React.useState(false);
+  const checkPin = async () => {
+    if (pin === "1234") {
+      setPinCorrect(true);
+    }
+  };
 
   return (
     <>
@@ -29,6 +34,7 @@ export default function PinWrapper({ children }: Props) {
           <ThemedView style={styles.innerContainer}>
             <ThemedTextInput
               style={styles.pinTextInput}
+              keyboardType="numeric"
               secureTextEntry={true}
               onChangeText={setPin}
               placeholder="Enter your pin"
@@ -36,9 +42,7 @@ export default function PinWrapper({ children }: Props) {
             <TouchableOpacity
               style={styles.pinButton}
               onPress={async () => {
-                if (pin === "1234") {
-                  setPinCorrect(true);
-                }
+                checkPin();
               }}
             >
                 <ThemedText>Submit</ThemedText>

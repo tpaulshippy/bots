@@ -73,6 +73,8 @@ export default function RootLayout() {
             return {
              headerShown: childRouteName !== "chat" && parentRouteName !== "screens/chat",
              headerTintColor: "#BBB",
+             drawerActiveTintColor: "#CCC",
+             drawerInactiveTintColor: "#999",
             }
           }
         }

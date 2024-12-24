@@ -113,7 +113,7 @@ export default function ChatList({ rootPath }: Props) {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.addButton}>
+      <View style={styles.addButton(rootPath)}>
         <PlatformPressable onPress={handleNewChatPress}>
           <IconSymbol name="text.bubble" color="black"></IconSymbol>
         </PlatformPressable>
@@ -179,9 +179,9 @@ const styles = StyleSheet.create({
   list: {
     marginHorizontal: 10,
   },
-  addButton: {
+  addButton: (rootPath: string) => ({
     position: "absolute",
-    bottom: 60,
+    bottom: rootPath === "/parent/screens" ? 60 : 30,
     right: 30,
     backgroundColor: "darkgray",
     width: 60,
@@ -191,5 +191,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 5,
     zIndex: 15,
-  },
+  }),
 });
