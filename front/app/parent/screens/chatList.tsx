@@ -107,12 +107,16 @@ export default function ChatList({ rootPath }: Props) {
     });
   };
 
+  const handleNewChatPress = () => {
+    router.push(`${rootPath}/chat`);
+  }
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.addButton}>
-        <Link href="{`${rootPath}/chat`}">
+        <PlatformPressable onPress={handleNewChatPress}>
           <IconSymbol name="text.bubble" color="black"></IconSymbol>
-        </Link>
+        </PlatformPressable>
       </View>
 
       <FlatList
