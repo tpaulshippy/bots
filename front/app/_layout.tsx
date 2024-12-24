@@ -59,7 +59,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       {user ? (
-        <Stack screenOptions={({ route }) => ({ title: route.params?.title || "" })}>
+        <Stack screenOptions={({ route }: { route: { params?: { title?: string } } }) => ({ title: route.params?.title || "" })}>
           <Stack.Screen
             name="(tabs)"
             options={{
