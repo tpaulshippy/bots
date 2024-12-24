@@ -3,10 +3,12 @@ import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "./ThemedText";
+import { useRouter } from "expo-router";
 
 type Props = PropsWithChildren<{}>;
 
 export default function PinWrapper({ children }: Props) {
+  const router = useRouter();
   const [pin, setPin] = React.useState("");
   const [pinCorrect, setPinCorrect] = React.useState(false);
   const checkPin = async () => {
@@ -24,6 +26,7 @@ export default function PinWrapper({ children }: Props) {
             onPress={() => {
               setPin("");
               setPinCorrect(false);
+              router.push("/");
             }}
           ><ThemedText style={styles.exitButton}>Exit Parent Screens</ThemedText></TouchableOpacity>
         </View>
