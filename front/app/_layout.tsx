@@ -56,9 +56,13 @@ export default function RootLayout() {
     return null;
   }
 
-  const stackRouteName = useNavigationState((state) => {
-    // Access the current route name of the Stack navigator
+  const childStackRouteName = useNavigationState((state) => {
     const stackNavigator = state.routes.find((r) => r.name === 'child');
+    const name = stackNavigator?.state?.routes?.[stackNavigator?.state?.index]?.name;
+    return name;
+  });
+  const parentStackRouteName = useNavigationState((state) => {
+    const stackNavigator = state.routes.find((r) => r.name === 'parent');
     const name = stackNavigator?.state?.routes?.[stackNavigator?.state?.index]?.name;
     return name;
   });
@@ -67,7 +71,7 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <Drawer
           screenOptions={() => ({
-            headerShown: stackRouteName !== "chat",
+            headerShown: childStackRouteName !== "chat" && parentStackRouteName !== "screens/chat",
           })}
         >
           <Drawer.Screen
