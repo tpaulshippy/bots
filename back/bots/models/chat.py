@@ -28,6 +28,8 @@ class Chat(models.Model):
     bot = models.ForeignKey('Bot', related_name='chats', on_delete=models.CASCADE, null=True)
     chat_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=100, blank=True)
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     
@@ -59,6 +61,8 @@ class Chat(models.Model):
             input_tokens=usage_metadata['input_tokens'],
             output_tokens=usage_metadata['output_tokens']
         )
+        self.input_tokens += usage_metadata['input_tokens']
+        self.output_tokens += usage_metadata['output_tokens']
         return response_text
         
 

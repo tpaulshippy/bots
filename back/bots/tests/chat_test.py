@@ -112,3 +112,11 @@ def describe_chat_model():
             assert chat.messages.last().input_tokens == 1
             assert chat.messages.last().output_tokens == 2
             assert chat.ai.model_id == "my-custom-model"
+
+        def it_should_roll_up_input_and_output_tokens_to_chat(chat, ai, ai_output):
+            when(ai).invoke(...).thenReturn(ai_output)
+            chat.messages.create(text="Hello", role="user")
+            chat.get_response(ai=ai)
+            chat.get_response(ai=ai)
+            assert chat.input_tokens == 2
+            assert chat.output_tokens == 4
