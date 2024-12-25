@@ -1,21 +1,30 @@
-import React, { PropsWithChildren } from "react";
+import React, { PropsWithChildren, useEffect } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "./ThemedText";
 import { useRouter } from "expo-router";
+import { getAccount } from "@/api/account";
 
 type Props = PropsWithChildren<{}>;
 
 export default function PinWrapper({ children }: Props) {
   const router = useRouter();
   const [pin, setPin] = React.useState("");
+  const [correctPin, setCorrectPin] = React.useState("");
   const [pinCorrect, setPinCorrect] = React.useState(false);
   const checkPin = async () => {
-    if (pin === "1234") {
+    if (pin === correctPin) {
       setPinCorrect(true);
     }
   };
+
+  useEffect(() => {
+    getAccount().then((account) => {
+      if (account)
+        setCorrectPin(account.pin.toString());
+    });
+  }, []);
 
   return (
     <>

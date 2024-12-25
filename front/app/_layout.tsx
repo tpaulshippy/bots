@@ -90,8 +90,8 @@ export default function RootLayout() {
           <Drawer.Screen
             name="parent"
             options={{
-              drawerLabel: "Settings",
-              title: "Settings",
+              drawerLabel: "Parents",
+              title: "Parents",
               drawerItemStyle: { display: user ? "flex" : "none" },
             }}
           />

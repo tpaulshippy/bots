@@ -10,7 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 
 type Props = {
-  setBotSelected: React.Dispatch<React.SetStateAction<boolean>>;
+  setBotSelected?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function SelectBot({ setBotSelected }: Props) {
@@ -63,6 +63,7 @@ export default function SelectBot({ setBotSelected }: Props) {
 
   return (
     <ThemedView style={styles.container}>
+      <ThemedText style={styles.titleContainer}>Select bot</ThemedText>
       <ThemedView style={styles.botContainer}>
         {bots.map((bot) => (
           <PlatformPressable
@@ -90,11 +91,9 @@ export default function SelectBot({ setBotSelected }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
   },
   botContainer: {
     flex: 1,

@@ -57,7 +57,8 @@ export default function SelectProfile() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedView style={styles.profileContainer}>
+        <ThemedText style={styles.titleContainer}>Select device profile</ThemedText>
+        <ThemedView style={styles.profileContainer}>
         {profiles.map((profile) => (
           <PlatformPressable
             key={profile.profile_id}
@@ -71,7 +72,7 @@ export default function SelectProfile() {
             <IconSymbol
               name="person.fill"
               color="#555"
-              size={120}
+              size={60}
               style={styles.profileIcon}
             ></IconSymbol>
             <ThemedText style={styles.profileText}>{profile.name}</ThemedText>
@@ -93,11 +94,9 @@ export default function SelectProfile() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
   },
   profileContainer: {
     flex: 1,
@@ -117,8 +116,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   profile: {
-    width: "45%",
-    height: 180,
+    width: "30%",
+    height: 100,
     aspectRatio: 1,
     padding: 5,
     margin: 5,

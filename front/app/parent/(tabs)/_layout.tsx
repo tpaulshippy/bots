@@ -34,19 +34,13 @@ export default function TabLayout() {
         }}
       />
        <Tabs.Screen
-        name="profiles"
+        name="settings"
         options={{
-          title: 'Profiles',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+          title: 'Settings',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gear" color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="bots"
-        options={{
-          title: 'Bots',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="cpu" color={color} />,
-        }}
-      />
+
     </Tabs>
   );
 }
