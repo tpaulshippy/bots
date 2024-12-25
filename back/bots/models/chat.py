@@ -63,6 +63,7 @@ class Chat(models.Model):
         )
         self.input_tokens += usage_metadata['input_tokens']
         self.output_tokens += usage_metadata['output_tokens']
+        self.save()
         return response_text
         
 

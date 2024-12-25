@@ -49,7 +49,9 @@ class ChatListSerializer(serializers.HyperlinkedModelSerializer):
                   'profile',
                   'bot',
                   'title', 
-                  'message_count', 
+                  'message_count',
+                  'input_tokens',
+                  'output_tokens',
                   'created_at', 
                   'modified_at', 
                   'url']
@@ -63,7 +65,9 @@ class ChatSerializer(serializers.HyperlinkedModelSerializer):
                   'chat_id',
                   'profile',
                   'title', 
-                  'messages', 
+                  'messages',
+                  'input_tokens',
+                  'output_tokens',
                   'created_at', 
                   'modified_at']
 
