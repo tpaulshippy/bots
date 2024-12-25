@@ -6,6 +6,7 @@ from langchain_aws import ChatBedrock
 from .profile import Profile
 
 MODEL_ID = "us.amazon.nova-micro-v1:0"
+MAX_DOLLARS_DAILY = 0.01
 
 class AiClientWrapper:
     def __init__(self, model_id, client=None):
@@ -45,6 +46,9 @@ class Chat(models.Model):
             self.ai = AiClientWrapper(model_id=self.bot.model, client=ai)
         else:
             self.ai = AiClientWrapper(model_id=MODEL_ID, client=ai)
+        
+        if self.user.user_account.cost_for_today() >= MAX_DOLLARS_DAILY:
+            return "You have exceeded your daily limit. Please try again tomorrow."
         message_list = self.get_input()
 
         response = self.ai.invoke(

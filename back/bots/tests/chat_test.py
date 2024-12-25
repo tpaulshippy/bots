@@ -1,6 +1,7 @@
 import pytest
 from django.utils import timezone
-from mockito import when, unstub, mock, any
+from mockito import when, unstub, mock
+from django.contrib.auth.models import User
 from bots.models.chat import Chat
 from bots.models.bot import Bot
 import uuid
@@ -32,7 +33,7 @@ def describe_chat_model():
     def describe_get_response():
         @pytest.fixture
         def chat():
-            return Chat.objects.create()
+            return Chat.objects.create(user=User.objects.create())
         
         @pytest.fixture
         def ai():
@@ -120,3 +121,11 @@ def describe_chat_model():
             chat.get_response(ai=ai)
             assert chat.input_tokens == 2
             assert chat.output_tokens == 4
+
+        def it_should_rate_limit_if_cost_goes_over_daily_limit(chat, ai, ai_output):
+            chat.input_tokens = 142855
+            chat.output_tokens = 35715
+            chat.save()
+            when(ai).invoke(...).thenReturn(ai_output)
+            result = chat.get_response(ai=ai)
+            assert result == "You have exceeded your daily limit. Please try again tomorrow."
