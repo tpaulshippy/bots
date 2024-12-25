@@ -33,28 +33,6 @@ export default function BotsScreen({}) {
     loadSelectedBot();
   }, []);
 
-  const handleBotPress = async (bot: Bot) => {
-    if (process.env.EXPO_OS === "ios") {
-      // Add a soft haptic feedback when pressing down on the tabs.
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    try {
-      if (
-        selectedBot &&
-        selectedBot.bot_id === bot.bot_id
-      ) {
-        setSelectedBot(null);
-        await AsyncStorage.removeItem("selectedBot");
-        return;
-      } else {
-        setSelectedBot(bot);
-        await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
-      }
-    } catch (error) {
-      console.error("Failed to save the bot to local storage", error);
-    }
-  };
-
   return (
     <ThemedView style={styles.container}>
       <ThemedText style={styles.titleContainer}>Bots</ThemedText>
