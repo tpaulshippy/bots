@@ -53,7 +53,7 @@ export default function SelectBot({ setBotSelected }: Props) {
       } else {
         setSelectedBot(bot);
         if (setBotSelected)
-          setBotSelected(bot);
+          setBotSelected(true);
         await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
       }
     } catch (error) {

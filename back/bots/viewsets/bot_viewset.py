@@ -14,7 +14,7 @@ class BotSerializer(serializers.HyperlinkedModelSerializer):
             'created_at',
             'modified_at']
 
-class BotViewSet(viewsets.ReadOnlyModelViewSet):
+class BotViewSet(viewsets.ModelViewSet):
     queryset = Bot.objects.all()
     serializer_class = BotSerializer
     

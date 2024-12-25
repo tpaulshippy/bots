@@ -4,6 +4,8 @@ export interface Bot {
     id: number;
     bot_id: string;
     name: string;
+    model: string;
+    system_prompt: string;
 }
 
 export const fetchBots = async (): Promise<Bot[]> => {
@@ -20,3 +22,21 @@ export const fetchBots = async (): Promise<Bot[]> => {
         return [];
     }
 };
+
+export const updateBot = async (bot: Bot): Promise<Bot> => {
+    try {
+        const { data, ok, status } = await apiClient<Bot>(`/bots/${bot.id}.json`, {
+            method: 'PUT',
+            body: JSON.stringify(bot),
+        });
+
+        if (!ok) {
+            throw new Error(`Failed to update bot with status ${status}`);
+        }
+        return data;
+    }
+    catch (error: any) {
+        console.error(error.toString());
+        return bot;
+    }
+}

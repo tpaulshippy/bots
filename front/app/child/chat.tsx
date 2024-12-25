@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Chat from "../parent/screens/chat";
-import SelectBot from "../parent/screens/selectBot";
+import SelectBot from "./selectBot";
 import { useLocalSearchParams } from "expo-router";
 
 export default function ChildChat() {
