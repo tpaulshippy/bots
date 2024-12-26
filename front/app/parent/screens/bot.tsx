@@ -10,47 +10,29 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { router } from "expo-router";
 
-export default function BotsScreen({}) {
-  const [bots, setBots] = useState<Bot[]>([]);
-  const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
+export default function BotScreen({}) {
+  const [bot, setBot] = useState<Bot | null>(null);
 
   useEffect(() => {
-    fetchBots().then((data) => {
-      setBots(data);
-    });
+      const loadSelectedBot = async () => {
+        const botData = await AsyncStorage.getItem("selectedBot");
+        if (botData) {
+          const bot = JSON.parse(botData);
+          setBot(bot);
+        }
+      };
+
+      loadSelectedBot();    
   }, []);
 
-  const handleBotPress = async (bot: Bot) => {
-    if (process.env.EXPO_OS === "ios") {
-      // Add a soft haptic feedback when pressing down on the tabs.
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
-    router.push({
-      pathname: `/parent/screens/bot`
-    });
-  };
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.titleContainer}>Bots</ThemedText>
+      <ThemedText style={styles.titleContainer}>{bot ? bot.name : null}</ThemedText>
       <ThemedView style={styles.botContainer}>
-        <FlatList
-          data={bots}
-          keyExtractor={(item) => item.bot_id}
-          renderItem={({ item }) => (
-            <ThemedView style={styles.botItemContainer}>
-              <PlatformPressable
-                onPress={() => handleBotPress(item)}
-                style={[
-                  styles.bot
-                ]}
-              >
-                <ThemedText style={styles.botText}>{item.name}</ThemedText>
-              </PlatformPressable>
-            </ThemedView>
-          )}
-        />
+        <ThemedText>
+          {bot ? bot.system_prompt : null}
+        </ThemedText>
       </ThemedView>
     </ThemedView>
   );
@@ -99,6 +81,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#222",
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 2,
     elevation: 5,
   },
   botText: {
