@@ -19,7 +19,6 @@ export default function PinWrapper({ children, correctPin }: Props) {
   const [pinCorrect, setPinCorrect] = useState(false);
   const checkPin = async () => {
     if (pin === correctPin) {
-      console.log("Pin correct");
       setPinCorrect(true);
     }
   };
