@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from "react-native";
+import { Modal, ScrollView, Platform, StyleSheet, TouchableOpacity } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
@@ -13,13 +13,15 @@ import { useRouter } from "expo-router";
 export default function BotScreen({}) {
   const router = useRouter();
   const [bot, setBot] = useState<Bot | null>(null);
+  const [isPickerVisible, setPickerVisible] = useState(false);
+
   const supportedModels = [
-    "us.amazon.nova-micro-v1:0",
-    "us.amazon.nova-lite-v1:0",
-    "us.amazon.nova-pro-v1:0",
-    "meta.llama3-3-70b-instruct-v1:0",
-    "anthropic.claude-3-haiku-20240307-v1:0",
-    "anthropic.claude-3-5-haiku-20241022-v1:0",
+    {name: "Nova Micro", id: "us.amazon.nova-micro-v1:0"},
+    {name: "Nova Lite", id: "us.amazon.nova-lite-v1:0"},
+    {name: "Nova Pro", id: "us.amazon.nova-pro-v1:0"},
+    {name: "Llama 3.3", id: "meta.llama3-3-70b-instruct-v1:0"},
+    {name: "Claude 3 Haiku", id: "anthropic.claude-3-haiku-20240307-v1:0"},
+    {name: "Claude 3.5 Haiku", id: "anthropic.claude-3-5-haiku-20241022-v1:0"},
   ];
 
   useEffect(() => {
@@ -45,8 +47,17 @@ export default function BotScreen({}) {
     }
   };
 
+  const handleModelPress = () => {
+    setPickerVisible(true);
+  };
+
+  const handlePickerChange = (itemValue) => {
+    setBot({ ...bot, model: itemValue });
+    setPickerVisible(false);
+  };
+
   return bot ? (
-    <ThemedView style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <ThemedView style={styles.formGroup}>
         <ThemedText style={styles.label}>Name</ThemedText>
         <ThemedTextInput
@@ -57,16 +68,23 @@ export default function BotScreen({}) {
       </ThemedView>
       <ThemedView style={styles.formGroup}>
         <ThemedText style={styles.label}>Model</ThemedText>
-        <Picker
-          selectedValue={bot?.model}
-          style={styles.picker}
-          onValueChange={(itemValue) => setBot({ ...bot, model: itemValue })}
-        >
-          {supportedModels.map((model, index) => (
-            <Picker.Item key={index} label={model} value={model} />
-          ))}
-        </Picker>
+        <TouchableOpacity onPress={handleModelPress}>
+          <ThemedText style={styles.input}>{bot.model}</ThemedText>
+        </TouchableOpacity>
       </ThemedView>
+      <Modal visible={isPickerVisible} transparent={true} animationType="slide">
+        <ThemedView style={styles.modalContainer}>
+          <Picker
+            selectedValue={bot?.model}
+            style={styles.picker}
+            onValueChange={handlePickerChange}
+          >
+            {supportedModels.map((model, index) => (
+              <Picker.Item key={index} label={model.name} value={model.id} />
+            ))}
+          </Picker>
+        </ThemedView>
+      </Modal>
       <ThemedView style={styles.formGroup}>
         <ThemedText style={styles.label}>System Prompt</ThemedText>
         <ThemedTextInput
@@ -80,7 +98,7 @@ export default function BotScreen({}) {
         onPress={() => saveBot()}>
         <ThemedText>Save</ThemedText>
       </PlatformPressable>
-    </ThemedView>
+    </ScrollView>
   ) : null;
 }
 
@@ -103,14 +121,20 @@ const styles = StyleSheet.create({
     height: 40,
     borderColor: "gray",
     borderWidth: 1,
-    paddingLeft: 8,
+    padding: 8,
   },
   picker: {
-    height: 50,
-    width: "100%",
+    height: Platform.OS === "web" ? 40 : 200,
+    width: "100%"
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
   },
   textArea: {
-    height: 100,
+    height: 200,
     borderColor: "gray",
     borderWidth: 1,
     paddingLeft: 8,
