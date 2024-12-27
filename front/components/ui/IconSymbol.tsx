@@ -18,6 +18,7 @@ const MAPPING = {
   'person.fill': 'person',
   'cpu': 'memory',
   'gear': 'settings',
+  'arrow.up': 'arrow-upward',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

@@ -1,13 +1,15 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { PlatformPressable } from "@react-navigation/elements";
 import { ActivityIndicator, FlatList, FlexAlignType } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams } from 'expo-router';
 
 import { fetchChatMessages, sendChat, ChatMessage } from "@/api/chats";
+import { IconSymbol } from "@/components/ui/IconSymbol";
 
 const ITEM_HEIGHT = 50;
 
@@ -18,7 +20,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
-    const chatId = local.chatId.toString();
+    const chatId = local.chatId?.toString();
     if (chatId) {
       setChatId(chatId);
 
@@ -48,6 +50,9 @@ export default function Chat() {
 
   const sendChatToServer = async () => {
     const inputText = input.trim();
+    if (!inputText) {
+      return;
+    }
     setInput("");
     const profileId = await getProfileId();
     const botId = await getBotId();
@@ -108,13 +113,25 @@ export default function Chat() {
         
         
         />
-        <ThemedTextInput
-          autoFocus={true}
-          onChangeText={setInput}
-          value={input}
-          onSubmitEditing={sendChatToServer}
-          style={styles.input}
-        ></ThemedTextInput>
+        <ThemedView style={styles.inputContainer}>
+          <ThemedTextInput
+            autoFocus={true}
+            multiline={true}
+            onChangeText={setInput}
+            value={input}
+            style={styles.input}          
+          ></ThemedTextInput>
+          <PlatformPressable 
+            style={styles.sendButton}
+            onPress={sendChatToServer}>
+             <IconSymbol
+                style={styles.sendButtonIcon}
+                name="arrow.up"
+                color="#555"
+                size={45}
+              ></IconSymbol>
+          </PlatformPressable>
+        </ThemedView>
       </ThemedView>
     </KeyboardAvoidingView>
   );
@@ -127,8 +144,12 @@ const styles = {
   list: {
     padding: 20
   },
+  inputContainer: {
+    flexDirection: "row",
+  },
   input: {
-    height: 40,
+    flex: 4,
+    minHeight: 60,
     margin: 12,
     padding: 10,
     borderWidth: 1,
@@ -140,6 +161,18 @@ const styles = {
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 2,
+  },
+  sendButton: {
+    height: 60,
+    width: 60,
+    marginRight: 12,
+    marginVertical: 12,
+    backgroundColor: "#222",
+    borderRadius: '50%',
+    justifyContent: 'center' as FlexAlignType,
+    alignItems: 'center' as FlexAlignType,
+  },
+  sendButtonIcon: {
   },
   userMessage: {
     backgroundColor: "#2fd05a",
