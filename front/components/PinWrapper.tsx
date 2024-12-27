@@ -1,78 +1,58 @@
-import React, { PropsWithChildren, useEffect } from "react";
-import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from "react-native";
+import React, { useState, PropsWithChildren, useEffect } from "react";
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "./ThemedText";
-import { useRouter } from "expo-router";
-import { getAccount } from "@/api/account";
-import { PlatformPressable } from "@react-navigation/elements";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-type Props = PropsWithChildren<{}>;
+type Props = PropsWithChildren<{
+  correctPin: string;
+}>;
 
-export default function PinWrapper({ children }: Props) {
-  const router = useRouter();
-  const [pin, setPin] = React.useState("");
-  const [correctPin, setCorrectPin] = React.useState("");
-  const [pinCorrect, setPinCorrect] = React.useState(false);
+export default function PinWrapper({ children, correctPin }: Props) {
+  const [pin, setPin] = useState("");
+  const [pinCorrect, setPinCorrect] = useState(false);
   const checkPin = async () => {
     if (pin === correctPin) {
       setPinCorrect(true);
     }
   };
 
-  useEffect(() => {
-    getAccount().then((account) => {
-      if (account)
-        setCorrectPin(account.pin.toString());
-    });
-  }, []);
-
-  return (
-    <>
-      {correctPin == "" ? <ThemedView>
-        <ActivityIndicator style={{marginTop: 10}} />
-        <PlatformPressable onPress={() => {
-            AsyncStorage.removeItem("loggedInUser");
-            router.navigate("/login");
-          }} style={styles.exitButton}>
-            <ThemedText>Log Out</ThemedText>
-          </PlatformPressable>
-        </ThemedView> : pinCorrect && correctPin != "" ? (
-        <View style={styles.container}>
-          {children}
-        </View>
-
-      ) : (
-        <ThemedView style={styles.outerContainer}>
-          <ThemedView style={styles.innerContainer}>
-            <ThemedTextInput
-              autoFocus={true}
-              style={styles.pinTextInput}
-              keyboardType="numeric"
-              secureTextEntry={true}
-              onChangeText={setPin}
-              placeholder="Enter your pin"
-            />
-            <TouchableOpacity
-              style={styles.pinButton}
-              onPress={async () => {
-                checkPin();
-              }}
-            >
-                <ThemedText>Submit</ThemedText>
-            </TouchableOpacity>
-          </ThemedView>
-        </ThemedView>
-      )}
-    </>
+  return pinCorrect ? (
+    <View style={styles.container}>{children}</View>
+  ) : correctPin == "" ? null : (
+    <ThemedView style={styles.outerContainer}>
+      <ThemedView style={styles.innerContainer}>
+        <ThemedTextInput
+          autoFocus={true}
+          style={styles.pinTextInput}
+          keyboardType="numeric"
+          secureTextEntry={true}
+          onChangeText={setPin}
+          placeholder="Enter your pin"
+        />
+        <TouchableOpacity
+          style={styles.pinButton}
+          onPress={async () => {
+            checkPin();
+          }}
+        >
+          <ThemedText>Submit</ThemedText>
+        </TouchableOpacity>
+      </ThemedView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: "column"
+    flexDirection: "column",
   },
   exitButton: {
     textAlign: "center",

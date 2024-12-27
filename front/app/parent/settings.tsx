@@ -1,26 +1,89 @@
 import PinWrapper from "@/components/PinWrapper";
-import { ScrollView, StyleSheet } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
+import { ThemedText } from "@/components/ThemedText";
 import SelectProfile from "./selectProfile";
 import SetPin from "./setPin";
 import BotsScreen from "./bots";
+import { getAccount } from "@/api/account";
+import { useEffect, useState } from "react";
+import {
+  View,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
+import { PlatformPressable } from "@react-navigation/elements";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import * as Progress from "react-native-progress";
 
 export default function SettingsScreen() {
+  const router = useRouter();
+  const [correctPin, setCorrectPin] = useState("");
+  const [percentUsedToday, setPercentUsedToday] = useState(0);
+
+  useEffect(() => {
+    getAccount().then((account) => {
+      if (account) {
+        setCorrectPin(account.pin.toString());
+        const percent = account.costForToday / account.maxDailyCost;
+        setPercentUsedToday(percent);
+      }
+    });
+  }, []);
   return (
-    <PinWrapper>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <ThemedView style={styles.container}>
-          <SelectProfile />
-          <BotsScreen />
-          <SetPin />
+    <ThemedView style={styles.container}>
+      <ThemedView style={styles.usageContainer}>
+        <Progress.Bar 
+          width={230}
+          height={20}
+          style={styles.progressBar}
+          progress={percentUsedToday} />
+        <ThemedText style={styles.usageText}>
+          {(percentUsedToday * 100).toFixed(2)}% of available tokens used today
+        </ThemedText>
+      </ThemedView>
+      {correctPin != "" ? (
+        <PinWrapper correctPin={correctPin}>
+          <ScrollView contentContainerStyle={styles.scrollContainer}>
+            <ThemedView style={styles.container}>
+              <SelectProfile />
+              <BotsScreen />
+              <SetPin />
+            </ThemedView>
+          </ScrollView>
+        </PinWrapper>
+      ) : (
+        <ThemedView>
+          <ActivityIndicator style={{ marginTop: 10 }} />
+          <PlatformPressable
+            onPress={() => {
+              AsyncStorage.removeItem("loggedInUser");
+              router.navigate("/login");
+            }}
+          >
+            <ThemedText>Log Out</ThemedText>
+          </PlatformPressable>
         </ThemedView>
-      </ScrollView>
-    </PinWrapper>
+      )}
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {},
+  usageContainer: {
+    margin: 10
+  },
+  progressBar: {
+    color: "#BBB",
+    borderColor: "#BBB",
+  },
+  usageText: {
+    fontSize: 12
+  },
   scrollContainer: {
     flexGrow: 1,
   },

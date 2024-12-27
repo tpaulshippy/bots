@@ -3,6 +3,8 @@ from django.db import models
 import uuid
 import json
 from langchain_aws import ChatBedrock
+from langchain.schema import HumanMessage, SystemMessage, AIMessage
+
 from .profile import Profile
 
 MODEL_ID = "us.amazon.nova-lite-v1:0"
@@ -74,9 +76,15 @@ class Chat(models.Model):
     def get_input(self):
         messages = self.messages.exclude(role='system').order_by('-id')[:10]
         messages = sorted(messages, key=lambda message: message.id)
-        message_list = [{"role": message.role, "content": [{"text": message.text}]} for message in messages]
+        message_list = []
         
-        system_message = {"role": "system", "content": [{"text": self.get_system_message()}]}
+        for message in messages:
+            if message.role == "user":
+                message_list.append(HumanMessage(content=message.text))
+            elif message.role == "assistant":
+                message_list.append(AIMessage(content=message.text))
+        
+        system_message = SystemMessage(content=self.get_system_message())
         message_list.insert(0, system_message)
     
         return message_list

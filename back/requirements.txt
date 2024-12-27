@@ -12,6 +12,8 @@ django-cors-headers
 django-environ
 django-allauth
 cryptography
+langchain_aws
+langchain
 
 pytest
 pytest-describe

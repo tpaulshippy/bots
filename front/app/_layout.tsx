@@ -97,7 +97,7 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
-              name="parent"
+              name="parent/settings"
               options={{
                 headerShown: true,
                 title: "Settings",
