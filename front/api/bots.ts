@@ -6,6 +6,7 @@ export interface Bot {
   name: string;
   model: string;
   system_prompt: string;
+  deleted_at: Date | null;
 }
 
 export const fetchBots = async (): Promise<Bot[]> => {

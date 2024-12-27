@@ -12,7 +12,8 @@ class Bot(models.Model):
     name = models.CharField(max_length=255)
     model = models.CharField(max_length=255)
     system_prompt = models.TextField()
-
+    
+    deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

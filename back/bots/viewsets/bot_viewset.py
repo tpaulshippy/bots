@@ -14,6 +14,7 @@ class BotSerializer(serializers.HyperlinkedModelSerializer):
             'system_prompt',
             'created_at',
             'modified_at',
+            'deleted_at',
             'url']
 
 class BotViewSet(viewsets.ModelViewSet):
@@ -23,7 +24,7 @@ class BotViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        return Bot.objects.filter(user=user)
+        return Bot.objects.filter(user=user, deleted_at=None)
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]
