@@ -47,6 +47,7 @@ export default function BotsScreen({}) {
       <ThemedText style={styles.titleContainer}>Bots</ThemedText>
       <ThemedView style={styles.botContainer}>
         <FlatList
+          scrollEnabled={false}
           data={bots}
           keyExtractor={(item) => item.bot_id}
           renderItem={({ item }) => (
