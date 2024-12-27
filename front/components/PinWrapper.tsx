@@ -19,6 +19,7 @@ export default function PinWrapper({ children, correctPin }: Props) {
   const [pinCorrect, setPinCorrect] = useState(false);
   const checkPin = async () => {
     if (pin === correctPin) {
+      console.log("Pin correct");
       setPinCorrect(true);
     }
   };
@@ -59,7 +60,6 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   outerContainer: {
-    flex: 1,
     flexDirection: "row",
     justifyContent: "flex-start",
     alignItems: "flex-start",

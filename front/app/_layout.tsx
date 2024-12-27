@@ -104,6 +104,13 @@ export default function RootLayout() {
                 headerTintColor: "#BBB",
               }}
             />
+            <Stack.Screen
+              name="parent/bot"
+              options={{
+                headerShown: true,
+                headerTintColor: "#BBB",
+              }}
+            />
             <Stack.Screen name="+not-found" />
           </Stack>
       <StatusBar style="auto" />

@@ -34,55 +34,57 @@ export default function SettingsScreen() {
     });
   }, []);
   return (
-    <ThemedView style={styles.container}>
-      <ThemedView style={styles.usageContainer}>
-        <Progress.Bar 
-          width={230}
-          height={20}
-          style={styles.progressBar}
-          progress={percentUsedToday} />
-        <ThemedText style={styles.usageText}>
-          {(percentUsedToday * 100).toFixed(2)}% of available tokens used today
-        </ThemedText>
-      </ThemedView>
-      {correctPin != "" ? (
-        <PinWrapper correctPin={correctPin}>
-          <ScrollView contentContainerStyle={styles.scrollContainer}>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ThemedView style={styles.container}>
+        <ThemedView style={styles.usageContainer}>
+          <Progress.Bar
+            width={230}
+            height={20}
+            style={styles.progressBar}
+            progress={percentUsedToday}
+          />
+          <ThemedText style={styles.usageText}>
+            {(percentUsedToday * 100).toFixed(2)}% of available tokens used
+            today
+          </ThemedText>
+        </ThemedView>
+        {correctPin != "" ? (
+          <PinWrapper correctPin={correctPin}>
             <ThemedView style={styles.container}>
               <SelectProfile />
               <BotsScreen />
               <SetPin />
             </ThemedView>
-          </ScrollView>
-        </PinWrapper>
-      ) : (
-        <ThemedView>
-          <ActivityIndicator style={{ marginTop: 10 }} />
-          <PlatformPressable
-            onPress={() => {
-              AsyncStorage.removeItem("loggedInUser");
-              router.navigate("/login");
-            }}
-          >
-            <ThemedText>Log Out</ThemedText>
-          </PlatformPressable>
-        </ThemedView>
-      )}
-    </ThemedView>
+          </PinWrapper>
+        ) : (
+          <ThemedView>
+            <ActivityIndicator style={{ marginTop: 10 }} />
+            <PlatformPressable
+              onPress={() => {
+                AsyncStorage.removeItem("loggedInUser");
+                router.navigate("/login");
+              }}
+            >
+              <ThemedText>Log Out</ThemedText>
+            </PlatformPressable>
+          </ThemedView>
+        )}
+      </ThemedView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {},
   usageContainer: {
-    margin: 10
+    margin: 10,
   },
   progressBar: {
     color: "#BBB",
     borderColor: "#BBB",
   },
   usageText: {
-    fontSize: 12
+    fontSize: 12,
   },
   scrollContainer: {
     flexGrow: 1,
