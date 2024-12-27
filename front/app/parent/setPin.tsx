@@ -5,7 +5,7 @@ import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { updateAccount } from "@/api/account";
 import { useState } from "react";
 
-export default function Settings() {
+export default function SetPin() {
   const [pin, setPin] = useState("");
 
   const savePin = () => {

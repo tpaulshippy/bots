@@ -1,4 +1,4 @@
-import { FlatList, StyleSheet } from "react-native";
+import { FlatList, StyleSheet, TouchableOpacity } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
@@ -31,16 +31,26 @@ export default function BotsScreen({}) {
     }, [])
   );
 
-  const handleBotPress = async (bot: Bot) => {
+  const handleBotPress = async (bot: Bot | null = null) => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    if (!bot) {
+      bot = {
+        id: -1,
+        bot_id: "",
+        name: "",
+        model: "",
+        system_prompt: "",
+      }
+    }
     await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
     router.push({
-      pathname: `/parent/screens/bot`,
+      pathname: `/parent/bot`,
     });
   };
+  
 
   return (
     <ThemedView style={styles.container}>
@@ -62,6 +72,12 @@ export default function BotsScreen({}) {
           )}
         />
       </ThemedView>
+      <TouchableOpacity
+          style={styles.addBotButton}
+          onPress={() => handleBotPress()}
+        >
+          <ThemedText>Create Bot</ThemedText>
+        </TouchableOpacity>
     </ThemedView>
   );
 }
@@ -119,4 +135,15 @@ const styles = StyleSheet.create({
   button: {
     color: "#fff",
   },
+  addBotButton: {
+    marginTop: 10,
+    marginLeft: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#222",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,    
+  }
 });

@@ -6,7 +6,7 @@ import { Picker } from "@react-native-picker/picker";
 import { PlatformPressable } from "@react-navigation/elements";
 
 import { useEffect, useState } from "react";
-import { Bot, updateBot } from "@/api/bots";
+import { Bot, upsertBot } from "@/api/bots";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 
@@ -16,6 +16,7 @@ export default function BotScreen({}) {
   const [isPickerVisible, setPickerVisible] = useState(false);
 
   const supportedModels = [
+    {name: "Select a model", id: ""},
     {name: "Nova Micro", id: "us.amazon.nova-micro-v1:0"},
     {name: "Nova Lite", id: "us.amazon.nova-lite-v1:0"},
     {name: "Nova Pro", id: "us.amazon.nova-pro-v1:0"},
@@ -39,12 +40,24 @@ export default function BotScreen({}) {
   const saveBot = async () => {
     try {
       if (bot) {
-        await updateBot(bot);
+        const newBot = await upsertBot(bot);
+        bot.id = newBot.id;
+        bot.bot_id = newBot.bot_id;
+        await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
         router.back();
       }
     } catch (error) {
-      console.error("Failed to save the bot to local storage", error);
+      const errorData = JSON.parse(error.message);
+      showError(errorData);
     }
+  };
+
+  const showError = (errorData: any) => {
+    let errorMessage = "";
+    Object.getOwnPropertyNames(errorData).forEach((field: string) => {
+      errorMessage += field + ": " + errorData[field].join(", ") + "\n";
+    });
+    alert(errorMessage);
   };
 
   const handleModelPress = () => {

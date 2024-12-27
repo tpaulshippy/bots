@@ -12,20 +12,12 @@ export default function ParentLayout() {
         }) => ({ title: route.params?.title || "" })}
       >
         <Stack.Screen
-          name="(tabs)"
+          name="settings"
           options={{
             headerShown: false,
-            title: "Chats",
+            title: "Settings",
           }}
-        />
-        <Stack.Screen
-          name="screens/chat"
-          options={{
-            headerShown: true,
-            headerTintColor: "#BBB",
-          }}
-        />
-        <Stack.Screen name="+not-found" />
+        />       
       </Stack>
     </PinWrapper>
   );

@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   },
   addButton: (rootPath: string) => ({
     position: "absolute",
-    bottom: rootPath === "/parent/screens" ? 60 : 30,
+    bottom: 30,
     right: 30,
     backgroundColor: "darkgray",
     width: 60,

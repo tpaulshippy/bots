@@ -1,8 +1,8 @@
 import { ScrollView, StyleSheet } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
-import SelectProfile from "../screens/selectProfile";
-import Settings from "../screens/settings";
-import BotsScreen from "../screens/bots";
+import SelectProfile from "./selectProfile";
+import SetPin from "./setPin";
+import BotsScreen from "./bots";
 
 export default function SettingsScreen() {
   return (
@@ -10,7 +10,7 @@ export default function SettingsScreen() {
       <ThemedView style={styles.container}>
         <SelectProfile />
         <BotsScreen />
-        <Settings />
+        <SetPin />
       </ThemedView>
     </ScrollView>
   );

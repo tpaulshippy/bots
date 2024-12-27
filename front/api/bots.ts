@@ -1,42 +1,46 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 export interface Bot {
-    id: number;
-    bot_id: string;
-    name: string;
-    model: string;
-    system_prompt: string;
+  id: number;
+  bot_id: string;
+  name: string;
+  model: string;
+  system_prompt: string;
 }
 
 export const fetchBots = async (): Promise<Bot[]> => {
-    try {
-        const { data, ok, status } = await apiClient<Bot[]>('/bots.json');
+  try {
+    const { data, ok, status } = await apiClient<Bot[]>("/bots.json");
 
-        if (!ok) {
-            throw new Error(`Failed to fetch bots with status ${status}`);
-        }
-        return data;
+    if (!ok) {
+      throw new Error(`Failed to fetch bots with status ${status}`);
     }
-    catch (error: any) {
-        console.error(error.toString());
-        return [];
-    }
+    return data;
+  } catch (error: any) {
+    console.error(error.toString());
+    return [];
+  }
 };
 
-export const updateBot = async (bot: Bot): Promise<Bot> => {
-    try {
-        const { data, ok, status } = await apiClient<Bot>(`/bots/${bot.id}.json`, {
-            method: 'PUT',
-            body: JSON.stringify(bot),
-        });
+export const upsertBot = async (bot: Bot): Promise<Bot> => {
+  if (bot.id == -1) {
+    const { data, ok, status } = await apiClient<Bot>("/bots.json", {
+      method: "POST",
+      body: JSON.stringify(bot),
+    });
 
-        if (!ok) {
-            throw new Error(`Failed to update bot with status ${status}`);
-        }
-        return data;
+    if (!ok) {
+      throw new Error(JSON.stringify(data));
     }
-    catch (error: any) {
-        console.error(error.toString());
-        return bot;
-    }
-}
+    return data;
+  }
+  const { data, ok, status } = await apiClient<Bot>(`/bots/${bot.id}.json`, {
+    method: "PUT",
+    body: JSON.stringify(bot),
+  });
+
+  if (!ok) {
+    throw new Error(JSON.stringify(data));
+  }
+  return data;
+};
