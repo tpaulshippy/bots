@@ -5,8 +5,8 @@ import json
 from langchain_aws import ChatBedrock
 from .profile import Profile
 
-MODEL_ID = "us.amazon.nova-micro-v1:0"
-MAX_DOLLARS_DAILY = 0.01
+MODEL_ID = "us.amazon.nova-lite-v1:0"
+MAX_DOLLARS_DAILY = 0.03
 
 class AiClientWrapper:
     def __init__(self, model_id, client=None):
