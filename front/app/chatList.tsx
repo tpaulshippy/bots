@@ -38,11 +38,7 @@ function getRelativeDate(inputDate: string): string {
   }
 }
 
-type Props = {
-  rootPath: string;
-};
-
-export default function ChatList({ rootPath }: Props) {
+export default function ChatList() {
   const router = useRouter();
   const [chats, setChats] = useState<ChatsByDay>({});
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -78,7 +74,7 @@ export default function ChatList({ rootPath }: Props) {
       setRefreshing(false);
     } catch (error) {
       if (error instanceof UnauthorizedError) {
-        router.push("/screens/login");
+        router.push("/login");
       }
       console.error("Failed to fetch chats", error);    
     }
@@ -101,19 +97,19 @@ export default function ChatList({ rootPath }: Props) {
     }
     setSelectedChat(chat);
     router.push({
-      pathname: `${rootPath}/chat`,
+      pathname: `/chat`,
       params: { chatId: chat.chat_id, title: chat.bot?.name || chat.title },
     });
   };
 
   const handleNewChatPress = () => {
-    router.push(`${rootPath}/chat`);
+    router.push(`/chat`);
   }
 
   return (
     refreshing ? <ActivityIndicator style={{marginTop: 10}} /> :
     <ThemedView style={styles.container}>
-      <View style={styles.addButton(rootPath)}>
+      <View style={styles.addButton}>
         <PlatformPressable onPress={handleNewChatPress}>
           <IconSymbol name="text.bubble" color="black"></IconSymbol>
         </PlatformPressable>
@@ -179,7 +175,7 @@ const styles = StyleSheet.create({
   list: {
     marginHorizontal: 10,
   },
-  addButton: (rootPath: string) => ({
+  addButton: {
     position: "absolute",
     bottom: 30,
     right: 30,
@@ -191,5 +187,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 5,
     zIndex: 15,
-  }),
+  },
 });

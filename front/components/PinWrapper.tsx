@@ -1,10 +1,12 @@
 import React, { PropsWithChildren, useEffect } from "react";
-import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "./ThemedText";
 import { useRouter } from "expo-router";
 import { getAccount } from "@/api/account";
+import { PlatformPressable } from "@react-navigation/elements";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Props = PropsWithChildren<{}>;
 
@@ -28,23 +30,24 @@ export default function PinWrapper({ children }: Props) {
 
   return (
     <>
-      {correctPin == "" ? <ActivityIndicator style={{marginTop: 10}} /> : pinCorrect && correctPin != "" ? (
+      {correctPin == "" ? <ThemedView>
+        <ActivityIndicator style={{marginTop: 10}} />
+        <PlatformPressable onPress={() => {
+            AsyncStorage.removeItem("loggedInUser");
+            router.navigate("/login");
+          }} style={styles.exitButton}>
+            <ThemedText>Log Out</ThemedText>
+          </PlatformPressable>
+        </ThemedView> : pinCorrect && correctPin != "" ? (
         <View style={styles.container}>
           {children}
-          <TouchableOpacity
-            onPress={() => {
-              setPin("");
-              setPinCorrect(false);
-              router.push("/");
-            }}
-          ><ThemedText style={styles.exitButton}>Exit Parent Screens</ThemedText></TouchableOpacity>
         </View>
-
 
       ) : (
         <ThemedView style={styles.outerContainer}>
           <ThemedView style={styles.innerContainer}>
             <ThemedTextInput
+              autoFocus={true}
               style={styles.pinTextInput}
               keyboardType="numeric"
               secureTextEntry={true}

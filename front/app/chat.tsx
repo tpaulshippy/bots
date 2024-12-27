@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Chat from "./chat";
+import Chat from "./botChat";
 import SelectBot from "./selectBot";
 import { useLocalSearchParams } from "expo-router";
 

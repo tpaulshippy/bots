@@ -2,19 +2,19 @@ import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
-  useNavigationState,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Drawer } from "expo-router/drawer";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { loggedInUser } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+import { Platform, StyleSheet } from "react-native";
+import { useRouter, Stack } from "expo-router";
+import { PlatformPressable } from "@react-navigation/elements";
+import { IconSymbol } from "@/components/ui/IconSymbol";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -27,6 +27,7 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
+  const router = useRouter();
   const logInFromWeb = async () => {
     if (Platform.OS === "web") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -52,74 +53,66 @@ export default function RootLayout() {
     });
   }, [loaded]);
 
-  const stackRouteNames = useNavigationState((state) => {
-    const parentStackNavigator = state.routes.find((r) => r.name === 'parent');
-    const childStackNavigator = state.routes.find((r) => r.name === 'child');
-    const parentRouteName = parentStackNavigator?.state?.routes?.[parentStackNavigator?.state?.index]?.name;
-    const childRouteName = childStackNavigator?.state?.routes?.[childStackNavigator?.state?.index]?.name;
-    return { parentRouteName, childRouteName };
-  });
-
   if (!loaded) {
     return null;
   }
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Drawer
-          screenOptions={() => {
-          const { parentRouteName, childRouteName } = stackRouteNames;
-            return {
-             headerShown: childRouteName !== "chat" && parentRouteName !== "screens/chat",
-             headerTintColor: "#BBB",
-             drawerActiveTintColor: "#CCC",
-             drawerInactiveTintColor: "#999",
-            }
-          }
-        }
-        >
-          <Drawer.Screen
-            name="child"
-            options={{
-              drawerLabel: "Home",
-              title: "",
-              drawerItemStyle: { display: user ? "flex" : "none" },
-            }}
-          />
-          <Drawer.Screen
-            name="parent"
-            options={{
-              drawerLabel: "Parents",
-              title: "Parents",
-              drawerItemStyle: { display: user ? "flex" : "none" },
-            }}
-          />
-          <Drawer.Screen
-            name="screens/login"
-            options={{
-              drawerLabel: "Login",
-              title: "Login",
-              drawerItemStyle: { display: user ? "none" : "flex" },
-            }}
-          />
-          <Drawer.Screen
-            name="+not-found"
-            options={{
-              drawerLabel: "Not Found",
-              title: "Not Found",
-              drawerItemStyle: { display: "none" },
-            }}
-          />
-          <Drawer.Screen
-            name="index"
-            options={{
-              drawerItemStyle: { display: "none" },
-            }}
-          />
-        </Drawer>
-      </GestureHandlerRootView>
+          <Stack
+            screenOptions={({
+              route,
+            }: {
+              route: { params?: { title?: string } };
+            }) => ({ 
+              title: route.params?.title || ""
+            })}
+          >
+            <Stack.Screen
+              name="index"
+              options={{
+                headerShown: true,
+                title: "Syft",
+                headerRight: () => (
+                  <PlatformPressable
+                    onPress={() => {
+                      router.push("/parent/settings");
+                    }}
+                  >
+                    <IconSymbol
+                      name="gear"
+                      color="#555"
+                      size={40}
+                      style={styles.settingsIcon}
+                    ></IconSymbol>
+                  </PlatformPressable>
+                ),
+              }}
+            />
+            <Stack.Screen
+              name="chat"
+              options={{
+                headerShown: true,
+                headerTintColor: "#BBB",
+              }}
+            />
+            <Stack.Screen
+              name="parent"
+              options={{
+                headerShown: true,
+                title: "Settings",
+                headerTintColor: "#BBB",
+              }}
+            />
+            <Stack.Screen name="+not-found" />
+          </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  settingsIcon: { 
+    marginRight: 10
+  }
+});
