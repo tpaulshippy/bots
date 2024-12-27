@@ -1,9 +1,7 @@
-import PinWrapper from "@/components/PinWrapper";
 import { Stack } from "expo-router";
 
 export default function ParentLayout() {
   return (
-    <PinWrapper>
       <Stack
         screenOptions={({
           route,
@@ -19,6 +17,5 @@ export default function ParentLayout() {
           }}
         />       
       </Stack>
-    </PinWrapper>
   );
 }

@@ -1,3 +1,4 @@
+import PinWrapper from "@/components/PinWrapper";
 import { ScrollView, StyleSheet } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import SelectProfile from "./selectProfile";
@@ -6,13 +7,15 @@ import BotsScreen from "./bots";
 
 export default function SettingsScreen() {
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <ThemedView style={styles.container}>
-        <SelectProfile />
-        <BotsScreen />
-        <SetPin />
-      </ThemedView>
-    </ScrollView>
+    <PinWrapper>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ThemedView style={styles.container}>
+          <SelectProfile />
+          <BotsScreen />
+          <SetPin />
+        </ThemedView>
+      </ScrollView>
+    </PinWrapper>
   );
 }
 
