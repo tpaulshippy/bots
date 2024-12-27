@@ -1,14 +1,15 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, FlexAlignType } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams } from 'expo-router';
 
 import { fetchChatMessages, sendChat, ChatMessage } from "@/api/chats";
 
+const ITEM_HEIGHT = 50;
 
 export default function Chat() {
   const local = useLocalSearchParams();
@@ -17,7 +18,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
-    const chatId = local.chatId;
+    const chatId = local.chatId.toString();
     if (chatId) {
       setChatId(chatId);
 
@@ -46,6 +47,8 @@ export default function Chat() {
   };
 
   const sendChatToServer = async () => {
+    const inputText = input.trim();
+    setInput("");
     const profileId = await getProfileId();
     const botId = await getBotId();
     if (!profileId) {
@@ -57,15 +60,14 @@ export default function Chat() {
       return;
     }
 
-    const newUserMessage: ChatMessage = { role: "user", text: input };
+    const newUserMessage: ChatMessage = { role: "user", text: inputText };
     const loadingMessage: ChatMessage = { role: "assistant", isLoading: true, text: "..." };
 
     setMessages([...messages, newUserMessage, loadingMessage]);
 
 
-    const chatResponse = await sendChat(chatId, input, profileId, botId);
+    const chatResponse = await sendChat(chatId, inputText, profileId, botId);
     if (chatResponse) {
-      setInput("");
       const newAssistantMessage: ChatMessage = {
         role: "assistant",
         text: chatResponse.response,
@@ -84,11 +86,13 @@ export default function Chat() {
     >
       <ThemedView style={styles.container}>
         <FlatList
+          inverted
           style={styles.list}
-          data={messages}
+          data={[...messages].reverse()}
           renderItem={({ item }) => (
             item.isLoading ? <ActivityIndicator /> :
             <ThemedText
+              selectable={true}
               style={
                 item.role == "user"
                   ? styles.userMessage
@@ -98,6 +102,11 @@ export default function Chat() {
               {item.text}
             </ThemedText>
           )}
+          getItemLayout={(data, index) => (
+            {length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index}
+          )}
+        
+        
         />
         <ThemedTextInput
           autoFocus={true}
@@ -114,16 +123,12 @@ export default function Chat() {
 const styles = {
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   list: {
-    padding: 20,
-    height: "80%",
+    padding: 20
   },
   input: {
     height: 40,
-    width: "90%",
     margin: 12,
     padding: 10,
     borderWidth: 1,
@@ -141,13 +146,13 @@ const styles = {
     padding: 10,
     margin: 10,
     borderRadius: 10,
-    alignSelf: "flex-end",
+    alignSelf: 'flex-end' as FlexAlignType
   },
   assistantMessage: {
     backgroundColor: "#333",
     padding: 10,
     margin: 10,
     borderRadius: 10,
-    alignSelf: "flex-start",
+    alignSelf: 'flex-start' as FlexAlignType
   },
 };
