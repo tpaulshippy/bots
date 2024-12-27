@@ -2,23 +2,34 @@ import { FlatList, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchBots, Bot } from "@/api/bots";
 import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { router } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 
 export default function BotsScreen({}) {
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
+  const router = useRouter();
 
-  useEffect(() => {
+  const refresh = async () => {
     fetchBots().then((data) => {
       setBots(data);
     });
+  };
+
+  useEffect(() => {
+    refresh();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [])
+  );
 
   const handleBotPress = async (bot: Bot) => {
     if (process.env.EXPO_OS === "ios") {
@@ -27,7 +38,7 @@ export default function BotsScreen({}) {
     }
     await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
     router.push({
-      pathname: `/parent/screens/bot`
+      pathname: `/parent/screens/bot`,
     });
   };
 
@@ -42,9 +53,7 @@ export default function BotsScreen({}) {
             <ThemedView style={styles.botItemContainer}>
               <PlatformPressable
                 onPress={() => handleBotPress(item)}
-                style={[
-                  styles.bot
-                ]}
+                style={[styles.bot]}
               >
                 <ThemedText style={styles.botText}>{item.name}</ThemedText>
               </PlatformPressable>

@@ -12,9 +12,13 @@ class ModelCost:
     def __str__(self):
         return self.model_id
 
-nova_micro = ModelCost("us.amazon.nova-micro-v1:0", 0.000000035, 0.00000014)
-nova_lite = ModelCost("us.amazon.nova-lite-v1:0",   0.00000006,  0.00000024)
-supported_models = [nova_micro, nova_lite]
+nova_micro = ModelCost("us.amazon.nova-micro-v1:0",                     0.000000035, 0.00000014)
+nova_lite = ModelCost("us.amazon.nova-lite-v1:0",                       0.00000006,  0.00000024)
+nova_pro = ModelCost("us.amazon.nova-pro-v1:0",                         0.0000008,   0.0000032)
+llama33 = ModelCost("meta.llama3-3-70b-instruct-v1:0",                  0.00000072,  0.00000072)
+claude3haiku = ModelCost("anthropic.claude-3-haiku-20240307-v1:0",      0.0000008,   0.000004)
+claude35haiku = ModelCost("anthropic.claude-3-5-haiku-20241022-v1:0",   0.00000025,  0.00000125)
+supported_models = [nova_micro, nova_lite, nova_pro, llama33, claude3haiku, claude35haiku]
 
 class UserAccount(models.Model):
     user = models.OneToOneField(User, 

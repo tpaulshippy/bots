@@ -12,7 +12,8 @@ class BotSerializer(serializers.HyperlinkedModelSerializer):
             'model',
             'system_prompt',
             'created_at',
-            'modified_at']
+            'modified_at',
+            'url']
 
 class BotViewSet(viewsets.ModelViewSet):
     queryset = Bot.objects.all()

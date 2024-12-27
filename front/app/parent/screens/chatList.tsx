@@ -1,4 +1,4 @@
-import { StyleSheet, View, FlatList, RefreshControl } from "react-native";
+import { StyleSheet, View, FlatList, RefreshControl, ActivityIndicator } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -75,13 +75,12 @@ export default function ChatList({ rootPath }: Props) {
       const profileId = await getProfileId();
       const data = await fetchChats(profileId);
       setChats(groupByDay(data));
+      setRefreshing(false);
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         router.push("/screens/login");
       }
-      console.error("Failed to fetch chats", error);
-    } finally {
-      setRefreshing(false);
+      console.error("Failed to fetch chats", error);    
     }
   };
 
@@ -112,6 +111,7 @@ export default function ChatList({ rootPath }: Props) {
   }
 
   return (
+    refreshing ? <ActivityIndicator style={{marginTop: 10}} /> :
     <ThemedView style={styles.container}>
       <View style={styles.addButton(rootPath)}>
         <PlatformPressable onPress={handleNewChatPress}>

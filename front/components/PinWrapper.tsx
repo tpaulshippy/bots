@@ -1,5 +1,5 @@
 import React, { PropsWithChildren, useEffect } from "react";
-import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "./ThemedText";
@@ -28,7 +28,7 @@ export default function PinWrapper({ children }: Props) {
 
   return (
     <>
-      {pinCorrect ? (
+      {correctPin == "" ? <ActivityIndicator style={{marginTop: 10}} /> : pinCorrect && correctPin != "" ? (
         <View style={styles.container}>
           {children}
           <TouchableOpacity
