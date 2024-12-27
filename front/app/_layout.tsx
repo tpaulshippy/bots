@@ -72,7 +72,7 @@ export default function RootLayout() {
               name="index"
               options={{
                 headerShown: true,
-                title: "Syft",
+                title: "Syft Learning",
                 headerRight: () => (
                   <PlatformPressable
                     onPress={() => {
