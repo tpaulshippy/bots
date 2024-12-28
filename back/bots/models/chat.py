@@ -7,7 +7,7 @@ from langchain.schema import HumanMessage, SystemMessage, AIMessage
 
 from .profile import Profile
 
-MODEL_ID = "us.amazon.nova-lite-v1:0"
+DEFAULT_MODEL_ID = "us.amazon.nova-lite-v1:0"
 MAX_DOLLARS_DAILY = 0.03
 
 class AiClientWrapper:
@@ -47,7 +47,7 @@ class Chat(models.Model):
         if self.bot and self.bot.model:
             self.ai = AiClientWrapper(model_id=self.bot.model, client=ai)
         else:
-            self.ai = AiClientWrapper(model_id=MODEL_ID, client=ai)
+            self.ai = AiClientWrapper(model_id=DEFAULT_MODEL_ID, client=ai)
         
         if self.user.user_account.cost_for_today() >= MAX_DOLLARS_DAILY:
             return "You have exceeded your daily limit. Please try again tomorrow."

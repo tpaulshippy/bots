@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import models
-from .chat import Chat
+from .chat import DEFAULT_MODEL_ID, Chat
 from django.utils import timezone
 
 class ModelCost:
@@ -25,6 +25,7 @@ class UserAccount(models.Model):
                                 on_delete=models.CASCADE,
                                 related_name='user_account')
     pin = models.IntegerField(null=True)
+    subscription_level = models.IntegerField(default=0)
 
     def cost_for_today(self):
         total = 0.0
@@ -32,11 +33,12 @@ class UserAccount(models.Model):
             input_tokens = self.input_tokens_today(model.model_id)
             output_tokens = self.output_tokens_today(model.model_id)
             total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
-        
-        # Add costs for chats with no specified bot (using the default model of micro)
-        input_tokens = self.input_tokens_today(None)
-        output_tokens = self.output_tokens_today(None)
-        total += input_tokens * nova_micro.input_token_cost + output_tokens * nova_micro.output_token_cost
+            
+            if model.model_id == DEFAULT_MODEL_ID:
+                # Add costs for chats with no specified bot (using the default model)
+                input_tokens = self.input_tokens_today(None)
+                output_tokens = self.output_tokens_today(None)
+                total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
 
         return total
     
