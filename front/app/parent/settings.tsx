@@ -7,11 +7,10 @@ import BotsScreen from "./bots";
 import { getAccount } from "@/api/account";
 import { useEffect, useState } from "react";
 import {
-  View,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { PlatformPressable } from "@react-navigation/elements";
@@ -34,43 +33,49 @@ export default function SettingsScreen() {
     });
   }, []);
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.usageContainer}>
-          <Progress.Bar
-            width={230}
-            height={20}
-            style={styles.progressBar}
-            progress={percentUsedToday}
-          />
-          <ThemedText style={styles.usageText}>
-            {(percentUsedToday * 100).toFixed(2)}% of available tokens used
-            today
-          </ThemedText>
-        </ThemedView>
-        {correctPin != "" ? (
-          <PinWrapper correctPin={correctPin}>
-            <ThemedView style={styles.container}>
-              <SelectProfile />
-              <BotsScreen />
-              <SetPin />
-            </ThemedView>
-          </PinWrapper>
-        ) : (
-          <ThemedView>
-            <ActivityIndicator style={{ marginTop: 10 }} />
-            <PlatformPressable
-              onPress={() => {
-                AsyncStorage.removeItem("loggedInUser");
-                router.navigate("/login");
-              }}
-            >
-              <ThemedText>Log Out</ThemedText>
-            </PlatformPressable>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.select({ ios: 60, android: 80 })}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ThemedView style={styles.container}>
+          <ThemedView style={styles.usageContainer}>
+            <Progress.Bar
+              width={230}
+              height={20}
+              style={styles.progressBar}
+              progress={percentUsedToday}
+            />
+            <ThemedText style={styles.usageText}>
+              {(percentUsedToday * 100).toFixed(2)}% of available tokens used
+              today
+            </ThemedText>
           </ThemedView>
-        )}
-      </ThemedView>
-    </ScrollView>
+          {correctPin != "" ? (
+            <PinWrapper correctPin={correctPin}>
+              <ThemedView style={styles.container}>
+                <SelectProfile />
+                <BotsScreen />
+                <SetPin />
+              </ThemedView>
+            </PinWrapper>
+          ) : (
+            <ThemedView>
+              <ActivityIndicator style={{ marginTop: 10 }} />
+              <PlatformPressable
+                onPress={() => {
+                  AsyncStorage.removeItem("loggedInUser");
+                  router.navigate("/login");
+                }}
+              >
+                <ThemedText>Log Out</ThemedText>
+              </PlatformPressable>
+            </ThemedView>
+          )}
+        </ThemedView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

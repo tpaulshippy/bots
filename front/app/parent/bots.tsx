@@ -1,4 +1,4 @@
-import { FlatList, StyleSheet, TouchableOpacity } from "react-native";
+import { FlatList, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
@@ -72,12 +72,12 @@ export default function BotsScreen({}) {
           )}
         />
       </ThemedView>
-      <TouchableOpacity
+      <PlatformPressable
           style={styles.addBotButton}
           onPress={() => handleBotPress()}
         >
           <ThemedText>Create Bot</ThemedText>
-        </TouchableOpacity>
+        </PlatformPressable>
     </ThemedView>
   );
 }

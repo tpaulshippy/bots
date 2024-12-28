@@ -1,14 +1,11 @@
 import React, { useState, PropsWithChildren, useEffect } from "react";
 import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Platform,
+  StyleSheet
 } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "./ThemedText";
+import { PlatformPressable } from "@react-navigation/elements";
 
 type Props = PropsWithChildren<{
   correctPin: string;
@@ -24,7 +21,7 @@ export default function PinWrapper({ children, correctPin }: Props) {
   };
 
   return pinCorrect ? (
-    <View style={styles.container}>{children}</View>
+    <ThemedView style={styles.container}>{children}</ThemedView>
   ) : correctPin == "" ? null : (
     <ThemedView style={styles.outerContainer}>
       <ThemedView style={styles.innerContainer}>
@@ -36,14 +33,14 @@ export default function PinWrapper({ children, correctPin }: Props) {
           onChangeText={setPin}
           placeholder="Enter your pin"
         />
-        <TouchableOpacity
+        <PlatformPressable
           style={styles.pinButton}
           onPress={async () => {
             checkPin();
           }}
         >
           <ThemedText>Submit</ThemedText>
-        </TouchableOpacity>
+        </PlatformPressable>
       </ThemedView>
     </ThemedView>
   );

@@ -1,9 +1,10 @@
-import { StyleSheet, TouchableOpacity } from "react-native";
+import { StyleSheet } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { updateAccount } from "@/api/account";
 import { useState } from "react";
+import { PlatformPressable } from "@react-navigation/elements";
 
 export default function SetPin() {
   const [pin, setPin] = useState("");
@@ -22,12 +23,12 @@ export default function SetPin() {
           onChangeText={setPin}
           placeholder="Enter your pin"
         />
-        <TouchableOpacity
+        <PlatformPressable
           style={styles.savePinButton}
           onPress={() => savePin()}
         >
           <ThemedText>Save new pin</ThemedText>
-        </TouchableOpacity>
+        </PlatformPressable>
       </ThemedView>
     </ThemedView>
   );

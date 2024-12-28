@@ -11,7 +11,7 @@ class Bot(models.Model):
     bot_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255)
     model = models.CharField(max_length=255)
-    system_prompt = models.TextField()
+    system_prompt = models.TextField(null=True, blank=True)
     
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

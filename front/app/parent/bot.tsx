@@ -3,7 +3,7 @@ import {
   ScrollView,
   Platform,
   StyleSheet,
-  TouchableOpacity,
+  KeyboardAvoidingView,
 } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -19,6 +19,9 @@ import { useRouter } from "expo-router";
 export default function BotScreen({}) {
   const router = useRouter();
   const [bot, setBot] = useState<Bot | null>(null);
+  const [nameMissing, setNameMissing] = useState(false);
+  const [modelMissing, setModelMissing] = useState(false);
+  const [systemPromptMissing, setSystemPromptMissing] = useState(false);
   const [isPickerVisible, setPickerVisible] = useState(false);
 
   const supportedModels = [
@@ -46,41 +49,34 @@ export default function BotScreen({}) {
     loadSelectedBot();
   }, []);
 
+  const validateBot = async () => {
+    setNameMissing(!bot?.name.trim());
+    setModelMissing(!bot?.model);
+  };
+
   const saveBot = async () => {
-    try {
-      if (bot) {
+    await validateBot();
+
+    if (bot) {
+      try {
         const newBot = await upsertBot(bot);
         bot.id = newBot.id;
         bot.bot_id = newBot.bot_id;
         await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
         router.back();
+      } catch (error) {
+        console.error("Failed to save bot", error);
       }
-    } catch (error) {
-      const errorData = JSON.parse(error.message);
-      showError(errorData);
     }
   };
 
   const deleteBot = async () => {
-    try {
-      if (bot && confirm("Are you sure you want to delete this bot?")) {
-        bot.deleted_at = new Date();
-        await upsertBot(bot);
-        await AsyncStorage.removeItem("selectedBot");
-        router.back();
-      }
-    } catch (error) {
-      const errorData = JSON.parse(error.message);
-      showError(errorData);
+    if (bot && confirm("Are you sure you want to delete this bot?")) {
+      bot.deleted_at = new Date();
+      await upsertBot(bot);
+      await AsyncStorage.removeItem("selectedBot");
+      router.back();
     }
-  };
-
-  const showError = (errorData: any) => {
-    let errorMessage = "";
-    Object.getOwnPropertyNames(errorData).forEach((field: string) => {
-      errorMessage += field + ": " + errorData[field].join(", ") + "\n";
-    });
-    alert(errorMessage);
   };
 
   const handleModelPress = () => {
@@ -93,58 +89,81 @@ export default function BotScreen({}) {
   };
 
   return bot ? (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.formGroup}>
-          <ThemedText style={styles.label}>Name</ThemedText>
-          <ThemedTextInput
-            style={styles.input}
-            value={bot.name}
-            onChangeText={(text) => setBot({ ...bot, name: text })}
-          />
-        </ThemedView>
-        <ThemedView style={styles.formGroup}>
-          <ThemedText style={styles.label}>Model</ThemedText>
-          <TouchableOpacity onPress={handleModelPress}>
-            <ThemedText style={styles.input}>{bot.model}</ThemedText>
-          </TouchableOpacity>
-        </ThemedView>
-        <Modal
-          visible={isPickerVisible}
-          transparent={true}
-          animationType="slide"
-        >
-          <ThemedView style={styles.modalContainer}>
-            <Picker
-              selectedValue={bot?.model}
-              style={styles.picker}
-              onValueChange={handlePickerChange}
-            >
-              {supportedModels.map((model, index) => (
-                <Picker.Item key={index} label={model.name} value={model.id} />
-              ))}
-            </Picker>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.select({ ios: 60, android: 80 })}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ThemedView style={styles.container}>
+          <ThemedView style={styles.formGroup}>
+            <ThemedText style={styles.label}>Name</ThemedText>
+            <ThemedTextInput
+              style={[styles.input, nameMissing ? styles.missing : {}]}
+              value={bot.name}
+              onChangeText={(text) => setBot({ ...bot, name: text })}
+            />
           </ThemedView>
-        </Modal>
-        <ThemedView style={styles.formGroup}>
-          <ThemedText style={styles.label}>System Prompt</ThemedText>
-          <ThemedTextInput
-            style={styles.textArea}
-            value={bot.system_prompt}
-            onChangeText={(text) => setBot({ ...bot, system_prompt: text })}
-            multiline
-          />
+          <ThemedView style={styles.formGroup}>
+            <ThemedText style={styles.label}>Model</ThemedText>
+            <PlatformPressable onPress={handleModelPress}>
+              <ThemedText
+                style={[styles.input, modelMissing ? styles.missing : {}]}
+              >
+                {bot.model}
+              </ThemedText>
+            </PlatformPressable>
+          </ThemedView>
+          <Modal
+            visible={isPickerVisible}
+            transparent={true}
+            animationType="slide"
+          >
+            <ThemedView style={styles.modalContainer}>
+              <Picker
+                selectedValue={bot?.model}
+                style={styles.picker}
+                onValueChange={handlePickerChange}
+              >
+                {supportedModels.map((model, index) => (
+                  <Picker.Item
+                    key={index}
+                    label={model.name}
+                    value={model.id}
+                  />
+                ))}
+              </Picker>
+              <PlatformPressable
+                onPress={() => setPickerVisible(false)}
+                style={styles.button}
+              >
+                <ThemedText>Close</ThemedText>
+              </PlatformPressable>
+            </ThemedView>
+          </Modal>
+          <ThemedView style={styles.formGroup}>
+            <ThemedText style={styles.label}>System Prompt</ThemedText>
+            <ThemedTextInput
+              style={styles.textArea}
+              value={bot.system_prompt}
+              onChangeText={(text) => setBot({ ...bot, system_prompt: text })}
+              multiline
+            />
+          </ThemedView>
+          <ThemedView style={styles.buttons}>
+            <PlatformPressable style={styles.button} onPress={() => saveBot()}>
+              <ThemedText>Save</ThemedText>
+            </PlatformPressable>
+            <PlatformPressable
+              style={styles.button}
+              onPress={() => deleteBot()}
+            >
+              <ThemedText>Delete</ThemedText>
+            </PlatformPressable>
+          </ThemedView>
         </ThemedView>
-        <ThemedView style={styles.buttons}>
-          <PlatformPressable onPress={() => saveBot()}>
-            <ThemedText>Save</ThemedText>
-          </PlatformPressable>
-          <PlatformPressable onPress={() => deleteBot()}>
-            <ThemedText>Delete</ThemedText>
-          </PlatformPressable>
-        </ThemedView>
-      </ThemedView>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   ) : null;
 }
 
@@ -182,6 +201,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.9)",
   },
+  button: {
+    marginTop: 10,
+    marginLeft: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#222",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
   textArea: {
     height: 200,
     borderColor: "gray",
@@ -193,5 +223,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
+  },
+  missing: {
+    borderColor: "red",
   },
 });
