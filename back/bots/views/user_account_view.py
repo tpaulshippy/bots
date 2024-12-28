@@ -1,4 +1,4 @@
-from bots.models.chat import MAX_DOLLARS_DAILY
+from bots.models.chat import MAX_COST_DAILY
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from bots.models import Chat, Profile, Bot
@@ -10,7 +10,7 @@ def user_account_view(request):
         accountInfo = {
                 'pin': user.user_account.pin,
                 'costForToday': user.user_account.cost_for_today(),
-                'maxDailyCost': MAX_DOLLARS_DAILY
+                'maxDailyCost': MAX_COST_DAILY[user.user_account.subscription_level]
             }
         return Response(accountInfo)
 
