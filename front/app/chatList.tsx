@@ -135,8 +135,7 @@ export default function ChatList() {
                   numberOfLines={1}
                   ellipsizeMode="tail"
                   style={[
-                    styles.item,
-                    selectedChat?.id === record.id && styles.selectedItem,
+                    styles.item
                   ]}
                 >
                   {record.title}
