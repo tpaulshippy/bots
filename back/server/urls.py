@@ -24,7 +24,7 @@ from bots.viewsets.profile_viewset import ProfileViewSet
 from bots.viewsets.bot_viewset import BotViewSet
 from bots.views.get_chat_response import get_chat_response
 from bots.views.get_jwt import get_jwt, start_web_login
-from bots.views.user_account import user_account
+from bots.views.user_account_view import user_account_view
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -52,5 +52,5 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/user', user_account, name='user_account'),
+    path('api/user', user_account_view, name='user_account'),
 ]

@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from bots.models import Chat, Profile, Bot
 
 @api_view(['POST', 'GET'])
-def user_account(request):
+def user_account_view(request):
     user = request.user
     if request.method == "GET":
         accountInfo = {
