@@ -13,6 +13,10 @@ class Bot(models.Model):
     model = models.CharField(max_length=255)
     system_prompt = models.TextField(null=True, blank=True)
     simple_editor = models.BooleanField(default=False)
+    template_name = models.CharField(max_length=255, null=True, blank=True)
+    response_length = models.IntegerField(default=200)
+    restrict_language = models.BooleanField(default=True)
+    restrict_adult_topics = models.BooleanField(default=True)
     
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
