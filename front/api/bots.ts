@@ -7,6 +7,10 @@ export interface Bot {
   model: string;
   system_prompt: string;
   simple_editor: boolean;
+  template_name: string;
+  response_length: number;
+  restrict_language: boolean;
+  restrict_adult_topics: boolean;
   deleted_at: Date | null;
 }
 

@@ -3,7 +3,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import SelectProfile from "./selectProfile";
 import SetPin from "./setPin";
-import BotsScreen from "./bots";
+import BotsList from "./botsList";
 import { getAccount } from "@/api/account";
 import { useEffect, useState } from "react";
 import {
@@ -56,7 +56,7 @@ export default function SettingsScreen() {
             <PinWrapper correctPin={correctPin}>
               <ThemedView style={styles.container}>
                 <SelectProfile />
-                <BotsScreen />
+                <BotsList />
                 <SetPin />
               </ThemedView>
             </PinWrapper>

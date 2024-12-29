@@ -10,7 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useFocusEffect, useRouter } from "expo-router";
 
-export default function BotsScreen({}) {
+export default function BotsList({}) {
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
   const router = useRouter();
@@ -44,6 +44,10 @@ export default function BotsScreen({}) {
         model: "us.amazon.nova-micro-v1:0",
         system_prompt: "",
         simple_editor: true,
+        template_name: "",
+        response_length: 200,
+        restrict_language: true,
+        restrict_adult_topics: true,
         deleted_at: null,
       }
     }
