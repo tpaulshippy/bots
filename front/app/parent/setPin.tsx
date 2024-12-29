@@ -21,14 +21,16 @@ export default function SetPin() {
           keyboardType="numeric"
           secureTextEntry={true}
           onChangeText={setPin}
-          placeholder="Enter your pin"
+          placeholder="Enter new pin"
         />
-        <PlatformPressable
-          style={styles.savePinButton}
-          onPress={() => savePin()}
-        >
-          <ThemedText>Save new pin</ThemedText>
-        </PlatformPressable>
+        {pin.length == 0 ? null : (
+          <PlatformPressable
+            style={styles.savePinButton}
+            onPress={() => savePin()}
+          >
+            <ThemedText>Save new pin</ThemedText>
+          </PlatformPressable>
+        )}
       </ThemedView>
     </ThemedView>
   );
