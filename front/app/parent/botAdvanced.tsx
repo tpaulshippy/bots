@@ -7,7 +7,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { Picker } from "@react-native-picker/picker";
-import { PlatformPressable } from "@react-navigation/elements";
+import { ThemedButton } from "@/components/ThemedButton";
 
 import { useState } from "react";
 import { Bot, upsertBot } from "@/api/bots";
@@ -93,13 +93,13 @@ export default function AdvancedBotEditor({botEditing} : AdvancedBotEditorProps)
       </ThemedView>
       <ThemedView style={styles.formGroup}>
         <ThemedText style={styles.label}>Model</ThemedText>
-        <PlatformPressable onPress={handleModelPress}>
+        <ThemedButton onPress={handleModelPress}>
           <ThemedText
             style={[styles.input, modelMissing ? styles.missing : {}]}
           >
             {bot.model}
           </ThemedText>
-        </PlatformPressable>
+        </ThemedButton>
       </ThemedView>
       <Modal visible={isPickerVisible} transparent={true} animationType="slide">
         <ThemedView style={styles.modalContainer}>
@@ -112,12 +112,12 @@ export default function AdvancedBotEditor({botEditing} : AdvancedBotEditorProps)
               <Picker.Item key={index} label={model.name} value={model.id} />
             ))}
           </Picker>
-          <PlatformPressable
+          <ThemedButton
             onPress={() => setPickerVisible(false)}
             style={styles.button}
           >
             <ThemedText>Close</ThemedText>
-          </PlatformPressable>
+          </ThemedButton>
         </ThemedView>
       </Modal>
       <ThemedView style={styles.formGroup}>
@@ -130,12 +130,12 @@ export default function AdvancedBotEditor({botEditing} : AdvancedBotEditorProps)
         />
       </ThemedView>
       <ThemedView style={styles.buttons}>
-        <PlatformPressable style={styles.button} onPress={() => saveBot()}>
+        <ThemedButton style={styles.button} onPress={() => saveBot()}>
           <ThemedText>Save</ThemedText>
-        </PlatformPressable>
-        <PlatformPressable style={styles.button} onPress={() => deleteBot()}>
+        </ThemedButton>
+        <ThemedButton style={styles.button} onPress={() => deleteBot()}>
           <ThemedText>Delete</ThemedText>
-        </PlatformPressable>
+        </ThemedButton>
       </ThemedView>
     </ThemedView>
   );
@@ -180,7 +180,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: "#222",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,

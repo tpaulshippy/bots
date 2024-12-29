@@ -13,10 +13,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { PlatformPressable } from "@react-navigation/elements";
+import { ThemedButton } from "@/components/ThemedButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import * as Progress from "react-native-progress";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -63,14 +64,14 @@ export default function SettingsScreen() {
           ) : (
             <ThemedView>
               <ActivityIndicator style={{ marginTop: 10 }} />
-              <PlatformPressable
+              <ThemedButton
                 onPress={() => {
                   AsyncStorage.removeItem("loggedInUser");
                   router.navigate("/login");
                 }}
               >
                 <ThemedText>Log Out</ThemedText>
-              </PlatformPressable>
+              </ThemedButton>
             </ThemedView>
           )}
         </ThemedView>

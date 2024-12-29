@@ -2,18 +2,20 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { useEffect, useState } from "react";
-import { PlatformPressable } from "@react-navigation/elements";
+import { ThemedButton } from "@/components/ThemedButton";
 import { ActivityIndicator, FlatList, FlexAlignType } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAvoidingView, Platform } from "react-native";
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from "expo-router";
 
 import { fetchChatMessages, sendChat, ChatMessage } from "@/api/chats";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 const ITEM_HEIGHT = 50;
 
 export default function Chat() {
+  const assistantColor = useThemeColor({ light: "#bbb", dark: "#222"}, "background");
   const local = useLocalSearchParams();
   const [chatId, setChatId] = useState<string>();
   const [input, setInput] = useState<string>("");
@@ -66,10 +68,13 @@ export default function Chat() {
     }
 
     const newUserMessage: ChatMessage = { role: "user", text: inputText };
-    const loadingMessage: ChatMessage = { role: "assistant", isLoading: true, text: "..." };
+    const loadingMessage: ChatMessage = {
+      role: "assistant",
+      isLoading: true,
+      text: "...",
+    };
 
     setMessages([...messages, newUserMessage, loadingMessage]);
-
 
     const chatResponse = await sendChat(chatId, inputText, profileId, botId);
     if (chatResponse) {
@@ -79,7 +84,6 @@ export default function Chat() {
       };
       setMessages([...messages, newUserMessage, newAssistantMessage]);
       setChatId(chatResponse.chat_id);
-
     }
   };
 
@@ -94,24 +98,27 @@ export default function Chat() {
           inverted
           style={styles.list}
           data={[...messages].reverse()}
-          renderItem={({ item }) => (
-            item.isLoading ? <ActivityIndicator /> :
-            <ThemedText
-              selectable={true}
-              style={
-                item.role == "user"
-                  ? styles.userMessage
-                  : styles.assistantMessage
-              }
-            >
-              {item.text}
-            </ThemedText>
-          )}
-          getItemLayout={(data, index) => (
-            {length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index}
-          )}
-        
-        
+          renderItem={({ item }) =>
+            item.isLoading ? (
+              <ActivityIndicator />
+            ) : (
+              <ThemedText
+                selectable={true}
+                style={
+                  item.role == "user"
+                    ? styles.userMessage
+                    : styles.assistantMessage(assistantColor)
+                }
+              >
+                {item.text}
+              </ThemedText>
+            )
+          }
+          getItemLayout={(data, index) => ({
+            length: ITEM_HEIGHT,
+            offset: ITEM_HEIGHT * index,
+            index,
+          })}
         />
         <ThemedView style={styles.inputContainer}>
           <ThemedTextInput
@@ -119,18 +126,19 @@ export default function Chat() {
             multiline={true}
             onChangeText={setInput}
             value={input}
-            style={styles.input}          
+            style={styles.input}
           ></ThemedTextInput>
-          <PlatformPressable 
+          <ThemedButton
             style={styles.sendButton}
-            onPress={sendChatToServer}>
-             <IconSymbol
-                style={styles.sendButtonIcon}
-                name="arrow.up"
-                color="#555"
-                size={45}
-              ></IconSymbol>
-          </PlatformPressable>
+            onPress={sendChatToServer}
+          >
+            <IconSymbol
+              style={styles.sendButtonIcon}
+              name="arrow.up"
+              color="#bbb"
+              size={45}
+            ></IconSymbol>
+          </ThemedButton>
         </ThemedView>
       </ThemedView>
     </KeyboardAvoidingView>
@@ -142,7 +150,7 @@ const styles = {
     flex: 1,
   },
   list: {
-    padding: 20
+    padding: 20,
   },
   inputContainer: {
     flexDirection: "row",
@@ -155,7 +163,6 @@ const styles = {
     borderWidth: 1,
     borderColor: "#555",
     borderRadius: 10,
-    backgroundColor: "#222",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -167,25 +174,26 @@ const styles = {
     width: 60,
     marginRight: 12,
     marginVertical: 12,
-    backgroundColor: "#222",
-    borderRadius: '50%',
-    justifyContent: 'center' as FlexAlignType,
-    alignItems: 'center' as FlexAlignType,
+    borderRadius: "50%",
+    justifyContent: "center" as FlexAlignType,
+    alignItems: "center" as FlexAlignType,
   },
-  sendButtonIcon: {
-  },
+  sendButtonIcon: {},
   userMessage: {
-    backgroundColor: "#2fd05a",
+    backgroundColor: "#03465b",
+    color: "#fff",
     padding: 10,
     margin: 10,
     borderRadius: 10,
-    alignSelf: 'flex-end' as FlexAlignType
+    alignSelf: "flex-end" as FlexAlignType,
   },
-  assistantMessage: {
-    backgroundColor: "#333",
-    padding: 10,
-    margin: 10,
-    borderRadius: 10,
-    alignSelf: 'flex-start' as FlexAlignType
+  assistantMessage: (assistantColor: string) => {
+    return {
+      backgroundColor: assistantColor,
+      padding: 10,
+      margin: 10,
+      borderRadius: 10,
+      alignSelf: "flex-start" as FlexAlignType,
+    };
   },
 };

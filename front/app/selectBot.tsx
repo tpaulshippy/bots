@@ -4,16 +4,18 @@ import { ThemedView } from "@/components/ThemedView";
 
 import { useEffect, useState } from "react";
 import { fetchBots, Bot } from "@/api/bots";
-import { PlatformPressable } from "@react-navigation/elements";
+import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 type Props = {
   setBotSelected?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function SelectBot({ setBotSelected }: Props) {
+  const buttonColor = useThemeColor({}, "tint");
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
 
@@ -66,10 +68,11 @@ export default function SelectBot({ setBotSelected }: Props) {
       <ThemedText style={styles.titleContainer}>Select bot</ThemedText>
       <ThemedView style={styles.botContainer}>
         {bots.map((bot) => (
-          <PlatformPressable
+          <ThemedButton
             key={bot.bot_id}
             style={[
               styles.bot,
+              { backgroundColor: buttonColor },
               selectedBot?.bot_id === bot.bot_id &&
                 styles.selectedBot,
             ]}
@@ -77,12 +80,12 @@ export default function SelectBot({ setBotSelected }: Props) {
           >
             <IconSymbol
               name="cpu"
-              color="#555"
+              color="#fff"
               size={120}
               style={styles.botIcon}
             ></IconSymbol>
             <ThemedText style={styles.botText}>{bot.name}</ThemedText>
-          </PlatformPressable>
+          </ThemedButton>
         ))}
       </ThemedView>
     </ThemedView>
@@ -120,7 +123,6 @@ const styles = StyleSheet.create({
     margin: 5,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#222",
     borderRadius: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },

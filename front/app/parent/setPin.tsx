@@ -4,7 +4,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { updateAccount } from "@/api/account";
 import { useState } from "react";
-import { PlatformPressable } from "@react-navigation/elements";
+import { ThemedButton } from "@/components/ThemedButton";
 
 export default function SetPin() {
   const [pin, setPin] = useState("");
@@ -24,12 +24,12 @@ export default function SetPin() {
           placeholder="Enter new pin"
         />
         {pin.length == 0 ? null : (
-          <PlatformPressable
+          <ThemedButton
             style={styles.savePinButton}
             onPress={() => savePin()}
           >
             <ThemedText>Save new pin</ThemedText>
-          </PlatformPressable>
+          </ThemedButton>
         )}
       </ThemedView>
     </ThemedView>
@@ -55,7 +55,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#555",
     borderRadius: 10,
-    backgroundColor: "#222",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -65,7 +64,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: "#222",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,

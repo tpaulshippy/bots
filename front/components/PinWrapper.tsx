@@ -1,17 +1,17 @@
 import React, { useState, PropsWithChildren, useEffect } from "react";
-import {
-  StyleSheet
-} from "react-native";
+import { StyleSheet } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "./ThemedText";
-import { PlatformPressable } from "@react-navigation/elements";
+import { ThemedButton } from "@/components/ThemedButton";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 type Props = PropsWithChildren<{
   correctPin: string;
 }>;
 
 export default function PinWrapper({ children, correctPin }: Props) {
+  const buttonColor = useThemeColor({}, "tint");
   const [pin, setPin] = useState("");
   const [pinCorrect, setPinCorrect] = useState(false);
   const checkPin = async () => {
@@ -33,14 +33,14 @@ export default function PinWrapper({ children, correctPin }: Props) {
           onChangeText={setPin}
           placeholder="Enter your pin"
         />
-        <PlatformPressable
-          style={styles.pinButton}
+        <ThemedButton
+          style={[styles.pinButton, { backgroundColor: buttonColor }]}
           onPress={async () => {
             checkPin();
           }}
         >
           <ThemedText>Submit</ThemedText>
-        </PlatformPressable>
+        </ThemedButton>
       </ThemedView>
     </ThemedView>
   );
@@ -63,26 +63,25 @@ const styles = StyleSheet.create({
   innerContainer: {
     flex: 1,
     flexDirection: "row",
-    alignContent: "center",
+    alignItems: "flex-end",
     padding: 10,
   },
   pinTextInput: {
     minWidth: 100,
-    padding: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: "#555",
     borderRadius: 10,
-    backgroundColor: "#222",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
   },
   pinButton: {
+    marginTop: 10,
     marginLeft: 10,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: "#222",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,

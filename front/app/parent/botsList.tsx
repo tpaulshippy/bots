@@ -1,10 +1,12 @@
-import { FlatList, StyleSheet } from "react-native";
+import { FlatList, Platform, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { ThemedButton } from "@/components/ThemedButton";
+
+import { PlatformPressable } from "@react-navigation/elements";
 
 import { useCallback, useEffect, useState } from "react";
 import { fetchBots, Bot } from "@/api/bots";
-import { PlatformPressable } from "@react-navigation/elements";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -79,12 +81,12 @@ export default function BotsList({}) {
           )}
         />
       </ThemedView>
-      <PlatformPressable
+      <ThemedButton
           style={styles.addBotButton}
           onPress={() => handleBotPress()}
         >
           <ThemedText>Create Bot</ThemedText>
-        </PlatformPressable>
+        </ThemedButton>
     </ThemedView>
   );
 }
@@ -106,7 +108,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#222",
   },
   rowBack: {
     alignItems: "center",
@@ -131,7 +132,6 @@ const styles = StyleSheet.create({
     margin: 5,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#222",
     elevation: 5,
   },
   botText: {
@@ -147,7 +147,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: "#222",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,

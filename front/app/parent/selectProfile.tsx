@@ -2,10 +2,11 @@ import { StyleSheet } from "react-native";
 import { Link } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { PlatformPressable } from "@react-navigation/elements";
 
 import { useEffect, useState } from "react";
 import { fetchProfiles, Profile } from "@/api/profiles";
-import { PlatformPressable } from "@react-navigation/elements";
+import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -79,13 +80,13 @@ export default function SelectProfile() {
           </PlatformPressable>
         ))}
         {profiles.length === 0 && (
-          <PlatformPressable
+          <ThemedButton
             onPress={() => {
               AsyncStorage.removeItem("loggedInUser");
             }}
           >
             <ThemedText style={styles.profileText}>Log out</ThemedText>
-          </PlatformPressable>
+          </ThemedButton>
         )}
       </ThemedView>
     </ThemedView>
@@ -123,7 +124,6 @@ const styles = StyleSheet.create({
     margin: 5,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#222",
     borderRadius: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },

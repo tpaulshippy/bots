@@ -3,7 +3,7 @@ import { Link, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { PlatformPressable } from "@react-navigation/elements";
+import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatDistance, format, toDate } from "date-fns";
@@ -12,6 +12,8 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { fetchChats, Chat } from "@/api/chats";
 import { UnauthorizedError } from "@/api/apiClient";
+import { PlatformPressable } from "@react-navigation/elements";
+
 
 type ChatsByDay = {
   [key: string]: Chat[];
@@ -178,7 +180,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 30,
     right: 30,
-    backgroundColor: "darkgray",
+    backgroundColor: "#03465b",
     width: 60,
     height: 60,
     borderRadius: 30,

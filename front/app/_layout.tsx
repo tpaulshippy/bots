@@ -81,7 +81,7 @@ export default function RootLayout() {
                   >
                     <IconSymbol
                       name="gear"
-                      color="#555"
+                      color="#03465b"
                       size={40}
                       style={styles.settingsIcon}
                     ></IconSymbol>
