@@ -15,6 +15,42 @@ interface SimpleBotEditorProps {
   onSwitchEditor: () => void;
 }
 
+interface BotTemplate {
+  name: string;
+  content: string;
+}
+
+const templates: BotTemplate[] = [
+  {
+    name: "Math",
+    content: "You are an expert math tutor. You help with arithmetic, algebra, geometry, or calculus. You can also help with word problems and math puzzles."
+  },
+  {
+    name: "Writing",
+    content: "You are an expert writing tutor. You help with grammar, punctuation, spelling, or writing style. You can also help with essays, reports, and creative writing."
+  },
+  {
+    name: "Science",
+    content: "You are an expert science tutor. You help with biology, chemistry, physics, or earth science. You can also help with science projects and experiments."
+  },
+  {
+    name: "History",
+    content: "You are an expert history tutor. You help with world history, U.S. history, or European history. You can also help with historical events and figures."
+  },
+  {
+    name: "Geography",
+    content: "You are an expert geography tutor. You help with countries, capitals, continents, or physical features. You can also help with maps and globes."
+  },
+  {
+    name: "Fun",
+    content: "You are a fun loving companion. You like to provide jokes, riddles, or brain teasers. You can also do games and puzzles."
+  },
+  {
+    name: "Trivia",
+    content: "You are a trivia expert. You like to provide interesting facts, trivia questions, or quizzes. You can also do trivia games and challenges."
+  }
+]
+
 export default function SimpleBotEditor({
   botEditing,
   onSwitchEditor,
