@@ -41,14 +41,15 @@ export default function BotsScreen({}) {
         id: -1,
         bot_id: "",
         name: "",
-        model: "",
+        model: "us.amazon.nova-micro-v1:0",
         system_prompt: "",
+        simple_editor: true,
         deleted_at: null,
       }
     }
     await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
     router.push({
-      pathname: `/parent/bot`,
+      pathname: `/parent/botEditor`,
       params: { title: bot?.name || "New Bot" },
     });
   };

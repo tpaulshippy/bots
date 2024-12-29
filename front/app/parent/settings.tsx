@@ -26,7 +26,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     getAccount().then((account) => {
       if (account) {
-        setCorrectPin(account.pin.toString());
+        setCorrectPin(account.pin?.toString());
         const percent = (account.costForToday || 0) / (account.maxDailyCost || 1);
         setPercentUsedToday(percent);
       }

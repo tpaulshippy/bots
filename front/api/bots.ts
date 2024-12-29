@@ -6,6 +6,7 @@ export interface Bot {
   name: string;
   model: string;
   system_prompt: string;
+  simple_editor: boolean;
   deleted_at: Date | null;
 }
 

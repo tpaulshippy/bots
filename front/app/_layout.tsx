@@ -105,7 +105,7 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
-              name="parent/bot"
+              name="parent/botEditor"
               options={{
                 headerShown: true,
                 headerTintColor: "#BBB",

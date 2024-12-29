@@ -12,6 +12,7 @@ class BotSerializer(serializers.HyperlinkedModelSerializer):
             'name',
             'model',
             'system_prompt',
+            'simple_editor',
             'created_at',
             'modified_at',
             'deleted_at',
