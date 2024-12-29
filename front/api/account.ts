@@ -2,8 +2,8 @@ import { apiClient } from './apiClient';
 
 export interface Account {
     pin: number;
-    costForToday: number;
-    maxDailyCost: number;
+    costForToday?: number;
+    maxDailyCost?: number;
 }
 
 export const getAccount = async (): Promise<Account | null> => {

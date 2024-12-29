@@ -43,12 +43,13 @@ export default function BotsScreen({}) {
         name: "",
         model: "",
         system_prompt: "",
+        deleted_at: null,
       }
     }
     await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
     router.push({
       pathname: `/parent/bot`,
-      params: { title: bot.name || "New Bot" },
+      params: { title: bot?.name || "New Bot" },
     });
   };
   

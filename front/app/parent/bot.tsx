@@ -16,6 +16,11 @@ import { Bot, upsertBot } from "@/api/bots";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 
+interface SupportedModel {
+  name: string;
+  id: string;
+}
+
 export default function BotScreen({}) {
   const router = useRouter();
   const [bot, setBot] = useState<Bot | null>(null);
@@ -24,7 +29,7 @@ export default function BotScreen({}) {
   const [systemPromptMissing, setSystemPromptMissing] = useState(false);
   const [isPickerVisible, setPickerVisible] = useState(false);
 
-  const supportedModels = [
+  const supportedModels: SupportedModel[] = [
     { name: "Select a model", id: "" },
     { name: "Nova Micro", id: "us.amazon.nova-micro-v1:0" },
     { name: "Nova Lite", id: "us.amazon.nova-lite-v1:0" },
@@ -83,8 +88,8 @@ export default function BotScreen({}) {
     setPickerVisible(true);
   };
 
-  const handlePickerChange = (itemValue) => {
-    setBot({ ...bot, model: itemValue });
+  const handlePickerChange = (itemValue: string) => {
+    setBot(bot ? { ...bot, model: itemValue } : null);
     setPickerVisible(false);
   };
 
