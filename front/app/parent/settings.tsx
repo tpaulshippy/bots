@@ -21,6 +21,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
   const [correctPin, setCorrectPin] = useState("");
   const [percentUsedToday, setPercentUsedToday] = useState(0);
 
@@ -28,8 +29,10 @@ export default function SettingsScreen() {
     getAccount().then((account) => {
       if (account) {
         setCorrectPin(account.pin?.toString());
-        const percent = (account.costForToday || 0) / (account.maxDailyCost || 1);
+        const percent =
+          (account.costForToday || 0) / (account.maxDailyCost || 1);
         setPercentUsedToday(percent);
+        setLoading(false);
       }
     });
   }, []);
@@ -43,8 +46,8 @@ export default function SettingsScreen() {
         <ThemedView style={styles.container}>
           <ThemedView style={styles.usageContainer}>
             <Progress.Bar
-              width={230}
               height={20}
+              width={null}
               style={styles.progressBar}
               progress={percentUsedToday}
             />
@@ -53,18 +56,11 @@ export default function SettingsScreen() {
               today
             </ThemedText>
           </ThemedView>
-          {correctPin != "" ? (
-            <PinWrapper correctPin={correctPin}>
-              <ThemedView style={styles.container}>
-                <SelectProfile />
-                <BotsList />
-                <SetPin />
-              </ThemedView>
-            </PinWrapper>
-          ) : (
-            <ThemedView>
-              <ActivityIndicator style={{ marginTop: 10 }} />
+          {loading ? (
+            <ThemedView style={styles.loadingContainer}>
+              <ActivityIndicator />
               <ThemedButton
+                style={styles.logOutButton}
                 onPress={() => {
                   AsyncStorage.removeItem("loggedInUser");
                   router.navigate("/login");
@@ -73,6 +69,14 @@ export default function SettingsScreen() {
                 <ThemedText>Log Out</ThemedText>
               </ThemedButton>
             </ThemedView>
+          ) : (
+            <PinWrapper correctPin={correctPin}>
+              <ThemedView style={styles.container}>
+                <SelectProfile />
+                <BotsList />
+                <SetPin />
+              </ThemedView>
+            </PinWrapper>
           )}
         </ThemedView>
       </ScrollView>
@@ -81,7 +85,24 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {},
+  container: {
+    flex: 1,
+    flexDirection: "column",
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+  },
+  logOutButton: {
+    marginTop: 10,
+    marginLeft: 10,
+    padding: 10,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
   usageContainer: {
     margin: 10,
   },
