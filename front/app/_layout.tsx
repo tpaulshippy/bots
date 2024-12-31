@@ -11,12 +11,12 @@ import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { loggedInUser } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform, StyleSheet } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { Colors } from "@/constants/Colors";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { Image } from 'expo-image';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -76,7 +76,13 @@ export default function RootLayout() {
               name="index"
               options={{
                 headerShown: true,
-                title: "Syft Learning",
+                headerTitle(props) {
+                  return (
+                    <View style={styles.headerContainer}>
+                      <Image source={require('../assets/images/syft_small.png')} style={{ width: 260, height: 35 }} />
+                    </View>
+                  );
+                },
                 headerRight: () => (
                   <PlatformPressable
                     onPress={() => {
@@ -161,6 +167,12 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
+  headerContainer: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center"
+  },
   settingsIcon: { 
     marginRight: 10
   }
