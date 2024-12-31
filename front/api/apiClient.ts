@@ -58,6 +58,10 @@ export const loggedInUser = async () => {
   };
 
 export const refreshWithRefreshToken = async (user: any) => {
+    if (!user) {
+        throw new UnauthorizedError();
+    }
+
     const response = await fetch(`${BASE_URL}/api/token/refresh/`, {
         method: 'POST',
         headers: {
