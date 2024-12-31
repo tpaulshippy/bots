@@ -19,6 +19,8 @@ const MAPPING = {
   'cpu': 'memory',
   'gear': 'settings',
   'arrow.up': 'arrow-upward',
+  'plus.circle.fill': 'add-circle',
+  'lock.fill': 'lock',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

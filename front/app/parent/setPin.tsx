@@ -5,12 +5,15 @@ import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { updateAccount } from "@/api/account";
 import { useState } from "react";
 import { ThemedButton } from "@/components/ThemedButton";
+import { useRouter } from "expo-router";
 
 export default function SetPin() {
   const [pin, setPin] = useState("");
+  const router = useRouter();
 
-  const savePin = () => {
-    updateAccount({ pin: parseInt(pin) });
+  const savePin = async () => {
+    await updateAccount({ pin: parseInt(pin) });
+    router.back();
   };
 
   return (
@@ -50,7 +53,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   pinTextInput: {
-    width: 160,
+    width: 130,
     padding: 10,
     borderWidth: 1,
     borderColor: "#555",

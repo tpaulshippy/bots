@@ -28,6 +28,21 @@ export const fetchBots = async (): Promise<Bot[]> => {
   }
 };
 
+
+export const fetchBot = async (id: string): Promise<Bot | null> => {
+  try {
+    const { data, ok, status } = await apiClient<Bot>(`/bots/${id}.json`);
+
+    if (!ok) {
+      throw new Error(`Failed to fetch bot with status ${status}`);
+    }
+    return data;
+  } catch (error: any) {
+    console.error(error.toString());
+    return null;
+  }
+};
+
 export const upsertBot = async (bot: Bot): Promise<Bot> => {
   if (bot.id == -1) {
     const { data, ok, status } = await apiClient<Bot>("/bots.json", {

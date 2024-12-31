@@ -6,19 +6,36 @@ import {
 } from "react-native";
 
 import { useEffect, useState } from "react";
-import { Bot } from "@/api/bots";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Bot, fetchBot } from "@/api/bots";
 import AdvancedBotEditor from "./botAdvanced";
 import SimpleBotEditor from "./botSimple";
+import { useLocalSearchParams } from "expo-router";
 
 export default function BotEditor({}) {
   const [bot, setBot] = useState<Bot | null>(null);
+  const local = useLocalSearchParams();
 
   const loadSelectedBot = async () => {
-    const botData = await AsyncStorage.getItem("selectedBot");
-    if (botData) {
-      const bot = JSON.parse(botData);
+    const botId = local.botId as string;
+    if (botId) {
+      const bot = await fetchBot(botId);
       setBot(bot);
+    }
+    else {
+      const newBot = {
+        id: -1,
+        bot_id: "",
+        name: "",
+        model: "us.amazon.nova-micro-v1:0",
+        system_prompt: "",
+        simple_editor: true,
+        template_name: "",
+        response_length: 200,
+        restrict_language: true,
+        restrict_adult_topics: true,
+        deleted_at: null,
+      };
+      setBot(newBot);
     }
   };
 
@@ -34,7 +51,10 @@ export default function BotEditor({}) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {bot.simple_editor ? (
-          <SimpleBotEditor botEditing={bot} onSwitchEditor={() => loadSelectedBot()} />
+          <SimpleBotEditor
+            botEditing={bot}
+            onSwitchEditor={() => loadSelectedBot()}
+          />
         ) : (
           <AdvancedBotEditor botEditing={bot} />
         )}

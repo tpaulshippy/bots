@@ -3,6 +3,7 @@ import {
   Platform,
   StyleSheet,
 } from "react-native";
+import alert from '@/components/Alert'
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
@@ -52,10 +53,7 @@ export default function AdvancedBotEditor({botEditing} : AdvancedBotEditorProps)
 
     if (bot) {
       try {
-        const newBot = await upsertBot(bot);
-        bot.id = newBot.id;
-        bot.bot_id = newBot.bot_id;
-        await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
+        await upsertBot(bot);
         router.back();
       } catch (error) {
         console.error("Failed to save bot", error);
@@ -64,12 +62,27 @@ export default function AdvancedBotEditor({botEditing} : AdvancedBotEditorProps)
   };
 
   const deleteBot = async () => {
-    if (bot && confirm("Are you sure you want to delete this bot?")) {
-      bot.deleted_at = new Date();
-      await upsertBot(bot);
-      await AsyncStorage.removeItem("selectedBot");
-      router.back();
-    }
+    alert(
+      "Delete Bot",
+      "Are you sure you want to delete this bot?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          onPress: async () => {
+            if (bot) {
+              bot.deleted_at = new Date();
+              await upsertBot(bot);
+              router.back();
+            }
+          },
+        },
+      ]
+    );
+
   };
 
   const handleModelPress = () => {

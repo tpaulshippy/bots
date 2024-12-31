@@ -11,6 +11,7 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useFocusEffect, useRouter } from "expo-router";
+import { MenuItem } from "@/components/MenuItem";
 
 export default function BotsList({}) {
   const [bots, setBots] = useState<Bot[]>([]);
@@ -38,55 +39,31 @@ export default function BotsList({}) {
       // Add a soft haptic feedback when pressing down on the tabs.
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    if (!bot) {
-      bot = {
-        id: -1,
-        bot_id: "",
-        name: "",
-        model: "us.amazon.nova-micro-v1:0",
-        system_prompt: "",
-        simple_editor: true,
-        template_name: "",
-        response_length: 200,
-        restrict_language: true,
-        restrict_adult_topics: true,
-        deleted_at: null,
-      }
-    }
-    await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
+    
     router.push({
       pathname: `/parent/botEditor`,
-      params: { title: bot?.name || "New Bot" },
+      params: { title: bot?.name || "New Bot", botId: bot?.bot_id || "" },
     });
   };
   
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.titleContainer}>Bots</ThemedText>
       <ThemedView style={styles.botContainer}>
         <FlatList
           scrollEnabled={false}
           data={bots}
           keyExtractor={(item) => item.bot_id}
           renderItem={({ item }) => (
-            <ThemedView style={styles.botItemContainer}>
-              <PlatformPressable
-                onPress={() => handleBotPress(item)}
-                style={[styles.bot]}
-              >
-                <ThemedText style={styles.botText}>{item.name}</ThemedText>
-              </PlatformPressable>
-            </ThemedView>
+            <MenuItem 
+              key={item.bot_id}
+              iconName="cpu"
+              title={item.name}
+              onPress={() => handleBotPress(item)}
+            />
           )}
         />
       </ThemedView>
-      <ThemedButton
-          style={styles.addBotButton}
-          onPress={() => handleBotPress()}
-        >
-          <ThemedText>Create Bot</ThemedText>
-        </ThemedButton>
     </ThemedView>
   );
 }

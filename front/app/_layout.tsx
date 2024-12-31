@@ -15,6 +15,8 @@ import { Platform, StyleSheet } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { Colors } from "@/constants/Colors";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -23,6 +25,8 @@ export default function RootLayout() {
   type User = { access: string; refresh: string } | null;
   const [user, setUser] = useState<User>(null);
   const colorScheme = useColorScheme();
+  const textColor = useThemeColor({}, "text");
+  const iconColor = useThemeColor({}, "tint");
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
@@ -81,7 +85,7 @@ export default function RootLayout() {
                   >
                     <IconSymbol
                       name="gear"
-                      color="#03465b"
+                      color={iconColor}
                       size={40}
                       style={styles.settingsIcon}
                     ></IconSymbol>
@@ -93,7 +97,7 @@ export default function RootLayout() {
               name="chat"
               options={{
                 headerShown: true,
-                headerTintColor: "#BBB",
+                headerTintColor: textColor,
               }}
             />
             <Stack.Screen
@@ -101,14 +105,45 @@ export default function RootLayout() {
               options={{
                 headerShown: true,
                 title: "Settings",
-                headerTintColor: "#BBB",
+                headerTintColor: textColor,
               }}
             />
+            <Stack.Screen
+              name="parent/selectProfile"
+              options={{
+                headerShown: true,
+                title: "Profiles",
+                headerTintColor: textColor,
+              }}
+            />
+             <Stack.Screen
+              name="parent/botsList"
+              options={{
+                headerShown: true,
+                title: "Bots",
+                headerTintColor: textColor,
+                headerRight: () => (
+                  <PlatformPressable
+                    onPress={() => {
+                      router.push("/parent/botEditor");
+                    }}
+                  >
+                    <IconSymbol
+                      name="plus.circle.fill"
+                      color={iconColor}
+                      size={40}
+                      style={styles.settingsIcon}
+                    ></IconSymbol>
+                  </PlatformPressable>
+                ),
+              }}
+            />
+            
             <Stack.Screen
               name="parent/botEditor"
               options={{
                 headerShown: true,
-                headerTintColor: "#BBB",
+                headerTintColor: textColor,
               }}
             />
             <Stack.Screen name="+not-found" />

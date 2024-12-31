@@ -5,10 +5,10 @@ import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { Picker } from "@react-native-picker/picker";
 import { ThemedButton } from "@/components/ThemedButton";
 import { PlatformPressable } from "@react-navigation/elements";
+import alert from '@/components/Alert'
 
 import { useEffect, useState } from "react";
 import { Bot, upsertBot } from "@/api/bots";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 
 interface SimpleBotEditorProps {
@@ -92,10 +92,7 @@ export default function SimpleBotEditor({
 
     if (bot) {
       try {
-        const newBot = await upsertBot(bot);
-        bot.id = newBot.id;
-        bot.bot_id = newBot.bot_id;
-        await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
+        await upsertBot(bot);
         router.back();
       } catch (error) {
         console.error("Failed to save bot", error);
@@ -105,19 +102,29 @@ export default function SimpleBotEditor({
 
   const switchToAdvancedEditor = async () => {
     bot.simple_editor = false;
-    await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
+    await upsertBot(bot);
     if (onSwitchEditor) {
       onSwitchEditor();
     }
   };
 
   const deleteBot = async () => {
-    if (bot && confirm("Are you sure you want to delete this bot?")) {
-      bot.deleted_at = new Date();
-      await upsertBot(bot);
-      await AsyncStorage.removeItem("selectedBot");
-      router.back();
-    }
+    alert("Delete Bot", "Are you sure you want to delete this bot?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Delete",
+        onPress: async () => {
+          if (bot) {
+            bot.deleted_at = new Date();
+            await upsertBot(bot);
+            router.back();
+          }
+        },
+      },
+    ]);
   };
 
   const handleModelPress = () => {
@@ -130,14 +137,18 @@ export default function SimpleBotEditor({
   };
 
   const generate_system_prompt = () => {
-    let prompt = templates.find(
+    let prompt;
+    const template = templates.find(
       (template) => template.id === bot.template_name
-    )?.content;
+    );
+    prompt = template ? template.content : "";
     prompt += "\n\n";
     prompt += `Your name is ${bot.name}.`;
     prompt += "\n\n";
-    prompt += `Please limit your response to a maximum of ${bot.response_length} characters.`;
-    prompt += "\n\n";
+    if (bot.response_length) {
+      prompt += `Please limit your response to a maximum of ${bot.response_length} characters.`;
+      prompt += "\n\n";
+    }
     if (bot.restrict_language) {
       prompt += "Always avoid using foul language.";
       prompt += "\n\n";
@@ -155,7 +166,13 @@ export default function SimpleBotEditor({
 
   useEffect(() => {
     setBotProperty({ ...bot, system_prompt: generate_system_prompt() });
-  }, [bot.name, bot.template_name, bot.response_length, bot.restrict_language, bot.restrict_adult_topics]);
+  }, [
+    bot.name,
+    bot.template_name,
+    bot.response_length,
+    bot.restrict_language,
+    bot.restrict_adult_topics,
+  ]);
 
   return (
     <ThemedView style={styles.container}>
@@ -206,8 +223,10 @@ export default function SimpleBotEditor({
         <ThemedTextInput
           keyboardType="numeric"
           style={[styles.input, nameMissing ? styles.missing : {}]}
-          value={bot.response_length.toString()}
-          onChangeText={(text) => setBotProperty({ response_length: parseInt(text) })}
+          value={bot.response_length?.toString()}
+          onChangeText={(text) =>
+            setBotProperty({ response_length: parseInt(text) })
+          }
         />
       </ThemedView>
       <ThemedView style={styles.formGroupCheckbox}>
@@ -251,12 +270,14 @@ export default function SimpleBotEditor({
         <ThemedButton style={styles.button} onPress={() => saveBot()}>
           <ThemedText>Save</ThemedText>
         </ThemedButton>
-        <ThemedButton
-          style={styles.button}
-          onPress={() => switchToAdvancedEditor()}
-        >
-          <ThemedText>Use Advanced Editor</ThemedText>
-        </ThemedButton>
+        {bot.bot_id ? (
+          <ThemedButton
+            style={styles.button}
+            onPress={() => switchToAdvancedEditor()}
+          >
+            <ThemedText>Use Advanced Editor</ThemedText>
+          </ThemedButton>
+        ) : null}
         <ThemedButton style={styles.button} onPress={() => deleteBot()}>
           <ThemedText>Delete</ThemedText>
         </ThemedButton>

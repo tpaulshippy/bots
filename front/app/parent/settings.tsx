@@ -12,12 +12,15 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  FlatList,
 } from "react-native";
 import { ThemedButton } from "@/components/ThemedButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import * as Progress from "react-native-progress";
+import * as Haptics from "expo-haptics";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { MenuItem } from "@/components/MenuItem";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -36,6 +39,20 @@ export default function SettingsScreen() {
       }
     });
   }, []);
+
+  const goTo = (
+    path:
+      | "/parent/selectProfile"
+      | "/parent/botsList"
+      | "/parent/setPin"
+      | "/login"
+  ) => {
+    if (process.env.EXPO_OS === "ios") {
+      // Add a soft haptic feedback when pressing down on the tabs.
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.navigate(path);
+  };
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -72,9 +89,24 @@ export default function SettingsScreen() {
           ) : (
             <PinWrapper correctPin={correctPin}>
               <ThemedView style={styles.container}>
-                <SelectProfile />
+                <MenuItem
+                  title="Profiles"
+                  iconName="person.fill"
+                  onPress={() => goTo("/parent/selectProfile")}
+                ></MenuItem>
+                <MenuItem
+                  title="Bots"
+                  iconName="cpu"
+                  onPress={() => goTo("/parent/botsList")}
+                ></MenuItem>
+                <MenuItem
+                  title="Set Pin"
+                  iconName="lock.fill"
+                  onPress={() => goTo("/parent/setPin")}
+                ></MenuItem>
+                {/* <SelectProfile />
                 <BotsList />
-                <SetPin />
+                <SetPin /> */}
               </ThemedView>
             </PinWrapper>
           )}
@@ -104,7 +136,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   usageContainer: {
-    margin: 10,
+    paddingHorizontal: 20,
+    marginVertical: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#666",
   },
   progressBar: {
     color: "#BBB",

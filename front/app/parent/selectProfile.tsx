@@ -1,5 +1,4 @@
-import { StyleSheet } from "react-native";
-import { Link } from "expo-router";
+import { StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { PlatformPressable } from "@react-navigation/elements";
@@ -58,8 +57,7 @@ export default function SelectProfile() {
 
   return (
     <ThemedView style={styles.container}>
-        <ThemedText style={styles.titleContainer}>Select device profile</ThemedText>
-        <ThemedView style={styles.profileContainer}>
+        <View style={styles.profileContainer}>
         {profiles.map((profile) => (
           <PlatformPressable
             key={profile.profile_id}
@@ -88,7 +86,7 @@ export default function SelectProfile() {
             <ThemedText style={styles.profileText}>Log out</ThemedText>
           </ThemedButton>
         )}
-      </ThemedView>
+      </View>
     </ThemedView>
   );
 }
@@ -98,13 +96,13 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
+    margin: 20
   },
   profileContainer: {
     flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-around",
-    width: "100%",
   },
   profileIcon: {
     flex: 1,
@@ -117,6 +115,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   profile: {
+    flex: 1,
     width: "30%",
     height: 100,
     aspectRatio: 1,
