@@ -128,4 +128,4 @@ def describe_chat_model():
             chat.save()
             when(ai).invoke(...).thenReturn(ai_output)
             result = chat.get_response(ai=ai)
-            assert result == "You have exceeded your daily limit. Please try again tomorrow."
+            assert result == "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."

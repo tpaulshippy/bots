@@ -54,7 +54,7 @@ class Chat(models.Model):
             self.ai = AiClientWrapper(model_id=DEFAULT_MODEL_ID, client=ai)
         
         if self.user.user_account.cost_for_today() >= MAX_COST_DAILY[self.user.user_account.subscription_level]:
-            return "You have exceeded your daily limit. Please try again tomorrow."
+            return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
         message_list = self.get_input()
 
         response = self.ai.invoke(

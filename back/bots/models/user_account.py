@@ -29,18 +29,24 @@ class UserAccount(models.Model):
 
     def cost_for_today(self):
         total = 0.0
+        total_input_tokens = 0
+        total_output_tokens = 0
         for model in supported_models:
             input_tokens = self.input_tokens_today(model.model_id)
             output_tokens = self.output_tokens_today(model.model_id)
             total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
+            total_input_tokens += input_tokens
+            total_output_tokens += output_tokens
             
             if model.model_id == DEFAULT_MODEL_ID:
                 # Add costs for chats with no specified bot (using the default model)
                 input_tokens = self.input_tokens_today(None)
                 output_tokens = self.output_tokens_today(None)
                 total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
+                total_input_tokens += input_tokens
+                total_output_tokens += output_tokens
 
-        return total
+        return total #, total_input_tokens, total_output_tokens
     
     def input_tokens_today(self, model_id):
         chats = self.chats_today(model_id)

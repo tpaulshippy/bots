@@ -65,6 +65,7 @@ export default function SettingsScreen() {
             <Progress.Bar
               height={20}
               width={null}
+              color={useThemeColor({}, "tint")}
               style={styles.progressBar}
               progress={percentUsedToday}
             />
@@ -143,8 +144,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#666",
   },
   progressBar: {
-    color: "#BBB",
-    borderColor: "#BBB",
+    
   },
   usageText: {
     fontSize: 12,
