@@ -12,10 +12,9 @@ type Props = PropsWithChildren<{
 
 export default function PinWrapper({ children, correctPin }: Props) {
   const buttonColor = useThemeColor({}, "tint");
-  const [pin, setPin] = useState("");
   const [pinCorrect, setPinCorrect] = useState(false);
-  const checkPin = async () => {
-    if (pin === correctPin) {
+  const checkPin = (enteredPin: string) => {
+    if (enteredPin === correctPin) {
       setPinCorrect(true);
     }
   };
@@ -30,17 +29,9 @@ export default function PinWrapper({ children, correctPin }: Props) {
           style={styles.pinTextInput}
           keyboardType="numeric"
           secureTextEntry={true}
-          onChangeText={setPin}
+          onChangeText={checkPin}
           placeholder="Enter your pin"
         />
-        <ThemedButton
-          style={[styles.pinButton, { backgroundColor: buttonColor }]}
-          onPress={async () => {
-            checkPin();
-          }}
-        >
-          <ThemedText>Submit</ThemedText>
-        </ThemedButton>
       </ThemedView>
     </ThemedView>
   );
