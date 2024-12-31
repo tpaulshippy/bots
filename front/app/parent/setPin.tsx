@@ -46,8 +46,9 @@ const styles = StyleSheet.create({
     flexDirection: "column",
   },
   pinContainer: {
-    flexDirection: "row",
-    paddingLeft: 20,
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
   },
   list: {
     padding: 20,
@@ -64,7 +65,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   savePinButton: {
-    marginLeft: 10,
+    marginTop: 10,
+    alignItems: "center",
+    width: 130,
     padding: 10,
     borderRadius: 10,
     shadowColor: "#000",

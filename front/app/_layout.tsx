@@ -138,7 +138,14 @@ export default function RootLayout() {
                 ),
               }}
             />
-            
+            <Stack.Screen
+              name="parent/setPin"
+              options={{
+                headerShown: true,
+                title: "Set Pin",
+                headerTintColor: textColor,
+              }}
+            />            
             <Stack.Screen
               name="parent/botEditor"
               options={{
