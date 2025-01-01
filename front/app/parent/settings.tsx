@@ -22,11 +22,18 @@ import * as Haptics from "expo-haptics";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
 
+const subscriptionNames: { [key: string]: string } = {
+  0: "Free",
+  1: "Basic",
+  2: "Plus"
+};
+
 export default function SettingsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [correctPin, setCorrectPin] = useState("");
   const [percentUsedToday, setPercentUsedToday] = useState(0);
+  const [subscription, setSubscription] = useState("free");
 
   useEffect(() => {
     getAccount().then((account) => {
@@ -35,6 +42,8 @@ export default function SettingsScreen() {
         const percent =
           (account.costForToday || 0) / (account.maxDailyCost || 1);
         setPercentUsedToday(percent);
+        if (account.subscriptionLevel !== undefined)
+          setSubscription(subscriptionNames[account.subscriptionLevel]);
         setLoading(false);
       }
     });
@@ -62,6 +71,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <ThemedView style={styles.container}>
           <ThemedView style={styles.usageContainer}>
+            <ThemedText>You have the {subscription} subscription.</ThemedText>
             <Progress.Bar
               height={20}
               width={null}

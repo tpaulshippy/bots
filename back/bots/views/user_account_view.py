@@ -10,7 +10,8 @@ def user_account_view(request):
         accountInfo = {
                 'pin': user.user_account.pin,
                 'costForToday': user.user_account.cost_for_today(),
-                'maxDailyCost': MAX_COST_DAILY[user.user_account.subscription_level]
+                'maxDailyCost': MAX_COST_DAILY[user.user_account.subscription_level],
+                'subscriptionLevel': user.user_account.subscription_level
             }
         return Response(accountInfo)
 

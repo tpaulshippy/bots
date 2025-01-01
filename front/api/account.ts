@@ -4,6 +4,7 @@ export interface Account {
     pin: number;
     costForToday?: number;
     maxDailyCost?: number;
+    subscriptionLevel?: number;
 }
 
 export const getAccount = async (): Promise<Account | null> => {
