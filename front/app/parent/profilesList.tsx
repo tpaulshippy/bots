@@ -59,6 +59,13 @@ export default function ProfilesList() {
     });
   };
 
+  const editProfile = async (profile: Profile) => {
+    router.push({
+      pathname: "/parent/profileEditor",
+      params: { title: profile.name, profileId: profile.profile_id },
+    });
+  };
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -108,6 +115,7 @@ export default function ProfilesList() {
                 styles.selectedProfile,
             ]}
             onPress={(ev) => handleProfilePress(profile)}
+            onLongPress={() => editProfile(profile)}
           >
             <IconSymbol
               name="person.fill"
