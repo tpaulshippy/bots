@@ -9,9 +9,11 @@ import { useEffect, useState } from "react";
 import { Bot, fetchBot } from "@/api/bots";
 import AdvancedBotEditor from "./botAdvanced";
 import SimpleBotEditor from "./botSimple";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
-export default function BotEditor({}) {
+
+export default function BotEditor() {
+  const router = useRouter();
   const [bot, setBot] = useState<Bot | null>(null);
   const local = useLocalSearchParams();
 
@@ -43,6 +45,14 @@ export default function BotEditor({}) {
     loadSelectedBot();
   }, []);
 
+  const switchToAdvanced = (bot: Bot) => {
+    router.replace({
+      pathname: `/parent/botEditor`,
+      params: { title: bot.name || "New Bot", botId: bot.bot_id || "" },
+    });
+  };
+
+
   return bot ? (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -53,7 +63,7 @@ export default function BotEditor({}) {
         {bot.simple_editor ? (
           <SimpleBotEditor
             botEditing={bot}
-            onSwitchEditor={() => loadSelectedBot()}
+            onSwitchEditor={(bot: Bot) => switchToAdvanced(bot)}
           />
         ) : (
           <AdvancedBotEditor botEditing={bot} />
@@ -66,60 +76,5 @@ export default function BotEditor({}) {
 const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
-  },
-  container: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    padding: 20,
-  },
-  formGroup: {
-    width: "100%",
-    marginBottom: 15,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  input: {
-    height: 40,
-    borderColor: "gray",
-    borderWidth: 1,
-    padding: 8,
-  },
-  picker: {
-    height: Platform.OS === "web" ? 40 : 200,
-    width: "100%",
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-  },
-  button: {
-    marginTop: 10,
-    marginLeft: 10,
-    padding: 10,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  textArea: {
-    height: 200,
-    borderColor: "gray",
-    borderWidth: 1,
-    paddingLeft: 8,
-    textAlignVertical: "top",
-  },
-  buttons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  missing: {
-    borderColor: "red",
   },
 });

@@ -1,19 +1,17 @@
-import {
-  Modal,
-  Platform,
-  StyleSheet,
-} from "react-native";
-import alert from '@/components/Alert'
+import { Modal, Platform, StyleSheet } from "react-native";
+import alert from "@/components/Alert";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { Picker } from "@react-native-picker/picker";
 import { ThemedButton } from "@/components/ThemedButton";
 
-import { useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import { Bot, upsertBot } from "@/api/bots";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
+import { IconSymbol } from "@/components/ui/IconSymbol";
+import { PlatformPressable } from "@react-navigation/elements";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 interface SupportedModel {
   name: string;
@@ -24,12 +22,17 @@ interface AdvancedBotEditorProps {
   botEditing: Bot;
 }
 
-export default function AdvancedBotEditor({botEditing} : AdvancedBotEditorProps) {
+export default function AdvancedBotEditor({
+  botEditing,
+}: AdvancedBotEditorProps) {
+  const navigation = useNavigation();
   const router = useRouter();
   const [bot, setBot] = useState<Bot>(botEditing);
   const [nameMissing, setNameMissing] = useState(false);
   const [modelMissing, setModelMissing] = useState(false);
   const [isPickerVisible, setPickerVisible] = useState(false);
+  const iconColor = useThemeColor({}, "tint");
+  const buttonIconColor = useThemeColor({}, "text");
 
   const supportedModels: SupportedModel[] = [
     { name: "Nova Micro", id: "us.amazon.nova-micro-v1:0" },
@@ -62,34 +65,45 @@ export default function AdvancedBotEditor({botEditing} : AdvancedBotEditorProps)
   };
 
   const deleteBot = async () => {
-    alert(
-      "Delete Bot",
-      "Are you sure you want to delete this bot?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
+    alert("Delete Bot", "Are you sure you want to delete this bot?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+        onPress: () => {},
+      },
+      {
+        text: "Delete",
+        onPress: async () => {
+          if (bot) {
+            bot.deleted_at = new Date();
+            await upsertBot(bot);
+            router.back();
+          }
         },
-        {
-          text: "Delete",
-          onPress: async () => {
-            if (bot) {
-              bot.deleted_at = new Date();
-              await upsertBot(bot);
-              router.back();
-            }
-          },
-        },
-      ]
-    );
-
+      },
+    ]);
   };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <PlatformPressable onPress={saveBot}>
+          <IconSymbol
+            name="checkmark"
+            color={iconColor}
+            size={40}
+            style={styles.saveIcon}
+          ></IconSymbol>
+        </PlatformPressable>
+      ),
+    });
+  }, [navigation, saveBot]);
 
   const handleModelPress = () => {
     setPickerVisible(true);
   };
 
-  const handlePickerChange = (itemValue : string) => {
+  const handlePickerChange = (itemValue: string) => {
     setBot({ ...bot, model: itemValue });
     setPickerVisible(false);
   };
@@ -142,12 +156,16 @@ export default function AdvancedBotEditor({botEditing} : AdvancedBotEditorProps)
           multiline
         />
       </ThemedView>
+
       <ThemedView style={styles.buttons}>
-        <ThemedButton style={styles.button} onPress={() => saveBot()}>
-          <ThemedText>Save</ThemedText>
-        </ThemedButton>
-        <ThemedButton style={styles.button} onPress={() => deleteBot()}>
-          <ThemedText>Delete</ThemedText>
+        <ThemedButton onPress={() => deleteBot()} style={styles.button}>
+          <IconSymbol
+            name="trash"
+            color={buttonIconColor}
+            size={40}
+            style={styles.deleteIcon}
+          ></IconSymbol>
+          <ThemedText>Delete Bot</ThemedText>
         </ThemedButton>
       </ThemedView>
     </ThemedView>
@@ -188,16 +206,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.9)",
   },
-  button: {
-    marginTop: 10,
-    marginLeft: 10,
-    padding: 10,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
   textArea: {
     height: 200,
     borderColor: "gray",
@@ -205,12 +213,30 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
     textAlignVertical: "top",
   },
-  buttons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
   missing: {
     borderColor: "red",
+  },
+  buttons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    width: "100%",
+  },
+  button: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 20,
+    paddingLeft: 10,
+    paddingVertical: 10,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  deleteIcon: {
+    paddingRight: 5,
+  },
+  saveIcon: {
+    marginRight: 10,
   },
 });

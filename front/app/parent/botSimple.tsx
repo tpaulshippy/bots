@@ -1,19 +1,21 @@
-import { Modal, Platform, StyleSheet, Switch } from "react-native";
+import { Modal, Platform, StyleSheet, Switch, View } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { Picker } from "@react-native-picker/picker";
 import { ThemedButton } from "@/components/ThemedButton";
 import { PlatformPressable } from "@react-navigation/elements";
-import alert from '@/components/Alert'
+import alert from "@/components/Alert";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Bot, upsertBot } from "@/api/bots";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
+import { IconSymbol } from "@/components/ui/IconSymbol";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 interface SimpleBotEditorProps {
   botEditing: Bot;
-  onSwitchEditor: () => void;
+  onSwitchEditor: (bot: Bot) => void;
 }
 
 interface BotTemplate {
@@ -76,11 +78,14 @@ export default function SimpleBotEditor({
   botEditing,
   onSwitchEditor,
 }: SimpleBotEditorProps) {
+  const navigation = useNavigation();
   const router = useRouter();
   const [bot, setBot] = useState<Bot>(botEditing);
   const [nameMissing, setNameMissing] = useState(false);
   const [templateMissing, setTemplateMissing] = useState(false);
   const [isPickerVisible, setPickerVisible] = useState(false);
+  const iconColor = useThemeColor({}, "tint");
+  const buttonIconColor = useThemeColor({}, "text");
 
   const validateBot = async () => {
     setNameMissing(!bot?.name.trim());
@@ -101,10 +106,17 @@ export default function SimpleBotEditor({
   };
 
   const switchToAdvancedEditor = async () => {
-    bot.simple_editor = false;
-    await upsertBot(bot);
-    if (onSwitchEditor) {
-      onSwitchEditor();
+    await validateBot();
+    if (bot) {
+      bot.simple_editor = false;
+      try {
+        const newBot = await upsertBot(bot);
+        if (onSwitchEditor) {
+          onSwitchEditor(newBot);
+        }
+      } catch (error) {
+        console.error("Failed to save bot", error);
+      }
     }
   };
 
@@ -113,6 +125,7 @@ export default function SimpleBotEditor({
       {
         text: "Cancel",
         style: "cancel",
+        onPress: () => {},
       },
       {
         text: "Delete",
@@ -127,7 +140,22 @@ export default function SimpleBotEditor({
     ]);
   };
 
-  const handleModelPress = () => {
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <PlatformPressable onPress={saveBot}>
+          <IconSymbol
+            name="checkmark"
+            color={iconColor}
+            size={40}
+            style={styles.saveIcon}
+          ></IconSymbol>
+        </PlatformPressable>
+      ),
+    });
+  }, [navigation, saveBot]);
+
+  const handleModalPress = () => {
     setPickerVisible(true);
   };
 
@@ -136,7 +164,7 @@ export default function SimpleBotEditor({
     setPickerVisible(false);
   };
 
-  const generate_system_prompt = () => {
+  const generateSystemPrompt = () => {
     let prompt;
     const template = templates.find(
       (template) => template.id === bot.template_name
@@ -165,7 +193,7 @@ export default function SimpleBotEditor({
   };
 
   useEffect(() => {
-    setBotProperty({ ...bot, system_prompt: generate_system_prompt() });
+    setBotProperty({ ...bot, system_prompt: generateSystemPrompt() });
   }, [
     bot.name,
     bot.template_name,
@@ -187,7 +215,7 @@ export default function SimpleBotEditor({
       </ThemedView>
       <ThemedView style={styles.formGroup}>
         <ThemedText style={styles.label}>Template</ThemedText>
-        <ThemedButton onPress={handleModelPress}>
+        <ThemedButton onPress={handleModalPress}>
           <ThemedText
             style={[styles.input, templateMissing ? styles.missing : {}]}
           >
@@ -222,7 +250,7 @@ export default function SimpleBotEditor({
         <ThemedText style={styles.label}>Response Length</ThemedText>
         <ThemedTextInput
           keyboardType="numeric"
-          style={[styles.input, nameMissing ? styles.missing : {}]}
+          style={styles.input}
           value={bot.response_length?.toString()}
           onChangeText={(text) =>
             setBotProperty({ response_length: parseInt(text) })
@@ -267,19 +295,29 @@ export default function SimpleBotEditor({
       </ThemedView>
 
       <ThemedView style={styles.buttons}>
-        <ThemedButton style={styles.button} onPress={() => saveBot()}>
-          <ThemedText>Save</ThemedText>
+        <ThemedButton
+          onPress={() => switchToAdvancedEditor()}
+          style={styles.button}
+        >
+          <IconSymbol
+            name="gearshape.2"
+            color={buttonIconColor}
+            size={40}
+            style={styles.buttonIcon}
+          ></IconSymbol>
+          <View>
+            <ThemedText>Advanced</ThemedText>
+            <ThemedText>Editor</ThemedText>
+          </View>
         </ThemedButton>
-        {bot.bot_id ? (
-          <ThemedButton
-            style={styles.button}
-            onPress={() => switchToAdvancedEditor()}
-          >
-            <ThemedText>Use Advanced Editor</ThemedText>
-          </ThemedButton>
-        ) : null}
-        <ThemedButton style={styles.button} onPress={() => deleteBot()}>
-          <ThemedText>Delete</ThemedText>
+        <ThemedButton onPress={() => deleteBot()} style={styles.button}>
+          <IconSymbol
+            name="trash"
+            color={buttonIconColor}
+            size={40}
+            style={styles.buttonIcon}
+          ></IconSymbol>
+          <ThemedText>Delete Bot</ThemedText>
         </ThemedButton>
       </ThemedView>
     </ThemedView>
@@ -331,16 +369,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.9)",
   },
-  button: {
-    marginTop: 10,
-    marginLeft: 10,
-    padding: 10,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
   textArea: {
     height: 200,
     borderColor: "gray",
@@ -348,12 +376,31 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
     textAlignVertical: "top",
   },
-  buttons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
   missing: {
     borderColor: "red",
+  },
+  buttons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    width: "100%",
+  },
+  button: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 10,
+    paddingRight: 20,
+    paddingLeft: 10,
+    paddingVertical: 10,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  saveIcon: {
+    marginRight: 10,
   },
 });

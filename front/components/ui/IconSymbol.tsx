@@ -21,6 +21,9 @@ const MAPPING = {
   'arrow.up': 'arrow-upward',
   'plus.circle.fill': 'add-circle',
   'lock.fill': 'lock',
+  'checkmark': 'check',
+  'trash': 'delete',
+  'gearshape.2': 'settings',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

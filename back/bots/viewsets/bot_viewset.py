@@ -13,6 +13,7 @@ class BotSerializer(serializers.HyperlinkedModelSerializer):
             'model',
             'system_prompt',
             'simple_editor',
+            'template_name',
             'response_length',
             'restrict_adult_topics',
             'restrict_language',
