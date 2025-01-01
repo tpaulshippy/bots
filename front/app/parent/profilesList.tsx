@@ -3,18 +3,23 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { PlatformPressable } from "@react-navigation/elements";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { fetchProfiles, Profile } from "@/api/profiles";
 import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
-export default function SelectProfile() {
+export default function ProfilesList() {
+  const navigation = useNavigation();
+  const router = useRouter();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const iconColor = useThemeColor({}, "tint");
 
-  useEffect(() => {
+  const refresh = async () => {
     fetchProfiles().then((data) => {
       setProfiles(data);
     });
@@ -31,7 +36,43 @@ export default function SelectProfile() {
     };
 
     loadSelectedProfile();
+  };
+
+  useEffect(() => {
+    refresh();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [])
+  );
+
+  const newProfile = async () => {
+    if (process.env.EXPO_OS === "ios") {
+      // Add a soft haptic feedback when pressing down on the tabs.
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.push({
+      pathname: "/parent/profileEditor",
+      params: { title: "New Profile", profileId: "" },
+    });
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <PlatformPressable onPress={newProfile}>
+          <IconSymbol
+            name="plus.circle.fill"
+            color={iconColor}
+            size={40}
+            style={styles.newIcon}
+          ></IconSymbol>
+        </PlatformPressable>
+      ),
+    });
+  }, [navigation, newProfile]);
 
   const handleProfilePress = async (profile: Profile) => {
     if (process.env.EXPO_OS === "ios") {
@@ -57,7 +98,7 @@ export default function SelectProfile() {
 
   return (
     <ThemedView style={styles.container}>
-        <View style={styles.profileContainer}>
+      <View style={styles.profileContainer}>
         {profiles.map((profile) => (
           <PlatformPressable
             key={profile.profile_id}
@@ -96,7 +137,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    margin: 20
+    margin: 20,
   },
   profileContainer: {
     flex: 1,
@@ -134,5 +175,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     padding: 10,
     textAlign: "center",
+  },
+  newIcon: {
+    marginRight: 10,
   },
 });

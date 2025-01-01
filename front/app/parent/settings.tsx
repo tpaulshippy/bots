@@ -1,9 +1,6 @@
 import PinWrapper from "@/components/PinWrapper";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
-import SelectProfile from "./selectProfile";
-import SetPin from "./setPin";
-import BotsList from "./botsList";
 import { getAccount } from "@/api/account";
 import { useEffect, useState } from "react";
 import {
@@ -33,7 +30,7 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [correctPin, setCorrectPin] = useState("");
   const [percentUsedToday, setPercentUsedToday] = useState(0);
-  const [subscription, setSubscription] = useState("free");
+  const [subscription, setSubscription] = useState("");
 
   useEffect(() => {
     getAccount().then((account) => {
@@ -51,7 +48,7 @@ export default function SettingsScreen() {
 
   const goTo = (
     path:
-      | "/parent/selectProfile"
+      | "/parent/profilesList"
       | "/parent/botsList"
       | "/parent/setPin"
       | "/login"
@@ -103,7 +100,7 @@ export default function SettingsScreen() {
                 <MenuItem
                   title="Profiles"
                   iconName="person.fill"
-                  onPress={() => goTo("/parent/selectProfile")}
+                  onPress={() => goTo("/parent/profilesList")}
                 ></MenuItem>
                 <MenuItem
                   title="Bots"
@@ -115,9 +112,6 @@ export default function SettingsScreen() {
                   iconName="lock.fill"
                   onPress={() => goTo("/parent/setPin")}
                 ></MenuItem>
-                {/* <SelectProfile />
-                <BotsList />
-                <SetPin /> */}
               </ThemedView>
             </PinWrapper>
           )}

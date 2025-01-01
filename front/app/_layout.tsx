@@ -115,10 +115,17 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
-              name="parent/selectProfile"
+              name="parent/profilesList"
               options={{
                 headerShown: true,
                 title: "Profiles",
+                headerTintColor: textColor,
+              }}
+            />
+            <Stack.Screen
+              name="parent/profileEditor"
+              options={{
+                headerShown: true,
                 headerTintColor: textColor,
               }}
             />

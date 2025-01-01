@@ -1,6 +1,7 @@
 from rest_framework import viewsets, serializers
 from django.db.models import Count
 from bots.models import Chat, Message, Profile, Bot
+from bots.permissions import IsOwner
 import uuid
 
 class MessageSerializer(serializers.HyperlinkedModelSerializer):
@@ -72,6 +73,7 @@ class ChatSerializer(serializers.HyperlinkedModelSerializer):
                   'modified_at']
 
 class ChatViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsOwner]
     queryset = Chat.objects.all()
     
     def get_queryset(self):
@@ -89,7 +91,11 @@ class ChatViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             # Check if the lookup field value is a valid UUID
             uuid.UUID(lookup_field_value)
-            return Chat.objects.get(chat_id=lookup_field_value)
+            chat = Chat.objects.get(chat_id=lookup_field_value)
         except ValueError:
             # If not a valid UUID, treat it as an id
-            return Chat.objects.get(id=lookup_field_value)
+            chat = Chat.objects.get(id=lookup_field_value)
+
+        self.check_object_permissions(self.request, chat)
+        return chat
+
