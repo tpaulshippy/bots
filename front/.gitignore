@@ -40,3 +40,5 @@ app-example
 .env
 
 .env.local
+
+sentry.properties
