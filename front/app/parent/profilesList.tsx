@@ -1,4 +1,4 @@
-import { StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { PlatformPressable } from "@react-navigation/elements";
@@ -9,12 +9,18 @@ import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
+  useRouter,
+} from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function ProfilesList() {
   const navigation = useNavigation();
   const router = useRouter();
+  const local = useLocalSearchParams();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const iconColor = useThemeColor({}, "tint");
@@ -67,6 +73,17 @@ export default function ProfilesList() {
   };
 
   useLayoutEffect(() => {
+    if (!local.subscriptionLevel || profiles.length === 0) {
+      return;
+    }
+
+    if (local.subscriptionLevel === "1") {
+      // Basic subscription - only allow one additional profile.
+      if (profiles.length > 1) {
+        return;
+      }
+    }
+
     navigation.setOptions({
       headerRight: () => (
         <PlatformPressable onPress={newProfile}>
@@ -79,7 +96,7 @@ export default function ProfilesList() {
         </PlatformPressable>
       ),
     });
-  }, [navigation, newProfile]);
+  }, [navigation, profiles, newProfile]);
 
   const handleProfilePress = async (profile: Profile) => {
     if (process.env.EXPO_OS === "ios") {
@@ -105,27 +122,32 @@ export default function ProfilesList() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.profileContainer}>
-        {profiles.map((profile) => (
+      <FlatList
+        numColumns={3}
+        data={profiles}
+        renderItem={({ item }) => (
           <PlatformPressable
-            key={profile.profile_id}
-            style={[
-              styles.profile,
-              selectedProfile?.profile_id === profile.profile_id &&
-                styles.selectedProfile,
-            ]}
-            onPress={(ev) => handleProfilePress(profile)}
-            onLongPress={() => editProfile(profile)}
-          >
-            <IconSymbol
-              name="person.fill"
-              color="#555"
-              size={60}
-              style={styles.profileIcon}
-            ></IconSymbol>
-            <ThemedText style={styles.profileText}>{profile.name}</ThemedText>
-          </PlatformPressable>
-        ))}
+          key={item.profile_id}
+          style={[
+            styles.profile,
+            selectedProfile?.profile_id === item.profile_id &&
+              styles.selectedProfile,
+          ]}
+          onPress={(ev) => handleProfilePress(item)}
+          onLongPress={() => editProfile(item)}
+        >
+          <IconSymbol
+            name="person.fill"
+            color="#555"
+            size={60}
+            style={styles.profileIcon}
+          ></IconSymbol>
+          <ThemedText style={styles.profileText}>{item.name}</ThemedText>
+        </PlatformPressable>
+        )}
+      >
+        
+      </FlatList>
         {profiles.length === 0 && (
           <ThemedButton
             onPress={() => {
@@ -135,7 +157,7 @@ export default function ProfilesList() {
             <ThemedText style={styles.profileText}>Log out</ThemedText>
           </ThemedButton>
         )}
-      </View>
+      
     </ThemedView>
   );
 }
@@ -146,12 +168,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     margin: 20,
-  },
-  profileContainer: {
-    flex: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-around",
   },
   profileIcon: {
     flex: 1,
@@ -164,7 +180,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   profile: {
-    flex: 1,
     width: "30%",
     height: 100,
     aspectRatio: 1,

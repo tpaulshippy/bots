@@ -30,6 +30,7 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [correctPin, setCorrectPin] = useState("");
   const [percentUsedToday, setPercentUsedToday] = useState(0);
+  const [subscriptionLevel, setSubscriptionLevel] = useState(0);
   const [subscription, setSubscription] = useState("");
 
   useEffect(() => {
@@ -40,7 +41,10 @@ export default function SettingsScreen() {
           (account.costForToday || 0) / (account.maxDailyCost || 1);
         setPercentUsedToday(percent);
         if (account.subscriptionLevel !== undefined)
+        {
           setSubscription(subscriptionNames[account.subscriptionLevel]);
+          setSubscriptionLevel(account.subscriptionLevel);
+        }
         setLoading(false);
       }
     });
@@ -57,7 +61,10 @@ export default function SettingsScreen() {
       // Add a soft haptic feedback when pressing down on the tabs.
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    router.navigate(path);
+    router.navigate({
+      pathname: path,
+      params: { subscriptionLevel: subscriptionLevel },
+    });
   };
   return (
     <KeyboardAvoidingView
