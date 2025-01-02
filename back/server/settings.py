@@ -12,6 +12,20 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import environ
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://0ee069fecfa56a595bbef4ac8fe0eaa6@o419449.ingest.us.sentry.io/4508571389067264",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    _experiments={
+        # Set continuous_profiling_auto_start to True
+        # to automatically start the profiler on when
+        # possible.
+        "continuous_profiling_auto_start": True,
+    },
+)
 
 # Initialize environ
 env = environ.Env(
