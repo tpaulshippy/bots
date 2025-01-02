@@ -401,6 +401,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   saveIcon: {
-    marginRight: 10,
+    marginRight: 5,
   },
 });

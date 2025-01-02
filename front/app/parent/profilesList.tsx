@@ -195,6 +195,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   newIcon: {
-    marginRight: 10,
+    marginRight: 5,
   },
 });

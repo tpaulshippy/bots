@@ -181,6 +181,6 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   settingsIcon: { 
-    marginRight: 10
+    marginRight: 5
   }
 });

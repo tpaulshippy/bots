@@ -237,6 +237,6 @@ const styles = StyleSheet.create({
     paddingRight: 5,
   },
   saveIcon: {
-    marginRight: 10,
+    marginRight: 5,
   },
 });

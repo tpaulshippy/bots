@@ -3,18 +3,44 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { updateAccount } from "@/api/account";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { ThemedButton } from "@/components/ThemedButton";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
+import { PlatformPressable } from "@react-navigation/elements";
+import { IconSymbol } from "@/components/ui/IconSymbol";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function SetPin() {
-  const [pin, setPin] = useState("");
+  const navigation = useNavigation();
   const router = useRouter();
+  const [pin, setPin] = useState("");
+  const iconColor = useThemeColor({}, "tint");
 
   const savePin = async () => {
     await updateAccount({ pin: parseInt(pin) });
     router.back();
   };
+
+  useLayoutEffect(() => {
+    if (pin.length > 0) {
+      navigation.setOptions({
+        headerRight: () => (
+          <PlatformPressable onPress={savePin}>
+            <IconSymbol
+              name="checkmark"
+              color={iconColor}
+              size={40}
+              style={styles.saveIcon}
+            ></IconSymbol>
+          </PlatformPressable>
+        ),
+      });
+    } else {
+      navigation.setOptions({
+        headerRight: () => null,
+      });
+    }
+  }, [navigation, savePin, pin]);
 
   return (
     <ThemedView style={styles.container}>
@@ -26,14 +52,6 @@ export default function SetPin() {
           onChangeText={setPin}
           placeholder="Enter new pin"
         />
-        {pin.length == 0 ? null : (
-          <ThemedButton
-            style={styles.savePinButton}
-            onPress={() => savePin()}
-          >
-            <ThemedText>Save new pin</ThemedText>
-          </ThemedButton>
-        )}
       </ThemedView>
     </ThemedView>
   );
@@ -48,7 +66,6 @@ const styles = StyleSheet.create({
   pinContainer: {
     flex: 1,
     flexDirection: "column",
-    alignItems: "center",
   },
   list: {
     padding: 20,
@@ -74,5 +91,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
+  },
+  saveIcon: {
+    marginRight: 5,
   },
 });
