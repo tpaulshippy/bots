@@ -23,7 +23,9 @@ export default function ProfilesList() {
   const local = useLocalSearchParams();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-  const iconColor = useThemeColor({}, "tint");
+  const tintColor = useThemeColor({}, "tint");
+  const bgColor = useThemeColor({}, "cardBackground");
+  const bgColorSelected = useThemeColor({}, "cardBackgroundSelected");
 
   const refresh = async () => {
     fetchProfiles().then((data) => {
@@ -89,7 +91,7 @@ export default function ProfilesList() {
         <PlatformPressable onPress={newProfile}>
           <IconSymbol
             name="plus.circle.fill"
-            color={iconColor}
+            color={tintColor}
             size={40}
             style={styles.newIcon}
           ></IconSymbol>
@@ -129,9 +131,9 @@ export default function ProfilesList() {
           <PlatformPressable
           key={item.profile_id}
           style={[
-            styles.profile,
-            selectedProfile?.profile_id === item.profile_id &&
-              styles.selectedProfile,
+            styles.profileCard,
+            selectedProfile?.profile_id === item.profile_id ?
+              { backgroundColor: bgColorSelected } : { backgroundColor: bgColor },
           ]}
           onPress={(ev) => handleProfilePress(item)}
           onLongPress={() => editProfile(item)}
@@ -164,22 +166,20 @@ export default function ProfilesList() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    margin: 20,
+    padding: 20
   },
   profileIcon: {
     flex: 1,
-  },
-  selectedProfile: {
-    backgroundColor: "#444",
   },
   titleContainer: {
     flexDirection: "row",
     fontSize: 16,
   },
-  profile: {
+  profileCard: {
     width: "30%",
     height: 100,
     aspectRatio: 1,
@@ -188,11 +188,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 2,
-    elevation: 5,
   },
   profileText: {
     fontSize: 24,

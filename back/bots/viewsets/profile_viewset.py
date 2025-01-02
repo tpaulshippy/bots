@@ -10,6 +10,7 @@ class ProfileSerializer(serializers.HyperlinkedModelSerializer):
             'id',
             'profile_id',
             'name',
+            'deleted_at',
             'created_at',
             'modified_at']
 
@@ -20,7 +21,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        return Profile.objects.filter(user=user)
+        return Profile.objects.filter(user=user, deleted_at=None)
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]

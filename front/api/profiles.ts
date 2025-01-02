@@ -4,6 +4,7 @@ export interface Profile {
     id: number;
     profile_id: string;
     name: string;
+    deleted_at: Date | null;
 }
 
 export const fetchProfiles = async (): Promise<Profile[]> => {

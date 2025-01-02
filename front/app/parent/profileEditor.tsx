@@ -15,6 +15,7 @@ import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { ThemedButton } from "@/components/ThemedButton";
 
 export default function ProfileEditor() {
   const navigation = useNavigation();
@@ -23,6 +24,7 @@ export default function ProfileEditor() {
   const [nameMissing, setNameMissing] = useState(false);
   const local = useLocalSearchParams();
   const iconColor = useThemeColor({}, "tint");
+  const buttonIconColor = useThemeColor({}, "text");
 
   const loadSelectedProfile = async () => {
     const profileId = local.profileId as string;
@@ -34,6 +36,7 @@ export default function ProfileEditor() {
         id: -1,
         profile_id: "",
         name: "",
+        deleted_at: null,
       };
       setProfile(newProfile);
     }
@@ -75,25 +78,25 @@ export default function ProfileEditor() {
     });
   }, [navigation, saveProfile]);
 
-  // const deleteProfile = async () => {
-  //   alert("Delete Profile", "Are you sure you want to delete this profile?", [
-  //     {
-  //       text: "Cancel",
-  //       style: "cancel",
-  //       onPress: () => {},
-  //     },
-  //     {
-  //       text: "Delete",
-  //       onPress: async () => {
-  //         if (profile) {
-  //           profile.deleted_at = new Date();
-  //           await upsertProfile(profile);
-  //           router.back();
-  //         }
-  //       },
-  //     },
-  //   ]);
-  // };
+  const deleteProfile = async () => {
+    alert("Delete Profile", "Are you sure you want to delete this profile?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+        onPress: () => {},
+      },
+      {
+        text: "Delete",
+        onPress: async () => {
+          if (profile) {
+            profile.deleted_at = new Date();
+            await upsertProfile(profile);
+            router.back();
+          }
+        },
+      },
+    ]);
+  };
 
   return profile ? (
     <KeyboardAvoidingView
@@ -112,6 +115,17 @@ export default function ProfileEditor() {
               onChangeText={(text) => setProfile({ ...profile, name: text })}
             />
           </ThemedView>
+          {profile.id > 0 ? (
+            <ThemedButton onPress={() => deleteProfile()} style={styles.button}>
+              <IconSymbol
+                name="trash"
+                color={buttonIconColor}
+                size={40}
+                style={styles.buttonIcon}
+              ></IconSymbol>
+              <ThemedText>Delete Profile</ThemedText>
+            </ThemedButton>
+          ) : null}
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>
