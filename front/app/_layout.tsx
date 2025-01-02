@@ -17,6 +17,14 @@ import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { Image } from 'expo-image';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://b1fb30f9d970344248c69bca93db30a7@o419449.ingest.us.sentry.io/4508571370782720',
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // enableSpotlight: __DEV__,
+});
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
