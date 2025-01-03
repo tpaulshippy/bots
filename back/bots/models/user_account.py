@@ -26,6 +26,7 @@ class UserAccount(models.Model):
                                 related_name='user_account')
     pin = models.IntegerField(null=True)
     subscription_level = models.IntegerField(default=0)
+    timezone = models.CharField(max_length=50, default='UTC')
 
     def cost_for_today(self):
         total = 0.0

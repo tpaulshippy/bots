@@ -7,6 +7,11 @@ from bots.models import Chat, Profile, Bot
 def user_account_view(request):
     user = request.user
     if request.method == "GET":
+        timezone = request.query_params.get('timezone')
+        if timezone and timezone != user.user_account.timezone:
+            user.user_account.timezone = timezone
+            user.save()
+
         accountInfo = {
                 'pin': user.user_account.pin,
                 'costForToday': user.user_account.cost_for_today(),
@@ -16,6 +21,7 @@ def user_account_view(request):
         return Response(accountInfo)
 
     pin = request.data.get('pin')
+    
     
     user.user_account.pin = pin
     user.save()
