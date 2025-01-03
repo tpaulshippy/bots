@@ -14,8 +14,16 @@ from pathlib import Path
 import environ
 import sentry_sdk
 
+# Initialize environ
+env = environ.Env(
+    DEBUG=(bool, False)  # Set default values and casting types
+)
+
+# Read from .env file
+environ.Env.read_env('.env')
+
 sentry_sdk.init(
-    dsn="https://0ee069fecfa56a595bbef4ac8fe0eaa6@o419449.ingest.us.sentry.io/4508571389067264",
+    dsn=env('SENTRY_DSN'),
     # Set traces_sample_rate to 1.0 to capture 100%
     # of transactions for tracing.
     traces_sample_rate=1.0,
@@ -26,14 +34,6 @@ sentry_sdk.init(
         "continuous_profiling_auto_start": True,
     },
 )
-
-# Initialize environ
-env = environ.Env(
-    DEBUG=(bool, False)  # Set default values and casting types
-)
-
-# Read from .env file
-environ.Env.read_env('.env')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

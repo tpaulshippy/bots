@@ -20,8 +20,7 @@ import { Image } from 'expo-image';
 import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
-  dsn: 'https://b1fb30f9d970344248c69bca93db30a7@o419449.ingest.us.sentry.io/4508571370782720',
-
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // enableSpotlight: __DEV__,
 });
