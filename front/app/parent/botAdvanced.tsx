@@ -124,7 +124,7 @@ export default function AdvancedBotEditor({
           <ThemedText
             style={[styles.input, modelMissing ? styles.missing : {}]}
           >
-            {bot.model}
+            {supportedModels.find(m => m.id == bot.model)?.name || "Select a model"}
           </ThemedText>
         </ThemedButton>
       </ThemedView>
