@@ -6,6 +6,8 @@ from bots.models.chat import Chat
 from bots.models.bot import Bot
 import uuid
 from ai_fixtures import get_ai_output
+from langchain.schema import HumanMessage, SystemMessage, AIMessage
+
 
 @pytest.mark.django_db
 def describe_chat_model():
@@ -53,14 +55,8 @@ def describe_chat_model():
         
         def it_should_add_message_from_ai(chat, ai, ai_output):
             when(ai).invoke([
-                {
-                    "role": "system",
-                    "content": [{"text": "You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."}]
-                },
-                {
-                    "role": "user",
-                    "content": [{"text": "Hello"}]
-                }
+                SystemMessage("You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."),
+                HumanMessage("Hello")
             ]).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
@@ -74,14 +70,8 @@ def describe_chat_model():
             chat.bot = Bot(system_prompt = "How can I help you?")
             chat.bot.save()
             when(ai).invoke([
-                {
-                    "role": "system",
-                    "content": [{"text": "How can I help you?"}]
-                },
-                {
-                    "role": "user",
-                    "content": [{"text": "Hello"}]
-                }
+                SystemMessage("How can I help you?"),
+                HumanMessage("Hello")
             ]).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
@@ -90,20 +80,14 @@ def describe_chat_model():
             assert chat.messages.last().role == "assistant"
             assert chat.messages.last().input_tokens == 1
             assert chat.messages.last().output_tokens == 2
-            assert chat.ai.model_id == "us.amazon.nova-micro-v1:0"
+            assert chat.ai.model_id == "us.amazon.nova-lite-v1:0"
         
         def it_should_use_model_from_bot(chat, ai, ai_output):
             chat.bot = Bot(model="my-custom-model")
             chat.bot.save()
             when(ai).invoke([
-                {
-                    "role": "system",
-                    "content": [{"text": "You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."}]
-                },
-                {
-                    "role": "user",
-                    "content": [{"text": "Hello"}]
-                }
+                SystemMessage("You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."),
+                HumanMessage("Hello")
             ]).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)

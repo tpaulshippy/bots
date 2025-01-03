@@ -15,6 +15,7 @@ cryptography
 langchain_aws
 langchain
 sentry-sdk[django]
+pytz
 
 pytest
 pytest-describe

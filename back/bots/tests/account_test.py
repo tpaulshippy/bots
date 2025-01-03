@@ -22,7 +22,47 @@ def describe_account():
                 f"UPDATE bots_chat SET modified_at = %s WHERE id = %s", 
                 [timezone.now() - timezone.timedelta(days=1), chat3.id]
             )
-        expected_cost = (0.000000035 * 4) + (0.00000014 * 6)
+        expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
+        assert account.user_account.cost_for_today() == expected_cost
+        
+    def test_cost_single_model_in_hawaii():
+        account = User.objects.create()
+        account.user_account.timezone = 'Pacific/Honolulu'
+        chat1 = Chat.objects.create(user=account, input_tokens=1, output_tokens=2)
+        chat2 = Chat.objects.create(user=account, input_tokens=3, output_tokens=4)
+        chat3 = Chat.objects.create(user=account, 
+                                    input_tokens=5, 
+                                    output_tokens=6)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE bots_chat SET modified_at = %s WHERE id = %s", 
+                [timezone.now().astimezone(timezone.get_fixed_timezone(-600)) - timezone.timedelta(hours=1), chat2.id]
+            )
+            cursor.execute(
+                f"UPDATE bots_chat SET modified_at = %s WHERE id = %s", 
+                [timezone.now() - timezone.timedelta(days=1), chat3.id]
+            )
+        expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
+        assert account.user_account.cost_for_today() == expected_cost
+
+    def test_cost_single_model_in_australia():
+        account = User.objects.create()
+        account.user_account.timezone = 'Australia/Sydney'
+        chat1 = Chat.objects.create(user=account, input_tokens=1, output_tokens=2)
+        chat2 = Chat.objects.create(user=account, input_tokens=3, output_tokens=4)
+        chat3 = Chat.objects.create(user=account, 
+                                    input_tokens=5, 
+                                    output_tokens=6)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE bots_chat SET modified_at = %s WHERE id = %s", 
+                [timezone.now().astimezone(timezone.get_fixed_timezone(600)) - timezone.timedelta(hours=1), chat2.id]
+            )
+            cursor.execute(
+                f"UPDATE bots_chat SET modified_at = %s WHERE id = %s", 
+                [timezone.now() - timezone.timedelta(days=1), chat3.id]
+            )
+        expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
         assert account.user_account.cost_for_today() == expected_cost
     
     def test_cost_multiple_models():

@@ -1,7 +1,9 @@
+from datetime import datetime, time
 from django.contrib.auth.models import User
 from django.db import models
 from .chat import DEFAULT_MODEL_ID, Chat
 from django.utils import timezone
+import pytz
 
 class ModelCost:
     def __init__(self, model_id, input_token_cost, output_token_cost):
@@ -58,6 +60,10 @@ class UserAccount(models.Model):
         return chats.aggregate(models.Sum('output_tokens'))['output_tokens__sum'] or 0
         
     def chats_today(self, model_id):
+        user_timezone = pytz.timezone(self.timezone)
+        today = timezone.now().astimezone(user_timezone).date()
+        start_of_day = user_timezone.localize(datetime.combine(today, time.min))
+        start_of_day_utc = start_of_day.astimezone(pytz.UTC)
         return Chat.objects.filter(user=self.user,
                                     bot__model=model_id,
-                                    modified_at__date=timezone.now().date())
+                                    modified_at__gte=start_of_day_utc)
