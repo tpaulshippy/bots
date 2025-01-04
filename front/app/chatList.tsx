@@ -74,20 +74,19 @@ export default function ChatList() {
       const data = await fetchChats(profileId, nextPage);
       setChats(prevChats => {
         const newChats = groupByDay(data.results);
-        if (page === 1) {
+        if (nextPage === 1) {
           return newChats;
         } 
-        // else {
-        //   // Merge new chats with previous chats
-        //   const mergedChats = { ...prevChats };
-        //   Object.entries(newChats).forEach(([day, chats]) => {
-        //     if (!mergedChats[day]) {
-        //       mergedChats[day] = [];
-        //     }
-        //     mergedChats[day] = [...mergedChats[day], ...chats];
-        //   });
-        //   return mergedChats;
-        // }
+        else {
+          const mergedChats = { ...prevChats };
+          Object.entries(newChats).forEach(([day, chats]) => {
+            if (!mergedChats[day]) {
+              mergedChats[day] = [];
+            }
+            mergedChats[day] = [...mergedChats[day], ...chats];
+          });
+          return mergedChats;
+        }
       });
       setHasMore(data.next !== null);
       setRefreshing(false);
