@@ -21,7 +21,7 @@ export default function SelectBot({ setBotSelected }: Props) {
 
   useEffect(() => {
     fetchBots().then((data) => {
-      setBots(data);
+      setBots(data.results);
     });
     const loadSelectedBot = async () => {
       try {

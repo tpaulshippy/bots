@@ -2,7 +2,7 @@ import { apiClient } from './apiClient';
 
 export interface Account {
     pin: number;
-    costForToday?: number;
+    costForToday?: [number];
     maxDailyCost?: number;
     subscriptionLevel?: number;
 }

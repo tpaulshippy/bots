@@ -29,7 +29,7 @@ export default function ProfilesList() {
 
   const refresh = async () => {
     fetchProfiles().then((data) => {
-      setProfiles(data);
+      setProfiles(data.results);
     });
     const loadSelectedProfile = async () => {
       try {

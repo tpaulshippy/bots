@@ -1,4 +1,5 @@
 import { apiClient } from "./apiClient";
+import { PaginatedResponse } from "./chats";
 
 export interface Bot {
   id: number;
@@ -14,9 +15,9 @@ export interface Bot {
   deleted_at: Date | null;
 }
 
-export const fetchBots = async (): Promise<Bot[]> => {
+export const fetchBots = async (): Promise<PaginatedResponse<Bot>> => {
   try {
-    const { data, ok, status } = await apiClient<Bot[]>("/bots.json");
+    const { data, ok, status } = await apiClient<PaginatedResponse<Bot>>("/bots.json");
 
     if (!ok) {
       throw new Error(`Failed to fetch bots with status ${status}`);
@@ -24,7 +25,7 @@ export const fetchBots = async (): Promise<Bot[]> => {
     return data;
   } catch (error: any) {
     console.error(error.toString());
-    return [];
+    return { results: [], count: 0 };
   }
 };
 

@@ -1,5 +1,12 @@
 import { apiClient } from './apiClient';
 
+export interface PaginatedResponse<T> {
+    results: T[];
+    next?: string;
+    previous?: string;
+    count: number;
+}
+
 export interface Chat {
     id: number;
     chat_id: string;
@@ -21,38 +28,41 @@ export interface ChatMessage {
     isLoading?: boolean | undefined;
 }
 
-export const fetchChats = async (profileId: string | null): Promise<Chat[]> => {
-
-    const { data, ok, status } = await apiClient<Chat[]>('/chats.json');
+export const fetchChats = async (profileId: string | null, page: number | null): Promise<PaginatedResponse<Chat>> => {
+    let endpoint = '/chats.json?1=1';
+    if (profileId) {
+        endpoint += '&profileId=' + profileId;
+    }
+    if (page) {
+        endpoint += `&page=${page}`;
+    }
+    const { data, ok, status } = await apiClient<PaginatedResponse<Chat>>(endpoint);
 
     if (!ok) {
         throw new Error(`Failed to fetch chats with status ${status}`);
-    }
-
-    if (profileId) {
-            return data.filter((chat) => chat.profile && chat.profile.profile_id === profileId);
     }
 
     return data;
 };
 
 
-export const fetchChatMessages = async (chatId: string): Promise<ChatMessage[]> => {
+export const fetchChatMessages = async (chatId: string, page: number | null): Promise<PaginatedResponse<ChatMessage>> => {
     try {
-        const { data, ok, status } = await apiClient<Chat>(`/chats/${chatId}.json`);
+        let endpoint = `/chats/${chatId}/messages.json`;
+        if (page) {
+            endpoint += `?page=${page}`;
+        }
+        const { data, ok, status } = await apiClient<PaginatedResponse<ChatMessage>>(endpoint);
 
         if (!ok) {
             throw new Error(`Failed to fetch chat messages with status ${status}`);
         }
 
-        // filter out system messages
-        data.messages = data.messages.filter((message) => message.role !== 'system');
-
-        return data.messages;
+        return data;
     }
     catch (error: any) {
         console.error(error.toString());
-        return [];
+        return { results: [], count: 0 };
     }
 }
 

@@ -26,7 +26,11 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         chat_id = self.kwargs['chat_pk']  # Extract chat ID from the URL
-        return Chat.objects.filter(user=user).get(chat_id=chat_id).messages.all()    
+        
+        queryset = Chat.objects.filter(user=user).get(chat_id=chat_id).messages
+        queryset = queryset.exclude(role='system')
+        
+        return queryset
 
 class ProfileIdSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -78,7 +82,12 @@ class ChatViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        return Chat.objects.filter(user=user).annotate(message_count=Count('messages')).order_by('-id')
+        profile_id = self.request.query_params.get('profileId')
+        queryset = Chat.objects.filter(user=user)
+        if profile_id:
+            queryset = queryset.filter(profile__profile_id=profile_id)
+
+        return queryset.annotate(message_count=Count('messages')).order_by('-id')
 
     def get_serializer_class(self):
         if self.action == 'list':

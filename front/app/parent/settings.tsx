@@ -38,7 +38,7 @@ export default function SettingsScreen() {
       if (account) {
         setCorrectPin(account.pin?.toString());
         const percent =
-          (account.costForToday || 0) / (account.maxDailyCost || 1);
+          (account.costForToday?.[0] || 0) / (account.maxDailyCost || 1);
         setPercentUsedToday(percent);
         if (account.subscriptionLevel !== undefined)
         {

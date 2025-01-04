@@ -20,16 +20,25 @@ export default function Chat() {
   const [chatId, setChatId] = useState<string>();
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  useEffect(() => {
+  const refresh = async (nextPage: number) => {
     const chatId = local.chatId?.toString();
     if (chatId) {
       setChatId(chatId);
 
-      fetchChatMessages(chatId).then((data) => {
-        setMessages(data);
+      fetchChatMessages(chatId, nextPage).then((data) => {
+        setMessages([...messages, ...data.results]);
+        setHasMore(data.next !== null);
+        setLoadingMore(false);
       });
     }
+  };
+
+  useEffect(() => {
+    refresh(page);
   }, []);
 
   const getProfileId = async () => {
@@ -84,6 +93,18 @@ export default function Chat() {
       };
       setMessages([...messages, newUserMessage, newAssistantMessage]);
       setChatId(chatResponse.chat_id);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore && local.chatId) {
+      setLoadingMore(true);
+      setPage(prevPage => {
+        const nextPage = prevPage + 1;
+        refresh(nextPage);
+        return nextPage;
+      });
     }
   };
 
@@ -119,6 +140,9 @@ export default function Chat() {
             offset: ITEM_HEIGHT * index,
             index,
           })}
+          onStartReached={handleLoadMore}
+          onStartReachedThreshold={0.5}
+          ListHeaderComponent={loadingMore ? <ActivityIndicator /> : null}
         />
         <ThemedView style={styles.inputContainer}>
           <ThemedTextInput
@@ -153,7 +177,7 @@ const styles = {
     padding: 20,
   },
   inputContainer: {
-    flexDirection: "row",
+    flexDirection: "row" as "row",
   },
   input: {
     flex: 4,

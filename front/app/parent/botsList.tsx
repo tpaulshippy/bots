@@ -1,26 +1,20 @@
-import { FlatList, Platform, StyleSheet } from "react-native";
-import { ThemedText } from "@/components/ThemedText";
+import { FlatList, StyleSheet } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
-import { ThemedButton } from "@/components/ThemedButton";
 
-import { PlatformPressable } from "@react-navigation/elements";
 
 import { useCallback, useEffect, useState } from "react";
 import { fetchBots, Bot } from "@/api/bots";
 import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useFocusEffect, useRouter } from "expo-router";
 import { MenuItem } from "@/components/MenuItem";
 
 export default function BotsList({}) {
   const [bots, setBots] = useState<Bot[]>([]);
-  const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
   const router = useRouter();
 
   const refresh = async () => {
     fetchBots().then((data) => {
-      setBots(data);
+      setBots(data.results);
     });
   };
 

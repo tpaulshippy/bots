@@ -1,14 +1,12 @@
 import { StyleSheet, View, FlatList, RefreshControl, ActivityIndicator } from "react-native";
-import { Link, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { formatDistance, format, toDate } from "date-fns";
-import { useEffect, useState, useCallback } from "react";
-import { useFocusEffect } from "@react-navigation/native";
+import { formatDistance, format } from "date-fns";
+import { useCallback, useEffect, useState } from "react";
 
 import { fetchChats, Chat } from "@/api/chats";
 import { UnauthorizedError } from "@/api/apiClient";
@@ -43,8 +41,10 @@ function getRelativeDate(inputDate: string): string {
 export default function ChatList() {
   const router = useRouter();
   const [chats, setChats] = useState<ChatsByDay>({});
-  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   const groupByDay = (data: Chat[]): ChatsByDay => {
     return data.reduce((groups: any, record: Chat) => {
@@ -67,13 +67,31 @@ export default function ChatList() {
     return null;
   };
 
-  const refresh = async () => {
+  const refresh = async (nextPage: number) => {
     setRefreshing(true);
     try {
       const profileId = await getProfileId();
-      const data = await fetchChats(profileId);
-      setChats(groupByDay(data));
+      const data = await fetchChats(profileId, nextPage);
+      setChats(prevChats => {
+        const newChats = groupByDay(data.results);
+        if (page === 1) {
+          return newChats;
+        } 
+        // else {
+        //   // Merge new chats with previous chats
+        //   const mergedChats = { ...prevChats };
+        //   Object.entries(newChats).forEach(([day, chats]) => {
+        //     if (!mergedChats[day]) {
+        //       mergedChats[day] = [];
+        //     }
+        //     mergedChats[day] = [...mergedChats[day], ...chats];
+        //   });
+        //   return mergedChats;
+        // }
+      });
+      setHasMore(data.next !== null);
       setRefreshing(false);
+      setLoadingMore(false);
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         router.push("/login");
@@ -82,22 +100,24 @@ export default function ChatList() {
     }
   };
 
-  useEffect(() => {
-    refresh();
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
-      refresh();
+      resetRefresh();
     }, [])
   );
+
+
+  const resetRefresh = () => {
+    setPage(1);
+    setChats({});
+    refresh(1);
+  };
 
   const handleChatPress = async (chat: Chat) => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    setSelectedChat(chat);
     router.push({
       pathname: `/chat`,
       params: { chatId: chat.chat_id, title: chat.bot?.name || chat.title },
@@ -108,8 +128,18 @@ export default function ChatList() {
     router.push(`/chat`);
   }
 
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore) {
+      setLoadingMore(true);
+      setPage(prevPage => {
+        const nextPage = prevPage + 1;
+        refresh(nextPage);
+        return nextPage;
+      });
+    }
+  };
+
   return (
-    refreshing ? <ActivityIndicator style={{marginTop: 10}} /> :
     <ThemedView style={styles.container}>
       <View style={styles.addButton}>
         <PlatformPressable onPress={handleNewChatPress}>
@@ -122,12 +152,12 @@ export default function ChatList() {
         data={Object.entries(chats)}
         keyExtractor={(item) => item[0]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={resetRefresh} />
         }
         renderItem={({ item }) => (
           <View>
             <ThemedText style={styles.header}>{item[0]}</ThemedText>
-            {item[1].map((record) => (
+            {item[1].map((record: Chat) => (
               <PlatformPressable
                 key={record.id}
                 onPress={() => handleChatPress(record)}
@@ -146,6 +176,9 @@ export default function ChatList() {
             ))}
           </View>
         )}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={loadingMore ? <ActivityIndicator /> : null}
       />
     </ThemedView>
   );
