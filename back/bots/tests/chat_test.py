@@ -113,3 +113,15 @@ def describe_chat_model():
             when(ai).invoke(...).thenReturn(ai_output)
             result = chat.get_response(ai=ai)
             assert result == "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
+
+        def it_should_record_rate_limit_if_cost_goes_over_daily_limit(chat, ai, ai_output):
+            chat.input_tokens = 14285500
+            chat.output_tokens = 3571500
+            chat.user.user_account.subscription_level = 1
+            chat.save()
+            when(ai).invoke(...).thenReturn(ai_output)
+            chat.get_response(ai=ai)
+            assert chat.user.user_account.usage_limit_hits.count() == 1
+            assert chat.user.user_account.usage_limit_hits.first().total_input_tokens == 14285500
+            assert chat.user.user_account.usage_limit_hits.first().total_output_tokens == 3571500
+            assert chat.user.user_account.usage_limit_hits.first().subscription_level == 1

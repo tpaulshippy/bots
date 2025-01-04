@@ -1,4 +1,4 @@
-from bots.models.chat import MAX_COST_DAILY
+from bots.models.user_account import MAX_COST_DAILY
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from bots.models import Chat, Profile, Bot

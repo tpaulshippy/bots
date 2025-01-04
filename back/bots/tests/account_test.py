@@ -23,7 +23,7 @@ def describe_account():
                 [timezone.now() - timezone.timedelta(days=1), chat3.id]
             )
         expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
-        assert account.user_account.cost_for_today() == expected_cost
+        assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
         
     def test_cost_single_model_in_hawaii():
         account = User.objects.create()
@@ -43,7 +43,7 @@ def describe_account():
                 [timezone.now() - timezone.timedelta(days=1), chat3.id]
             )
         expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
-        assert account.user_account.cost_for_today() == expected_cost
+        assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
 
     def test_cost_single_model_in_australia():
         account = User.objects.create()
@@ -63,7 +63,7 @@ def describe_account():
                 [timezone.now() - timezone.timedelta(days=1), chat3.id]
             )
         expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
-        assert account.user_account.cost_for_today() == expected_cost
+        assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
     
     def test_cost_multiple_models():
         account = User.objects.create()
@@ -81,4 +81,4 @@ def describe_account():
             )
         expected_cost = (0.000000035 * 1) + (0.00000014 * 2)
         expected_cost += (0.00000006 * 3) + (0.00000024 * 4)
-        assert account.user_account.cost_for_today() == expected_cost
+        assert account.user_account.cost_for_today() == (expected_cost, 4, 6)

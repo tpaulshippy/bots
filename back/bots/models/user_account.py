@@ -5,6 +5,12 @@ from .chat import DEFAULT_MODEL_ID, Chat
 from django.utils import timezone
 import pytz
 
+MAX_COST_DAILY = {
+    0: 0.01 / 31,
+    1: 1.0 / 31,
+    2: 5.0 / 31,
+}
+
 class ModelCost:
     def __init__(self, model_id, input_token_cost, output_token_cost):
         self.model_id = model_id
@@ -30,6 +36,18 @@ class UserAccount(models.Model):
     subscription_level = models.IntegerField(default=0)
     timezone = models.CharField(max_length=50, default='UTC')
 
+    def over_limit(self):
+        from .usage_limit_hit import UsageLimitHit
+        total, total_input_tokens, total_output_tokens = self.cost_for_today()
+        if total >= MAX_COST_DAILY[self.subscription_level]:
+            print("over_limit")
+            UsageLimitHit.objects.create(user_account=self,
+                                         subscription_level=self.subscription_level,
+                                         total_input_tokens=total_input_tokens,
+                                         total_output_tokens=total_output_tokens)
+            return True
+        return False
+
     def cost_for_today(self):
         total = 0.0
         total_input_tokens = 0
@@ -49,7 +67,7 @@ class UserAccount(models.Model):
                 total_input_tokens += input_tokens
                 total_output_tokens += output_tokens
 
-        return total #, total_input_tokens, total_output_tokens
+        return total, total_input_tokens, total_output_tokens
     
     def input_tokens_today(self, model_id):
         chats = self.chats_today(model_id)
