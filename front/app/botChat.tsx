@@ -3,7 +3,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { useEffect, useState } from "react";
 import { ThemedButton } from "@/components/ThemedButton";
-import { ActivityIndicator, FlatList, FlexAlignType } from "react-native";
+import { ActivityIndicator, FlatList, FlexAlignType, Keyboard } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -65,6 +65,7 @@ export default function Chat() {
       return;
     }
     setInput("");
+    Keyboard.dismiss();
     const profileId = await getProfileId();
     const botId = await getBotId();
     if (!profileId) {
