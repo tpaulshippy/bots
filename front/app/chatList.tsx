@@ -1,4 +1,10 @@
-import { StyleSheet, View, FlatList, RefreshControl, ActivityIndicator } from "react-native";
+import {
+  StyleSheet,
+  View,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
+} from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -11,7 +17,6 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchChats, Chat } from "@/api/chats";
 import { UnauthorizedError } from "@/api/apiClient";
 import { PlatformPressable } from "@react-navigation/elements";
-
 
 type ChatsByDay = {
   [key: string]: Chat[];
@@ -72,12 +77,11 @@ export default function ChatList() {
     try {
       const profileId = await getProfileId();
       const data = await fetchChats(profileId, nextPage);
-      setChats(prevChats => {
+      setChats((prevChats) => {
         const newChats = groupByDay(data.results);
         if (nextPage === 1) {
           return newChats;
-        } 
-        else {
+        } else {
           const mergedChats = { ...prevChats };
           Object.entries(newChats).forEach(([day, chats]) => {
             if (!mergedChats[day]) {
@@ -95,7 +99,7 @@ export default function ChatList() {
       if (error instanceof UnauthorizedError) {
         router.push("/login");
       }
-      console.error("Failed to fetch chats", error);    
+      console.error("Failed to fetch chats", error);
     }
   };
 
@@ -104,7 +108,6 @@ export default function ChatList() {
       resetRefresh();
     }, [])
   );
-
 
   const resetRefresh = () => {
     setPage(1);
@@ -125,12 +128,12 @@ export default function ChatList() {
 
   const handleNewChatPress = () => {
     router.push(`/chat`);
-  }
+  };
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
       setLoadingMore(true);
-      setPage(prevPage => {
+      setPage((prevPage) => {
         const nextPage = prevPage + 1;
         refresh(nextPage);
         return nextPage;
@@ -140,11 +143,9 @@ export default function ChatList() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.addButton}>
-        <PlatformPressable onPress={handleNewChatPress}>
-          <IconSymbol name="text.bubble" color="black"></IconSymbol>
-        </PlatformPressable>
-      </View>
+      <PlatformPressable style={styles.addButton} onPress={handleNewChatPress}>
+        <IconSymbol name="text.bubble" color="black"></IconSymbol>
+      </PlatformPressable>
 
       <FlatList
         style={styles.list}
@@ -170,10 +171,11 @@ export default function ChatList() {
                 >
                   {record.title}
                 </ThemedText>
-                <ThemedText 
+                <ThemedText
                   numberOfLines={1}
                   ellipsizeMode="tail"
-                  style={styles.botName}>
+                  style={styles.botName}
+                >
                   {record.bot?.name}
                 </ThemedText>
               </PlatformPressable>
@@ -190,7 +192,7 @@ export default function ChatList() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
   },
   header: {
     fontSize: 12,
