@@ -25,11 +25,11 @@ export default function Chat() {
   const [hasMore, setHasMore] = useState(true);
 
   const refresh = async (nextPage: number) => {
-    const chatId = local.chatId?.toString();
-    if (chatId) {
-      setChatId(chatId);
+    const chatIdQueryString = local.chatId?.toString();
+    if (chatIdQueryString) {
+      setChatId(chatIdQueryString);
 
-      fetchChatMessages(chatId, nextPage).then((data) => {
+      fetchChatMessages(chatIdQueryString, nextPage).then((data) => {
         setMessages([...messages, ...data.results]);
         setHasMore(data.next !== null);
         setLoadingMore(false);
@@ -147,7 +147,7 @@ export default function Chat() {
         />
         <ThemedView style={styles.inputContainer}>
           <ThemedTextInput
-            autoFocus={true}
+            autoFocus={!local.chatId}
             multiline={true}
             onChangeText={setInput}
             value={input}

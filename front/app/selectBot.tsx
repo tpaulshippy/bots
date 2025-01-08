@@ -76,7 +76,7 @@ export default function SelectBot({ setBotSelected }: Props) {
               selectedBot?.bot_id === bot.bot_id &&
                 styles.selectedBot,
             ]}
-            onPress={(ev) => handleBotPress(bot)}
+            onPress={() => handleBotPress(bot)}
           >
             <IconSymbol
               name="cpu"
@@ -85,6 +85,7 @@ export default function SelectBot({ setBotSelected }: Props) {
               style={styles.botIcon}
             ></IconSymbol>
             <ThemedText style={styles.botText}>{bot.name}</ThemedText>
+            <ThemedText style={styles.botDescription}>{bot.simple_editor ? bot.template_name : ""}</ThemedText>
           </ThemedButton>
         ))}
       </ThemedView>
@@ -132,7 +133,11 @@ const styles = StyleSheet.create({
   },
   botText: {
     fontSize: 24,
-    padding: 10,
+    paddingTop: 10,
     textAlign: "center",
   },
+  botDescription: {
+    fontSize: 12,
+    textAlign: "center",
+  }
 });

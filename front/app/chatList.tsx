@@ -159,17 +159,22 @@ export default function ChatList() {
             {item[1].map((record: Chat) => (
               <PlatformPressable
                 key={record.id}
+                style={styles.itemContainer}
                 onPress={() => handleChatPress(record)}
               >
                 <ThemedText
                   key={record.id}
                   numberOfLines={1}
                   ellipsizeMode="tail"
-                  style={[
-                    styles.item
-                  ]}
+                  style={styles.item}
                 >
                   {record.title}
+                </ThemedText>
+                <ThemedText 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={styles.botName}>
+                  {record.bot?.name}
                 </ThemedText>
               </PlatformPressable>
             ))}
@@ -192,10 +197,20 @@ const styles = StyleSheet.create({
     color: "#888",
     padding: 6,
   },
+  itemContainer: {
+    flexDirection: "row",
+    padding: 6,
+    justifyContent: "space-between",
+  },
   item: {
-    padding: 8,
+    flex: 5,
     fontSize: 16,
-    height: 44,
+  },
+  botName: {
+    flex: 1,
+    fontSize: 12,
+    color: "#888",
+    textAlign: "right",
   },
   selectedItem: {
     borderRadius: 8,
