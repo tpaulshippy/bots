@@ -13,3 +13,6 @@ class UsageLimitHit(models.Model):
     subscription_level = models.IntegerField(default=0)
     total_input_tokens = models.IntegerField(default=0)
     total_output_tokens = models.IntegerField(default=0)
+
+    def __str__(self):
+        return self.user_account.user.email + ' - ' + str(self.created_at)

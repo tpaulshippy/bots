@@ -37,7 +37,7 @@ class UserAccount(models.Model):
     timezone = models.CharField(max_length=50, default='UTC')
     
     def __str__(self):
-        return self.user.username
+        return self.user.email
 
     def over_limit(self):
         from .usage_limit_hit import UsageLimitHit

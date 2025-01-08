@@ -40,7 +40,7 @@ class Chat(models.Model):
         self.ai = None
 
     def __str__(self):
-        return str(self.chat_id)
+        return self.title if self.user == None else self.user.email + ' - ' + self.title
 
     def get_response(self, ai=None):
         if self.bot and self.bot.model:
