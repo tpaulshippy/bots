@@ -35,6 +35,9 @@ class UserAccount(models.Model):
     pin = models.IntegerField(null=True)
     subscription_level = models.IntegerField(default=0)
     timezone = models.CharField(max_length=50, default='UTC')
+    
+    def __str__(self):
+        return self.user.username
 
     def over_limit(self):
         from .usage_limit_hit import UsageLimitHit

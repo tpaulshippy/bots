@@ -81,7 +81,8 @@ class Chat(models.Model):
             if message.role == "user":
                 message_list.append(HumanMessage(content=message.text))
             elif message.role == "assistant":
-                message_list.append(AIMessage(content=message.text))
+                if len(message_list) > 0: # need to start with a user message
+                    message_list.append(AIMessage(content=message.text))
         
         system_message = SystemMessage(content=self.get_system_message())
         message_list.insert(0, system_message)
