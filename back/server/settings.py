@@ -74,6 +74,10 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
 ]
 
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
