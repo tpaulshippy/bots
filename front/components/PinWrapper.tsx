@@ -11,17 +11,16 @@ type Props = PropsWithChildren<{
 }>;
 
 export default function PinWrapper({ children, correctPin }: Props) {
-  const buttonColor = useThemeColor({}, "tint");
   const [pinCorrect, setPinCorrect] = useState(false);
   const checkPin = (enteredPin: string) => {
-    if (enteredPin === correctPin) {
+    if (enteredPin == correctPin) {
       setPinCorrect(true);
     }
   };
 
-  return pinCorrect ? (
+  return pinCorrect || correctPin === null ? (
     <ThemedView style={styles.container}>{children}</ThemedView>
-  ) : correctPin == "" ? null : (
+  ) : (
     <ThemedView style={styles.outerContainer}>
       <ThemedView style={styles.innerContainer}>
         <ThemedTextInput

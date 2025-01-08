@@ -28,7 +28,7 @@ const subscriptionNames: { [key: string]: string } = {
 export default function SettingsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [correctPin, setCorrectPin] = useState("");
+  const [correctPin, setCorrectPin] = useState<number | null>(null);
   const [percentUsedToday, setPercentUsedToday] = useState(0);
   const [subscriptionLevel, setSubscriptionLevel] = useState(0);
   const [subscription, setSubscription] = useState("");
@@ -36,7 +36,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     getAccount().then((account) => {
       if (account) {
-        setCorrectPin(account.pin?.toString());
+        setCorrectPin(account.pin);
         const percent =
           (account.costForToday?.[0] || 0) / (account.maxDailyCost || 1);
         setPercentUsedToday(percent);
