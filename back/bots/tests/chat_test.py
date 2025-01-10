@@ -21,8 +21,8 @@ def describe_chat_model():
 
     def test_chat_str():
         chat_id = uuid.uuid4()
-        chat = Chat(chat_id=chat_id)
-        assert str(chat) == str(chat_id)
+        chat = Chat(chat_id=chat_id, title="test")
+        assert str(chat) == "test"
 
     def test_chat_auto_fields():
         now = timezone.now()
