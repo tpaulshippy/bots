@@ -1,7 +1,7 @@
 from django.db import models
     
 class AiModel(models.Model):
-    model_id = models.CharField(max_length=255, unique=True)
+    model_id = models.CharField(max_length=255, unique=True, db_index=True)
     name = models.CharField(max_length=255)
     input_token_cost = models.FloatField(default=1.0)
     output_token_cost = models.FloatField(default=1.0)
