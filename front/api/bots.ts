@@ -1,4 +1,3 @@
-import { AiModel } from "./aiModels";
 import { apiClient } from "./apiClient";
 import { PaginatedResponse } from "./chats";
 
