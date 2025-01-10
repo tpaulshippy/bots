@@ -1,5 +1,6 @@
 import pytest
 from django.utils import timezone
+from django.core.management import call_command
 from mockito import when, unstub, mock
 from django.contrib.auth.models import User
 from bots.models.chat import Chat
@@ -106,22 +107,27 @@ def describe_chat_model():
             assert chat.input_tokens == 2
             assert chat.output_tokens == 4
 
-        def it_should_rate_limit_if_cost_goes_over_daily_limit(chat, ai, ai_output):
-            chat.input_tokens = 142855
-            chat.output_tokens = 35715
-            chat.save()
-            when(ai).invoke(...).thenReturn(ai_output)
-            result = chat.get_response(ai=ai)
-            assert result == "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
+        def describe_with_ai_model_data():
+            @pytest.fixture
+            def load_fixture():
+                call_command('loaddata', 'ai_models.json')
 
-        def it_should_record_rate_limit_if_cost_goes_over_daily_limit(chat, ai, ai_output):
-            chat.input_tokens = 14285500
-            chat.output_tokens = 3571500
-            chat.user.user_account.subscription_level = 1
-            chat.save()
-            when(ai).invoke(...).thenReturn(ai_output)
-            chat.get_response(ai=ai)
-            assert chat.user.user_account.usage_limit_hits.count() == 1
-            assert chat.user.user_account.usage_limit_hits.first().total_input_tokens == 14285500
-            assert chat.user.user_account.usage_limit_hits.first().total_output_tokens == 3571500
-            assert chat.user.user_account.usage_limit_hits.first().subscription_level == 1
+            def it_should_rate_limit_if_cost_goes_over_daily_limit(load_fixture, chat, ai, ai_output):
+                chat.input_tokens = 142855
+                chat.output_tokens = 35715
+                chat.save()
+                when(ai).invoke(...).thenReturn(ai_output)
+                result = chat.get_response(ai=ai)
+                assert result == "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
+
+            def it_should_record_rate_limit_if_cost_goes_over_daily_limit(load_fixture, chat, ai, ai_output):
+                chat.input_tokens = 14285500
+                chat.output_tokens = 3571500
+                chat.user.user_account.subscription_level = 1
+                chat.save()
+                when(ai).invoke(...).thenReturn(ai_output)
+                chat.get_response(ai=ai)
+                assert chat.user.user_account.usage_limit_hits.count() == 1
+                assert chat.user.user_account.usage_limit_hits.first().total_input_tokens == 14285500
+                assert chat.user.user_account.usage_limit_hits.first().total_output_tokens == 3571500
+                assert chat.user.user_account.usage_limit_hits.first().subscription_level == 1

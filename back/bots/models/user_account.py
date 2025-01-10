@@ -2,6 +2,7 @@ from datetime import datetime, time
 from django.contrib.auth.models import User
 from django.db import models
 from .chat import DEFAULT_MODEL_ID, Chat
+from .ai_model import AiModel
 from django.utils import timezone
 import pytz
 
@@ -10,23 +11,6 @@ MAX_COST_DAILY = {
     1: 1.0 / 31,
     2: 5.0 / 31,
 }
-
-class ModelCost:
-    def __init__(self, model_id, input_token_cost, output_token_cost):
-        self.model_id = model_id
-        self.input_token_cost = input_token_cost
-        self.output_token_cost = output_token_cost
-
-    def __str__(self):
-        return self.model_id
-
-nova_micro = ModelCost("us.amazon.nova-micro-v1:0",                     0.000000035, 0.00000014)
-nova_lite = ModelCost("us.amazon.nova-lite-v1:0",                       0.00000006,  0.00000024)
-nova_pro = ModelCost("us.amazon.nova-pro-v1:0",                         0.0000008,   0.0000032)
-llama33 = ModelCost("meta.llama3-3-70b-instruct-v1:0",                  0.00000072,  0.00000072)
-claude3haiku = ModelCost("anthropic.claude-3-haiku-20240307-v1:0",      0.0000008,   0.000004)
-claude35haiku = ModelCost("anthropic.claude-3-5-haiku-20241022-v1:0",   0.00000025,  0.00000125)
-supported_models = [nova_micro, nova_lite, nova_pro, llama33, claude3haiku, claude35haiku]
 
 class UserAccount(models.Model):
     user = models.OneToOneField(User, 
@@ -43,7 +27,6 @@ class UserAccount(models.Model):
         from .usage_limit_hit import UsageLimitHit
         total, total_input_tokens, total_output_tokens = self.cost_for_today()
         if total >= MAX_COST_DAILY[self.subscription_level]:
-            print("over_limit")
             UsageLimitHit.objects.create(user_account=self,
                                          subscription_level=self.subscription_level,
                                          total_input_tokens=total_input_tokens,
@@ -52,6 +35,7 @@ class UserAccount(models.Model):
         return False
 
     def cost_for_today(self):
+        supported_models = AiModel.objects.all()
         total = 0.0
         total_input_tokens = 0
         total_output_tokens = 0
