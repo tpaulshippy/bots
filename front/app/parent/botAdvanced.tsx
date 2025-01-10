@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   button: {
     flexDirection: "row",
     alignItems: "center",
-    paddingRight: 20,
+    paddingRight: 10,
     paddingLeft: 10,
     paddingVertical: 10,
     borderRadius: 10,
