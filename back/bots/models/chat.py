@@ -45,7 +45,11 @@ class Chat(models.Model):
         if self.bot and self.bot.ai_model:
             self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
-            default_model = AiModel.objects.get(is_default=True)
+            try:
+                default_model = AiModel.objects.get(is_default=True)
+            except AiModel.DoesNotExist:
+                raise ValueError("No default AI model configured in the system")
+            
             self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
         
         if self.user.user_account.over_limit():
