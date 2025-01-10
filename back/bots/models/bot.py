@@ -12,7 +12,7 @@ class Bot(models.Model):
     )
     ai_model = models.ForeignKey(
         AiModel,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True
     )
     bot_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
