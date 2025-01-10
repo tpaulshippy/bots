@@ -10,6 +10,7 @@ import { Bot, fetchBot } from "@/api/bots";
 import AdvancedBotEditor from "./botAdvanced";
 import SimpleBotEditor from "./botSimple";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { fetchAiModels } from "@/api/aiModels";
 
 
 export default function BotEditor() {
@@ -24,11 +25,12 @@ export default function BotEditor() {
       setBot(bot);
     }
     else {
+      const models = await fetchAiModels();
       const newBot = {
         id: -1,
         bot_id: "",
         name: "",
-        model: "us.amazon.nova-micro-v1:0",
+        ai_model: models.results.find(model => model.is_default)?.model_id || "",
         system_prompt: "",
         simple_editor: true,
         template_name: "",
