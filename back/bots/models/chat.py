@@ -42,8 +42,8 @@ class Chat(models.Model):
         return self.title if self.user == None else self.user.email + ' - ' + self.title
 
     def get_response(self, ai=None):
-        if self.bot and self.bot.model:
-            self.ai = AiClientWrapper(model_id=self.bot.model, client=ai)
+        if self.bot and self.bot.ai_model:
+            self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
             default_model = AiModel.objects.get(is_default=True)
             self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)

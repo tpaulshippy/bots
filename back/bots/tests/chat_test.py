@@ -5,13 +5,18 @@ from mockito import when, unstub, mock
 from django.contrib.auth.models import User
 from bots.models.chat import Chat
 from bots.models.bot import Bot
+from bots.models.ai_model import AiModel
 import uuid
 from ai_fixtures import get_ai_output
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
 
 
 @pytest.mark.django_db
-def describe_chat_model():
+def describe_chat_model():    
+    @pytest.fixture
+    def load_fixture():
+        call_command('loaddata', 'ai_models.json')
+
     
     def test_chat_creation():
         chat = Chat.objects.create()
@@ -54,7 +59,7 @@ def describe_chat_model():
             output = Output()
             return output
         
-        def it_should_add_message_from_ai(chat, ai, ai_output):
+        def it_should_add_message_from_ai(load_fixture, chat, ai, ai_output):
             when(ai).invoke([
                 SystemMessage("You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."),
                 HumanMessage("Hello")
@@ -67,7 +72,7 @@ def describe_chat_model():
             assert chat.messages.last().input_tokens == 1
             assert chat.messages.last().output_tokens == 2
 
-        def it_should_use_system_prompt_from_bot(chat, ai, ai_output):
+        def it_should_use_system_prompt_from_bot(load_fixture, chat, ai, ai_output):
             chat.bot = Bot(system_prompt = "How can I help you?")
             chat.bot.save()
             when(ai).invoke([
@@ -84,7 +89,9 @@ def describe_chat_model():
             assert chat.ai.model_id == "us.amazon.nova-lite-v1:0"
         
         def it_should_use_model_from_bot(chat, ai, ai_output):
-            chat.bot = Bot(model="my-custom-model")
+            ai_model = AiModel(model_id="my-custom-model")
+            ai_model.save()
+            chat.bot = Bot(ai_model=ai_model)
             chat.bot.save()
             when(ai).invoke([
                 SystemMessage("You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."),
@@ -99,7 +106,7 @@ def describe_chat_model():
             assert chat.messages.last().output_tokens == 2
             assert chat.ai.model_id == "my-custom-model"
 
-        def it_should_roll_up_input_and_output_tokens_to_chat(chat, ai, ai_output):
+        def it_should_roll_up_input_and_output_tokens_to_chat(load_fixture, chat, ai, ai_output):
             when(ai).invoke(...).thenReturn(ai_output)
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
@@ -107,27 +114,22 @@ def describe_chat_model():
             assert chat.input_tokens == 2
             assert chat.output_tokens == 4
 
-        def describe_with_ai_model_data():
-            @pytest.fixture
-            def load_fixture():
-                call_command('loaddata', 'ai_models.json')
+        def it_should_rate_limit_if_cost_goes_over_daily_limit(load_fixture, chat, ai, ai_output):
+            chat.input_tokens = 142855
+            chat.output_tokens = 35715
+            chat.save()
+            when(ai).invoke(...).thenReturn(ai_output)
+            result = chat.get_response(ai=ai)
+            assert result == "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
 
-            def it_should_rate_limit_if_cost_goes_over_daily_limit(load_fixture, chat, ai, ai_output):
-                chat.input_tokens = 142855
-                chat.output_tokens = 35715
-                chat.save()
-                when(ai).invoke(...).thenReturn(ai_output)
-                result = chat.get_response(ai=ai)
-                assert result == "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
-
-            def it_should_record_rate_limit_if_cost_goes_over_daily_limit(load_fixture, chat, ai, ai_output):
-                chat.input_tokens = 14285500
-                chat.output_tokens = 3571500
-                chat.user.user_account.subscription_level = 1
-                chat.save()
-                when(ai).invoke(...).thenReturn(ai_output)
-                chat.get_response(ai=ai)
-                assert chat.user.user_account.usage_limit_hits.count() == 1
-                assert chat.user.user_account.usage_limit_hits.first().total_input_tokens == 14285500
-                assert chat.user.user_account.usage_limit_hits.first().total_output_tokens == 3571500
-                assert chat.user.user_account.usage_limit_hits.first().subscription_level == 1
+        def it_should_record_rate_limit_if_cost_goes_over_daily_limit(load_fixture, chat, ai, ai_output):
+            chat.input_tokens = 14285500
+            chat.output_tokens = 3571500
+            chat.user.user_account.subscription_level = 1
+            chat.save()
+            when(ai).invoke(...).thenReturn(ai_output)
+            chat.get_response(ai=ai)
+            assert chat.user.user_account.usage_limit_hits.count() == 1
+            assert chat.user.user_account.usage_limit_hits.first().total_input_tokens == 14285500
+            assert chat.user.user_account.usage_limit_hits.first().total_output_tokens == 3571500
+            assert chat.user.user_account.usage_limit_hits.first().subscription_level == 1

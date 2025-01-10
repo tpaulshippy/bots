@@ -70,5 +70,5 @@ class UserAccount(models.Model):
         start_of_day = user_timezone.localize(datetime.combine(today, time.min))
         start_of_day_utc = start_of_day.astimezone(pytz.UTC)
         return Chat.objects.filter(user=self.user,
-                                    bot__model=model_id,
+                                    bot__ai_model__model_id=model_id,
                                     modified_at__gte=start_of_day_utc)
