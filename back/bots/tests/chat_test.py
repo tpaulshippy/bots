@@ -7,8 +7,7 @@ from bots.models.chat import Chat
 from bots.models.bot import Bot
 from bots.models.ai_model import AiModel
 import uuid
-from ai_fixtures import get_ai_output
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from langchain.schema import HumanMessage, SystemMessage
 
 
 @pytest.mark.django_db

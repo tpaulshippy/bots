@@ -1,14 +1,12 @@
 import pytest
 from django.utils import timezone
 from django.core.management import call_command
-from mockito import when, unstub, mock, any
 from bots.models.chat import Chat
 from bots.models.bot import Bot
 from bots.models.ai_model import AiModel
 from django.contrib.auth.models import User
 from django.db import connection
 
-from ai_fixtures import get_ai_output
 
 @pytest.mark.django_db
 def describe_account():
