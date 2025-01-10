@@ -1,11 +1,11 @@
 from django.conf import settings
 from django.db import models
 import uuid
-import json
 from langchain_aws import ChatBedrock
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
 
 from .profile import Profile
+from .bot import Bot
 
 DEFAULT_MODEL_ID = "us.amazon.nova-lite-v1:0"
 
@@ -27,7 +27,7 @@ class Chat(models.Model):
         null=True
     )
     profile = models.ForeignKey(Profile, related_name='profiles', on_delete=models.CASCADE, null=True)
-    bot = models.ForeignKey('Bot', related_name='chats', on_delete=models.CASCADE, null=True)
+    bot = models.ForeignKey(Bot, related_name='chats', on_delete=models.CASCADE, null=True)
     chat_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=100, blank=True)
     input_tokens = models.IntegerField(default=0)

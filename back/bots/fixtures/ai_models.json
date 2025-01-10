@@ -1,0 +1,74 @@
+[
+    {
+        "model": "bots.AiModel",
+        "pk": 1,
+        "fields": {
+            "model_id": "us.amazon.nova-micro-v1:0",
+            "name": "Nova Micro",
+            "input_token_cost": 0.000000035,
+            "output_token_cost": 0.00000014,
+            "created_at": "2025-01-01T00:00:00Z",
+            "modified_at": "2025-01-01T00:00:00Z"
+        }
+    },
+    {
+        "model": "bots.AiModel",
+        "pk": 2,
+        "fields": {
+            "model_id": "us.amazon.nova-lite-v1:0",
+            "name": "Nova Lite",
+            "input_token_cost": 0.00000006,
+            "output_token_cost": 0.00000024,
+            "created_at": "2025-01-01T00:00:00Z",
+            "modified_at": "2025-01-01T00:00:00Z"
+        }
+    },
+    {
+        "model": "bots.AiModel",
+        "pk": 3,
+        "fields": {
+            "model_id": "us.amazon.nova-pro-v1:0",
+            "name": "Nova Pro",
+            "input_token_cost": 0.0000008,
+            "output_token_cost": 0.0000032,
+            "created_at": "2025-01-01T00:00:00Z",
+            "modified_at": "2025-01-01T00:00:00Z"
+        }
+    },
+    {
+        "model": "bots.AiModel",
+        "pk": 4,
+        "fields": {
+            "model_id": "meta.llama3-3-70b-instruct-v1:0",
+            "name": "Llama 3-3 70B Instruct",
+            "input_token_cost": 0.00000072,
+            "output_token_cost": 0.00000072,
+            "created_at": "2025-01-01T00:00:00Z",
+            "modified_at": "2025-01-01T00:00:00Z"
+        }
+    },
+    {
+        "model": "bots.AiModel",
+        "pk": 5,
+        "fields": {
+            "model_id": "anthropic.claude-3-haiku-20240307-v1:0",
+            "name": "Claude 3 Haiku",
+            "input_token_cost": 0.0000008,
+            "output_token_cost": 0.000004,
+            "created_at": "2025-01-01T00:00:00Z",
+            "modified_at": "2025-01-01T00:00:00Z"
+        }
+    },
+    {
+        "model": "bots.AiModel",
+        "pk": 6,
+        "fields": {
+            "model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
+            "name": "Claude 3.5 Haiku",
+            "input_token_cost": 0.00000025,
+            "output_token_cost": 0.00000125,
+            "created_at": "2025-01-01T00:00:00Z",
+            "modified_at": "2025-01-01T00:00:00Z"
+        }
+    }
+]

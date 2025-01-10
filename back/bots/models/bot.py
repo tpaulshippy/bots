@@ -1,10 +1,17 @@
 from django.conf import settings
 from django.db import models
 import uuid
+
+from bots.models.ai_model import AiModel
     
 class Bot(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True
+    )
+    ai_model = models.ForeignKey(
+        AiModel,
         on_delete=models.CASCADE,
         null=True
     )
