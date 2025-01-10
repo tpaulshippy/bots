@@ -16,10 +16,10 @@ class AiModelSerializer(serializers.HyperlinkedModelSerializer):
             'is_default',
             'url']
 
-class AiModelViewSet(viewsets.ModelViewSet):
+class AiModelViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AiModel.objects.all()
     serializer_class = AiModelSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated]
 
     from django.db import transaction
 
