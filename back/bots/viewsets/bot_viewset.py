@@ -1,16 +1,20 @@
 from rest_framework import viewsets, serializers
-from bots.models import Bot
+from bots.models import Bot, AiModel
 from bots.permissions import IsOwner
 import uuid
 
 class BotSerializer(serializers.HyperlinkedModelSerializer):
+    ai_model = serializers.SlugRelatedField(
+        queryset=AiModel.objects.all(),
+        slug_field='model_id',
+    )
     class Meta:
         model = Bot
         fields = [
             'id',
             'bot_id',
             'name',
-            'model',
+            'ai_model',
             'system_prompt',
             'simple_editor',
             'template_name',

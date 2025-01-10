@@ -5,7 +5,7 @@ export interface Bot {
   id: number;
   bot_id: string;
   name: string;
-  model: string;
+  ai_model: string;
   system_prompt: string;
   simple_editor: boolean;
   template_name: string;

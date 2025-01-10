@@ -6,12 +6,13 @@ import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { Picker } from "@react-native-picker/picker";
 import { ThemedButton } from "@/components/ThemedButton";
 
-import React, { useLayoutEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { Bot, upsertBot } from "@/api/bots";
 import { useNavigation, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { PlatformPressable } from "@react-navigation/elements";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { AiModel, fetchAiModels } from "@/api/aiModels";
 
 interface SupportedModel {
   name: string;
@@ -33,22 +34,21 @@ export default function AdvancedBotEditor({
   const [isPickerVisible, setPickerVisible] = useState(false);
   const iconColor = useThemeColor({}, "tint");
   const buttonIconColor = useThemeColor({}, "text");
+  const [aiModels, setAiModels] = useState<AiModel[]>([]);
 
-  const supportedModels: SupportedModel[] = [
-    { name: "Nova Micro", id: "us.amazon.nova-micro-v1:0" },
-    { name: "Nova Lite", id: "us.amazon.nova-lite-v1:0" },
-    { name: "Nova Pro", id: "us.amazon.nova-pro-v1:0" },
-    { name: "Llama 3.3", id: "meta.llama3-3-70b-instruct-v1:0" },
-    { name: "Claude 3 Haiku", id: "anthropic.claude-3-haiku-20240307-v1:0" },
-    {
-      name: "Claude 3.5 Haiku",
-      id: "anthropic.claude-3-5-haiku-20241022-v1:0",
-    },
-  ];
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      const models = await fetchAiModels();
+      setAiModels(models.results);
+    };
+
+    fetchModels();
+  }, []);
 
   const validateBot = async () => {
     setNameMissing(!bot?.name.trim());
-    setModelMissing(!bot?.model);
+    setModelMissing(!bot?.ai_model);
   };
 
   const saveBot = async () => {
@@ -104,7 +104,7 @@ export default function AdvancedBotEditor({
   };
 
   const handlePickerChange = (itemValue: string) => {
-    setBot({ ...bot, model: itemValue });
+    setBot({ ...bot, ai_model: itemValue });
     setPickerVisible(false);
   };
 
@@ -124,19 +124,19 @@ export default function AdvancedBotEditor({
           <ThemedText
             style={[styles.input, modelMissing ? styles.missing : {}]}
           >
-            {supportedModels.find(m => m.id == bot.model)?.name || "Select a model"}
+            {aiModels.find(m => m.model_id == bot.ai_model)?.name || "Select a model"}
           </ThemedText>
         </ThemedButton>
       </ThemedView>
       <Modal visible={isPickerVisible} transparent={true} animationType="slide">
         <ThemedView style={styles.modalContainer}>
           <Picker
-            selectedValue={bot?.model}
+            selectedValue={bot?.ai_model}
             style={styles.picker}
             onValueChange={handlePickerChange}
           >
-            {supportedModels.map((model, index) => (
-              <Picker.Item key={index} label={model.name} value={model.id} />
+            {aiModels.map((model, index) => (
+              <Picker.Item key={index} label={model.name} value={model.model_id} />
             ))}
           </Picker>
           <ThemedButton

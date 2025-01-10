@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 import uuid
+
+from bots.models.ai_model import AiModel
     
 class Bot(models.Model):
     user = models.ForeignKey(
@@ -8,9 +10,13 @@ class Bot(models.Model):
         on_delete=models.CASCADE,
         null=True
     )
+    ai_model = models.ForeignKey(
+        AiModel,
+        on_delete=models.SET_NULL,
+        null=True
+    )
     bot_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255)
-    model = models.CharField(max_length=255)
     system_prompt = models.TextField(null=True, blank=True)
     simple_editor = models.BooleanField(default=False)
     template_name = models.CharField(max_length=255, null=True, blank=True)

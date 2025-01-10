@@ -1,16 +1,20 @@
 import pytest
 from django.utils import timezone
-from mockito import when, unstub, mock, any
+from django.core.management import call_command
 from bots.models.chat import Chat
 from bots.models.bot import Bot
+from bots.models.ai_model import AiModel
 from django.contrib.auth.models import User
 from django.db import connection
 
-from ai_fixtures import get_ai_output
 
 @pytest.mark.django_db
 def describe_account():
-    def test_cost_single_model():
+    @pytest.fixture
+    def load_fixture():
+        call_command('loaddata', 'ai_models.json')
+
+    def test_cost_single_model(load_fixture):
         account = User.objects.create()
         chat1 = Chat.objects.create(user=account, input_tokens=1, output_tokens=2)
         chat2 = Chat.objects.create(user=account, input_tokens=3, output_tokens=4)
@@ -25,7 +29,7 @@ def describe_account():
         expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
         assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
         
-    def test_cost_single_model_in_hawaii():
+    def test_cost_single_model_in_hawaii(load_fixture):
         account = User.objects.create()
         account.user_account.timezone = 'Pacific/Honolulu'
         chat1 = Chat.objects.create(user=account, input_tokens=1, output_tokens=2)
@@ -45,7 +49,7 @@ def describe_account():
         expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
         assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
 
-    def test_cost_single_model_in_australia():
+    def test_cost_single_model_in_australia(load_fixture):
         account = User.objects.create()
         account.user_account.timezone = 'Australia/Sydney'
         chat1 = Chat.objects.create(user=account, input_tokens=1, output_tokens=2)
@@ -65,11 +69,13 @@ def describe_account():
         expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
         assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
     
-    def test_cost_multiple_models():
+    def test_cost_multiple_models(load_fixture):
         account = User.objects.create()
-        bot1 = Bot.objects.create(model='us.amazon.nova-micro-v1:0')
+        nova_micro = AiModel.objects.get(model_id='us.amazon.nova-micro-v1:0')
+        nova_lite = AiModel.objects.get(model_id='us.amazon.nova-lite-v1:0')
+        bot1 = Bot.objects.create(ai_model=nova_micro)
         chat1 = Chat.objects.create(user=account, bot=bot1, input_tokens=1, output_tokens=2)
-        bot2 = Bot.objects.create(model='us.amazon.nova-lite-v1:0')
+        bot2 = Bot.objects.create(ai_model=nova_lite)
         chat2 = Chat.objects.create(user=account, bot=bot2, input_tokens=3, output_tokens=4)
         chat3 = Chat.objects.create(user=account, 
                                     input_tokens=5, 

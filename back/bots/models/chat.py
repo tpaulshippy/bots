@@ -1,13 +1,12 @@
 from django.conf import settings
 from django.db import models
 import uuid
-import json
 from langchain_aws import ChatBedrock
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
 
 from .profile import Profile
-
-DEFAULT_MODEL_ID = "us.amazon.nova-lite-v1:0"
+from .bot import Bot
+from .ai_model import AiModel
 
 class AiClientWrapper:
     def __init__(self, model_id, client=None):
@@ -27,7 +26,7 @@ class Chat(models.Model):
         null=True
     )
     profile = models.ForeignKey(Profile, related_name='profiles', on_delete=models.CASCADE, null=True)
-    bot = models.ForeignKey('Bot', related_name='chats', on_delete=models.CASCADE, null=True)
+    bot = models.ForeignKey(Bot, related_name='chats', on_delete=models.CASCADE, null=True)
     chat_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=100, blank=True)
     input_tokens = models.IntegerField(default=0)
@@ -43,10 +42,15 @@ class Chat(models.Model):
         return self.title if self.user == None else self.user.email + ' - ' + self.title
 
     def get_response(self, ai=None):
-        if self.bot and self.bot.model:
-            self.ai = AiClientWrapper(model_id=self.bot.model, client=ai)
+        if self.bot and self.bot.ai_model:
+            self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
-            self.ai = AiClientWrapper(model_id=DEFAULT_MODEL_ID, client=ai)
+            try:
+                default_model = AiModel.objects.get(is_default=True)
+            except AiModel.DoesNotExist:
+                raise ValueError("No default AI model configured in the system")
+            
+            self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
         
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
