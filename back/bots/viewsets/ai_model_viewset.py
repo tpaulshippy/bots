@@ -21,8 +21,17 @@ class AiModelViewSet(viewsets.ModelViewSet):
     serializer_class = AiModelSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
 
+    from django.db import transaction
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            if serializer.validated_data.get('is_default', False):
+                AiModel.objects.update(is_default=False)
+            super().perform_create(serializer)
+
     def perform_update(self, serializer):
-        instance = serializer.instance
-        if serializer.validated_data.get('is_default', False):
-            AiModel.objects.exclude(pk=instance.pk).update(is_default=False)
-        super().perform_update(serializer)
+        with transaction.atomic():
+            instance = serializer.instance
+            if serializer.validated_data.get('is_default', False):
+                AiModel.objects.exclude(pk=instance.pk).update(is_default=False)
+            super().perform_update(serializer)
