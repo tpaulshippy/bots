@@ -12,7 +12,6 @@ import SimpleBotEditor from "./botSimple";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { fetchAiModels } from "@/api/aiModels";
 
-
 export default function BotEditor() {
   const router = useRouter();
   const [bot, setBot] = useState<Bot | null>(null);
@@ -23,14 +22,15 @@ export default function BotEditor() {
     if (botId) {
       const bot = await fetchBot(botId);
       setBot(bot);
-    }
-    else {
+    } else {
       const models = await fetchAiModels();
+      const defaultModel = models.results.find((model) => model.is_default);
+
       const newBot = {
         id: -1,
         bot_id: "",
         name: "",
-        ai_model: models.results.find(model => model.is_default)?.model_id || "",
+        ai_model: defaultModel?.model_id || models.results[0]?.model_id || "",
         system_prompt: "",
         simple_editor: true,
         template_name: "",
@@ -53,7 +53,6 @@ export default function BotEditor() {
       params: { title: bot.name || "New Bot", botId: bot.bot_id || "" },
     });
   };
-
 
   return bot ? (
     <KeyboardAvoidingView
