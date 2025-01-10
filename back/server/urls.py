@@ -23,6 +23,7 @@ from rest_framework_nested.routers import NestedDefaultRouter
 from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
 from bots.viewsets.profile_viewset import ProfileViewSet
 from bots.viewsets.bot_viewset import BotViewSet
+from bots.viewsets.ai_model_viewset import AiModelViewSet
 from bots.views.get_chat_response import get_chat_response
 from bots.views.get_jwt import get_jwt, start_web_login
 from bots.views.user_account_view import user_account_view
@@ -36,6 +37,7 @@ router = routers.DefaultRouter()
 router.register(r'chats', ChatViewSet)
 router.register(r'profiles', ProfileViewSet)
 router.register(r'bots', BotViewSet)
+router.register(r'ai_models', AiModelViewSet)
 
 chats_router = NestedDefaultRouter(router, r'chats', lookup='chat')
 chats_router.register(r'messages', MessageViewSet, basename='chat-messages')

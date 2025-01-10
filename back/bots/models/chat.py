@@ -6,8 +6,7 @@ from langchain.schema import HumanMessage, SystemMessage, AIMessage
 
 from .profile import Profile
 from .bot import Bot
-
-DEFAULT_MODEL_ID = "us.amazon.nova-lite-v1:0"
+from .ai_model import AiModel
 
 class AiClientWrapper:
     def __init__(self, model_id, client=None):
@@ -46,7 +45,8 @@ class Chat(models.Model):
         if self.bot and self.bot.model:
             self.ai = AiClientWrapper(model_id=self.bot.model, client=ai)
         else:
-            self.ai = AiClientWrapper(model_id=DEFAULT_MODEL_ID, client=ai)
+            default_model = AiModel.objects.get(is_default=True)
+            self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
         
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."

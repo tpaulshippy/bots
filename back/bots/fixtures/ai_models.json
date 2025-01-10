@@ -19,6 +19,7 @@
             "name": "Nova Lite",
             "input_token_cost": 0.00000006,
             "output_token_cost": 0.00000024,
+            "is_default": true,
             "created_at": "2025-01-01T00:00:00Z",
             "modified_at": "2025-01-01T00:00:00Z"
         }

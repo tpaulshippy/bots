@@ -1,7 +1,7 @@
 from datetime import datetime, time
 from django.contrib.auth.models import User
 from django.db import models
-from .chat import DEFAULT_MODEL_ID, Chat
+from .chat import Chat
 from .ai_model import AiModel
 from django.utils import timezone
 import pytz
@@ -46,7 +46,7 @@ class UserAccount(models.Model):
             total_input_tokens += input_tokens
             total_output_tokens += output_tokens
             
-            if model.model_id == DEFAULT_MODEL_ID:
+            if model.is_default:
                 # Add costs for chats with no specified bot (using the default model)
                 input_tokens = self.input_tokens_today(None)
                 output_tokens = self.output_tokens_today(None)

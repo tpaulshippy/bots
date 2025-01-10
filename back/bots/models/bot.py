@@ -17,7 +17,6 @@ class Bot(models.Model):
     )
     bot_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255)
-    model = models.CharField(max_length=255)
     system_prompt = models.TextField(null=True, blank=True)
     simple_editor = models.BooleanField(default=False)
     template_name = models.CharField(max_length=255, null=True, blank=True)
