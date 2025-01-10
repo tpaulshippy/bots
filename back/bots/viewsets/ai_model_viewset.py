@@ -1,6 +1,7 @@
 from rest_framework import viewsets, serializers
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from bots.models import AiModel
+from django.db import transaction
 
 class AiModelSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -20,8 +21,6 @@ class AiModelViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AiModel.objects.all()
     serializer_class = AiModelSerializer
     permission_classes = [IsAuthenticated]
-
-    from django.db import transaction
 
     def perform_create(self, serializer):
         with transaction.atomic():
