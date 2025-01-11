@@ -50,7 +50,6 @@ export default function RootLayout() {
     }
   };
 
-  const [expoPushToken, setExpoPushToken] = useState("");
   const [notification, setNotification] = useState<Notifications.Notification | undefined>(
       undefined
     );
@@ -58,10 +57,6 @@ export default function RootLayout() {
   const responseListener = useRef<Notifications.EventSubscription>();
 
   useEffect(() => {
-    registerForPushNotificationsAsync()
-      .then((token) => setExpoPushToken(token ?? ""))
-      .catch((error: any) => setExpoPushToken(`${error}`));
-
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
         setNotification(notification);
@@ -75,7 +70,12 @@ export default function RootLayout() {
 
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log(response);
+        router.push({
+          pathname: "/parent/notifications",
+          params: {
+            notification: JSON.stringify(response.notification)
+          }
+         });
       });
 
     return () => {
