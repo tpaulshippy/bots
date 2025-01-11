@@ -3,16 +3,18 @@ import { StyleSheet, Platform, Button } from "react-native";
 import { ExternalLink } from "@/components/ExternalLink";
 import { ThemedView } from "@/components/ThemedView";
 import * as Linking from "expo-linking";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
+import { setTokens } from "@/api/tokens";
+import { useRouter } from "expo-router";
 
 const LOCAL_DEV_WEB_LOGIN_URL = "http://localhost:8000/api/login/web";
 const LOGIN_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL + "/accounts/google/login/";
 
 const LoginScreen = () => {
+  const router = useRouter();
   const url = Linking.useURL();
-  const [tokens, setTokens] = React.useState("");
+  const [manualTokens, setManualTokens] = React.useState("");
 
   useEffect(() => {
     const getJWTFromLink = async () => {
@@ -20,12 +22,9 @@ const LoginScreen = () => {
         const { queryParams } = Linking.parse(url);
 
         if (queryParams && queryParams["access"] && queryParams["refresh"]) {
-          const access = queryParams["access"];
-          const refresh = queryParams["refresh"];
-          AsyncStorage.setItem(
-            "loggedInUser",
-            JSON.stringify({ access, refresh })
-          );
+          const access = queryParams["access"] as string;
+          const refresh = queryParams["refresh"] as string;
+          await setTokens({ access, refresh });
         }
       }
     };
@@ -45,13 +44,14 @@ const LoginScreen = () => {
         </ExternalLink>
       )}
       <ThemedTextInput
-        onChangeText={(text) => setTokens(text)}
+        onChangeText={(text) => setManualTokens(text)}
         placeholder="Paste tokens here"
       />
       <Button
         title="Submit"
         onPress={async () => {
-          await AsyncStorage.setItem("loggedInUser", tokens);
+          await setTokens(JSON.parse(manualTokens));
+          router.replace("/");
         }}
       />
     </ThemedView>

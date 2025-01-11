@@ -24,6 +24,8 @@ const MAPPING = {
   'checkmark': 'check',
   'trash': 'delete',
   'gearshape.2': 'settings',
+  'bell.fill': 'notifications',
+  'arrowshape.turn.up.left.fill': 'arrow-back',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

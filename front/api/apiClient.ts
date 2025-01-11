@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getTokens, setTokens } from "./tokens";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -19,19 +19,18 @@ export const apiClient = async <T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
-    const user = await loggedInUser();
+    const tokens = await getTokens();
     const response = await fetch(`${BASE_URL}${endpoint}`, {
         ...options,
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${user?.access}`,
+            'Authorization': `Bearer ${tokens?.access}`,
             ...options.headers,
         },
     });
 
     if (response.status === 401) {
-        // Try using refresh token to get new access token
-        await refreshWithRefreshToken(user);
+        await refreshWithRefreshToken(tokens);
         return apiClient(endpoint, options);
     }
 
@@ -45,17 +44,6 @@ export const apiClient = async <T>(
     };
 };
 
-export const loggedInUser = async () => {
-    try {
-      const loggedInUser = await AsyncStorage.getItem("loggedInUser");
-      if (loggedInUser) {
-        const userData = JSON.parse(loggedInUser);
-        return userData;
-      }
-    } catch (error) {
-      console.error("Failed to load the loggedInUser from local storage", error);
-    }
-  };
 
 export const refreshWithRefreshToken = async (user: any) => {
     if (!user) {
@@ -70,6 +58,8 @@ export const refreshWithRefreshToken = async (user: any) => {
         body: JSON.stringify({ refresh: user.refresh }),
     });
 
+    console.log(response.status);
+
     if (response.status !== 200) {
         throw new UnauthorizedError();
     }
@@ -77,8 +67,5 @@ export const refreshWithRefreshToken = async (user: any) => {
     const text = await response.text();
     const data = JSON.parse(text);
 
-    await AsyncStorage.setItem(
-        "loggedInUser",
-        JSON.stringify({ access: data.access, refresh: user.refresh })
-    );
+    await setTokens(data);
 };

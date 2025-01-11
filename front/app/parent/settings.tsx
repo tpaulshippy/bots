@@ -9,20 +9,19 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  FlatList,
 } from "react-native";
 import { ThemedButton } from "@/components/ThemedButton";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import * as Progress from "react-native-progress";
 import * as Haptics from "expo-haptics";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
+import { setTokens } from "@/api/tokens";
 
 const subscriptionNames: { [key: string]: string } = {
   0: "Free",
   1: "Basic",
-  2: "Plus"
+  2: "Plus",
 };
 
 export default function SettingsScreen() {
@@ -40,8 +39,7 @@ export default function SettingsScreen() {
         const percent =
           (account.costForToday?.[0] || 0) / (account.maxDailyCost || 1);
         setPercentUsedToday(percent);
-        if (account.subscriptionLevel !== undefined)
-        {
+        if (account.subscriptionLevel !== undefined) {
           setSubscription(subscriptionNames[account.subscriptionLevel]);
           setSubscriptionLevel(account.subscriptionLevel);
         }
@@ -55,6 +53,7 @@ export default function SettingsScreen() {
       | "/parent/profilesList"
       | "/parent/botsList"
       | "/parent/setPin"
+      | "/parent/notifications"
       | "/login"
   ) => {
     if (process.env.EXPO_OS === "ios") {
@@ -94,8 +93,9 @@ export default function SettingsScreen() {
               <ThemedButton
                 style={styles.logOutButton}
                 onPress={() => {
-                  AsyncStorage.removeItem("loggedInUser");
-                  router.navigate("/login");
+                  setTokens({ access: "", refresh: "" }).then(() => {
+                    router.navigate("/login");
+                  });
                 }}
               >
                 <ThemedText>Log Out</ThemedText>
@@ -115,9 +115,23 @@ export default function SettingsScreen() {
                   onPress={() => goTo("/parent/botsList")}
                 ></MenuItem>
                 <MenuItem
+                  title="Notifications"
+                  iconName="bell.fill"
+                  onPress={() => goTo("/parent/notifications")}
+                ></MenuItem>
+                <MenuItem
                   title="Set Pin"
                   iconName="lock.fill"
                   onPress={() => goTo("/parent/setPin")}
+                ></MenuItem>
+                <MenuItem
+                  title="Log Out"
+                  iconName="arrowshape.turn.up.left.fill"
+                  onPress={() => {
+                    setTokens({ access: "", refresh: "" }).then(() => {
+                      goTo("/login");
+                    });
+                  }}
                 ></MenuItem>
               </ThemedView>
             </PinWrapper>
@@ -154,9 +168,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#666",
   },
-  progressBar: {
-    
-  },
+  progressBar: {},
   usageText: {
     fontSize: 12,
   },

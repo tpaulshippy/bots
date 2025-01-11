@@ -16,6 +16,7 @@ import {
   useRouter,
 } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { setTokens } from "@/api/tokens";
 
 export default function ProfilesList() {
   const navigation = useNavigation();
@@ -153,7 +154,7 @@ export default function ProfilesList() {
         {profiles.length === 0 && (
           <ThemedButton
             onPress={() => {
-              AsyncStorage.removeItem("loggedInUser");
+              setTokens({ access: "", refresh: "" });
             }}
           >
             <ThemedText style={styles.profileText}>Log out</ThemedText>

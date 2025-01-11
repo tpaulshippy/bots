@@ -99,7 +99,6 @@ export default function ChatList() {
       if (error instanceof UnauthorizedError) {
         router.push("/login");
       }
-      console.error("Failed to fetch chats", error);
     }
   };
 
