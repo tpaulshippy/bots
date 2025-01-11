@@ -58,8 +58,6 @@ export const refreshWithRefreshToken = async (user: any) => {
         body: JSON.stringify({ refresh: user.refresh }),
     });
 
-    console.log(response.status);
-
     if (response.status !== 200) {
         throw new UnauthorizedError();
     }

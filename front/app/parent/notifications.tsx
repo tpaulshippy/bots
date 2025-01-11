@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { useLocalSearchParams } from 'expo-router';
 
 
 Notifications.setNotificationHandler({
@@ -17,33 +18,12 @@ Notifications.setNotificationHandler({
 
 
 
-async function sendPushNotification(expoPushToken: string) {
-  const message = {
-    to: expoPushToken,
-    sound: 'default',
-    title: 'Original Title',
-    body: 'And here is the body!',
-    data: { someData: 'goes here' },
-  };
-
-  await fetch('https://exp.host/--/api/v2/push/send', {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Accept-encoding': 'gzip, deflate',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(message),
-  });
-}
-
-
 function handleRegistrationError(errorMessage: string) {
   alert(errorMessage);
   throw new Error(errorMessage);
 }
 
-async function registerForPushNotificationsAsync() {
+export async function registerForPushNotificationsAsync() {
   if (Platform.OS === 'android') {
     Notifications.setNotificationChannelAsync('default', {
       name: 'default',
@@ -85,49 +65,23 @@ async function registerForPushNotificationsAsync() {
   }
 }
 
-export default function App() {
-  const [expoPushToken, setExpoPushToken] = useState('');
+export default function NotificationsScreen() {
   const [notification, setNotification] = useState<Notifications.Notification | undefined>(
     undefined
   );
-  const notificationListener = useRef<Notifications.EventSubscription>();
-  const responseListener = useRef<Notifications.EventSubscription>();
+  const local = useLocalSearchParams();
 
   useEffect(() => {
-    registerForPushNotificationsAsync()
-      .then(token => setExpoPushToken(token ?? ''))
-      .catch((error: any) => setExpoPushToken(`${error}`));
-
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      setNotification(notification);
-    });
-
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log(response);
-    });
-
-    return () => {
-      notificationListener.current &&
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      responseListener.current &&
-        Notifications.removeNotificationSubscription(responseListener.current);
-    };
-  }, []);
+    setNotification(JSON.parse(local.notification as string));
+  }, []);    
 
   return (
     <ThemedView style={{ flex: 1, alignItems: 'center', justifyContent: 'space-around' }}>
-      <ThemedText>Your Expo push token: {expoPushToken}</ThemedText>
       <ThemedView style={{ alignItems: 'center', justifyContent: 'center' }}>
         <ThemedText>Title: {notification && notification.request.content.title} </ThemedText>
         <ThemedText>Body: {notification && notification.request.content.body}</ThemedText>
         <ThemedText>Data: {notification && JSON.stringify(notification.request.content.data)}</ThemedText>
       </ThemedView>
-      <Button
-        title="Press to Send Notification"
-        onPress={async () => {
-          await sendPushNotification(expoPushToken);
-        }}
-      />
     </ThemedView>
   );
 }
