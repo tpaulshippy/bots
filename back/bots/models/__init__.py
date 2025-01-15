@@ -5,6 +5,7 @@ from .bot import Bot
 from .user_account import UserAccount
 from .usage_limit_hit import UsageLimitHit
 from .ai_model import AiModel
+from .device import Device
 
 __all__ = [
     'Chat',
@@ -14,4 +15,5 @@ __all__ = [
     'UserAccount',
     'UsageLimitHit',
     'AiModel',
+    'Device'
 ]
