@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { Text, View, Button, Platform } from "react-native";
+import { Text, View, Button, Platform, StyleSheet, Switch } from "react-native";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useLocalSearchParams } from "expo-router";
+import { PlatformPressable } from "@react-navigation/elements";
+import { set } from "date-fns";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -71,6 +73,7 @@ export default function NotificationsScreen() {
     Notifications.Notification | undefined
   >(undefined);
 
+  const [enableNotifications, setEnableNotifications] = useState(false);
   const [expoPushToken, setExpoPushToken] = useState("");
   const local = useLocalSearchParams();
 
@@ -86,20 +89,40 @@ export default function NotificationsScreen() {
 
   return (
     <ThemedView
-      style={{ flex: 1, alignItems: "center", justifyContent: "space-around" }}
+      style={styles.container}
     >
-      <ThemedView style={{ alignItems: "center", justifyContent: "center" }}>
-        <ThemedText>
-          Title: {notification && notification.request.content.title}{" "}
-        </ThemedText>
-        <ThemedText>
-          Body: {notification && notification.request.content.body}
-        </ThemedText>
-        <ThemedText>
-          Data:{" "}
-          {notification && JSON.stringify(notification.request.content.data)}
-        </ThemedText>
+      <ThemedView style={styles.formGroupCheckbox}>
+        <Switch
+          value={enableNotifications}
+          onValueChange={setEnableNotifications}
+        />
+        <PlatformPressable
+          onPress={() => 
+            setEnableNotifications(!enableNotifications)
+          }
+        >
+          <ThemedText style={styles.checkboxLabel}>
+            {enableNotifications ? "Disable" : "Enable"} Notifications
+          </ThemedText>
+        </PlatformPressable>
       </ThemedView>
     </ThemedView>
   );
 }
+
+
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  formGroupCheckbox: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    marginLeft: 10,
+  },
+});
