@@ -86,6 +86,7 @@ export default function SimpleBotEditor({
   const [isPickerVisible, setPickerVisible] = useState(false);
   const iconColor = useThemeColor({}, "tint");
   const buttonIconColor = useThemeColor({}, "text");
+  const bgColor = useThemeColor({}, "cardBackground");
 
   const validateBot = async () => {
     setNameMissing(!bot?.name.trim());
@@ -257,41 +258,29 @@ export default function SimpleBotEditor({
           }
         />
       </ThemedView>
-      <ThemedView style={styles.formGroupCheckbox}>
+      <ThemedView style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}>
+        <ThemedText style={styles.checkboxLabel}>
+          Restrict Foul Language
+        </ThemedText>
+
         <Switch
           value={bot.restrict_language}
           onValueChange={(value) =>
             setBotProperty({ restrict_language: value })
           }
         />
-        <PlatformPressable
-          onPress={() =>
-            setBotProperty({ restrict_language: !bot.restrict_language })
-          }
-        >
-          <ThemedText style={styles.checkboxLabel}>
-            Restrict Foul Language
-          </ThemedText>
-        </PlatformPressable>
       </ThemedView>
-      <ThemedView style={styles.formGroupCheckbox}>
+      <ThemedView style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}>
+        <ThemedText style={styles.checkboxLabel}>
+          Restrict Adult Topics
+        </ThemedText>
+
         <Switch
           value={bot.restrict_adult_topics}
           onValueChange={(value) =>
             setBotProperty({ restrict_adult_topics: value })
           }
         />
-        <PlatformPressable
-          onPress={() =>
-            setBotProperty({
-              restrict_adult_topics: !bot.restrict_adult_topics,
-            })
-          }
-        >
-          <ThemedText style={styles.checkboxLabel}>
-            Restrict Adult Topics
-          </ThemedText>
-        </PlatformPressable>
       </ThemedView>
 
       <ThemedView style={styles.buttons}>
@@ -343,6 +332,9 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 10,
+    padding: 5,
   },
   label: {
     fontSize: 16,
@@ -380,11 +372,11 @@ const styles = StyleSheet.create({
     borderColor: "red",
   },
   buttons: {
+    flex: 1,
     flexDirection: "row",
-    justifyContent: "center",
-    width: "100%",
   },
   button: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     marginRight: 10,

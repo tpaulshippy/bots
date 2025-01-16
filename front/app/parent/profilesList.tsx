@@ -17,6 +17,7 @@ import {
 } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { setTokens } from "@/api/tokens";
+import { MenuItem } from "@/components/MenuItem";
 
 export default function ProfilesList() {
   const navigation = useNavigation();
@@ -126,7 +127,7 @@ export default function ProfilesList() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        numColumns={3}
+        numColumns={2}
         data={profiles}
         renderItem={({ item }) => (
           <PlatformPressable
@@ -142,7 +143,7 @@ export default function ProfilesList() {
           <IconSymbol
             name="person.fill"
             color="#555"
-            size={60}
+            size={80}
             style={styles.profileIcon}
           ></IconSymbol>
           <ThemedText style={styles.profileText}>{item.name}</ThemedText>
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   profileCard: {
-    width: "30%",
+    width: "46%",
     height: 100,
     aspectRatio: 1,
     padding: 5,

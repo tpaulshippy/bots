@@ -23,26 +23,31 @@ export function MenuItem({
   onPress,
   ...otherProps
 }: MenuItemProps) {
-  const theme = useColorScheme() ?? 'light';
+  const theme = useColorScheme() ?? "light";
   const backgroundColor = useThemeColor(
     { light: lightColor, dark: darkColor },
+    "cardBackground"
+  );
+  const borderColor = useThemeColor(
+    { light: '#ddd', dark: '#444' },
     "background"
   );
   const iconColor = useThemeColor({}, "icon");
   return (
     <PlatformPressable
-      style={[{ backgroundColor }, style]}
+      style={[{ backgroundColor }, styles.container, style]}
       onPress={onPress}
       {...otherProps}
     >
-      <ThemedView style={styles.container}>
-        <IconSymbol name={iconName} style={styles.icon} color={iconColor} />
+      <IconSymbol name={iconName} style={styles.icon} color={iconColor} />
+      <ThemedView style={[{ backgroundColor, borderColor }, styles.rightContainer]}>
         <ThemedText style={styles.title}>{title}</ThemedText>
         <IconSymbol
           name="chevron.right"
           size={18}
           weight="medium"
-          color={theme === 'light' ? Colors.light.icon : Colors.dark.icon}
+          style={styles.icon}
+          color={borderColor}
         />
       </ThemedView>
     </PlatformPressable>
@@ -55,8 +60,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 10,
-    marginLeft: 10
+    paddingLeft: 10,
+  },
+  rightContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    paddingVertical: 10,
   },
   icon: {
     fontSize: 24,

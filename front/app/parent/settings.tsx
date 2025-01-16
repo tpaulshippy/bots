@@ -31,6 +31,7 @@ export default function SettingsScreen() {
   const [percentUsedToday, setPercentUsedToday] = useState(0);
   const [subscriptionLevel, setSubscriptionLevel] = useState(0);
   const [subscription, setSubscription] = useState("");
+  const backgroundColor = useThemeColor({}, "cardBackground");
 
   useEffect(() => {
     getAccount().then((account) => {
@@ -73,7 +74,7 @@ export default function SettingsScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <ThemedView style={styles.container}>
-          <ThemedView style={styles.usageContainer}>
+          <ThemedView style={[{ backgroundColor }, styles.usageContainer]}>
             <ThemedText>You have the {subscription} subscription.</ThemedText>
             <Progress.Bar
               height={20}
@@ -102,8 +103,8 @@ export default function SettingsScreen() {
               </ThemedButton>
             </ThemedView>
           ) : (
-            <PinWrapper correctPin={correctPin ? correctPin.toString() : ''}>
-              <ThemedView style={styles.container}>
+            <PinWrapper correctPin={correctPin ? correctPin.toString() : ""}>
+              <ThemedView style={[{ backgroundColor }, styles.menuContainer]}>
                 <MenuItem
                   title="Profiles"
                   iconName="person.fill"
@@ -144,8 +145,14 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: "column",
+  },
+  menuContainer: {
     flex: 1,
     flexDirection: "column",
+    marginHorizontal: 10,
+    borderRadius: 10,
+    padding: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -163,10 +170,9 @@ const styles = StyleSheet.create({
   },
   usageContainer: {
     paddingHorizontal: 20,
-    marginVertical: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#666",
+    margin: 10,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   progressBar: {},
   usageText: {

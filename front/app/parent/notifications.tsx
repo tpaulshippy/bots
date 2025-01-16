@@ -152,14 +152,14 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    margin: 10,
   },
   formGroupCheckbox: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 5,
     justifyContent: "space-between",
     borderRadius: 10,
-    margin: 10,
+    padding: 5,
   },
   checkboxLabel: {
     fontSize: 16,
