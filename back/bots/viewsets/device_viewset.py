@@ -23,9 +23,13 @@ class DeviceViewSet(viewsets.ModelViewSet):
     serializer_class = DeviceSerializer
     
     def get_queryset(self):
+        notification_token = self.request.query_params.get('notificationToken')
+
         user = self.request.user
         if user.is_anonymous:
             return Device.objects.none()
+        if notification_token:
+            return Device.objects.filter(notification_token=notification_token)
         return Device.objects.filter(user=user, deleted_at=None)
 
     def get_object(self):
@@ -38,6 +42,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
         except ValueError:
             # If not a valid UUID, treat it as an id
             device = Device.objects.get(id=lookup_field_value)
+            
         self.check_object_permissions(self.request, device)
         return device
 

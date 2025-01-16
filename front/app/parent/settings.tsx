@@ -102,7 +102,7 @@ export default function SettingsScreen() {
               </ThemedButton>
             </ThemedView>
           ) : (
-            <PinWrapper correctPin={correctPin}>
+            <PinWrapper correctPin={correctPin ? correctPin.toString() : ''}>
               <ThemedView style={styles.container}>
                 <MenuItem
                   title="Profiles"

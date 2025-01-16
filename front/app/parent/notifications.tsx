@@ -6,9 +6,8 @@ import Constants from "expo-constants";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useLocalSearchParams } from "expo-router";
-import { PlatformPressable } from "@react-navigation/elements";
-import { set } from "date-fns";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { upsertDevice, Device as DeviceData, fetchDevice, setDeviceIdInStorage, getDeviceIdFromStorage } from "@/api/devices";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -59,7 +58,6 @@ export async function registerForPushNotificationsAsync() {
           projectId,
         })
       ).data;
-      console.log(pushTokenString);
       return pushTokenString;
     } catch (e: unknown) {
       handleRegistrationError(`${e}`);
@@ -75,39 +73,70 @@ export default function NotificationsScreen() {
   >(undefined);
   const bgColor = useThemeColor({}, "cardBackground");
   const [enableNotifications, setEnableNotifications] = useState(false);
-  const [expoPushToken, setExpoPushToken] = useState("");
+  const [device, setDevice] = useState(null as DeviceData | null);
   const local = useLocalSearchParams();
-
   useEffect(() => {
-    if (enableNotifications) {
-      registerForPushNotificationsAsync().then((token) => {
-        if (token && expoPushToken)
-        {
-          setExpoPushToken(token);
+    const handleNotifications = async () => {
+      if (enableNotifications) {
+
+        const token = await registerForPushNotificationsAsync();
+
+        if (token) {
+          let newDevice;
+          if (!device) {
+            newDevice = {
+              id: -1,
+              device_id: "",
+              notification_token: token,
+              notify_on_new_chat: true,
+              notify_on_new_message: true,
+              deleted_at: null,
+            };
+          }
+          else {
+            newDevice = { ...device };
+          }
+          newDevice.notify_on_new_chat = true;
+          newDevice.notify_on_new_message = true;
+          setDevice(newDevice);
+          newDevice = await upsertDevice(newDevice);
+          setDeviceIdInStorage(newDevice.device_id);
         }
-      });
-      
-    }
-    else {
-      setExpoPushToken("");
-    }
+      } else if (device) {
+        device.notify_on_new_chat = false;
+        device.notify_on_new_message = false;
+        await upsertDevice(device);
+      }
+    };
+
+    handleNotifications();
   }, [enableNotifications]);
 
   useEffect(() => {
-      if (local.notification) {
-        setNotification(JSON.parse(local.notification as string));
+    if (local.notification) {
+      setNotification(JSON.parse(local.notification as string));
+    }
+
+    const setupDevice = async () => {
+      const deviceId = await getDeviceIdFromStorage();
+      if (!deviceId) {
+        return;
       }
+      let currentDevice = await fetchDevice(deviceId);
+      if (currentDevice.notify_on_new_chat) {
+        setEnableNotifications(true);
+      }
+      setDevice(currentDevice);
+    }
+    setupDevice();
+
   }, []);
 
-  
-
   return (
-    <ThemedView
-      style={styles.container}
-    >
-      <ThemedView style={[styles.formGroupCheckbox,
-        { backgroundColor: bgColor }
-      ]}>
+    <ThemedView style={styles.container}>
+      <ThemedView
+        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+      >
         <ThemedText style={styles.checkboxLabel}>
           Enable Notifications
         </ThemedText>
@@ -120,8 +149,6 @@ export default function NotificationsScreen() {
   );
 }
 
-
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -132,7 +159,7 @@ const styles = StyleSheet.create({
     padding: 5,
     justifyContent: "space-between",
     borderRadius: 10,
-    margin: 10
+    margin: 10,
   },
   checkboxLabel: {
     fontSize: 16,
