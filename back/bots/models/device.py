@@ -9,7 +9,7 @@ class Device(models.Model):
         null=True
     )
     device_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    notification_token = models.CharField(max_length=255)
+    notification_token = models.CharField(max_length=255, unique=True)
     notify_on_new_chat = models.BooleanField(default=True)
     notify_on_new_message = models.BooleanField(default=True)
 
