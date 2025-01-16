@@ -9,15 +9,15 @@ const tintColorDark = '#03465b';
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#fff',
+    background: '#eee',
     tint: tintColorLight,
     icon: '#687076',
-    cardBackground: '#eee',
+    cardBackground: '#fff',
     cardBackgroundSelected: tintColorLight,
   },
   dark: {
     text: '#ECEDEE',
-    background: '#151718',
+    background: '#000',
     tint: tintColorDark,
     icon: '#9BA1A6',
     cardBackground: '#1C1C1E',
