@@ -1,29 +1,32 @@
 from rest_framework import viewsets, serializers
-from bots.models import Profile
+from bots.models import Device
 from bots.permissions import IsOwner
 import uuid
 
-class ProfileSerializer(serializers.HyperlinkedModelSerializer):
+class DeviceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
-        model = Profile
+        model = Device
         fields = [
             'id',
-            'profile_id',
-            'name',
+            'device_id',
+            'notification_token',
+            'notify_on_new_chat',
+            'notify_on_new_message',
             'deleted_at',
             'created_at',
-            'modified_at']
+            'modified_at',
+            'url']
 
-class ProfileViewSet(viewsets.ModelViewSet):
+class DeviceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsOwner]
-    queryset = Profile.objects.all()
-    serializer_class = ProfileSerializer
+    queryset = Device.objects.all()
+    serializer_class = DeviceSerializer
     
     def get_queryset(self):
         user = self.request.user
         if user.is_anonymous:
-            return Profile.objects.none()
-        return Profile.objects.filter(user=user, deleted_at=None)
+            return Device.objects.none()
+        return Device.objects.filter(user=user, deleted_at=None)
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]
@@ -31,12 +34,12 @@ class ProfileViewSet(viewsets.ModelViewSet):
         try:
             # Check if the lookup field value is a valid UUID
             uuid.UUID(lookup_field_value)
-            profile = Profile.objects.get(profile_id=lookup_field_value)
+            device = Device.objects.get(device_id=lookup_field_value)
         except ValueError:
             # If not a valid UUID, treat it as an id
-            profile = Profile.objects.get(id=lookup_field_value)
-        self.check_object_permissions(self.request, profile)
-        return profile
+            device = Device.objects.get(id=lookup_field_value)
+        self.check_object_permissions(self.request, device)
+        return device
 
     def perform_create(self, serializer):
         # Set the user before saving the object

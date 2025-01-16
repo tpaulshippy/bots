@@ -33,6 +33,8 @@ class BotViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        if user.is_anonymous:
+            return Bot.objects.none()
         return Bot.objects.filter(user=user, deleted_at=None)
 
     def get_object(self):
