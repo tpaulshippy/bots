@@ -79,7 +79,9 @@ export default function NotificationsScreen() {
       .then((token) => setExpoPushToken(token ?? ""))
       .catch((error: any) => setExpoPushToken(`${error}`));
 
-    setNotification(JSON.parse(local.notification as string));
+      if (local.notification) {
+        setNotification(JSON.parse(local.notification as string));
+      }
   }, []);
 
   return (
