@@ -37,13 +37,22 @@ class Device(models.Model):
     def __str__(self):
         return self.user.email + ' - ' + self.notification_token
     
-    def notify(self, chat, is_new_chat):
-        if self.notify_on_new_chat and is_new_chat:
+    def notify_chat(self, chat):
+        if self.notify_on_new_chat:
             NotificationClient().notify(Notification(
                 to=self.notification_token,
                 sound='default',
-                title=f"{chat.profile.name} asked {chat.bot.name} a question",
+                title=f"{chat.profile.name} started a conversation with {chat.bot.name}",
                 body=chat.title,
                 data={'chat_id': str(chat.chat_id)}
             ))
             
+    def notify_message(self, message):
+        if self.notify_on_new_message:
+            NotificationClient().notify(Notification(
+                to=self.notification_token,
+                sound='default',
+                title=f"{message.chat.profile.name} sent {message.chat.bot.name} a message",
+                body=message.text,
+                data={'message_id': str(message.message_id)}
+            ))
