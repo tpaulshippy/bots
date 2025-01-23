@@ -123,7 +123,7 @@ export default function NotificationsScreen() {
         return;
       }
       let currentDevice = await fetchDevice(deviceId);
-      if (currentDevice.notify_on_new_chat) {
+      if (currentDevice.notify_on_new_message) {
         setEnableNotifications(true);
       }
       setDevice(currentDevice);
