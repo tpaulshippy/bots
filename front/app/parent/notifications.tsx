@@ -88,7 +88,7 @@ export default function NotificationsScreen() {
               id: -1,
               device_id: "",
               notification_token: token,
-              notify_on_new_chat: true,
+              notify_on_new_chat: false,
               notify_on_new_message: true,
               deleted_at: null,
             };
@@ -96,7 +96,7 @@ export default function NotificationsScreen() {
           else {
             newDevice = { ...device };
           }
-          newDevice.notify_on_new_chat = true;
+          newDevice.notify_on_new_chat = false;
           newDevice.notify_on_new_message = true;
           setDevice(newDevice);
           newDevice = await upsertDevice(newDevice);

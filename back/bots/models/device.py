@@ -27,7 +27,7 @@ class Device(models.Model):
     )
     device_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     notification_token = models.CharField(max_length=255, unique=True)
-    notify_on_new_chat = models.BooleanField(default=True)
+    notify_on_new_chat = models.BooleanField(default=False)
     notify_on_new_message = models.BooleanField(default=True)
 
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -38,7 +38,7 @@ class Device(models.Model):
         return self.user.email + ' - ' + self.notification_token
     
     def notify_chat(self, chat):
-        if self.notify_on_new_chat:
+        if self.notify_on_new_chat and not self.notify_on_new_message:
             NotificationClient().notify(Notification(
                 to=self.notification_token,
                 sound='default',
@@ -48,7 +48,10 @@ class Device(models.Model):
             ))
             
     def notify_message(self, message):
-        if self.notify_on_new_message:
+        if self.notify_on_new_message and \
+            not self.notify_on_new_chat and \
+            message.chat.user == self.user and \
+            message.role == 'user':
             NotificationClient().notify(Notification(
                 to=self.notification_token,
                 sound='default',
