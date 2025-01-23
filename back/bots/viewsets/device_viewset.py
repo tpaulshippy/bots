@@ -42,6 +42,8 @@ class DeviceViewSet(viewsets.ModelViewSet):
         except ValueError:
             # If not a valid UUID, treat it as an id
             device = Device.objects.get(id=lookup_field_value)
+        except Device.DoesNotExist:
+            raise serializers.NotFound(f"Device with {self.lookup_field}={lookup_field_value} does not exist")
             
         self.check_object_permissions(self.request, device)
         return device

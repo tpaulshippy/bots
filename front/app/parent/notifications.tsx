@@ -7,7 +7,13 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useLocalSearchParams } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { upsertDevice, Device as DeviceData, fetchDevice, setDeviceIdInStorage, getDeviceIdFromStorage } from "@/api/devices";
+import {
+  upsertDevice,
+  Device as DeviceData,
+  fetchDevice,
+  setDeviceIdInStorage,
+  getDeviceIdFromStorage,
+} from "@/api/devices";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -78,7 +84,6 @@ export default function NotificationsScreen() {
   useEffect(() => {
     const handleNotifications = async () => {
       if (enableNotifications) {
-
         const token = await registerForPushNotificationsAsync();
 
         if (token) {
@@ -92,8 +97,7 @@ export default function NotificationsScreen() {
               notify_on_new_message: true,
               deleted_at: null,
             };
-          }
-          else {
+          } else {
             newDevice = { ...device };
           }
           newDevice.notify_on_new_chat = false;
@@ -123,11 +127,13 @@ export default function NotificationsScreen() {
         return;
       }
       let currentDevice = await fetchDevice(deviceId);
-      if (currentDevice.notify_on_new_message) {
-        setEnableNotifications(true);
+      if (currentDevice) {
+        if (currentDevice.notify_on_new_message) {
+          setEnableNotifications(true);
+        }
+        setDevice(currentDevice);
       }
-      setDevice(currentDevice);
-    }
+    };
     setupDevice();
 
   }, []);

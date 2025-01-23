@@ -11,10 +11,14 @@ export interface Device {
   deleted_at: Date | null;
 }
 
-export const fetchDevice = async (deviceId: string): Promise<Device> => {
+export const fetchDevice = async (deviceId: string): Promise<Device | null> => {
   const { data, ok, status } = await apiClient<Device>(
     "/devices/" + deviceId + ".json"
   );
+
+  if (status === 404) {
+    return null;
+  }
 
   if (!ok) {
     throw new Error(`Failed to fetch devices with status ${status}`);
