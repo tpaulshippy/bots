@@ -120,6 +120,7 @@ export default function Chat() {
           inverted
           style={styles.list}
           data={[...messages].reverse()}
+          keyExtractor={(item, index) => index.toString()}
           renderItem={({ item }) =>
             item.isLoading ? (
               <ActivityIndicator />

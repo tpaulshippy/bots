@@ -11,7 +11,7 @@ import * as Notifications from "expo-notifications";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { Platform, StyleSheet, View } from "react-native";
-import { useRouter, Stack } from "expo-router";
+import { useRouter, Stack, usePathname } from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -19,6 +19,7 @@ import { Image } from "expo-image";
 import * as Sentry from "@sentry/react-native";
 import { setTokens } from "@/api/tokens";
 import { registerForPushNotificationsAsync } from "./parent/notifications";
+import { fetchChat } from "@/api/chats";
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -30,6 +31,7 @@ Sentry.init({
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const pathname = usePathname();
   const colorScheme = useColorScheme();
   const textColor = useThemeColor({}, "text");
   const iconColor = useThemeColor({}, "tint");
@@ -50,33 +52,40 @@ export default function RootLayout() {
     }
   };
 
-  const [notification, setNotification] = useState<Notifications.Notification | undefined>(
-      undefined
-    );
   const notificationListener = useRef<Notifications.EventSubscription>();
   const responseListener = useRef<Notifications.EventSubscription>();
 
   useEffect(() => {
     notificationListener.current =
-      Notifications.addNotificationReceivedListener((notification) => {
-        setNotification(notification);
-        router.push({
-          pathname: "/parent/notifications",
-          params: {
-            notification: JSON.stringify(notification)
-          }
-         });
-      });
+      Notifications.addNotificationReceivedListener(async (notification) => {});
 
     responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        router.push({
-          pathname: "/parent/notifications",
-          params: {
-            notification: JSON.stringify(response.notification)
+      Notifications.addNotificationResponseReceivedListener(
+        async (response) => {
+          const chat = await fetchChat(
+            response.notification.request.content.data.chat_id
+          );
+
+          if (pathname === '/chat') {
+            router.replace({
+              pathname: "/chat",
+              params: {
+                chatId: chat.chat_id,
+                title: chat.bot?.name || chat.title,
+                refresh: Date.now(),
+              },
+            });
+          } else {
+            router.push({
+              pathname: "/chat",
+              params: {
+                chatId: chat.chat_id,
+                title: chat.bot?.name || chat.title,
+              },
+            });
           }
-         });
-      });
+        }
+      );
 
     return () => {
       notificationListener.current &&

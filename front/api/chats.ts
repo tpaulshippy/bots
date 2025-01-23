@@ -28,6 +28,14 @@ export interface ChatMessage {
     isLoading?: boolean | undefined;
 }
 
+export const fetchChat = async (chatId: string): Promise<Chat> => {
+    const { data, ok, status } = await apiClient<Chat>(`/chats/${chatId}.json`);
+    if (!ok) {
+        throw new Error(`Failed to fetch chat with status ${status}`);
+    }
+    return data;
+}
+
 export const fetchChats = async (profileId: string | null, page: number | null): Promise<PaginatedResponse<Chat>> => {
     let endpoint = '/chats.json?1=1';
     if (profileId) {

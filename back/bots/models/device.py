@@ -57,5 +57,5 @@ class Device(models.Model):
                 sound='default',
                 title=f"{message.chat.profile.name} sent {message.chat.bot.name} a message",
                 body=message.text,
-                data={'message_id': str(message.message_id)}
+                data={'chat_id': str(message.chat.chat_id)}
             ))
