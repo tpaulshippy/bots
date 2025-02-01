@@ -32,11 +32,7 @@ def get_jwt(self):
         'refresh': str(refresh),
     }
     
-    
-    if self.COOKIES.get('from-web'):
-        return HttpResponseRedirect(f'http://localhost:8081?access={response_data["access"]}&refresh={response_data["refresh"]}')
-    else:
-        #HttpResponseRedirect.allowed_schemes.append(env("APP_SCHEME"))
-        #return HttpResponseRedirect(f'{env("APP_DEEP_URL")}?access={response_data["access"]}&refresh={response_data["refresh"]}')
-        return JsonResponse(response_data)
+    #HttpResponseRedirect.allowed_schemes.append(env("APP_SCHEME"))
+    #return HttpResponseRedirect(f'{env("APP_DEEP_URL")}?access={response_data["access"]}&refresh={response_data["refresh"]}')
+    return JsonResponse(response_data)
 
