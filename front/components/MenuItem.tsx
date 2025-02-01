@@ -13,6 +13,7 @@ export type MenuItemProps = {
   style?: any;
   iconName: IconSymbolName;
   title: string;
+  hideChevron?: boolean;
 };
 export function MenuItem({
   style,
@@ -21,6 +22,7 @@ export function MenuItem({
   iconName,
   title,
   onPress,
+  hideChevron = false,
   ...otherProps
 }: MenuItemProps) {
   const theme = useColorScheme() ?? "light";
@@ -40,15 +42,17 @@ export function MenuItem({
       {...otherProps}
     >
       <IconSymbol name={iconName} style={styles.icon} color={iconColor} />
-      <ThemedView style={[{ backgroundColor, borderColor }, styles.rightContainer]}>
+      <ThemedView style={[{ backgroundColor, borderColor }, styles.rightContainer, style]}>
         <ThemedText style={styles.title}>{title}</ThemedText>
-        <IconSymbol
-          name="chevron.right"
-          size={18}
-          weight="medium"
-          style={styles.icon}
-          color={borderColor}
-        />
+        {!hideChevron && (
+          <IconSymbol
+            name="chevron.right"
+            size={18}
+            weight="medium"
+            style={styles.icon}
+            color={borderColor}
+          />
+        )}
       </ThemedView>
     </PlatformPressable>
   );

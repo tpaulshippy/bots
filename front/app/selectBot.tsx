@@ -85,7 +85,6 @@ export default function SelectBot({ setBotSelected }: Props) {
               style={styles.botIcon}
             ></IconSymbol>
             <ThemedText style={styles.botText}>{bot.name}</ThemedText>
-            <ThemedText style={styles.botDescription}>{bot.simple_editor ? bot.template_name : ""}</ThemedText>
           </ThemedButton>
         ))}
       </ThemedView>
