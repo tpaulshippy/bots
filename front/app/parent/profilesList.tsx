@@ -17,7 +17,6 @@ import {
 } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { setTokens } from "@/api/tokens";
-import { MenuItem } from "@/components/MenuItem";
 
 export default function ProfilesList() {
   const navigation = useNavigation();

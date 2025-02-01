@@ -42,7 +42,11 @@ export function MenuItem({
       {...otherProps}
     >
       <IconSymbol name={iconName} style={styles.icon} color={iconColor} />
-      <ThemedView style={[{ backgroundColor, borderColor }, styles.rightContainer, style]}>
+      <ThemedView style={[
+        { backgroundColor, borderColor }, 
+        styles.rightContainer,
+        hideChevron ? null : {borderBottomWidth: 1},
+        style]}>
         <ThemedText style={styles.title}>{title}</ThemedText>
         {!hideChevron && (
           <IconSymbol
@@ -70,7 +74,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: 1,
     paddingVertical: 10,
   },
   icon: {

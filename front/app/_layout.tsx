@@ -20,6 +20,7 @@ import * as Sentry from "@sentry/react-native";
 import { setTokens } from "@/api/tokens";
 import { registerForPushNotificationsAsync } from "./parent/notifications";
 import { fetchChat } from "@/api/chats";
+import { fetchBots } from "@/api/bots";
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -40,17 +41,6 @@ export default function RootLayout() {
   });
 
   const router = useRouter();
-  const logInFromWeb = async () => {
-    if (Platform.OS === "web") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const access = urlParams.get("access");
-      const refresh = urlParams.get("refresh");
-      if (access && refresh) {
-        const user = { access, refresh };
-        setTokens(user);
-      }
-    }
-  };
 
   const notificationListener = useRef<Notifications.EventSubscription>();
   const responseListener = useRef<Notifications.EventSubscription>();
@@ -99,9 +89,21 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      const initialize = async () => {
+        try {
+          const bots = await fetchBots();
+          console.log("bots", bots);
+          if (bots.count === 0) {
+            router.replace("/parent/initialBotSelection");
+          }
+        } catch (error) {
+          console.error("Failed to fetch bots:", error);
+        }
+        SplashScreen.hideAsync();
+      };
+      
+      initialize();
     }
-    logInFromWeb();
   }, [loaded]);
 
   if (!loaded) {
@@ -221,6 +223,12 @@ export default function RootLayout() {
           options={{
             headerShown: true,
             headerTintColor: textColor,
+          }}
+        />
+        <Stack.Screen
+          name="parent/initialBotSelection"
+          options={{
+            headerShown: false,
           }}
         />
         <Stack.Screen name="+not-found" />

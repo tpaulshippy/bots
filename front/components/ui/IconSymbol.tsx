@@ -26,6 +26,10 @@ const MAPPING = {
   'gearshape.2': 'settings',
   'bell.fill': 'notifications',
   'arrowshape.turn.up.left.fill': 'arrow-back',
+  'mountain.2': 'terrain',
+  'wand.and.sparkles': 'bolt',
+  'sparkles': 'auto-awesome',
+  'star': 'star-border'
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],
