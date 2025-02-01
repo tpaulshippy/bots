@@ -134,7 +134,7 @@ export default function InitialBotSelection() {
             style={styles.buttonIcon}
           />
           <ThemedText style={styles.buttonText}>
-            {isLoading ? "Creating..." : "Create My Companions"}
+            {isLoading ? "Creating..." : "Create Bots"}
           </ThemedText>
         </ThemedButton>
       </ThemedView>
