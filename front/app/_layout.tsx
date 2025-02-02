@@ -6,21 +6,20 @@ import {
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { Platform, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useRouter, Stack, usePathname } from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { Image } from "expo-image";
 import * as Sentry from "@sentry/react-native";
-import { setTokens } from "@/api/tokens";
-import { registerForPushNotificationsAsync } from "./parent/notifications";
 import { fetchChat } from "@/api/chats";
 import { fetchBots } from "@/api/bots";
+import { UnauthorizedError } from "@/api/apiClient";
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -92,12 +91,13 @@ export default function RootLayout() {
       const initialize = async () => {
         try {
           const bots = await fetchBots();
-          console.log("bots", bots);
           if (bots.count === 0) {
             router.replace("/parent/initialBotSelection");
           }
         } catch (error) {
-          console.error("Failed to fetch bots:", error);
+          if (error instanceof UnauthorizedError) {
+            router.push("/login");
+          }
         }
         SplashScreen.hideAsync();
       };

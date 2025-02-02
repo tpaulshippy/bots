@@ -5,7 +5,6 @@ import { PlatformPressable } from "@react-navigation/elements";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { fetchProfiles, Profile } from "@/api/profiles";
-import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -16,7 +15,6 @@ import {
   useRouter,
 } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { setTokens } from "@/api/tokens";
 
 export default function ProfilesList() {
   const navigation = useNavigation();
@@ -150,17 +148,7 @@ export default function ProfilesList() {
         )}
       >
         
-      </FlatList>
-        {profiles.length === 0 && (
-          <ThemedButton
-            onPress={() => {
-              setTokens({ access: "", refresh: "" });
-            }}
-          >
-            <ThemedText style={styles.profileText}>Log out</ThemedText>
-          </ThemedButton>
-        )}
-      
+      </FlatList>      
     </ThemedView>
   );
 }

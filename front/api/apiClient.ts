@@ -1,4 +1,4 @@
-import { getTokens, setTokens } from "./tokens";
+import { getTokens, setTokens, TokenData } from "./tokens";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -20,15 +20,17 @@ export const apiClient = async <T>(
     options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
     const tokens = await getTokens();
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+    const request = {
         ...options,
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${tokens?.access}`,
             ...options.headers,
         },
-    });
-
+    };
+    
+    const response = await fetch(`${BASE_URL}${endpoint}`, request);
+    
     if (response.status === 401) {
         await refreshWithRefreshToken(tokens);
         return apiClient(endpoint, options);
@@ -45,8 +47,8 @@ export const apiClient = async <T>(
 };
 
 
-export const refreshWithRefreshToken = async (user: any) => {
-    if (!user) {
+export const refreshWithRefreshToken = async (tokens: TokenData | null) => {
+    if (!tokens || !tokens.refresh) {
         throw new UnauthorizedError();
     }
 
@@ -55,7 +57,7 @@ export const refreshWithRefreshToken = async (user: any) => {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refresh: user.refresh }),
+        body: JSON.stringify({ refresh: tokens.refresh }),
     });
 
     if (response.status !== 200) {
@@ -63,7 +65,10 @@ export const refreshWithRefreshToken = async (user: any) => {
     }
 
     const text = await response.text();
-    const data = JSON.parse(text);
+    const refreshedTokens = JSON.parse(text);
 
-    await setTokens(data);
+    await setTokens({
+        access: refreshedTokens.access,
+        refresh: tokens.refresh,
+    });
 };

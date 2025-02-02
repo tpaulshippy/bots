@@ -49,6 +49,11 @@ export default function SettingsScreen() {
     });
   }, []);
 
+  const handleLogout = async () => {
+    await setTokens({ access: "", refresh: "" });
+    goTo("/login");
+  };
+
   const goTo = (
     path:
       | "/parent/profilesList"
@@ -93,11 +98,7 @@ export default function SettingsScreen() {
               <ActivityIndicator />
               <ThemedButton
                 style={styles.logOutButton}
-                onPress={() => {
-                  setTokens({ access: "", refresh: "" }).then(() => {
-                    router.navigate("/login");
-                  });
-                }}
+                onPress={handleLogout}
               >
                 <ThemedText>Log Out</ThemedText>
               </ThemedButton>
@@ -128,11 +129,7 @@ export default function SettingsScreen() {
                 <MenuItem
                   title="Log Out"
                   iconName="arrowshape.turn.up.left.fill"
-                  onPress={() => {
-                    setTokens({ access: "", refresh: "" }).then(() => {
-                      goTo("/login");
-                    });
-                  }}
+                  onPress={handleLogout}
                 ></MenuItem>
               </ThemedView>
             </PinWrapper>

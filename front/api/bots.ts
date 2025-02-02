@@ -16,17 +16,12 @@ export interface Bot {
 }
 
 export const fetchBots = async (): Promise<PaginatedResponse<Bot>> => {
-  try {
-    const { data, ok, status } = await apiClient<PaginatedResponse<Bot>>("/bots.json");
+  const { data, ok, status } = await apiClient<PaginatedResponse<Bot>>("/bots.json");
 
-    if (!ok) {
-      throw new Error(`Failed to fetch bots with status ${status}`);
-    }
-    return data;
-  } catch (error: any) {
-    console.error(error.toString());
-    return { results: [], count: 0 };
+  if (!ok) {
+    throw new Error(`Failed to fetch bots with status ${status}`);
   }
+  return data;
 };
 
 
