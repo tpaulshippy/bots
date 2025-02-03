@@ -20,6 +20,7 @@ import * as Sentry from "@sentry/react-native";
 import { fetchChat } from "@/api/chats";
 import { fetchBots } from "@/api/bots";
 import { UnauthorizedError } from "@/api/apiClient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -54,6 +55,9 @@ export default function RootLayout() {
           const chat = await fetchChat(
             response.notification.request.content.data.chat_id
           );
+          if (chat.profile.profile_id) {
+            await AsyncStorage.setItem("selectedProfile", JSON.stringify(chat.profile));
+          }
 
           if (pathname === '/chat') {
             router.replace({

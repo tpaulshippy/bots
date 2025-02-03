@@ -35,7 +35,7 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
 class ProfileIdSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Profile
-        fields = ['profile_id', 'name', 'url']
+        fields = ['id','profile_id', 'name', 'url']
 
 class BotSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -63,6 +63,7 @@ class ChatListSerializer(serializers.HyperlinkedModelSerializer):
 
 class ChatSerializer(serializers.HyperlinkedModelSerializer):
     messages = MessageSerializer(many=True, read_only=True)
+    profile = ProfileIdSerializer(read_only=True)
 
     class Meta:
         model = Chat
