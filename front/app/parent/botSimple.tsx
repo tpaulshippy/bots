@@ -157,13 +157,13 @@ export default function SimpleBotEditor({
         </ThemedView>
       )}
       <ThemedView style={styles.formGroup}>
-        <ThemedText style={styles.label}>Response Length</ThemedText>
+        <ThemedText style={styles.label}>Response Length (words)</ThemedText>
         <ThemedTextInput
           keyboardType="numeric"
           style={styles.input}
           value={bot.response_length?.toString()}
           onChangeText={(text) =>
-            setBotProperty({ response_length: parseInt(text) })
+            setBotProperty({ response_length: text.trim() ? parseInt(text) : 0 })
           }
         />
       </ThemedView>

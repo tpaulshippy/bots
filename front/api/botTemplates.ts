@@ -53,7 +53,7 @@ export const generateSystemPrompt = (bot: Bot) => {
     prompt += `Your name is ${bot.name}.`;
     prompt += "\n\n";
     if (bot.response_length) {
-        prompt += `Please limit your response to a maximum of ${bot.response_length} characters.`;
+        prompt += `Please respond in less than ${bot.response_length} words.`;
         prompt += "\n\n";
     }
     if (bot.restrict_language) {
