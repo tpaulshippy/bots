@@ -115,6 +115,8 @@ export default function ProfilesList() {
       } else {
         setSelectedProfile(profile);
         await AsyncStorage.setItem("selectedProfile", JSON.stringify(profile));
+        router.back();
+        router.back();
       }
     } catch (error) {
       console.error("Failed to save the profile to local storage", error);
