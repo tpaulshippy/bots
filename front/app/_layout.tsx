@@ -31,6 +31,14 @@ Sentry.init({
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function RootLayout() {
   const pathname = usePathname();
   const colorScheme = useColorScheme();
@@ -47,7 +55,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     notificationListener.current =
-      Notifications.addNotificationReceivedListener(async (notification) => {});
+      Notifications.addNotificationReceivedListener(async (notification) => {        
+      });
 
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener(
