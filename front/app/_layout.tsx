@@ -53,19 +53,18 @@ export default function RootLayout() {
   const notificationListener = useRef<Notifications.EventSubscription>();
   const responseListener = useRef<Notifications.EventSubscription>();
 
-  const goToChat = (chatId: string, title: string) => {
-    router.replace({
-      pathname: "/chat",
-      params: { chatId, title },
-    });
-  };
-
   const navigateToChat = (chatId: string, title: string) => {
     if (pathname === '/chat') {
       router.replace("/");
-      goToChat(chatId, title);
+      router.replace({
+        pathname: "/chat",
+        params: { chatId, title },
+      });
     } else {
-      goToChat(chatId, title);
+      router.push({
+        pathname: "/chat",
+        params: { chatId, title },
+      });
     }
   };
 
