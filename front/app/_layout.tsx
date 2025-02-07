@@ -53,6 +53,22 @@ export default function RootLayout() {
   const notificationListener = useRef<Notifications.EventSubscription>();
   const responseListener = useRef<Notifications.EventSubscription>();
 
+  const goToChat = (chatId: string, title: string) => {
+    router.replace({
+      pathname: "/chat",
+      params: { chatId, title },
+    });
+  };
+
+  const navigateToChat = (chatId: string, title: string) => {
+    if (pathname === '/chat') {
+      router.replace("/");
+      goToChat(chatId, title);
+    } else {
+      goToChat(chatId, title);
+    }
+  };
+
   useEffect(() => {
     notificationListener.current =
       Notifications.addNotificationReceivedListener(async (notification) => {        
@@ -68,24 +84,7 @@ export default function RootLayout() {
             await AsyncStorage.setItem("selectedProfile", JSON.stringify(chat.profile));
           }
 
-          if (pathname === '/chat') {
-            router.replace({
-              pathname: "/chat",
-              params: {
-                chatId: chat.chat_id,
-                title: chat.bot?.name || chat.title,
-                refresh: Date.now(),
-              },
-            });
-          } else {
-            router.push({
-              pathname: "/chat",
-              params: {
-                chatId: chat.chat_id,
-                title: chat.bot?.name || chat.title,
-              },
-            });
-          }
+          navigateToChat(chat.chat_id, chat.bot?.name || chat.title);
         }
       );
 
