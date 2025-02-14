@@ -1,22 +1,9 @@
-from rest_framework import viewsets, serializers
+from rest_framework import viewsets
 from rest_framework.exceptions import NotFound
 from bots.models import Device
 from bots.permissions import IsOwner
+from bots.serializers import DeviceSerializer
 import uuid
-
-class DeviceSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Device
-        fields = [
-            'id',
-            'device_id',
-            'notification_token',
-            'notify_on_new_chat',
-            'notify_on_new_message',
-            'deleted_at',
-            'created_at',
-            'modified_at',
-            'url']
 
 class DeviceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsOwner]

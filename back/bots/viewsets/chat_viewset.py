@@ -1,23 +1,13 @@
-from rest_framework import viewsets, serializers
+from rest_framework import viewsets
 from django.db.models import Count
-from bots.models import Chat, Message, Profile, Bot
+from bots.models import Chat, Message
 from bots.permissions import IsOwner
+from bots.serializers import (
+    ChatSerializer, 
+    ChatListSerializer, 
+    MessageSerializer
+)
 import uuid
-
-class MessageSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Message
-        fields = [
-            'id', 
-            'chat_id',
-            'message_id', 
-            'order', 
-            'role', 
-            'text', 
-            'input_tokens',
-            'output_tokens',
-            'created_at', 
-            'modified_at']
 
 class MessageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Message.objects.all()
@@ -31,51 +21,6 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = queryset.exclude(role='system')
         
         return queryset
-
-class ProfileIdSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Profile
-        fields = ['id','profile_id', 'name', 'url']
-
-class BotSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Bot
-        fields = ['bot_id', 'name', 'url']
-
-class ChatListSerializer(serializers.HyperlinkedModelSerializer):
-    message_count = serializers.IntegerField(read_only=True)
-    profile = ProfileIdSerializer(read_only=True)
-    bot = BotSerializer(read_only=True)
-
-    class Meta:
-        model = Chat
-        fields = ['id', 
-                  'chat_id', 
-                  'profile',
-                  'bot',
-                  'title', 
-                  'message_count',
-                  'input_tokens',
-                  'output_tokens',
-                  'created_at', 
-                  'modified_at', 
-                  'url']
-
-class ChatSerializer(serializers.HyperlinkedModelSerializer):
-    messages = MessageSerializer(many=True, read_only=True)
-    profile = ProfileIdSerializer(read_only=True)
-
-    class Meta:
-        model = Chat
-        fields = ['id', 
-                  'chat_id',
-                  'profile',
-                  'title', 
-                  'messages',
-                  'input_tokens',
-                  'output_tokens',
-                  'created_at', 
-                  'modified_at']
 
 class ChatViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsOwner]

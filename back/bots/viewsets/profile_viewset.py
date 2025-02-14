@@ -1,18 +1,8 @@
-from rest_framework import viewsets, serializers
+from rest_framework import viewsets
 from bots.models import Profile
 from bots.permissions import IsOwner
+from bots.serializers import ProfileSerializer
 import uuid
-
-class ProfileSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Profile
-        fields = [
-            'id',
-            'profile_id',
-            'name',
-            'deleted_at',
-            'created_at',
-            'modified_at']
 
 class ProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [IsOwner]
