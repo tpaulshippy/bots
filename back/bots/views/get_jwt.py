@@ -15,7 +15,7 @@ environ.Env.read_env('.env')
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def start_web_login(self):
-    response = HttpResponseRedirect('/accounts/google/login/')
+    response = HttpResponseRedirect('/accounts/google/auto-login/')
     response.set_cookie('from-web', 'true')
     return response
 

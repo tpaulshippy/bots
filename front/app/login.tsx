@@ -10,7 +10,7 @@ import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const LOCAL_DEV_WEB_LOGIN_URL = "http://localhost:8000/api/login/web";
 const LOGIN_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL + "/accounts/google/login/";
+  process.env.EXPO_PUBLIC_API_BASE_URL + "/accounts/google/auto-login/";
 
 const LoginScreen = () => {
   const router = useRouter();

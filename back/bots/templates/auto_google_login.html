@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Continuing to Google...</title>
+</head>
+<body>
+    <p>Continuing to Google...</p>
+    <form id="google-login" method="post" action="/accounts/google/login/">
+        {% csrf_token %}
+        <input type="hidden" name="process" value="login">
+        <button type="submit" style="display: none;">Continue with Google</button>
+    </form>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('google-login').submit();
+        });
+    </script>
+</body>
+</html> 

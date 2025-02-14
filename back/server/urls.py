@@ -32,6 +32,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from bots.views.auto_login import auto_google_login
 
 
 router = routers.DefaultRouter()
@@ -60,4 +61,5 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/user', user_account_view, name='user_account'),
     re_path(r'^favicon\.ico$', favicon_view),
+    path('accounts/google/auto-login/', auto_google_login, name='google-auto-login'),
 ]
