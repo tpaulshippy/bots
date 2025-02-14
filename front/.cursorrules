@@ -1,0 +1,101 @@
+{
+    "rules": [
+        {
+            "name": "React Native Component Structure",
+            "description": "Follow consistent React Native component organization",
+            "pattern": "When creating new components, follow the established project structure",
+            "suggestions": [
+                "Place components in the components directory",
+                "Use TypeScript for all component files",
+                "Export components as named exports",
+                "Include proper type definitions for props",
+                "Follow the ThemedComponent naming convention for themed components",
+                "Place tests in __tests__ directory next to the component"
+            ]
+        },
+        {
+            "name": "Expo Best Practices",
+            "description": "Follow Expo-specific development patterns",
+            "pattern": "When using Expo features, follow platform-specific best practices",
+            "suggestions": [
+                "Use expo-router for navigation",
+                "Implement proper platform-specific code with .ios.tsx and .android.tsx files",
+                "Use Expo's built-in components and APIs when available",
+                "Handle platform-specific haptic feedback appropriately",
+                "Follow Expo's file-based routing conventions"
+            ]
+        },
+        {
+            "name": "State Management",
+            "description": "Consistent state management patterns",
+            "pattern": "Follow established patterns for managing state",
+            "suggestions": [
+                "Use AsyncStorage for persistent local storage",
+                "Implement proper loading and error states",
+                "Use useState for component-level state",
+                "Use useEffect for side effects and data fetching",
+                "Implement proper cleanup in useEffect hooks"
+            ]
+        },
+        {
+            "name": "API Integration",
+            "description": "Follow consistent API integration patterns",
+            "pattern": "When integrating with APIs, follow established patterns",
+            "suggestions": [
+                "Use the apiClient for all API calls",
+                "Handle API errors consistently",
+                "Use proper TypeScript interfaces for API responses",
+                "Implement proper loading and error states",
+                "Follow the established token management pattern"
+            ]
+        },
+        {
+            "name": "Styling Conventions",
+            "description": "Follow project styling patterns",
+            "pattern": "When styling components, follow established conventions",
+            "suggestions": [
+                "Use StyleSheet.create for styles",
+                "Follow the established theming system",
+                "Use ThemedComponents for consistent styling",
+                "Implement proper responsive design patterns",
+                "Follow platform-specific styling conventions"
+            ]
+        },
+        {
+            "name": "Testing Practices",
+            "description": "Follow project testing conventions",
+            "pattern": "When writing tests, follow established patterns",
+            "suggestions": [
+                "Write tests in __tests__ directories",
+                "Use Jest and React Native Testing Library",
+                "Create snapshot tests for UI components",
+                "Test both success and error cases",
+                "Follow the established test naming conventions"
+            ]
+        },
+        {
+            "name": "Error Handling",
+            "description": "Consistent error handling patterns",
+            "pattern": "When handling errors, follow established patterns",
+            "suggestions": [
+                "Use proper error boundaries",
+                "Implement consistent error logging with Sentry",
+                "Handle API errors gracefully",
+                "Show user-friendly error messages",
+                "Log errors appropriately for debugging"
+            ]
+        },
+        {
+            "name": "Navigation Patterns",
+            "description": "Follow established navigation patterns",
+            "pattern": "When implementing navigation, follow expo-router conventions",
+            "suggestions": [
+                "Use file-based routing with expo-router",
+                "Implement proper navigation types",
+                "Handle deep linking appropriately",
+                "Follow the established navigation structure",
+                "Use proper navigation props and types"
+            ]
+        }
+    ]
+} 

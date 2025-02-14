@@ -1,0 +1,100 @@
+{
+    "rules": [
+        {
+            "name": "Requirements First",
+            "description": "Clarify requirements and plan approach before implementation",
+            "pattern": "When starting a new task, discuss and plan before coding",
+            "suggestions": [
+                "Ask clarifying questions about requirements and edge cases",
+                "Discuss the proposed implementation approach",
+                "Break down complex tasks into smaller steps",
+                "Confirm understanding before proceeding with implementation",
+                "Consider potential impacts on existing functionality"
+            ]
+        },
+        {
+            "name": "Test First Development",
+            "description": "Write tests before implementing functionality",
+            "pattern": "When implementing new features, create or modify test files first",
+            "suggestions": [
+                "Create test file in bots/tests/ with test_ prefix",
+                "Use pytest-describe style for test organization",
+                "Start with a failing test that defines expected behavior",
+                "Run pytest to verify test fails as expected",
+                "Implement minimum code to make test pass"
+            ]
+        },
+        {
+            "name": "Test Structure",
+            "description": "Follow project's pytest-describe pattern",
+            "pattern": "Organize tests using describe blocks and fixtures",
+            "suggestions": [
+                "Use describe_ prefix for test groups",
+                "Create fixtures for common test setup",
+                "Use it_ prefix for individual test cases",
+                "Group related test scenarios under same describe block",
+                "Mock external services and APIs using mockito"
+            ]
+        },
+        {
+            "name": "Model Organization",
+            "description": "Follow Django model best practices",
+            "pattern": "Keep models focused and well-organized",
+            "suggestions": [
+                "Place each model in its own file under bots/models/",
+                "Include model in __init__.py exports",
+                "Add created_at and modified_at fields for tracking",
+                "Use UUID fields for public identifiers",
+                "Implement descriptive __str__ methods"
+            ]
+        },
+        {
+            "name": "Small Methods",
+            "description": "Keep methods focused and concise",
+            "pattern": "Methods should do one thing and do it well",
+            "suggestions": [
+                "Keep methods under 10 lines when possible",
+                "Extract complex logic into separate methods",
+                "Use clear, descriptive method names",
+                "If a method has multiple responsibilities, split it",
+                "Move reusable logic to model methods"
+            ]
+        },
+        {
+            "name": "Skinny Controllers",
+            "description": "Keep viewsets and views lightweight",
+            "pattern": "Controllers should only handle request/response flow",
+            "suggestions": [
+                "Keep viewset methods focused on CRUD operations",
+                "Move business logic to model methods",
+                "Use model managers for complex queries",
+                "Delegate complex operations to models",
+                "Keep authentication/authorization in views"
+            ]
+        },
+        {
+            "name": "Fat Models",
+            "description": "Place business logic in models",
+            "pattern": "Models should encapsulate business rules and complex operations",
+            "suggestions": [
+                "Implement business logic as model methods",
+                "Use model managers for query operations",
+                "Create model properties for derived data",
+                "Keep related business rules together",
+                "Use model signals for side effects"
+            ]
+        },
+        {
+            "name": "Error Handling",
+            "description": "Implement comprehensive error handling",
+            "pattern": "Handle errors gracefully and provide clear feedback",
+            "suggestions": [
+                "Test both success and error cases",
+                "Use custom exceptions for business logic errors",
+                "Provide clear error messages",
+                "Handle API rate limits and quotas",
+                "Log errors with sufficient context"
+            ]
+        }
+    ]
+} 
