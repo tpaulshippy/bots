@@ -51,7 +51,7 @@ export default function SettingsScreen() {
 
   const handleLogout = async () => {
     await setTokens({ access: "", refresh: "" });
-    goTo("/login");
+    router.replace("/login");
   };
 
   const goTo = (
@@ -60,7 +60,6 @@ export default function SettingsScreen() {
       | "/parent/botsList"
       | "/parent/setPin"
       | "/parent/notifications"
-      | "/login"
   ) => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.

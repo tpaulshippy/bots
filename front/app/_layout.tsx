@@ -242,6 +242,23 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="login"
+          options={{
+            headerShown: true,
+            headerTitle() {
+              return (
+                <View style={styles.headerContainer}>
+                  <Image
+                    source={require("../assets/images/syft_small.png")}
+                    style={{ width: 260, height: 35 }}
+                  />
+                </View>
+              );
+            },
+            headerBackVisible: false,
+          }}
+        />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

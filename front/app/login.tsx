@@ -1,11 +1,12 @@
 import React, { useEffect } from "react";
-import { StyleSheet, Platform, Button } from "react-native";
-import { ExternalLink } from "@/components/ExternalLink";
+import { StyleSheet, Platform, Button, View, Text, Pressable } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import * as Linking from "expo-linking";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { setTokens } from "@/api/tokens";
 import { useRouter } from "expo-router";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const LOCAL_DEV_WEB_LOGIN_URL = "http://localhost:8000/api/login/web";
 const LOGIN_URL =
@@ -15,6 +16,8 @@ const LoginScreen = () => {
   const router = useRouter();
   const url = Linking.useURL();
   const [manualTokens, setManualTokens] = React.useState("");
+  const borderColor = useThemeColor({}, "border");
+  const textColor = useThemeColor({}, "text");
 
   useEffect(() => {
     const getJWTFromLink = async () => {
@@ -25,6 +28,7 @@ const LoginScreen = () => {
           const access = queryParams["access"] as string;
           const refresh = queryParams["refresh"] as string;
           await setTokens({ access, refresh });
+          router.replace("/");
         }
       }
     };
@@ -32,28 +36,35 @@ const LoginScreen = () => {
     getJWTFromLink();
   }, []);
 
+  const handleGoogleLogin = () => {
+    if (Platform.OS === "web") {
+      Linking.openURL(LOCAL_DEV_WEB_LOGIN_URL);
+    } else {
+      Linking.openURL(LOGIN_URL);
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
-      {Platform.OS === "web" ? (
-        <ExternalLink style={styles.loginLink} href={LOCAL_DEV_WEB_LOGIN_URL}>
-          Login with Google
-        </ExternalLink>
-      ) : (
-        <ExternalLink style={styles.loginLink} href={LOGIN_URL}>
-          Login with Google
-        </ExternalLink>
-      )}
-      <ThemedTextInput
-        onChangeText={(text) => setManualTokens(text)}
-        placeholder="Paste tokens here"
-      />
-      <Button
-        title="Submit"
-        onPress={async () => {
-          await setTokens(JSON.parse(manualTokens));
-          router.replace("/");
-        }}
-      />
+      <View style={[styles.devSection, { borderBottomColor: borderColor }]}>
+        <Text style={[styles.devSectionTitle, { color: textColor }]}>Developer Options</Text>
+        <ThemedTextInput
+          onChangeText={(text) => setManualTokens(text)}
+          placeholder="Paste tokens here"
+          style={styles.tokenInput}
+        />
+        <Button
+          title="Submit"
+          onPress={async () => {
+            await setTokens(JSON.parse(manualTokens));
+            router.back();
+          }}
+        />
+      </View>
+
+      <View style={styles.mainContent}>
+        <GoogleSignInButton onPress={handleGoogleLogin} />
+      </View>
     </ThemedView>
   );
 };
@@ -61,10 +72,24 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 40,
   },
-  loginLink: {
-    color: "white",
+  mainContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  devSection: {
+    padding: 20,
+    borderBottomWidth: 1,
+  },
+  devSectionTitle: {
+    fontSize: 12,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  tokenInput: {
+    marginBottom: 10,
   },
 });
 
