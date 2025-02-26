@@ -11,7 +11,10 @@
     "sdkVersion": "52.0.0",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tpaulshippy.botsforkids"
+      "bundleIdentifier": "com.tpaulshippy.botsforkids",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
