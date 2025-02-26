@@ -42,3 +42,5 @@ app-example
 .env.local
 
 sentry.properties
+
+.DS_Store
