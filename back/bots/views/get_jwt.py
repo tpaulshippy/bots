@@ -21,9 +21,9 @@ def start_web_login(self):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_jwt(self):
+def get_jwt(request):
     
-    user = self.user
+    user = request.user
 
     refresh = RefreshToken.for_user(user)
 
@@ -32,7 +32,7 @@ def get_jwt(self):
         'refresh': str(refresh),
     }
         
-    if 'json' in self.request.query_params:
+    if 'json' in request.query_params:
         return JsonResponse(response_data)
     
     HttpResponseRedirect.allowed_schemes.append(env("APP_SCHEME"))
