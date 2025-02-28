@@ -35,7 +35,7 @@
           "image": "./assets/images/syft.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#012b64"
+          "backgroundColor": "#000"
         }
       ],
       [
