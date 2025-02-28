@@ -21,6 +21,8 @@ import { fetchChat } from "@/api/chats";
 import { fetchBots } from "@/api/bots";
 import { UnauthorizedError } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Linking from "expo-linking";
+import { setTokens } from "@/api/tokens";
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -97,9 +99,27 @@ export default function RootLayout() {
     };
   }, []);
 
+
+  const getJWTFromLink = async (event?: any) => {
+    const url = event?.url;
+    if (url) {
+      const { queryParams } = Linking.parse(url);
+
+      if (queryParams && queryParams.access && queryParams.refresh) {
+        const access = queryParams.access as string;
+        const refresh = queryParams.refresh as string;
+        await setTokens({ access, refresh });
+        router.replace("/");
+      }
+    }
+  };
+
+
   useEffect(() => {
     if (loaded) {
       const initialize = async () => {
+        Linking.addEventListener('url', getJWTFromLink);
+
         try {
           const bots = await fetchBots();
           if (bots.count === 0) {
@@ -135,6 +155,7 @@ export default function RootLayout() {
         <Stack.Screen
           name="index"
           options={{
+            headerBackVisible: false,
             headerShown: true,
             headerTitle(props) {
               return (

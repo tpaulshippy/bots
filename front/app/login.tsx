@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { StyleSheet, Platform, Button, View, Text, Pressable } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import * as Linking from "expo-linking";
@@ -14,27 +14,9 @@ const LOGIN_URL =
 
 const LoginScreen = () => {
   const router = useRouter();
-  const url = Linking.useURL();
   const [manualTokens, setManualTokens] = React.useState("");
   const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
-
-  useEffect(() => {
-    const getJWTFromLink = async () => {
-      if (url) {
-        const { queryParams } = Linking.parse(url);
-
-        if (queryParams && queryParams["access"] && queryParams["refresh"]) {
-          const access = queryParams["access"] as string;
-          const refresh = queryParams["refresh"] as string;
-          await setTokens({ access, refresh });
-          router.replace("/");
-        }
-      }
-    };
-
-    getJWTFromLink();
-  }, []);
 
   const handleGoogleLogin = () => {
     if (Platform.OS === "web") {
@@ -80,6 +62,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   devSection: {
+    display: "none",
     padding: 20,
     borderBottomWidth: 1,
   },

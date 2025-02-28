@@ -12,7 +12,7 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatDistance, format } from "date-fns";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { fetchChats, Chat } from "@/api/chats";
 import { UnauthorizedError } from "@/api/apiClient";
