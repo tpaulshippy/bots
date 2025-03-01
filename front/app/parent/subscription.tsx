@@ -5,7 +5,7 @@ import { StyleSheet, ScrollView, Alert, Platform } from "react-native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useEffect, useState } from "react";
 import Purchases from "react-native-purchases";
-import { updateAccount } from "@/api/account";
+import { getAccount } from "@/api/account";
 import { useRouter, Stack } from "expo-router";
 
 import { SUBSCRIPTION_LEVELS, SUBSCRIPTION_INFO } from "@/constants/subscriptions";
