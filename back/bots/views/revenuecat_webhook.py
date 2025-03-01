@@ -25,10 +25,13 @@ def revenuecat_webhook(request):
             }, status=400)
     
     app_user_id = event.get('app_user_id')
+    
     try:
         user = User.objects.get(id=app_user_id)
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
+    except ValueError:
+        return Response({'error': 'Invalid app_user_id'}, status=404)
     
     entitlements = event.get('entitlements', {})
     subscription_level = 0  # Default to free
