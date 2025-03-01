@@ -18,7 +18,7 @@ def revenuecat_webhook(request):
     event = json.loads(request.body)
     event_type = event.get('type')
     
-    if event_type not in ['INITIAL_PURCHASE', 'RENEWAL', 'CANCELLATION', 'EXPIRATION']:
+    if event_type not in ['INITIAL_PURCHASE', 'RENEWAL', 'CANCELLATION', 'EXPIRATION', 'TEST']:
         return Response({'error': 'Unsupported event type'}, status=400)
     
     app_user_id = event.get('app_user_id')
