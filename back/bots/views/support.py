@@ -17,8 +17,8 @@ def support_view(request):
             name = form.cleaned_data['name']
             email = form.cleaned_data['email']
             message = form.cleaned_data['message']
-            send_mail(f'Contact Form Submission from {name}', message, email, ['pshippy@gmail.com'])
-            return HttpResponse('Thank you for your message!')
+            send_mail(f'Contact Form Submission from {name}', message, email, [settings.EMAIL_HOST_USER])
+            return HttpResponse('Thank you for your message. We will be in touch shortly.')
     else:
         form = ContactForm()
     return render(request, 'support.html', {'form': form})
