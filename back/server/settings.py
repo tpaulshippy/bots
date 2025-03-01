@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.apple',
 ]
 
 STATICFILES_FINDERS = [
@@ -172,6 +173,16 @@ SOCIALACCOUNT_PROVIDERS = {
         'SCOPE': ['profile', 'email'],
         'AUTH_PARAMS': {'access_type': 'online'},
         'OAUTH_PKCE_ENABLED': True,
+    },
+    "apple": {
+        "APPS": [{
+            "client_id": env('APPLE_CLIENT_ID'),
+            "secret": env('APPLE_SECRET'),
+            "key": env('APPLE_KEY'),
+            "settings": {
+                "certificate_key": open('apple_cert.pem').read()
+            }
+        }]
     }
 }
 
@@ -216,3 +227,4 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
