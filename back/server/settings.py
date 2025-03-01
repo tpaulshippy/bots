@@ -182,8 +182,7 @@ SOCIALACCOUNT_PROVIDERS = {
             "settings": {
                 "certificate_key": open('apple_cert.pem').read()
             }
-        }],
-        "redirect_uri_protocol": "https",
+        }]
     }
 }
 
@@ -228,4 +227,4 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
