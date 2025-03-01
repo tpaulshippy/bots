@@ -48,11 +48,11 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = [env('HOST'), 'localhost']
+ALLOWED_HOSTS = [host.strip() for host in env('HOSTS', default='localhost').split(',')]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-CSRF_TRUSTED_ORIGINS = [env('TRUSTED_ORIGIN')]
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in env('TRUSTED_ORIGINS', default='').split(',')]
 
 
 # Application definition
