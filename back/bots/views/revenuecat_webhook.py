@@ -15,7 +15,7 @@ def revenuecat_webhook(request):
     if not auth_header or auth_header != expected_auth:
         return Response({'error': 'Unauthorized'}, status=401)
     
-    event = json.loads(request.body)
+    event = json.loads(request.body).get('event')
     event_type = event.get('type')
     
     if event_type not in ['INITIAL_PURCHASE', 'RENEWAL', 'CANCELLATION', 'EXPIRATION', 'TEST']:
