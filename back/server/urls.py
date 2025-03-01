@@ -28,6 +28,7 @@ from bots.viewsets.device_viewset import DeviceViewSet
 from bots.views.get_chat_response import get_chat_response
 from bots.views.get_jwt import get_jwt, start_web_login
 from bots.views.user_account_view import user_account_view
+from bots.views.support import support_view
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -64,4 +65,8 @@ urlpatterns = [
     re_path(r'^favicon\.ico$', favicon_view),
     path('accounts/google/auto-login/', auto_google_login, name='google-auto-login'),
     path('api/revenuecat/webhook', revenuecat_webhook, name='revenuecat-webhook'),
+]
+
+urlpatterns += [
+    path('support/', support_view, name='support'),
 ]
