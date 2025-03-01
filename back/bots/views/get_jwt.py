@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.shortcuts import render
 import environ
 
 # Initialize environ
@@ -35,20 +36,4 @@ def get_jwt(request):
     if 'json' in request.query_params:
         return JsonResponse(response_data)
 
-    html_content = '''
-    <html>
-    <body>
-        <script>
-            window.onload = function() {
-                window.location.href = "''' + f'{env("APP_DEEP_URL")}?access={response_data["access"]}&refresh={response_data["refresh"]}' + '''";
-                setTimeout(function() {
-                    window.close();
-                }, 1000);
-            }
-        </script>
-        <p>Authenticating... This window will close automatically.</p>
-    </body>
-    </html>
-    '''
-    return HttpResponse(html_content)
-
+    return render(request, 'jwt_template.html', {'app_deep_url': env('APP_DEEP_URL'), 'access': str(refresh.access_token), 'refresh': str(refresh)})

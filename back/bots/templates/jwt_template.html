@@ -1,0 +1,38 @@
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        p {
+            text-align: center;
+            font-size: 3em;  
+            color: #333;
+        }
+        @media only screen and (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            p {
+                font-size: 2em;  
+            }
+        }
+    </style>
+</head>
+<body>
+    <script>
+        window.onload = function() {
+            window.location.href = "{{ app_deep_url }}?access={{ access }}&refresh={{ refresh }}";
+        }
+    </script>
+    <p>Authenticating...</p><p>Close this tab on your mobile device once you are logged in.</p>
+</body>
+</html>
