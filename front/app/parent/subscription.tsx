@@ -11,7 +11,7 @@ import { useRouter, Stack } from "expo-router";
 import { SUBSCRIPTION_LEVELS, SUBSCRIPTION_INFO } from "@/constants/subscriptions";
 
 export default function SubscriptionScreen() {
-  const router = useRouter();eas env:pull
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const backgroundColor = useThemeColor({}, "cardBackground");
   const [currentLevel, setCurrentLevel] = useState(SUBSCRIPTION_LEVELS.BASIC);
@@ -22,7 +22,7 @@ export default function SubscriptionScreen() {
     const setupPurchases = async () => {
       if (Platform.OS === 'ios' || Platform.OS === 'android') {
         try {
-          await Purchases.configure({ apiKey: process.env.REVENUECAT_API_KEY });
+          await Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY });
           if (!isMounted) return;
 
           const { data: account } = await getAccount();
