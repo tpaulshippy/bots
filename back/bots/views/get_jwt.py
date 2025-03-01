@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import environ
@@ -34,6 +34,21 @@ def get_jwt(request):
         
     if 'json' in request.query_params:
         return JsonResponse(response_data)
-    
-    HttpResponseRedirect.allowed_schemes.append(env("APP_SCHEME"))
-    return HttpResponseRedirect(f'{env("APP_DEEP_URL")}?access={response_data["access"]}&refresh={response_data["refresh"]}')
+
+    html_content = '''
+    <html>
+    <body>
+        <script>
+            window.onload = function() {
+                window.location.href = "''' + f'{env("APP_DEEP_URL")}?access={response_data["access"]}&refresh={response_data["refresh"]}' + '''";
+                setTimeout(function() {
+                    window.close();
+                }, 1000);
+            }
+        </script>
+        <p>Authenticating... This window will close automatically.</p>
+    </body>
+    </html>
+    '''
+    return HttpResponse(html_content)
+
