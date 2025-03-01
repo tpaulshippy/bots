@@ -11,7 +11,7 @@ export interface Account {
 export const getAccount = async (): Promise<Account | null> => {
     try {
         const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const { data, ok, status } = await apiClient<Account>(`/api/user?timezone=${deviceTimeZone}`);
+        const { data, ok, status } = await apiClient<Account>(`/user?timezone=${deviceTimeZone}`);
 
         if (!ok) {
             throw new Error(`Failed to fetch account with status ${status}`);
@@ -26,7 +26,7 @@ export const getAccount = async (): Promise<Account | null> => {
 
 export const updateAccount = async (account: Account): Promise<void> => {
     try {
-        const { ok, status } = await apiClient<void>('/api/user', {
+        const { ok, status } = await apiClient<void>('/user', {
             method: 'POST',
             body: JSON.stringify(account),
         });

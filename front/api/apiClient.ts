@@ -28,8 +28,8 @@ export const apiClient = async <T>(
             ...options.headers,
         },
     };
-    
-    const response = await fetch(`${BASE_URL}${endpoint}`, request);
+    const url = `${BASE_URL}${endpoint}`;
+    const response = await fetch(url, request);
     
     if (response.status === 401) {
         await refreshWithRefreshToken(tokens);

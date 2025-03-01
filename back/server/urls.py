@@ -35,7 +35,7 @@ from rest_framework_simplejwt.views import (
 )
 from bots.views.auto_login import auto_google_login
 from bots.views.revenuecat_webhook import revenuecat_webhook
-
+from .views import MarketingPageView
 
 router = routers.DefaultRouter()
 router.register(r'chats', ChatViewSet)
@@ -51,22 +51,22 @@ chats_router.register(r'messages', MessageViewSet, basename='chat-messages')
 favicon_view = RedirectView.as_view(url='/static/favicon.ico', permanent=True)
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include(router.urls)),
-    path('', include(chats_router.urls)),
-    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    path('api/chats/<str:chat_id>', get_chat_response, name='get_chat_response'),
-    path('api/login', get_jwt, name='get_jwt'),
-    path('api/login/web', start_web_login, name='start_web_login'),
-    path('accounts/', include('allauth.urls')),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/user', user_account_view, name='user_account'),
-    re_path(r'^favicon\.ico$', favicon_view),
-    path('accounts/google/auto-login/', auto_google_login, name='google-auto-login'),
-    path('api/revenuecat/webhook', revenuecat_webhook, name='revenuecat-webhook'),
-]
-
-urlpatterns += [
+    path('', MarketingPageView.as_view(), name='marketing'),
     path('support/', support_view, name='support'),
+    re_path(r'^favicon\.ico$', favicon_view),
+    path('admin/', admin.site.urls),
+    path('api/', include([
+        path('', include(router.urls)),
+        path('', include(chats_router.urls)),
+        path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+        path('chats/<str:chat_id>', get_chat_response, name='get_chat_response'),
+        path('login', get_jwt, name='get_jwt'),
+        path('login/web', start_web_login, name='start_web_login'),
+        path('accounts/', include('allauth.urls')),
+        path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+        path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+        path('user', user_account_view, name='user_account'),
+        path('accounts/google/auto-login/', auto_google_login, name='google-auto-login'),
+        path('revenuecat/webhook', revenuecat_webhook, name='revenuecat-webhook')
+    ])),
 ]
