@@ -18,7 +18,7 @@ export default function PinWrapper({ children, correctPin }: Props) {
     }
   };
 
-  return pinCorrect || correctPin === null ? (
+  return pinCorrect || correctPin === "" ? (
     <ThemedView style={styles.container}>{children}</ThemedView>
   ) : (
     <ThemedView style={styles.outerContainer}>

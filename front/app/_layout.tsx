@@ -111,26 +111,29 @@ export default function RootLayout() {
         const refresh = queryParams.refresh as string;
         await setTokens({ access, refresh });
         router.replace("/");
+        await initialNavigationChecks();
       }
     }
   };
 
+  const initialNavigationChecks = async () => {
+    try {
+      const bots = await fetchBots();
+      if (bots.count === 0) {
+        router.replace("/parent/initialBotSelection");
+      }
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        router.push("/login");
+      }
+    }
+  };
 
   useEffect(() => {
     if (loaded) {
       const initialize = async () => {
         Linking.addEventListener('url', getJWTFromLink);
-
-        try {
-          const bots = await fetchBots();
-          if (bots.count === 0) {
-            router.replace("/parent/initialBotSelection");
-          }
-        } catch (error) {
-          if (error instanceof UnauthorizedError) {
-            router.push("/login");
-          }
-        }
+        await initialNavigationChecks();
         SplashScreen.hideAsync();
       };
       
