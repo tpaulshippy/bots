@@ -74,17 +74,6 @@ export default function ProfilesList() {
   };
 
   useLayoutEffect(() => {
-    if (!local.subscriptionLevel || profiles.length === 0) {
-      return;
-    }
-
-    if (local.subscriptionLevel === "1") {
-      // Basic subscription - only allow one additional profile.
-      if (profiles.length > 1) {
-        return;
-      }
-    }
-
     navigation.setOptions({
       headerRight: () => (
         <PlatformPressable onPress={newProfile}>
