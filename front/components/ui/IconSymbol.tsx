@@ -29,7 +29,8 @@ const MAPPING = {
   'mountain.2': 'terrain',
   'wand.and.sparkles': 'bolt',
   'sparkles': 'auto-awesome',
-  'star': 'star-border'
+  'star': 'star-border',
+  'dollarsign.circle.fill': 'payments'
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

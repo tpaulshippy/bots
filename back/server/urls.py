@@ -33,6 +33,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from bots.views.auto_login import auto_google_login
+from bots.views.revenuecat_webhook import revenuecat_webhook
 
 
 router = routers.DefaultRouter()
@@ -62,4 +63,5 @@ urlpatterns = [
     path('api/user', user_account_view, name='user_account'),
     re_path(r'^favicon\.ico$', favicon_view),
     path('accounts/google/auto-login/', auto_google_login, name='google-auto-login'),
+    path('api/revenuecat/webhook', revenuecat_webhook, name='revenuecat-webhook'),
 ]

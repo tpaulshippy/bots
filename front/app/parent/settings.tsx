@@ -18,11 +18,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
 import { setTokens } from "@/api/tokens";
 
-const subscriptionNames: { [key: string]: string } = {
-  0: "Free",
-  1: "Basic",
-  2: "Plus",
-};
+import { subscriptionNames } from "@/constants/subscriptions";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -60,6 +56,7 @@ export default function SettingsScreen() {
       | "/parent/botsList"
       | "/parent/setPin"
       | "/parent/notifications"
+      | "/parent/subscription"
   ) => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.
@@ -120,6 +117,11 @@ export default function SettingsScreen() {
                   iconName="bell.fill"
                   onPress={() => goTo("/parent/notifications")}
                 ></MenuItem>
+                <MenuItem
+                  title="Subscription"
+                  iconName="dollarsign.circle.fill"
+                  onPress={() => goTo("/parent/subscription")}                
+                />
                 <MenuItem
                   title="Set Pin"
                   iconName="lock.fill"

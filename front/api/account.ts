@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 
 export interface Account {
+    userId: number;
     pin: number;
     costForToday?: [number];
     maxDailyCost?: number;
