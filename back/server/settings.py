@@ -182,7 +182,8 @@ SOCIALACCOUNT_PROVIDERS = {
             "settings": {
                 "certificate_key": open('apple_cert.pem').read()
             }
-        }]
+        }],
+        "redirect_uri_protocol": "https",
     }
 }
 
