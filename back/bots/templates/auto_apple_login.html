@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In with Apple</title>
+</head>
+<body>
+    <form id="apple-login" action="/api/accounts/apple/login/" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="process" value="login">
+        <button type="submit">Continue with Apple</button>
+    </form>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('apple-login').submit();
+        });
+    </script>
+</body>
+</html>

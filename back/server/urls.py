@@ -33,7 +33,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from bots.views.auto_login import auto_google_login
+from bots.views.auto_login import auto_google_login, auto_apple_login
 from bots.views.revenuecat_webhook import revenuecat_webhook
 from .views import MarketingPageView
 
@@ -67,6 +67,7 @@ urlpatterns = [
         path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
         path('user', user_account_view, name='user_account'),
         path('accounts/google/auto-login/', auto_google_login, name='google-auto-login'),
+        path('accounts/apple/auto-login/', auto_apple_login, name='apple-auto-login'),
         path('revenuecat/webhook', revenuecat_webhook, name='revenuecat-webhook')
     ])),
 ]
