@@ -15,7 +15,6 @@
             color: #333;
         }
         form {
-            background: white;
             padding: 20px;
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
@@ -26,14 +25,16 @@
             font-weight: bold;
         }
         input[type="text"], input[type="email"], textarea {
-            width: 100%;
-            padding: 10px;
+            width: calc(100% - 40px); /* Adjust width to account for padding */
+            padding: 8px;
             margin-bottom: 15px;
             border: 1px solid #ccc;
             border-radius: 4px;
         }
         button {
-            background-color: #5cb85c;
+            width: 100%;
+            font-size: 1em;
+            background-color: #034c5d;
             color: white;
             padding: 10px 15px;
             border: none;
@@ -41,12 +42,48 @@
             cursor: pointer;
         }
         button:hover {
-            background-color: #4cae4c;
+            background-color: #034c5d;
         }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            h1 {
+                font-size: 1.5em;
+            }
+            input[type="text"], input[type="email"], textarea {
+                padding: 8px;
+            }
+            button {
+                padding: 8px 12px;
+            }
+        }
+        /* Dark theme styles */
+        body.dark-theme {
+            background-color: #121212; /* Dark background */
+            color: #E0E0E0; /* Light text color */
+        }
+        body.dark-theme a {
+            color: #BB86FC; /* Light purple for links */
+        }
+        body.dark-theme a:hover {
+            color: #3700B3; /* Darker purple on hover */
+        }
+        body.dark-theme {
+            background-color: #121212; /* Dark background */
+            color: #E0E0E0; /* Light text color */
+        }
+        body.dark-theme a {
+            color: #BB86FC; /* Light purple for links */
+        }
+        body.dark-theme a:hover {
+            color: #3700B3; /* Darker purple on hover */
+        }
+        /* Additional styles for other elements can be added here */
     </style>
 </head>
-<body>
-    <h1>Contact Us</h1>
+<body class="dark-theme">
+    <img src="/static/syft_learning_sm.png" alt="Syft Logo" style="max-width: 100%; height: auto;">
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
