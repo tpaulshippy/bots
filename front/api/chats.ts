@@ -86,7 +86,7 @@ export const sendChat = async (
     bot: string
     ): Promise<ChatResponse | null> => {
     try {
-        const { data, ok, status } = await apiClient<ChatResponse>(`/api/chats/${chatId}`, {
+        const { data, ok, status } = await apiClient<ChatResponse>(`/chats/${chatId}`, {
             method: 'POST',
             body: JSON.stringify({ message, profile, bot }),
         });
