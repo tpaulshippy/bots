@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Pressable, Text } from "react-native";
+import { StyleSheet, Pressable, Text, useColorScheme } from "react-native";
 import { Image } from "expo-image";
 import { useThemeColor } from "@/hooks/useThemeColor";
 
@@ -8,22 +8,21 @@ interface GoogleSignInButtonProps {
 }
 
 export const GoogleSignInButton = ({ onPress }: GoogleSignInButtonProps) => {
-  const borderColor = useThemeColor({}, "border");
-  
+  const colorScheme = useColorScheme();
+  const imageSource = colorScheme === "dark" ? require("../assets/images/google-sign-in-dark.png") : require("../assets/images/google-sign-in.png");
+
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.googleButton,
-        { borderColor },
         pressed && styles.googleButtonPressed,
       ]}
     >
       <Image
-        source={require("../assets/images/google-g-logo.png")}
-        style={styles.googleIcon}
+        source={imageSource}
+        style={styles.googleImage}
       />
-      <Text style={styles.googleButtonText}>Sign in with Google</Text>
     </Pressable>
   );
 };
@@ -32,31 +31,12 @@ const styles = StyleSheet.create({
   googleButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "white",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 4,
-    borderWidth: 1,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   googleButtonPressed: {
     opacity: 0.8,
   },
-  googleIcon: {
-    width: 18,
-    height: 18,
-    marginRight: 24,
-  },
-  googleButtonText: {
-    color: "#757575",
-    fontSize: 15,
-    fontWeight: "500",
+  googleImage: {
+    width: 300,
+    height: 71,
   },
 }); 

@@ -7,10 +7,13 @@ import { setTokens } from "@/api/tokens";
 import { useRouter } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { AppleSignInButton } from "@/components/AppleSignInButton";
 
 const LOCAL_DEV_WEB_LOGIN_URL = "http://localhost:8000/api/login/web";
 const LOGIN_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL + "/accounts/google/auto-login/";
+const APPLE_LOGIN_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL + "/accounts/apple/auto-login/";
 
 const LoginScreen = () => {
   const router = useRouter();
@@ -24,6 +27,10 @@ const LoginScreen = () => {
     } else {
       Linking.openURL(LOGIN_URL);
     }
+  };
+
+  const handleAppleLogin = () => {
+    Linking.openURL(APPLE_LOGIN_URL);
   };
 
   return (
@@ -44,9 +51,12 @@ const LoginScreen = () => {
         />
       </View>
 
-      <View style={styles.mainContent}>
+      <ThemedView style={styles.mainContent}>
         <GoogleSignInButton onPress={handleGoogleLogin} />
-      </View>
+        <View style={styles.appleButton}>
+          <AppleSignInButton onPress={handleAppleLogin} />
+        </View>
+      </ThemedView>
     </ThemedView>
   );
 };
@@ -73,6 +83,9 @@ const styles = StyleSheet.create({
   },
   tokenInput: {
     marginBottom: 10,
+  },
+  appleButton: {
+    marginTop: 30,
   },
 });
 
