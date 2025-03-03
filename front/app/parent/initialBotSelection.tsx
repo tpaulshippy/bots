@@ -20,7 +20,7 @@ const themes = [
   {
     name: "Harry Potter",
     icon: "wand.and.sparkles",
-    bots: ["Ron Weasley", "Hermoine Granger"],
+    bots: ["Ron Weasley", "Hermione Granger"],
   },
   {
     name: "Star Wars",
