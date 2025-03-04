@@ -52,7 +52,7 @@ export const refreshWithRefreshToken = async (tokens: TokenData | null) => {
         throw new UnauthorizedError();
     }
 
-    const response = await fetch(`${BASE_URL}/api/token/refresh/`, {
+    const response = await fetch(`${BASE_URL}/token/refresh/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
