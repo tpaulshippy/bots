@@ -132,9 +132,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       const initialize = async () => {
+        SplashScreen.hideAsync();
         Linking.addEventListener('url', getJWTFromLink);
         await initialNavigationChecks();
-        SplashScreen.hideAsync();
       };
       
       initialize();
