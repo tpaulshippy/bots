@@ -12,7 +12,7 @@ import * as Notifications from "expo-notifications";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { StyleSheet, View } from "react-native";
-import { useRouter, Stack, usePathname } from "expo-router";
+import { useRouter, Stack, usePathname, useNavigationContainerRef } from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -24,11 +24,21 @@ import { UnauthorizedError } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import { setTokens } from "@/api/tokens";
+import { isRunningInExpoGo } from 'expo';
+
+const navigationIntegration = Sentry.reactNavigationIntegration({
+  enableTimeToInitialDisplay: !isRunningInExpoGo(),
+});
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // enableSpotlight: __DEV__,
+  integrations: [
+    // Pass integration
+    navigationIntegration,
+  ],
+  enableNativeFramesTracking: !isRunningInExpoGo(),
 });
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -50,6 +60,7 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+  const ref = useNavigationContainerRef();
 
   const router = useRouter();
 
@@ -70,6 +81,12 @@ export default function RootLayout() {
       });
     }
   };
+
+  useEffect(() => {
+    if (ref?.current) {
+      navigationIntegration.registerNavigationContainer(ref);
+    }
+  }, [ref]);
 
   useEffect(() => {
     notificationListener.current =
