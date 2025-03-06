@@ -13,7 +13,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "bundleIdentifier": "com.tpaulshippy.botsforkids"
     },
     "android": {
       "adaptiveIcon": {
@@ -61,7 +62,10 @@
     "owner": "tpaulshippy",
     "runtimeVersion": "1.0.1",
     "updates": {
-      "url": "https://u.expo.dev/c5f43f2f-c295-4b8e-b4ee-fb40063ee003"
+      "url": "https://u.expo.dev/c5f43f2f-c295-4b8e-b4ee-fb40063ee003",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
     }
   }
 }
