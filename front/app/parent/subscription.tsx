@@ -14,7 +14,7 @@ export default function SubscriptionScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const backgroundColor = useThemeColor({}, "cardBackground");
-  const [currentLevel, setCurrentLevel] = useState(SUBSCRIPTION_LEVELS.BASIC);
+  const [currentLevel, setCurrentLevel] = useState(SUBSCRIPTION_LEVELS.FREE);
 
   useEffect(() => {
     let isMounted = true;
@@ -98,7 +98,7 @@ export default function SubscriptionScreen() {
         <ThemedButton
           style={styles.subscribeButton}
           onPress={() => handleSubscribe(level)}
-          disabled={loading || currentLevel === level}
+          disabled={loading || currentLevel === level || level === SUBSCRIPTION_LEVELS.FREE}
         >
           <ThemedText>
             {currentLevel === level ? "Current Plan" : "Subscribe"}

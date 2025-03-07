@@ -1,9 +1,16 @@
 export const SUBSCRIPTION_LEVELS = {
+  FREE: 0,
   BASIC: 1,
   PLUS: 2,
 } as const;
 
 export const SUBSCRIPTION_INFO = {
+  [SUBSCRIPTION_LEVELS.FREE]: {
+    name: "Free",
+    price: "$0/month",
+    description: "Access to all models",
+    dailyLimit: "~3K tokens per day*",
+  },
   [SUBSCRIPTION_LEVELS.BASIC]: {
     name: "Basic",
     price: "$1/month",

@@ -118,7 +118,6 @@ export default function SettingsScreen() {
                   onPress={() => goTo("/parent/notifications")}
                 ></MenuItem>
                 <MenuItem
-                  style={{display: "none"}}
                   title="Subscription"
                   iconName="dollarsign.circle.fill"
                   onPress={() => goTo("/parent/subscription")}                
