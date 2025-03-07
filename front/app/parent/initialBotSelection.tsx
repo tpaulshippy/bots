@@ -83,7 +83,7 @@ export default function InitialBotSelection() {
         await upsertBot(newBot as Bot);
       }
 
-      router.replace("/home");
+      router.replace("/");
     } catch (error) {
       console.error("Failed to create bots:", error);
     } finally {

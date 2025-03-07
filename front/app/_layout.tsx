@@ -126,7 +126,7 @@ export default function RootLayout() {
         const access = queryParams.access as string;
         const refresh = queryParams.refresh as string;
         await setTokens({ access, refresh });
-        router.replace("/home");
+        router.replace("/");
         await initialNavigationChecks();
       }
     }
@@ -165,7 +165,6 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <ErrorBoundary>
         <Stack
-        initialRouteName="home"
         screenOptions={({
           route,
         }: {
@@ -175,7 +174,7 @@ export default function RootLayout() {
         })}
       >
         <Stack.Screen
-          name="home"
+          name="index"
           options={{
             headerBackVisible: false,
             headerShown: true,
