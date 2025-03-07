@@ -69,7 +69,6 @@ export default function RootLayout() {
 
   const navigateToChat = (chatId: string, title: string) => {
     if (pathname === '/chat') {
-      router.replace("/");
       router.replace({
         pathname: "/chat",
         params: { chatId, title },
@@ -127,7 +126,7 @@ export default function RootLayout() {
         const access = queryParams.access as string;
         const refresh = queryParams.refresh as string;
         await setTokens({ access, refresh });
-        router.replace("/");
+        router.replace("/home");
         await initialNavigationChecks();
       }
     }
@@ -166,6 +165,7 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <ErrorBoundary>
         <Stack
+        initialRouteName="home"
         screenOptions={({
           route,
         }: {
