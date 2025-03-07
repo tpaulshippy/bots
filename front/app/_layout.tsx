@@ -175,7 +175,7 @@ export default function RootLayout() {
         })}
       >
         <Stack.Screen
-          name="index"
+          name="home"
           options={{
             headerBackVisible: false,
             headerShown: true,
