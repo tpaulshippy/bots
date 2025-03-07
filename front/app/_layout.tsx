@@ -280,6 +280,13 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="parent/subscription"
+          options={{
+            headerShown: true,
+            headerTintColor: textColor,
+          }}
+        />
+        <Stack.Screen
           name="parent/initialBotSelection"
           options={{
             headerShown: false,
