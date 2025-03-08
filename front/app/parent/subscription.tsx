@@ -1,7 +1,7 @@
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedButton } from "@/components/ThemedButton";
-import { StyleSheet, ScrollView, Alert, Platform } from "react-native";
+import { StyleSheet, ScrollView, Alert, Platform, Linking } from "react-native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useEffect, useState } from "react";
 import Purchases from "react-native-purchases";
@@ -56,6 +56,12 @@ export default function SubscriptionScreen() {
 
     try {
       setLoading(true);
+      if (level === SUBSCRIPTION_LEVELS.FREE) {
+        // Open https://support.apple.com/en-us/118428
+        // If you want to cancel a subscription from Apple
+        Linking.openURL("https://support.apple.com/en-us/118428");
+        return;
+      }
       const offerings = await Purchases.getOfferings();
       if (!offerings.current) return;
 
