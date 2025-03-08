@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatDistance, format } from "date-fns";
 import { useCallback, useState } from "react";
+import { debounce } from "lodash";
 
 import { fetchChats, Chat } from "@/api/chats";
 import { UnauthorizedError } from "@/api/apiClient";
@@ -108,11 +109,11 @@ export default function ChatList() {
     }, [])
   );
 
-  const resetRefresh = () => {
+  const resetRefresh = debounce(() => {
     setPage(1);
     setChats({});
     refresh(1);
-  };
+  }, 300); // 300ms debounce time
 
   const handleChatPress = async (chat: Chat) => {
     if (process.env.EXPO_OS === "ios") {
