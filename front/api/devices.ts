@@ -26,6 +26,21 @@ export const fetchDevice = async (deviceId: string): Promise<Device | null> => {
   return data;
 };
 
+export const fetchDeviceByToken = async (token: string): Promise<Device | null> => {
+  const { data, ok, status } = await apiClient<PaginatedResponse<Device>>(
+    `/devices/?notificationToken=${token}`
+  );
+
+  if (status === 404 || data.results.length === 0) {
+    return null;
+  }
+
+  if (!ok) {
+    throw new Error(`Failed to fetch device with status ${status}`);
+  }
+  return data.results[0]; // Return the first device from the list
+};
+
 export const upsertDevice = async (device: Device): Promise<Device> => {
   if (device.id == -1) {
     const { data, ok, status } = await apiClient<Device>("/devices.json", {

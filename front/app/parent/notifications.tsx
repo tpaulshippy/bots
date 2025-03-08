@@ -11,6 +11,7 @@ import {
   upsertDevice,
   Device as DeviceData,
   fetchDevice,
+  fetchDeviceByToken,
   setDeviceIdInStorage,
   getDeviceIdFromStorage,
 } from "@/api/devices";
@@ -87,9 +88,18 @@ export default function NotificationsScreen() {
         const token = await registerForPushNotificationsAsync();
 
         if (token) {
-          let newDevice;
-          if (!device) {
-            newDevice = {
+          const existingDevice = await fetchDeviceByToken(token);
+
+          if (existingDevice) {
+            // Update existing device
+            existingDevice.notify_on_new_chat = false;
+            existingDevice.notify_on_new_message = true;
+            await upsertDevice(existingDevice);
+            setDeviceIdInStorage(existingDevice.device_id);
+            setDevice(existingDevice);
+          } else {
+            // Create new device
+            let newDevice: DeviceData = {
               id: -1,
               device_id: "",
               notification_token: token,
@@ -97,14 +107,10 @@ export default function NotificationsScreen() {
               notify_on_new_message: true,
               deleted_at: null,
             };
-          } else {
-            newDevice = { ...device };
+            newDevice = await upsertDevice(newDevice);
+            setDeviceIdInStorage(newDevice.device_id);
+            setDevice(newDevice);
           }
-          newDevice.notify_on_new_chat = false;
-          newDevice.notify_on_new_message = true;
-          setDevice(newDevice);
-          newDevice = await upsertDevice(newDevice);
-          setDeviceIdInStorage(newDevice.device_id);
         }
       } else if (device) {
         device.notify_on_new_chat = false;
