@@ -176,13 +176,13 @@ SOCIALACCOUNT_PROVIDERS = {
         'OAUTH_PKCE_ENABLED': True,
     },
     "apple": {
-        'SCOPE': ['email', 'name'],
         "APPS": [{
             "client_id": env('APPLE_CLIENT_ID'),
             "secret": env('APPLE_SECRET'),
             "key": env('APPLE_KEY'),
             "settings": {
-                "certificate_key": open('apple_cert.pem').read()
+                "certificate_key": open('apple_cert.pem').read(),
+                "scope": "email name"
             }
         }]
     }
