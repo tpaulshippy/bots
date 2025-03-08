@@ -1,4 +1,4 @@
-export const SUBSCRIPTION_LEVELS = {
+export const SUBSCRIPTION_LEVELS : Record<string, number> = {
   FREE: 0,
   BASIC: 1,
   PLUS: 2,

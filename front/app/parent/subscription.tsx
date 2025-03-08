@@ -14,21 +14,25 @@ export default function SubscriptionScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const backgroundColor = useThemeColor({}, "cardBackground");
-  const [currentLevel, setCurrentLevel] = useState(SUBSCRIPTION_LEVELS.FREE);
+  const [currentLevel, setCurrentLevel] = useState(SUBSCRIPTION_LEVELS.FREE || 0);
 
   useEffect(() => {
     let isMounted = true;
 
     const setupPurchases = async () => {
       if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        try {
-          await Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY });
-          if (!isMounted) return;
+        if (!isMounted) return;
 
-          const { data: account } = await getAccount();
-          if (account && isMounted) {
-            // Set the app user ID to match our backend user ID
-            await Purchases.setAppUserID(account.userId.toString());
+        try {
+          const account = await getAccount();
+          if (!account) return;
+
+          await Purchases.configure({ 
+            apiKey: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY,
+            appUserID: account.userId.toString(),
+          });
+
+          if (account.subscriptionLevel !== undefined) {
             setCurrentLevel(account.subscriptionLevel);
           }
         } catch (e) {
@@ -98,10 +102,10 @@ export default function SubscriptionScreen() {
         <ThemedButton
           style={styles.subscribeButton}
           onPress={() => handleSubscribe(level)}
-          disabled={loading || currentLevel === level || level === SUBSCRIPTION_LEVELS.FREE}
+          disabled={loading || currentLevel === level}
         >
           <ThemedText>
-            {currentLevel === level ? "Current Plan" : "Subscribe"}
+            {currentLevel === level ? "Current Plan" : level === SUBSCRIPTION_LEVELS.FREE ? "Unsubscribe" : "Subscribe"}
           </ThemedText>
         </ThemedButton>
       }
