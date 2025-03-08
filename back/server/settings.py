@@ -181,8 +181,7 @@ SOCIALACCOUNT_PROVIDERS = {
             "secret": env('APPLE_SECRET'),
             "key": env('APPLE_KEY'),
             "settings": {
-                "certificate_key": open('apple_cert.pem').read(),
-                "scope": "email name"
+                "certificate_key": open('apple_cert.pem').read()
             }
         }]
     }
