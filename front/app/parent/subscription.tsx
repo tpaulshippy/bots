@@ -27,7 +27,7 @@ export default function SubscriptionScreen() {
           const account = await getAccount();
           if (!account) return;
 
-          await Purchases.configure({ 
+          Purchases.configure({
             apiKey: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY,
             appUserID: account.userId.toString(),
           });
@@ -67,7 +67,12 @@ export default function SubscriptionScreen() {
 
       const packageToBuy = level === SUBSCRIPTION_LEVELS.BASIC 
         ? offerings.current.availablePackages[0]
-        : offerings.current.availablePackages[1];
+        : offerings.all["Plus"].availablePackages[0];
+
+      if (!packageToBuy) {
+        Alert.alert("Error", "No available packages found.");
+        return;
+      }
 
       const { customerInfo } = await Purchases.purchasePackage(packageToBuy);
       
