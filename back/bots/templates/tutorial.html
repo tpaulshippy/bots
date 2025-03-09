@@ -1,0 +1,78 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutorial - How to Use the App</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <img src="{% static 'syft_learning_sm.png' %}" alt="Syft Logo" style="max-width: 100%; height: auto;">
+    <header>
+        <h1>Getting Started</h1>
+    </header>
+    <div class="card-container-stack">
+        <section class="card">
+            <h2>Install the app on the parent's phone.</h2>
+            (link to app store)
+        </section>
+        <section class="card">
+            <h2>Login with the parent's account.</h2>
+            <img src="/static/screenshots/sign-in.png" alt="Sign in">
+        </section>
+        <section class="card">
+            <h2>Choose the bots you want.</h2>
+            <img src="/static/screenshots/choose-bots.png" alt="Choose bots">
+        </section>
+        <section class="card">
+            <h2>Set a pin.</h2>
+            <p>Tap on the gear icon in the top right corner and choose Set Pin.</p>
+            <p><img src="/static/screenshots/settings-icon.png" alt="Settings icon" 
+                style="margin-top: 20px; margin-bottom: 10px"></p>
+            <p><img src="/static/screenshots/settings-set-pin.png" alt="Set pin"></p>
+        </section>
+        <section class="card">
+            <h2>Add a profile for each teen.</h2>
+            <img src="/static/screenshots/settings-profiles.png" alt="Profiles"
+                style="margin-top: 20px; margin-bottom: 10px">
+            <img src="/static/screenshots/new-profile.png" alt="Add profile">
+        </section>
+        <section class="card">
+            <h2>Turn on notifications.</h2>
+            <img src="/static/screenshots/settings-notifications.png" alt="Notifications"
+                style="margin-top: 20px; margin-bottom: 10px">
+            <img src="/static/screenshots/notifications.png" alt="Turn on notifications">
+        </section>
+        <section class="card">
+            <h2>Customize the bots (optional).</h2>
+            <p>Go to the bot editor and customize the bots.</p>
+            <img src="/static/screenshots/settings-bots.png" alt="Bots" style="margin-top: 20px; margin-bottom: 10px">
+            <p>Basic and Advanced editors:</p>
+            <img src="/static/screenshots/bot-editor-basic.png" alt="Basic bot editor" style="margin-bottom: 10px">
+            <img src="/static/screenshots/bot-editor-advanced.png" alt="Advanced bot editor">
+        </section>
+        <section class="card">
+            <h2>Install the app on the teen's phone.</h2>
+            (link to app store)
+        </section>
+        <section class="card">
+            <h2>Login with the parent's account.</h2>
+            <img src="/static/screenshots/sign-in.png" alt="Sign in">
+        </section>
+        <section class="card">
+            <h2>Select the teen's profile.</h2>
+            <img src="/static/screenshots/settings-profiles.png" alt="Select profile" style="margin-top: 20px; margin-bottom: 10px">
+            <img src="/static/screenshots/select-profile.png" alt="Select profile">
+        </section>
+        <section class="card">
+            <h2>Teen - Select a bot and start chatting</h2>
+            <img src="/static/screenshots/start-chat.png" alt="Teen select bot">
+        </section>
+    </div>
+    <footer>
+        <p>Check the source code on <a href="https://github.com/tpaulshippy/bots">GitHub</a></p>
+        <p>&copy; 2025 Syft Learning. All rights reserved.</p>
+    </footer>
+</body>
+</html>

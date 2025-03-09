@@ -35,7 +35,7 @@ from rest_framework_simplejwt.views import (
 )
 from bots.views.auto_login import auto_google_login, auto_apple_login
 from bots.views.revenuecat_webhook import revenuecat_webhook
-from .views import MarketingPageView
+from .views import MarketingPageView, TutorialView
 
 router = routers.DefaultRouter()
 router.register(r'chats', ChatViewSet)
@@ -53,6 +53,7 @@ favicon_view = RedirectView.as_view(url='/static/favicon.ico', permanent=True)
 urlpatterns = [
     path('', MarketingPageView.as_view(), name='marketing'),
     path('support/', support_view, name='support'),
+    path('tutorial/', TutorialView.as_view(), name='tutorial'),
     re_path(r'^favicon\.ico$', favicon_view),
     path('admin/', admin.site.urls),
     path('api/', include([

@@ -1,0 +1,95 @@
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 'auto';
+    padding: 20px;
+    background-image: url('/static/syft_bg.png'); /* Background image */
+    background-repeat: repeat; /* Tiling the background */
+    color: #e0e0e0; /* Light text color for contrast */
+}
+header {
+    background-color: rgba(3, 76, 93, 0.8); /* Semi-transparent dark header */
+    color: white;
+    padding: 15px;
+    margin: 10px;
+    text-align: center;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+.card-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+.card-container-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.card {
+    background-color: rgba(2, 59, 77, 0.9); /* Darker card background with transparency */
+    color: #e0e0e0;
+    margin: 10px;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    flex: 1 1 calc(45% - 20px); /* Responsive cards */
+    transition: transform 0.2s;
+}
+.card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+}
+.card img {
+    max-width: 100%;
+}
+h2 {
+    color: #e0e0e0; /* Heading color without yellow */
+}
+.button {
+    background-color: #034c5d;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: bold;
+}
+.button:hover {
+    background-color: #034c5d;
+}
+footer {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.9em;
+    color: #ccc;
+}
+a {
+    color: #fff;
+}
+a.visited {
+    color: #fff;
+}
+.small {
+    font-size: 0.7em;
+}
+/* Media Queries for iPhone SE */
+@media (max-width: 375px) {
+    header {
+        padding: 15px;
+    }
+    .card {
+        flex: 1 1 100%; /* Stack cards vertically */
+        margin: 5px 0;
+    }
+    h1 {
+        font-size: 1.5em;
+    }
+    h2 {
+        font-size: 1.2em;
+    }
+    .button {
+        width: 100%; /* Full-width buttons */
+        padding: 12px;
+    }
+}
