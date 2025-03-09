@@ -3,6 +3,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 from bots.models import UserAccount
+from bots.models import RevenueCatWebhookEvent
 import json
 from django.conf import settings
 
@@ -14,8 +15,12 @@ def revenuecat_webhook(request):
     
     if not auth_header or auth_header != expected_auth:
         return Response({'error': 'Unauthorized'}, status=401)
+
+    # Save the raw event data
+    raw_event_data = request.body
+    RevenueCatWebhookEvent.objects.create(raw_event=raw_event_data)
     
-    event = json.loads(request.body).get('event')
+    event = json.loads(raw_event_data).get('event')
     event_type = event.get('type')
     
     if event_type not in ['INITIAL_PURCHASE', 'PRODUCT_CHANGE', 'RENEWAL', 'CANCELLATION', 'EXPIRATION', 'TEST']:

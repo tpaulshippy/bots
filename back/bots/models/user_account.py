@@ -72,3 +72,11 @@ class UserAccount(models.Model):
         return Chat.objects.filter(user=self.user,
                                     bot__ai_model__model_id=model_id,
                                     modified_at__gte=start_of_day_utc)
+
+class RevenueCatWebhookEvent(models.Model):
+    raw_event = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'RevenueCat Event at {self.created_at}'
