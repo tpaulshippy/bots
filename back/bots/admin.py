@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device
+from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device, RevenueCatWebhookEvent
 
 admin.site.register(Chat)
 admin.site.register(Message)
@@ -9,3 +9,4 @@ admin.site.register(UserAccount)
 admin.site.register(UsageLimitHit)
 admin.site.register(AiModel)
 admin.site.register(Device)
+admin.site.register(RevenueCatWebhookEvent)
