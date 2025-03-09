@@ -18,7 +18,7 @@ def revenuecat_webhook(request):
     event = json.loads(request.body).get('event')
     event_type = event.get('type')
     
-    if event_type not in ['INITIAL_PURCHASE', 'RENEWAL', 'CANCELLATION', 'EXPIRATION', 'TEST']:
+    if event_type not in ['INITIAL_PURCHASE', 'PRODUCT_CHANGE', 'RENEWAL', 'CANCELLATION', 'EXPIRATION', 'TEST']:
         return Response({
             'error': 'Unsupported event type',
             'event_type': event_type
@@ -33,12 +33,12 @@ def revenuecat_webhook(request):
     except ValueError:
         return Response({'error': 'Invalid app_user_id'}, status=404)
     
-    entitlements = event.get('entitlements', {})
+    entitlement_ids = event.get('entitlement_ids', [])
     subscription_level = 0  # Default to free
     
-    if 'plus' in entitlements:
+    if 'plus' in entitlement_ids:
         subscription_level = 2  # Plus
-    elif 'basic' in entitlements:
+    elif 'basic' in entitlement_ids:
         subscription_level = 1  # Basic
     
     user.user_account.subscription_level = subscription_level
