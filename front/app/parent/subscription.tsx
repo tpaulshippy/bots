@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import Purchases from "react-native-purchases";
 import { getAccount } from "@/api/account";
 import { useRouter, Stack } from "expo-router";
+import * as Sentry from "@sentry/react-native";
 
 import { SUBSCRIPTION_LEVELS, SUBSCRIPTION_INFO } from "@/constants/subscriptions";
 
@@ -85,8 +86,7 @@ export default function SubscriptionScreen() {
         );
       }
     } catch (e) {
-      Alert.alert("Error", "Failed to process subscription. Please try again.");
-      console.error(e);
+      Sentry.captureException(e);
     } finally {
       setLoading(false);
     }
