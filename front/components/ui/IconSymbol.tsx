@@ -30,7 +30,8 @@ const MAPPING = {
   'wand.and.sparkles': 'bolt',
   'sparkles': 'auto-awesome',
   'star': 'star-border',
-  'dollarsign.circle.fill': 'payments'
+  'dollarsign.circle.fill': 'payments',
+  'questionmark.circle.fill': 'question-mark',
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],
