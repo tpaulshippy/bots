@@ -92,6 +92,15 @@ export default function SubscriptionScreen() {
     }
   };
 
+  const handleRestorePurchases = async () => {
+    try {
+      await Purchases.restorePurchases();
+      Alert.alert('Restore Purchases', 'Your purchases have been restored.');
+    } catch (error) {
+      Sentry.captureException(error);
+    }
+  };
+
   const renderSubscriptionOption = (level: number) => (
     <ThemedView
       key={level}
@@ -132,6 +141,12 @@ export default function SubscriptionScreen() {
       />
       <ScrollView contentContainerStyle={styles.container}>
       {Object.values(SUBSCRIPTION_LEVELS).map(renderSubscriptionOption)}
+      <ThemedButton
+        style={styles.subscribeButton}
+        onPress={handleRestorePurchases}
+      >
+        <ThemedText>Restore Purchases</ThemedText>
+      </ThemedButton>
       <ThemedText style={styles.footnote}>* Token estimates based on Nova Lite model usage</ThemedText>
     </ScrollView>
     </>
