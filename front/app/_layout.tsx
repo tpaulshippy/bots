@@ -309,6 +309,13 @@ export default function RootLayout() {
             headerBackVisible: false,
           }}
         />
+        <Stack.Screen
+          name="parent/terms"
+          options={{
+            headerShown: true,
+            headerTintColor: textColor,
+          }}
+        />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

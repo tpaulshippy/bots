@@ -57,6 +57,7 @@ export default function SettingsScreen() {
       | "/parent/setPin"
       | "/parent/notifications"
       | "/parent/subscription"
+      | "/parent/terms"
   ) => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.
@@ -126,6 +127,11 @@ export default function SettingsScreen() {
                   title="Set Pin"
                   iconName="lock.fill"
                   onPress={() => goTo("/parent/setPin")}
+                ></MenuItem>
+                <MenuItem
+                  title="Terms of Use and Privacy Policy"
+                  iconName="questionmark.circle.fill"
+                  onPress={() => goTo("/parent/terms")}
                 ></MenuItem>
                 <MenuItem
                   title="Log Out"
