@@ -25,6 +25,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import { setTokens } from "@/api/tokens";
 import { isRunningInExpoGo } from 'expo';
+import * as WebBrowser from 'expo-web-browser';
 
 const navigationIntegration = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: !isRunningInExpoGo(),
@@ -127,6 +128,8 @@ export default function RootLayout() {
         const access = queryParams.access as string;
         const refresh = queryParams.refresh as string;
         await setTokens({ access, refresh });
+        WebBrowser.dismissBrowser()
+
         router.replace("/");
         await initialNavigationChecks();
       }

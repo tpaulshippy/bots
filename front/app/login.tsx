@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { AppleSignInButton } from "@/components/AppleSignInButton";
+import * as WebBrowser from 'expo-web-browser';
 
 const LOCAL_DEV_WEB_LOGIN_URL = "http://localhost:8000/api/login/web";
 const LOGIN_URL =
@@ -21,16 +22,16 @@ const LoginScreen = () => {
   const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     if (Platform.OS === "web") {
-      Linking.openURL(LOCAL_DEV_WEB_LOGIN_URL);
+      await WebBrowser.openBrowserAsync(LOCAL_DEV_WEB_LOGIN_URL);
     } else {
-      Linking.openURL(LOGIN_URL);
+      await WebBrowser.openBrowserAsync(LOGIN_URL);
     }
   };
 
-  const handleAppleLogin = () => {
-    Linking.openURL(APPLE_LOGIN_URL);
+  const handleAppleLogin = async () => {
+    await WebBrowser.openBrowserAsync(APPLE_LOGIN_URL);
   };
 
   return (
