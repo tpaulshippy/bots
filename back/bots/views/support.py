@@ -23,6 +23,7 @@ def support_view(request):
             
             full_subject = f'Syft Support - {subject}'
             body = f"Name: {name}\nEmail: {email}\nSubject: {subject}\nMessage: {message}"
+            
             send_mail(subject=full_subject, 
                       message=body, 
                       from_email=email, 
