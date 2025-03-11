@@ -27,6 +27,7 @@ export default function SimpleBotEditor({
   const navigation = useNavigation();
   const router = useRouter();
   const [bot, setBot] = useState<Bot>(botEditing);
+  const [inputs, setInputs] = useState<Record<string, string>>({});
   const [nameMissing, setNameMissing] = useState(false);
   const [templateMissing, setTemplateMissing] = useState(false);
   const [isPickerVisible, setPickerVisible] = useState(false);
@@ -38,19 +39,6 @@ export default function SimpleBotEditor({
   const validateBot = async () => {
     setNameMissing(!bot?.name.trim());
     setTemplateMissing(!bot?.name);
-  };
-
-  const saveBot = async () => {
-    await validateBot();
-
-    if (bot) {
-      try {
-        await upsertBot(bot);
-        router.back();
-      } catch (error) {
-        console.error("Failed to save bot", error);
-      }
-    }
   };
 
   const switchToAdvancedEditor = async () => {
@@ -91,7 +79,7 @@ export default function SimpleBotEditor({
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <PlatformPressable onPress={saveBot}>
+        <PlatformPressable onPress={switchToAdvancedEditor}>
           <IconSymbol
             name="checkmark"
             color={iconColor}
@@ -101,7 +89,7 @@ export default function SimpleBotEditor({
         </PlatformPressable>
       ),
     });
-  }, [navigation, saveBot]);
+  }, [navigation, switchToAdvancedEditor]);
 
   const setBotProperty = (property: Partial<Bot>) => {
     setBot({ ...bot, ...property });
@@ -110,8 +98,7 @@ export default function SimpleBotEditor({
   useEffect(() => {
     setBotProperty({
       ...bot,
-      name: bot.template_name === "Blank" ? bot.name : bot.template_name,
-      system_prompt: generateSystemPrompt(bot),
+      system_prompt: generateSystemPrompt(bot, inputs),
     });
   }, [
     bot.name,
@@ -119,6 +106,7 @@ export default function SimpleBotEditor({
     bot.response_length,
     bot.restrict_language,
     bot.restrict_adult_topics,
+    inputs,
   ]);
 
   return (
@@ -145,17 +133,23 @@ export default function SimpleBotEditor({
           )}
         />
       </ThemedView>
-      {bot.template_name === "Blank" && (
-        <ThemedView style={styles.formGroup}>
-          <ThemedText style={styles.label}>Name</ThemedText>
+      {templates.find((template) => template.name === bot.template_name)?.inputs.map((input) => (
+        <ThemedView style={styles.formGroup} key={input.name}>
+          <ThemedText style={styles.label}>{input.name}</ThemedText>
           <ThemedTextInput
             autoFocus={true}
             style={[styles.input, nameMissing ? styles.missing : {}]}
-            value={bot.name === "Blank" ? "" : bot.name}
-            onChangeText={(text) => setBotProperty({ name: text })}
+            value={inputs[input.name]}
+            onChangeText={(text) => {
+              setInputs({ ...inputs, [input.name]: text })
+              if (input.name === "Name") {
+                setBotProperty({ name: text })
+              }
+            }}
           />
+          <ThemedText style={styles.description}>{input.description}</ThemedText>
         </ThemedView>
-      )}
+      ))}
       <ThemedView style={styles.formGroup}>
         <ThemedText style={styles.label}>Response Length (words)</ThemedText>
         <ThemedTextInput
@@ -195,33 +189,6 @@ export default function SimpleBotEditor({
           }
         />
       </ThemedView>
-
-      <ThemedView style={styles.buttons}>
-        <ThemedButton
-          onPress={() => switchToAdvancedEditor()}
-          style={styles.button}
-        >
-          <IconSymbol
-            name="gearshape.2"
-            color={buttonIconColor}
-            size={40}
-            style={styles.buttonIcon}
-          ></IconSymbol>
-          <View>
-            <ThemedText>Advanced</ThemedText>
-            <ThemedText>Editor</ThemedText>
-          </View>
-        </ThemedButton>
-        <ThemedButton onPress={() => deleteBot()} style={styles.button}>
-          <IconSymbol
-            name="trash"
-            color={buttonIconColor}
-            size={40}
-            style={styles.buttonIcon}
-          ></IconSymbol>
-          <ThemedText>Delete Bot</ThemedText>
-        </ThemedButton>
-      </ThemedView>
     </ThemedView>
   );
 }
@@ -251,6 +218,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
+    marginBottom: 5,
+  },
+  description: {
+    fontSize: 14,
     marginBottom: 5,
   },
   checkboxLabel: {
@@ -286,10 +257,9 @@ const styles = StyleSheet.create({
   },
   buttons: {
     flex: 1,
-    flexDirection: "row",
+    justifyContent: "flex-end",
   },
   button: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     marginRight: 10,

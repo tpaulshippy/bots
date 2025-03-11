@@ -140,7 +140,8 @@ export default function RootLayout() {
     try {
       const bots = await fetchBots();
       if (bots.count === 0) {
-        router.replace("/parent/initialBotSelection");
+        router.push("/parent/botsList");
+        router.push("/parent/botEditor");
       }
     } catch (error) {
       if (error instanceof UnauthorizedError) {
