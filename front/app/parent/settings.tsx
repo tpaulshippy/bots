@@ -58,6 +58,7 @@ export default function SettingsScreen() {
       | "/parent/notifications"
       | "/parent/subscription"
       | "/parent/terms"
+      | "/parent/deleteAccount"
   ) => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.
@@ -132,6 +133,11 @@ export default function SettingsScreen() {
                   title="Terms of Use and Privacy Policy"
                   iconName="questionmark.circle.fill"
                   onPress={() => goTo("/parent/terms")}
+                ></MenuItem>
+                <MenuItem
+                  title="Delete Account"
+                  iconName="trash.fill"
+                  onPress={() => goTo("/parent/deleteAccount")}
                 ></MenuItem>
                 <MenuItem
                   title="Log Out"

@@ -320,6 +320,13 @@ export default function RootLayout() {
             headerTintColor: textColor,
           }}
         />
+        <Stack.Screen
+          name="parent/deleteAccount"
+          options={{
+            headerShown: true,
+            headerTintColor: textColor,
+          }}
+        />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

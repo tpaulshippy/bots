@@ -1,6 +1,8 @@
 from bots.models.user_account import MAX_COST_DAILY
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from bots.models import Chat, Profile, Bot
 
 @api_view(['POST', 'GET'])
@@ -28,3 +30,11 @@ def user_account_view(request):
     user.save()
     
     return Response({'response': 'ok'})
+
+class DeleteUserAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+        user.delete()
+        return Response({'message': 'User account deleted successfully.'}, status=204)

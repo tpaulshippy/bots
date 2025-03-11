@@ -23,6 +23,7 @@ const MAPPING = {
   'lock.fill': 'lock',
   'checkmark': 'check',
   'trash': 'delete',
+  'trash.fill': 'delete',
   'gearshape.2': 'settings',
   'bell.fill': 'notifications',
   'arrowshape.turn.up.left.fill': 'arrow-back',
