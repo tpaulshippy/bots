@@ -4,17 +4,21 @@ import { ThemedButton } from '@/components/ThemedButton';
 import { ThemedText } from '@/components/ThemedText';
 import { deleteAccount } from '@/api/account';
 import { StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { setTokens } from '@/api/tokens';
 
 const DeleteAccountScreen = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
 
     const handleDeleteAccount = async () => {
         setLoading(true);
         setError(null);
         try {
             await deleteAccount();
-            // Handle successful deletion (e.g., redirect or show a success message)
+            await setTokens({ access: "", refresh: "" });
+            router.replace('/login');
         } catch (err) {
             setError('Error deleting account.');
         } finally {

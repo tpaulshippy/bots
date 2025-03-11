@@ -138,11 +138,7 @@ export default function RootLayout() {
 
   const initialNavigationChecks = async () => {
     try {
-      const bots = await fetchBots();
-      if (bots.count === 0) {
-        router.push("/parent/botsList");
-        router.push("/parent/botEditor");
-      }
+      await fetchBots();
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         router.push("/login");

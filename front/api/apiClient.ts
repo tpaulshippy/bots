@@ -36,6 +36,14 @@ export const apiClient = async <T>(
         return apiClient(endpoint, options);
     }
 
+    if (options.method === 'DELETE') {
+        return {
+            data: null,
+            status: response.status,
+            ok: response.ok,
+        };
+    }
+
     const text = await response.text();
     const data = JSON.parse(text) as T;
 

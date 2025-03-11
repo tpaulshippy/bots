@@ -42,11 +42,11 @@ export const updateAccount = async (account: Account): Promise<void> => {
 
 export const deleteAccount = async (): Promise<void> => {
     try {
-        const { ok, status } = await apiClient<void>('/api/users/delete', {
+        const { ok, status } = await apiClient<void>('/user/delete', {
             method: 'DELETE',
         });
 
-        if (!ok) {
+        if (status !== 204) {
             throw new Error(`Failed to delete account with status ${status}`);
         }
     } catch (error: any) {
