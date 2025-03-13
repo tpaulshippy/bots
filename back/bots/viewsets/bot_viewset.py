@@ -24,15 +24,16 @@ class BotViewSet(viewsets.ModelViewSet):
 
     def ensure_user_profile_exists(self, user):
         if not Profile.objects.filter(user=user, deleted_at=None).exists():
-            Profile.objects.create(user=user, first_name=user.first_name)
+            Profile.objects.create(user=user, name=user.first_name)
 
     def ensure_bot_exists(self, user):
         if not Bot.objects.filter(user=user, deleted_at=None).exists():
             Bot.objects.create(
                 user=user,
+                ai_model=AiModel.objects.get(is_default=True),
                 name="Penelope",
                 template_name="Blank",
-                content=PENELOPE_SYSTEM_PROMPT
+                system_prompt=PENELOPE_SYSTEM_PROMPT
             )
 
     def ensure_chat_exists(self, user):
