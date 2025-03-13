@@ -38,20 +38,21 @@ class BotViewSet(viewsets.ModelViewSet):
 
     def ensure_chat_exists(self, user):
         if not Chat.objects.filter(user=user).exists():
-            Chat.objects.create(
+            chat = Chat.objects.create(
                 user=user,
-                name="Can you help with writing?",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": PENELOPE_SYSTEM_PROMPT
-                    },
-                    {
-                        "role": "assistant",
-                        "content": "Hello! I'm Penelope, your writing assistant. How can I help you with writing today?"
-                    }
-                ]
+                name="Can you help with writing?"
             )
+            chat.messages.set([
+                {
+                    "role": "system",
+                    "content": PENELOPE_SYSTEM_PROMPT
+                },
+                {
+                    "role": "assistant",
+                    "content": "Hello! I'm Penelope, your writing assistant. How can I help you with writing today?"
+                }
+            ])
+            chat.save()
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]
