@@ -1,5 +1,5 @@
 from rest_framework import viewsets
-from bots.models import Bot, Chat, Profile, AiModel
+from bots.models import Bot, Chat, Profile, AiModel, Message
 from bots.permissions import IsOwner
 from bots.serializers import BotSerializer
 import uuid
@@ -45,14 +45,8 @@ class BotViewSet(viewsets.ModelViewSet):
                 title="Can you help with writing?"
             )
             chat.messages.set([
-                {
-                    "role": "system",
-                    "content": PENELOPE_SYSTEM_PROMPT
-                },
-                {
-                    "role": "assistant",
-                    "content": "Hello! I'm Penelope, your writing assistant. How can I help you with writing today?"
-                }
+                Message(role="system", text=PENELOPE_SYSTEM_PROMPT, order=0),
+                Message(role="assistant", text="Hello! I'm Penelope, your writing assistant. How can I help you with writing today?", order=1)
             ])
             chat.save()
 
