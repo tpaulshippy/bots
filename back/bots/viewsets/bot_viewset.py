@@ -40,7 +40,9 @@ class BotViewSet(viewsets.ModelViewSet):
         if not Chat.objects.filter(user=user).exists():
             chat = Chat.objects.create(
                 user=user,
-                name="Can you help with writing?"
+                profile=Profile.objects.get(user=user),
+                bot=Bot.objects.get(user=user),
+                title="Can you help with writing?"
             )
             chat.messages.set([
                 {
