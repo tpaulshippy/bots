@@ -1,5 +1,5 @@
 from rest_framework import viewsets
-from bots.models import Bot, Chat, Profile
+from bots.models import Bot, Chat, Profile, AiModel
 from bots.permissions import IsOwner
 from bots.serializers import BotSerializer
 import uuid
