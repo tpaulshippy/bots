@@ -50,6 +50,10 @@ def get_chat_response(request, chat_id):
             # Resize the image (e.g., to a maximum width/height of 800px)
             max_size = (800, 800)
             image.thumbnail(max_size)
+            
+            # Convert to RGB if it's not already
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
 
             # Compress the image
             buffered = io.BytesIO()
