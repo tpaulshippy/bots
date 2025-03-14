@@ -8,6 +8,7 @@ from django.core.files.storage import default_storage
 from django.conf import settings
 from PIL import Image
 import io
+import uuid
 
 # Allowed image extensions
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -56,13 +57,11 @@ def get_chat_response(request, chat_id):
             compressed_image_data = buffered.getvalue()
 
             # Upload to S3
-            filename = default_storage.save(file.name, file)
+            filename = f"{str(uuid.uuid4())}.jpg"
             S3_CLIENT.upload_fileobj(io.BytesIO(compressed_image_data), S3_BUCKET, Key=filename)
             return filename
         except Exception as e:
             raise ValueError(f'Unable to upload image: {str(e)}')
-        finally:
-            default_storage.delete(file.name)
 
     # Handle image uploads if present
     filename = None
