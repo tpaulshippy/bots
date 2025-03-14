@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/react-native";
 import { apiClient } from './apiClient';
+import { UnauthorizedError } from './apiClient';
 
 export interface PaginatedResponse<T> {
     results: T[];
@@ -62,6 +63,10 @@ export const fetchChats = async (profileId: string | null, page: number | null):
         return data;
     }
     catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
         return { results: [], count: 0 };
     }

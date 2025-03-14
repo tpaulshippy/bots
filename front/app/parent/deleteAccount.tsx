@@ -5,7 +5,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { deleteAccount } from '@/api/account';
 import { StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { setTokens } from '@/api/tokens';
+import { clearUser } from '@/api/tokens';
 
 const DeleteAccountScreen = () => {
     const [loading, setLoading] = useState(false);
@@ -17,7 +17,7 @@ const DeleteAccountScreen = () => {
         setError(null);
         try {
             await deleteAccount();
-            await setTokens({ access: "", refresh: "" });
+            await clearUser();
             router.replace('/login');
         } catch (err) {
             setError('Error deleting account.');

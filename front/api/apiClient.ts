@@ -29,29 +29,34 @@ export const apiClient = async <T>(
         },
     };
     const url = `${BASE_URL}${endpoint}`;
-    const response = await fetch(url, request);
-    
-    if (response.status === 401) {
-        await refreshWithRefreshToken(tokens);
-        return apiClient(endpoint, options);
-    }
+    const maxRetries = 3;
+    let attempts = 0;
+    while (attempts < maxRetries) {
+        const response = await fetch(url, request);
+        if (response.status === 401) {
+            attempts++;
+            await refreshWithRefreshToken(tokens);
+            continue;
+        }
 
-    if (options.method === 'DELETE') {
+        if (options.method === 'DELETE') {
+            return {
+                data: null,
+                status: response.status,
+                ok: response.ok,
+            };
+        }
+
+        const text = await response.text();
+        const data = JSON.parse(text) as T;
+
         return {
-            data: null,
+            data,
             status: response.status,
             ok: response.ok,
         };
     }
-
-    const text = await response.text();
-    const data = JSON.parse(text) as T;
-
-    return {
-        data,
-        status: response.status,
-        ok: response.ok,
-    };
+    await setTokens({ access: "", refresh: "" });
 };
 
 

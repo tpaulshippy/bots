@@ -19,6 +19,7 @@ import * as Sentry from "@sentry/react-native";
 import { fetchChats, Chat } from "@/api/chats";
 import { UnauthorizedError } from "@/api/apiClient";
 import { PlatformPressable } from "@react-navigation/elements";
+import { clearUser } from "@/api/tokens";
 
 type ChatsByDay = {
   [key: string]: Chat[];
@@ -79,6 +80,10 @@ export default function ChatList() {
       const profileId = await getProfileId();
       const data = await fetchChats(profileId, nextPage);
       setChats((prevChats) => {
+        if (!data) {
+          return prevChats;
+        }
+
         const newChats = groupByDay(data.results);
         if (nextPage === 1) {
           return newChats;
@@ -97,6 +102,7 @@ export default function ChatList() {
       setRefreshing(false);
     } catch (error) {
       if (error instanceof UnauthorizedError) {
+        await clearUser();
         router.push("/login");
       }
     }

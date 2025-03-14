@@ -46,3 +46,8 @@ export const setTokens = async (tokens: TokenData) => {
     const newTokens = { ...tokensData, [BASE_URL]: tokens };
     await saveTokensToStorage(newTokens);
 };
+
+export const clearUser = async () => {
+    await AsyncStorage.removeItem("selectedProfile");
+    await setTokens({ access: "", refresh: "" });
+};

@@ -16,7 +16,7 @@ import * as Progress from "react-native-progress";
 import * as Haptics from "expo-haptics";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
-import { setTokens } from "@/api/tokens";
+import { clearUser } from "@/api/tokens";
 
 import { subscriptionNames } from "@/constants/subscriptions";
 
@@ -46,7 +46,7 @@ export default function SettingsScreen() {
   }, []);
 
   const handleLogout = async () => {
-    await setTokens({ access: "", refresh: "" });
+    await clearUser();
     router.replace("/login");
   };
 
