@@ -50,7 +50,6 @@ export default function ChatList() {
   const [chats, setChats] = useState<ChatsByDay>({});
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
   const groupByDay = (data: Chat[]): ChatsByDay => {
@@ -96,7 +95,6 @@ export default function ChatList() {
       });
       setHasMore(data.next !== null);
       setRefreshing(false);
-      setLoadingMore(false);
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         router.push("/login");
@@ -132,8 +130,8 @@ export default function ChatList() {
   };
 
   const handleLoadMore = () => {
-    if (!loadingMore && hasMore) {
-      setLoadingMore(true);
+    if (!refreshing && hasMore) {
+      setRefreshing(true);
       setPage((prevPage) => {
         const nextPage = prevPage + 1;
         refresh(nextPage);
@@ -185,7 +183,7 @@ export default function ChatList() {
         )}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
-        ListFooterComponent={loadingMore ? <ActivityIndicator /> : null}
+        ListFooterComponent={refreshing ? <ActivityIndicator style={styles.activityIndicator} /> : null}
       />
     </ThemedView>
   );
@@ -238,5 +236,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 5,
     zIndex: 15,
+  },
+  activityIndicator: {
+    margin: 10,
   },
 });
