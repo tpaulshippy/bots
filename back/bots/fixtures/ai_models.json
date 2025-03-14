@@ -7,6 +7,7 @@
             "name": "Nova Micro",
             "input_token_cost": 0.000000035,
             "output_token_cost": 0.00000014,
+            "supported_input_modalities": ["text"],
             "created_at": "2025-01-01T00:00:00Z",
             "modified_at": "2025-01-01T00:00:00Z"
         }
@@ -20,6 +21,7 @@
             "input_token_cost": 0.00000006,
             "output_token_cost": 0.00000024,
             "is_default": true,
+            "supported_input_modalities": ["text", "image", "video"],
             "created_at": "2025-01-01T00:00:00Z",
             "modified_at": "2025-01-01T00:00:00Z"
         }
@@ -32,6 +34,7 @@
             "name": "Nova Pro",
             "input_token_cost": 0.0000008,
             "output_token_cost": 0.0000032,
+            "supported_input_modalities": ["text", "image", "video"],
             "created_at": "2025-01-01T00:00:00Z",
             "modified_at": "2025-01-01T00:00:00Z"
         }
@@ -44,6 +47,7 @@
             "name": "Llama 3-3 70B Instruct",
             "input_token_cost": 0.00000072,
             "output_token_cost": 0.00000072,
+            "supported_input_modalities": ["text"],
             "created_at": "2025-01-01T00:00:00Z",
             "modified_at": "2025-01-01T00:00:00Z"
         }
@@ -54,8 +58,9 @@
         "fields": {
             "model_id": "anthropic.claude-3-haiku-20240307-v1:0",
             "name": "Claude 3 Haiku",
-            "input_token_cost": 0.0000008,
-            "output_token_cost": 0.000004,
+            "input_token_cost": 0.00000025,
+            "output_token_cost": 0.00000125,
+            "supported_input_modalities": ["text", "image"],
             "created_at": "2025-01-01T00:00:00Z",
             "modified_at": "2025-01-01T00:00:00Z"
         }
@@ -66,8 +71,9 @@
         "fields": {
             "model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
             "name": "Claude 3.5 Haiku",
-            "input_token_cost": 0.00000025,
-            "output_token_cost": 0.00000125,
+            "input_token_cost": 0.0000008,
+            "output_token_cost": 0.000004,
+            "supported_input_modalities": ["text", "image"],
             "created_at": "2025-01-01T00:00:00Z",
             "modified_at": "2025-01-01T00:00:00Z"
         }

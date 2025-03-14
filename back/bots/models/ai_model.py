@@ -13,6 +13,7 @@ class AiModel(models.Model):
         validators=[MinValueValidator(0.0)]
     )
     is_default = models.BooleanField(default=False)
+    supported_input_modalities = models.JSONField(default=list)
 
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
