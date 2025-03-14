@@ -1,6 +1,18 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from bots.models import Chat, Profile, Bot
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import boto3
+from django.core.files.storage import default_storage
+from django.conf import settings
+
+# Allowed image extensions
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+# S3 bucket configuration
+S3_BUCKET = 'syftlearningimages'
+S3_CLIENT = boto3.client('s3')
 
 @api_view(['GET', 'POST'])
 def get_chat_response(request, chat_id):
@@ -27,7 +39,30 @@ def get_chat_response(request, chat_id):
     else:
         chat = Chat.objects.get(chat_id=chat_id)
     
-    chat.messages.create(text=user_input, role='user', order=chat.messages.count())
+    # Handle image uploads if present
+    image_url = None
+    if request.method == 'POST' and request.FILES:
+        file = request.FILES.get('image')  # Only allow one image
+        if file.size > 20 * 1024 * 1024:
+            return JsonResponse({'error': 'File size exceeds 20MB limit'}, status=400)
+        if not allowed_file(file.name):
+            return JsonResponse({'error': 'Invalid file type'}, status=400)
+        try:
+            filename = default_storage.save(file.name, file)
+            S3_CLIENT.upload_fileobj(file, S3_BUCKET, Key=filename)
+            image_url = f'https://{S3_BUCKET}.s3.amazonaws.com/{filename}'
+        except Exception as e:
+            # Handle the exception (e.g., log the error)
+            return JsonResponse({'error': str(e)}, status=500)
+        finally:
+            # This will run regardless of whether an exception occurred
+            default_storage.delete(file.name)
+
+    # Save the message with the uploaded image URL
+    chat.messages.create(text=user_input, role='user', order=chat.messages.count(), image_url=image_url)
 
     response = chat.get_response()
-    return Response({'response': response, 'chat_id': chat.chat_id})
+    return Response({'response': response, 'chat_id': chat.chat_id, 'image_url': image_url})
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
