@@ -11,6 +11,7 @@ def register_all_models():
     for model in app_models:
         if hasattr(model, 'created_at') and hasattr(model, 'modified_at'):
             admin_class = type(f"{model.__name__}Admin", (BaseAdmin,), {})
-            admin.site.register(model, admin_class)
+            admin.site.register(model, admin_class)     
 
 register_all_models()
+admin.site.register(UserAccount)
