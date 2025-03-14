@@ -62,13 +62,15 @@ export default function Chat() {
   };
 
   const handleImagePicker = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (permissionResult.granted === false) {
-      alert('Permission to access camera roll is required!');
+      alert('Permission to access camera is required!');
       return;
     }
 
-    const pickerResult = await ImagePicker.launchImageLibraryAsync();
+    const pickerResult = await ImagePicker.launchCameraAsync({
+      quality: 0.7,
+    });
     if (pickerResult && !pickerResult.canceled) {
       const fileUri = pickerResult.assets[0].uri;
       setImage(fileUri);
@@ -77,7 +79,7 @@ export default function Chat() {
 
   const sendChatToServer = async () => {
     const inputText = input.trim();
-    if (!inputText) {
+    if (!inputText && !image) {
       return;
     }
     setInput("");
@@ -190,7 +192,7 @@ export default function Chat() {
           >
             <IconSymbol
               style={styles.sendButtonIcon}
-              name="photo.fill"
+              name="camera.fill"
               color="#bbb"
               size={45}
             ></IconSymbol>
