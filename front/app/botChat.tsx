@@ -71,13 +71,6 @@ export default function Chat() {
     const pickerResult = await ImagePicker.launchImageLibraryAsync();
     if (pickerResult && !pickerResult.canceled) {
       const fileUri = pickerResult.assets[0].uri;
-      const fileType = fileUri.split('.').pop();
-      const formData = new FormData();
-      formData.append('image', {
-        uri: fileUri,
-        name: `image.${fileType}`,
-        type: `image/${fileType}`,
-      });
       setImage(fileUri);
     }
   };
