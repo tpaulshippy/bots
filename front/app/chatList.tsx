@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatDistance, format } from "date-fns";
 import { useCallback, useState } from "react";
 import { debounce } from "lodash";
+import * as Sentry from "@sentry/react-native";
 
 import { fetchChats, Chat } from "@/api/chats";
 import { UnauthorizedError } from "@/api/apiClient";
@@ -39,7 +40,7 @@ function getRelativeDate(inputDate: string): string {
     }
     return relativeDate;
   } catch (error) {
-    console.error("Failed to format the date: " + inputDate, error);
+    Sentry.captureException(error);
     return "";
   }
 }

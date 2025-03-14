@@ -6,6 +6,7 @@ import { Picker } from "@react-native-picker/picker";
 import { ThemedButton } from "@/components/ThemedButton";
 import { PlatformPressable } from "@react-navigation/elements";
 import alert from "@/components/Alert";
+import * as Sentry from "@sentry/react-native";
 
 import { useEffect, useLayoutEffect, useState } from "react";
 import { Bot, upsertBot } from "@/api/bots";
@@ -47,33 +48,13 @@ export default function SimpleBotEditor({
       bot.simple_editor = false;
       try {
         const newBot = await upsertBot(bot);
-        if (onSwitchEditor) {
+        if (onSwitchEditor && newBot) {
           onSwitchEditor(newBot);
         }
       } catch (error) {
-        console.error("Failed to save bot", error);
+        Sentry.captureException(error);
       }
     }
-  };
-
-  const deleteBot = async () => {
-    alert("Delete Bot", "Are you sure you want to delete this bot?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-        onPress: () => {},
-      },
-      {
-        text: "Delete",
-        onPress: async () => {
-          if (bot) {
-            bot.deleted_at = new Date();
-            await upsertBot(bot);
-            router.back();
-          }
-        },
-      },
-    ]);
   };
 
   useLayoutEffect(() => {

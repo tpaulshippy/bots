@@ -16,6 +16,7 @@ import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { ThemedButton } from "@/components/ThemedButton";
+import * as Sentry from "@sentry/react-native";
 
 export default function ProfileEditor() {
   const navigation = useNavigation();
@@ -58,7 +59,7 @@ export default function ProfileEditor() {
         await upsertProfile(profile);
         router.back();
       } catch (error) {
-        console.error("Failed to save profile", error);
+        Sentry.captureException(error);
       }
     }
   };

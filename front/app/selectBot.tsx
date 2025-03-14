@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import * as Sentry from "@sentry/react-native";
 
 type Props = {
   setBotSelected?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -21,6 +22,9 @@ export default function SelectBot({ setBotSelected }: Props) {
 
   useEffect(() => {
     fetchBots().then((data) => {
+      if (!data) {
+        return;
+      }
       setBots(data.results);
     });
     const loadSelectedBot = async () => {
@@ -31,7 +35,7 @@ export default function SelectBot({ setBotSelected }: Props) {
           setSelectedBot(bot);
         }
       } catch (error) {
-        console.error("Failed to load the bot from local storage", error);
+        Sentry.captureException(error);
       }
     };
 
@@ -59,7 +63,7 @@ export default function SelectBot({ setBotSelected }: Props) {
         await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
       }
     } catch (error) {
-      console.error("Failed to save the bot to local storage", error);
+      Sentry.captureException(error);
     }
   };
 

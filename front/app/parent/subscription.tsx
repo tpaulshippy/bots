@@ -37,7 +37,7 @@ export default function SubscriptionScreen() {
             setCurrentLevel(account.subscriptionLevel);
           }
         } catch (e) {
-          console.error("Error configuring Purchases:", e);
+          Sentry.captureException(e);
         }
       }
     };

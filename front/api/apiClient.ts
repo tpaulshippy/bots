@@ -3,7 +3,7 @@ import { getTokens, setTokens, TokenData } from "./tokens";
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 export interface ApiResponse<T> {
-    data: T;
+    data: T | null;
     status: number;
     ok: boolean;
 }

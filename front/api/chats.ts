@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import { apiClient } from './apiClient';
 
 export interface PaginatedResponse<T> {
@@ -28,33 +29,45 @@ export interface ChatMessage {
     isLoading?: boolean | undefined;
 }
 
-export const fetchChat = async (chatId: string): Promise<Chat> => {
-    const { data, ok, status } = await apiClient<Chat>(`/chats/${chatId}.json`);
-    if (!ok) {
-        throw new Error(`Failed to fetch chat with status ${status}`);
+export const fetchChat = async (chatId: string): Promise<Chat | null> => {
+    try {
+        const { data, ok, status } = await apiClient<Chat>(`/chats/${chatId}.json`);
+        if (!ok) {
+            throw new Error(`Failed to fetch chat with status ${status}`);
+        }
+        return data;
     }
-    return data;
+    catch (error: any) {
+        Sentry.captureException(error);
+        return null;
+    }
 }
 
-export const fetchChats = async (profileId: string | null, page: number | null): Promise<PaginatedResponse<Chat>> => {
-    let endpoint = '/chats.json?1=1';
-    if (profileId) {
-        endpoint += '&profileId=' + profileId;
-    }
-    if (page) {
-        endpoint += `&page=${page}`;
-    }
-    const { data, ok, status } = await apiClient<PaginatedResponse<Chat>>(endpoint);
+export const fetchChats = async (profileId: string | null, page: number | null): Promise<PaginatedResponse<Chat> | null> => {
+    try {
+        let endpoint = '/chats.json?1=1';
+        if (profileId) {
+            endpoint += '&profileId=' + profileId;
+        }
+        if (page) {
+            endpoint += `&page=${page}`;
+        }
+        const { data, ok, status } = await apiClient<PaginatedResponse<Chat>>(endpoint);
 
-    if (!ok) {
-        throw new Error(`Failed to fetch chats with status ${status}`);
-    }
+        if (!ok) {
+            throw new Error(`Failed to fetch chats with status ${status}`);
+        }
 
-    return data;
+        return data;
+    }
+    catch (error: any) {
+        Sentry.captureException(error);
+        return { results: [], count: 0 };
+    }
 };
 
 
-export const fetchChatMessages = async (chatId: string, page: number | null): Promise<PaginatedResponse<ChatMessage>> => {
+export const fetchChatMessages = async (chatId: string, page: number | null): Promise<PaginatedResponse<ChatMessage> | null> => {
     try {
         let endpoint = `/chats/${chatId}/messages.json`;
         if (page) {
@@ -69,7 +82,7 @@ export const fetchChatMessages = async (chatId: string, page: number | null): Pr
         return data;
     }
     catch (error: any) {
-        console.error(error.toString());
+        Sentry.captureException(error);
         return { results: [], count: 0 };
     }
 }
@@ -97,7 +110,7 @@ export const sendChat = async (
         return data;
     }
     catch (error: any) {
-        console.error(error.toString(), JSON.stringify({ message, profile }));
+        Sentry.captureException(error);
         return null;
     }
 }

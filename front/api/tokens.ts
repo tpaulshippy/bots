@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -26,7 +27,7 @@ const saveTokensToStorage = async (tokens: TokenStore) => {
 
 export const getTokens = async (): Promise<TokenData | null> => {
   if (BASE_URL === undefined) {
-    console.error("BASE_URL is undefined");
+    Sentry.captureMessage("BASE_URL is undefined");
     return null;
   }
   const tokensData = await getTokensFromStorage();
@@ -38,7 +39,7 @@ export const getTokens = async (): Promise<TokenData | null> => {
 
 export const setTokens = async (tokens: TokenData) => {
     if (BASE_URL === undefined) {
-        console.error("BASE_URL is undefined");
+        Sentry.captureMessage("BASE_URL is undefined");
         return;
     }
     const tokensData = await getTokensFromStorage();

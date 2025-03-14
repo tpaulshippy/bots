@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import { apiClient } from "./apiClient";
 import { PaginatedResponse } from "./chats";
 
@@ -15,13 +16,18 @@ export interface Bot {
   deleted_at: Date | null;
 }
 
-export const fetchBots = async (): Promise<PaginatedResponse<Bot>> => {
-  const { data, ok, status } = await apiClient<PaginatedResponse<Bot>>("/bots.json");
+export const fetchBots = async (): Promise<PaginatedResponse<Bot> | null> => {
+  try {
+    const { data, ok, status } = await apiClient<PaginatedResponse<Bot>>("/bots.json");
 
-  if (!ok) {
-    throw new Error(`Failed to fetch bots with status ${status}`);
+    if (!ok) {
+      throw new Error(`Failed to fetch bots with status ${status}`);
+    }
+    return data;
+  } catch (error: any) {
+    Sentry.captureException(error);
+    return null;
   }
-  return data;
 };
 
 
@@ -34,30 +40,35 @@ export const fetchBot = async (id: string): Promise<Bot | null> => {
     }
     return data;
   } catch (error: any) {
-    console.error(error.toString());
+    Sentry.captureException(error);
     return null;
   }
 };
 
-export const upsertBot = async (bot: Bot): Promise<Bot> => {
-  if (bot.id == -1) {
-    const { data, ok, status } = await apiClient<Bot>("/bots.json", {
-      method: "POST",
+export const upsertBot = async (bot: Bot): Promise<Bot | null> => {
+  try {
+    if (bot.id == -1) {
+      const { data, ok, status } = await apiClient<Bot>("/bots.json", {
+        method: "POST",
+        body: JSON.stringify(bot),
+      });
+
+      if (!ok) {
+        throw new Error(`Failed to create bot with status ${status}`);
+      }
+      return data;
+    }
+    const { data, ok, status } = await apiClient<Bot>(`/bots/${bot.id}.json`, {
+      method: "PUT",
       body: JSON.stringify(bot),
     });
 
     if (!ok) {
-      throw new Error(JSON.stringify(data));
+      throw new Error(`Failed to update bot with status ${status}`);
     }
     return data;
+  } catch (error: any) {
+    Sentry.captureException(error);
+    return null;
   }
-  const { data, ok, status } = await apiClient<Bot>(`/bots/${bot.id}.json`, {
-    method: "PUT",
-    body: JSON.stringify(bot),
-  });
-
-  if (!ok) {
-    throw new Error(JSON.stringify(data));
-  }
-  return data;
 };

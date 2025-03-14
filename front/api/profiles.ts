@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import { apiClient } from './apiClient';
 import { PaginatedResponse } from './chats';
 
@@ -8,7 +9,7 @@ export interface Profile {
     deleted_at: Date | null;
 }
 
-export const fetchProfiles = async (): Promise<PaginatedResponse<Profile>> => {
+export const fetchProfiles = async (): Promise<PaginatedResponse<Profile> | null> => {
     try {
         const { data, ok, status } = await apiClient<PaginatedResponse<Profile>>('/profiles.json');
 
@@ -18,8 +19,8 @@ export const fetchProfiles = async (): Promise<PaginatedResponse<Profile>> => {
         return data;
     }
     catch (error: any) {
-        console.error(error.toString());
-        return  { results: [], count: 0 }
+        Sentry.captureException(error);
+        return { results: [], count: 0 };
     }
 };
 
@@ -33,30 +34,35 @@ export const fetchProfile = async (id: string): Promise<Profile | null> => {
         return data;
     }
     catch (error: any) {
-        console.error(error.toString());
+        Sentry.captureException(error);
         return null;
     }
 }
 
-export const upsertProfile = async (profile: Profile): Promise<Profile> => {
-    if (profile.id == -1) {
-        const { data, ok, status } = await apiClient<Profile>('/profiles.json', {
-            method: 'POST',
+export const upsertProfile = async (profile: Profile): Promise<Profile | null> => {
+    try {
+        if (profile.id == -1) {
+            const { data, ok, status } = await apiClient<Profile>('/profiles.json', {
+                method: 'POST',
+                body: JSON.stringify(profile),
+            });
+
+            if (!ok) {
+                throw new Error(`Failed to create profile with status ${status}`);
+            }
+            return data;
+        }
+        const { data, ok, status } = await apiClient<Profile>(`/profiles/${profile.id}.json`, {
+            method: 'PUT',
             body: JSON.stringify(profile),
         });
 
         if (!ok) {
-            throw new Error(JSON.stringify(data));
+            throw new Error(`Failed to update profile with status ${status}`);
         }
         return data;
+    } catch (error: any) {
+        Sentry.captureException(error);
+        return null;
     }
-    const { data, ok, status } = await apiClient<Profile>(`/profiles/${profile.id}.json`, {
-        method: 'PUT',
-        body: JSON.stringify(profile),
-    });
-
-    if (!ok) {
-        throw new Error(JSON.stringify(data));
-    }
-    return data;
 };

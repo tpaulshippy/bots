@@ -13,11 +13,7 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { PlatformPressable } from "@react-navigation/elements";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { AiModel, fetchAiModels } from "@/api/aiModels";
-
-interface SupportedModel {
-  name: string;
-  id: string;
-}
+import * as Sentry from "@sentry/react-native";
 
 interface AdvancedBotEditorProps {
   botEditing: Bot;
@@ -40,6 +36,9 @@ export default function AdvancedBotEditor({
   useEffect(() => {
     const fetchModels = async () => {
       const models = await fetchAiModels();
+      if (!models) {
+        return;
+      }
       setAiModels(models.results);
     };
 
@@ -59,7 +58,7 @@ export default function AdvancedBotEditor({
         await upsertBot(bot);
         router.back();
       } catch (error) {
-        console.error("Failed to save bot", error);
+        Sentry.captureException(error);
       }
     }
   };

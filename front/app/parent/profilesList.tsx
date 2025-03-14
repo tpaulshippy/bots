@@ -15,6 +15,7 @@ import {
   useRouter,
 } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import * as Sentry from "@sentry/react-native";
 
 export default function ProfilesList() {
   const navigation = useNavigation();
@@ -28,6 +29,9 @@ export default function ProfilesList() {
 
   const refresh = async () => {
     fetchProfiles().then((data) => {
+      if (!data) {
+        return;
+      }
       setProfiles(data.results);
     });
     const loadSelectedProfile = async () => {
@@ -38,7 +42,7 @@ export default function ProfilesList() {
           setSelectedProfile(profile);
         }
       } catch (error) {
-        console.error("Failed to load the profile from local storage", error);
+        Sentry.captureException(error);
       }
     };
 
@@ -108,7 +112,7 @@ export default function ProfilesList() {
         router.back();
       }
     } catch (error) {
-      console.error("Failed to save the profile to local storage", error);
+      Sentry.captureException(error);
     }
   };
 

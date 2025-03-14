@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Sentry from "@sentry/react-native";
 import { apiClient } from "./apiClient";
 import { PaginatedResponse } from "./chats";
 
@@ -31,40 +32,45 @@ export const fetchDeviceByToken = async (token: string): Promise<Device | null> 
     `/devices/?notificationToken=${token}`
   );
 
-  if (status === 404 || data.results.length === 0) {
+  if (status === 404 || (data && data.results.length === 0)) {
     return null;
   }
 
-  if (!ok) {
+  if (!ok || !data) {
     throw new Error(`Failed to fetch device with status ${status}`);
   }
   return data.results[0]; // Return the first device from the list
 };
 
-export const upsertDevice = async (device: Device): Promise<Device> => {
-  if (device.id == -1) {
-    const { data, ok, status } = await apiClient<Device>("/devices.json", {
-      method: "POST",
-      body: JSON.stringify(device),
-    });
+export const upsertDevice = async (device: Device): Promise<Device | null> => {
+  try {
+    if (device.id == -1) {
+      const { data, ok, status } = await apiClient<Device>("/devices.json", {
+        method: "POST",
+        body: JSON.stringify(device),
+      });
+
+      if (!ok) {
+        throw new Error(`Failed to create device with status ${status}`);
+      }
+      return data;
+    }
+    const { data, ok, status } = await apiClient<Device>(
+      `/devices/${device.id}.json`,
+      {
+        method: "PUT",
+        body: JSON.stringify(device),
+      }
+    );
 
     if (!ok) {
-      throw new Error(JSON.stringify(data));
+      throw new Error(`Failed to update device with status ${status}`);
     }
     return data;
+  } catch (error: any) {
+    Sentry.captureException(error);
+    return null;
   }
-  const { data, ok, status } = await apiClient<Device>(
-    `/devices/${device.id}.json`,
-    {
-      method: "PUT",
-      body: JSON.stringify(device),
-    }
-  );
-
-  if (!ok) {
-    throw new Error(JSON.stringify(data));
-  }
-  return data;
 };
 
 export const getDeviceIdFromStorage = async (): Promise<string | null> => {
