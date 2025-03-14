@@ -18,7 +18,7 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
         chat_id = self.kwargs['chat_pk']  # Extract chat ID from the URL
         
         queryset = Chat.objects.filter(user=user).get(chat_id=chat_id).messages
-        queryset = queryset.exclude(role='system').order_by('-id')
+        queryset = queryset.exclude(role='system').order_by('id')
         
         return queryset
 
