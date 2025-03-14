@@ -103,7 +103,6 @@ class Chat(models.Model):
         for message in messages:
             if message.role == "user":
                 human_message_content = self.setup_human_message_content(message)
-                print(human_message_content)
                 message_list.append(HumanMessage(content=human_message_content))
             elif message.role == "assistant":
                 if len(message_list) > 0: # need to start with a user message

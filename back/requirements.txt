@@ -17,6 +17,7 @@ langchain
 sentry-sdk[django]
 pytz
 requests
+Pillow
 
 pytest
 pytest-describe

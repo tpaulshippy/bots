@@ -6,6 +6,8 @@ from django.views.decorators.csrf import csrf_exempt
 import boto3
 from django.core.files.storage import default_storage
 from django.conf import settings
+from PIL import Image
+import io
 
 # Allowed image extensions
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -39,6 +41,29 @@ def get_chat_response(request, chat_id):
     else:
         chat = Chat.objects.get(chat_id=chat_id)
     
+    def compress_and_upload_image(file):
+        try:
+            # Open the image using Pillow
+            image = Image.open(file)
+
+            # Resize the image (e.g., to a maximum width/height of 800px)
+            max_size = (800, 800)
+            image.thumbnail(max_size)
+
+            # Compress the image
+            buffered = io.BytesIO()
+            image.save(buffered, format="JPEG", quality=85)  # Adjust quality as needed
+            compressed_image_data = buffered.getvalue()
+
+            # Upload to S3
+            filename = default_storage.save(file.name, file)
+            S3_CLIENT.upload_fileobj(io.BytesIO(compressed_image_data), S3_BUCKET, Key=filename)
+            return filename
+        except Exception as e:
+            raise ValueError(f'Unable to upload image: {str(e)}')
+        finally:
+            default_storage.delete(file.name)
+
     # Handle image uploads if present
     filename = None
     if request.method == 'POST' and request.FILES:
@@ -47,16 +72,8 @@ def get_chat_response(request, chat_id):
             return JsonResponse({'error': 'File size exceeds 20MB limit'}, status=400)
         if not allowed_file(file.name):
             return JsonResponse({'error': 'Invalid file type'}, status=400)
-        try:
-            filename = default_storage.save(file.name, file)
-            S3_CLIENT.upload_fileobj(file, S3_BUCKET, Key=filename)
-            image_url = f'https://{S3_BUCKET}.s3.amazonaws.com/{filename}'
-        except Exception as e:
-            # Handle the exception (e.g., log the error)
-            return JsonResponse({'error': str(e)}, status=500)
-        finally:
-            # This will run regardless of whether an exception occurred
-            default_storage.delete(file.name)
+        filename = compress_and_upload_image(file)
+
 
     # Save the message with the uploaded image filename
     chat.messages.create(text=user_input, role='user', order=chat.messages.count(), image_filename=filename)
