@@ -7,6 +7,7 @@ import { ActivityIndicator, FlatList, FlexAlignType, Keyboard } from "react-nati
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import * as ImagePicker from 'expo-image-picker';
 
 import { fetchChatMessages, sendChat, ChatMessage } from "@/api/chats";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -23,6 +24,7 @@ export default function Chat() {
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [image, setImage] = useState<string | null>(null);
 
   const refresh = async (nextPage: number) => {
     const chatIdQueryString = local.chatId?.toString();
@@ -59,6 +61,27 @@ export default function Chat() {
     return null;
   };
 
+  const handleImagePicker = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      alert('Permission to access camera roll is required!');
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync();
+    if (pickerResult && !pickerResult.canceled) {
+      const fileUri = pickerResult.assets[0].uri;
+      const fileType = fileUri.split('.').pop();
+      const formData = new FormData();
+      formData.append('image', {
+        uri: fileUri,
+        name: `image.${fileType}`,
+        type: `image/${fileType}`,
+      });
+      setImage(fileUri);
+    }
+  };
+
   const sendChatToServer = async () => {
     const inputText = input.trim();
     if (!inputText) {
@@ -86,7 +109,21 @@ export default function Chat() {
 
     setMessages([...messages, newUserMessage, loadingMessage]);
 
-    const chatResponse = await sendChat(chatId, inputText, profileId, botId);
+    const formData = new FormData();
+    formData.append('message', inputText);
+    if (image) {
+      const fileUri = image;
+      const fileType = fileUri.split('.').pop();
+      formData.append('image', {
+        uri: fileUri,
+        name: `image.${fileType}`,
+        type: `image/${fileType}`,
+      });
+    }
+    formData.append('profile', profileId);
+    formData.append('bot', botId);
+
+    const chatResponse = await sendChat(chatId, formData);
     if (chatResponse) {
       const newAssistantMessage: ChatMessage = {
         role: "assistant",
@@ -154,6 +191,17 @@ export default function Chat() {
             value={input}
             style={styles.input}
           ></ThemedTextInput>
+          <ThemedButton
+            style={styles.sendButton}
+            onPress={handleImagePicker}
+          >
+            <IconSymbol
+              style={styles.sendButtonIcon}
+              name="photo.fill"
+              color="#bbb"
+              size={45}
+            ></IconSymbol>
+          </ThemedButton>
           <ThemedButton
             style={styles.sendButton}
             onPress={sendChatToServer}

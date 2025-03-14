@@ -94,14 +94,15 @@ export interface ChatResponse {
 
 export const sendChat = async (
     chatId: string = "new", 
-    message: string,
-    profile: string,
-    bot: string
-    ): Promise<ChatResponse | null> => {
+    message: FormData,
+): Promise<ChatResponse | null> => {
     try {
         const { data, ok, status } = await apiClient<ChatResponse>(`/chats/${chatId}`, {
             method: 'POST',
-            body: JSON.stringify({ message, profile, bot }),
+            body: message,
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
         });
 
         if (!ok) {

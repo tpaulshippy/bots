@@ -33,6 +33,7 @@ const MAPPING = {
   'star': 'star-border',
   'dollarsign.circle.fill': 'payments',
   'questionmark.circle.fill': 'question-mark',
+  'photo.fill': 'image'
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],

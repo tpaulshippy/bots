@@ -46,6 +46,13 @@
           "project": "bots-app",
           "organization": "tpaulshippycom"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you send them to your bots.",
+          "cameraPermission": "The app accesses your camera to let you send photos to your bots."
+        }
       ]
     ],
     "experiments": {
