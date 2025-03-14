@@ -26,6 +26,7 @@ import * as Linking from "expo-linking";
 import { setTokens } from "@/api/tokens";
 import { isRunningInExpoGo } from 'expo';
 import * as WebBrowser from 'expo-web-browser';
+import { fetchProfiles } from "@/api/profiles";
 
 const navigationIntegration = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: !isRunningInExpoGo(),
@@ -139,6 +140,13 @@ export default function RootLayout() {
   const initialNavigationChecks = async () => {
     try {
       await fetchBots();
+      const profileData = await AsyncStorage.getItem("selectedProfile");
+      if (!profileData) {
+        const profiles = await fetchProfiles();
+        if (profiles.count > 0) {
+          await AsyncStorage.setItem("selectedProfile", JSON.stringify(profiles.results[0]));
+        }
+      }
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         router.push("/login");
