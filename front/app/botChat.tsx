@@ -17,7 +17,6 @@ import ChatMessage from '@/app/ChatMessage';
 const ITEM_HEIGHT = 50;
 
 export default function Chat() {
-  const assistantColor = useThemeColor({ light: "#bbb", dark: "#222"}, "background");
   const local = useLocalSearchParams();
   const [chatId, setChatId] = useState<string>();
   const [input, setInput] = useState<string>("");
@@ -90,17 +89,23 @@ export default function Chat() {
     if (!profileId) {
       const newAssistantMessage: ApiChatMessage = {
         role: "assistant",
+        image_url: null,
         text: "Please select a profile first.",
       };
       setMessages([newAssistantMessage]);
       return;
     }
 
-    const newUserMessage: ApiChatMessage = { role: "user", text: inputText };
+    const newUserMessage: ApiChatMessage = { 
+      role: "user", 
+      image_url: image,
+      text: inputText 
+    };
     const loadingMessage: ApiChatMessage = {
       role: "assistant",
+      image_url: null,
       isLoading: true,
-      text: "...",
+      text: "",
     };
 
     setMessages([...messages, newUserMessage, loadingMessage]);
@@ -123,6 +128,7 @@ export default function Chat() {
     if (chatResponse) {
       const newAssistantMessage: ApiChatMessage = {
         role: "assistant",
+        image_url: null,
         text: chatResponse.response,
       };
       setMessages([...messages, newUserMessage, newAssistantMessage]);
@@ -154,7 +160,7 @@ export default function Chat() {
           style={styles.list}
           data={[...messages].reverse()}
           keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => <ChatMessage message={item} assistantColor={assistantColor} />}
+          renderItem={({ item }) => <ChatMessage message={item} />}
           getItemLayout={(data, index) => ({
             length: ITEM_HEIGHT,
             offset: ITEM_HEIGHT * index,

@@ -2,28 +2,35 @@ import React from "react";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { FlexAlignType, Image } from "react-native";
+import { ChatMessage as ApiChatMessage } from "@/api/chats";
+import { ActivityIndicator } from "react-native";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 interface ChatMessageProps {
-  message: { text: string; image_url: string | null; role: string };
-  assistantColor: string;
+  message: ApiChatMessage;
 }
 
-const ChatMessage = ({ message, assistantColor }: ChatMessageProps) => {
+const ChatMessage = ({ message }: ChatMessageProps) => {
+  const assistantColor = useThemeColor({ light: "#bbb", dark: "#222"}, "background");
+
   return (
     <ThemedView>
       {message.image_url && (
         <Image source={{ uri: message.image_url }} style={styles.image} />
       )}
-      <ThemedText
-        selectable={true}
-        style={
-          message.role === "user"
-            ? styles.userMessage
-            : styles.assistantMessage(assistantColor)
+      {message.isLoading && <ActivityIndicator />}
+      {message.text && (
+        <ThemedText
+          selectable={true}
+          style={
+            message.role === "user"
+              ? styles.userMessage
+              : styles.assistantMessage(assistantColor)
         }
       >
         {message.text}
       </ThemedText>
+      )}
     </ThemedView>
   );
 };
