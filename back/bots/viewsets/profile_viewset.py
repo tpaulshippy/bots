@@ -13,7 +13,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_anonymous:
             return Profile.objects.none()
-        return Profile.objects.filter(user=user, deleted_at=None)
+        return Profile.objects.filter(user=user, deleted_at=None).order_by('name')
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]

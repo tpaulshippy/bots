@@ -20,7 +20,7 @@ class BotViewSet(viewsets.ModelViewSet):
         self.ensure_bot_exists(user)
         self.ensure_chat_exists(user)
         
-        return Bot.objects.filter(user=user, deleted_at=None)
+        return Bot.objects.filter(user=user, deleted_at=None).order_by('name')
 
     def ensure_user_profile_exists(self, user):
         if not Profile.objects.filter(user=user, deleted_at=None).exists():

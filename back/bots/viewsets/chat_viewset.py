@@ -18,7 +18,7 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
         chat_id = self.kwargs['chat_pk']  # Extract chat ID from the URL
         
         queryset = Chat.objects.filter(user=user).get(chat_id=chat_id).messages
-        queryset = queryset.exclude(role='system')
+        queryset = queryset.exclude(role='system').order_by('-id')
         
         return queryset
 
@@ -53,4 +53,3 @@ class ChatViewSet(viewsets.ReadOnlyModelViewSet):
 
         self.check_object_permissions(self.request, chat)
         return chat
-
