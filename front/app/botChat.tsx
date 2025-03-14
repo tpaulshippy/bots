@@ -11,7 +11,6 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { fetchChatMessages, sendChat, ChatMessage as ApiChatMessage } from "@/api/chats";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { useThemeColor } from "@/hooks/useThemeColor";
 import ChatMessage from '@/app/ChatMessage';
 
 const ITEM_HEIGHT = 50;
