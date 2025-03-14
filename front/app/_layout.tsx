@@ -12,7 +12,12 @@ import * as Notifications from "expo-notifications";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { StyleSheet, View } from "react-native";
-import { useRouter, Stack, usePathname, useNavigationContainerRef } from "expo-router";
+import {
+  useRouter,
+  Stack,
+  usePathname,
+  useNavigationContainerRef,
+} from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -24,25 +29,27 @@ import { UnauthorizedError } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
 import { setTokens } from "@/api/tokens";
-import { isRunningInExpoGo } from 'expo';
-import * as WebBrowser from 'expo-web-browser';
+import { isRunningInExpoGo } from "expo";
+import * as WebBrowser from "expo-web-browser";
 import { fetchProfiles } from "@/api/profiles";
 
-const navigationIntegration = Sentry.reactNavigationIntegration({
-  enableTimeToInitialDisplay: !isRunningInExpoGo(),
-});
+// Initialize Sentry
+if (!__DEV__) {
+  const navigationIntegration = Sentry.reactNavigationIntegration({
+    enableTimeToInitialDisplay: !isRunningInExpoGo(),
+  });
 
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  enabled: !__DEV__,
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // enableSpotlight: __DEV__,
-  integrations: [
-    // Pass integration
-    navigationIntegration,
-  ],
-  enableNativeFramesTracking: !isRunningInExpoGo(),
-});
+  Sentry.init({
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+    // enableSpotlight: __DEV__,
+    integrations: [
+      // Pass integration
+      navigationIntegration,
+    ],
+    enableNativeFramesTracking: !isRunningInExpoGo(),
+  });
+}
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -71,7 +78,7 @@ export default function RootLayout() {
   const responseListener = useRef<Notifications.EventSubscription>();
 
   const navigateToChat = (chatId: string, title: string) => {
-    if (pathname === '/chat') {
+    if (pathname === "/chat") {
       router.replace({
         pathname: "/chat",
         params: { chatId, title },
@@ -92,8 +99,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     notificationListener.current =
-      Notifications.addNotificationReceivedListener(async (notification) => {        
-      });
+      Notifications.addNotificationReceivedListener(async (notification) => {});
 
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener(
@@ -102,7 +108,10 @@ export default function RootLayout() {
             response.notification.request.content.data.chat_id
           );
           if (chat.profile.profile_id) {
-            await AsyncStorage.setItem("selectedProfile", JSON.stringify(chat.profile));
+            await AsyncStorage.setItem(
+              "selectedProfile",
+              JSON.stringify(chat.profile)
+            );
           }
 
           navigateToChat(chat.chat_id, chat.bot?.name || chat.title);
@@ -119,7 +128,6 @@ export default function RootLayout() {
     };
   }, []);
 
-
   const getJWTFromLink = async (event?: any) => {
     const url = event?.url;
     if (url) {
@@ -129,7 +137,7 @@ export default function RootLayout() {
         const access = queryParams.access as string;
         const refresh = queryParams.refresh as string;
         await setTokens({ access, refresh });
-        WebBrowser.dismissBrowser()
+        WebBrowser.dismissBrowser();
 
         router.replace("/");
         await initialNavigationChecks();
@@ -144,7 +152,10 @@ export default function RootLayout() {
       if (!profileData) {
         const profiles = await fetchProfiles();
         if (profiles.count > 0) {
-          await AsyncStorage.setItem("selectedProfile", JSON.stringify(profiles.results[0]));
+          await AsyncStorage.setItem(
+            "selectedProfile",
+            JSON.stringify(profiles.results[0])
+          );
         }
       }
     } catch (error) {
@@ -158,10 +169,10 @@ export default function RootLayout() {
     if (loaded) {
       const initialize = async () => {
         SplashScreen.hideAsync();
-        Linking.addEventListener('url', getJWTFromLink);
+        Linking.addEventListener("url", getJWTFromLink);
         await initialNavigationChecks();
       };
-      
+
       initialize();
     }
   }, [loaded]);
@@ -174,166 +185,166 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <ErrorBoundary>
         <Stack
-        screenOptions={({
-          route,
-        }: {
-          route: { params?: { title?: string } };
-        }) => ({
-          title: route.params?.title || "",
-        })}
-      >
-        <Stack.Screen
-          name="index"
-          options={{
-            headerBackVisible: false,
-            headerShown: true,
-            headerTitle(props) {
-              return (
-                <View style={styles.headerContainer}>
-                  <Image
-                    source={require("../assets/images/syft_small.png")}
-                    style={{ width: 260, height: 35 }}
-                  />
-                </View>
-              );
-            },
-            headerRight: () => (
-              <PlatformPressable
-                onPress={() => {
-                  router.push("/parent/settings");
-                }}
-              >
-                <IconSymbol
-                  name="gear"
-                  color={iconColor}
-                  size={40}
-                  style={styles.settingsIcon}
-                ></IconSymbol>
-              </PlatformPressable>
-            ),
-          }}
-        />
-        <Stack.Screen
-          name="chat"
-          options={{
-            headerShown: true,
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen
-          name="parent/settings"
-          options={{
-            headerShown: true,
-            title: "Settings",
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen
-          name="parent/profilesList"
-          options={{
-            headerShown: true,
-            title: "Profiles",
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen
-          name="parent/profileEditor"
-          options={{
-            headerShown: true,
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen
-          name="parent/botsList"
-          options={{
-            headerShown: true,
-            title: "Bots",
-            headerTintColor: textColor,
-            headerRight: () => (
-              <PlatformPressable
-                onPress={() => {
-                  router.push("/parent/botEditor");
-                }}
-              >
-                <IconSymbol
-                  name="plus.circle.fill"
-                  color={iconColor}
-                  size={40}
-                  style={styles.settingsIcon}
-                ></IconSymbol>
-              </PlatformPressable>
-            ),
-          }}
-        />
-        <Stack.Screen
-          name="parent/setPin"
-          options={{
-            headerShown: true,
-            title: "Set Pin",
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen
-          name="parent/botEditor"
-          options={{
-            headerShown: true,
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen
-          name="parent/notifications"
-          options={{
-            headerShown: true,
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen
-          name="parent/subscription"
-          options={{
-            headerShown: true,
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen
-          name="parent/initialBotSelection"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="login"
-          options={{
-            headerShown: true,
-            headerTitle() {
-              return (
-                <View style={styles.headerContainer}>
-                  <Image
-                    source={require("../assets/images/syft_small.png")}
-                    style={{ width: 260, height: 35 }}
-                  />
-                </View>
-              );
-            },
-            headerBackVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="parent/terms"
-          options={{
-            headerShown: true,
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen
-          name="parent/deleteAccount"
-          options={{
-            headerShown: true,
-            headerTintColor: textColor,
-          }}
-        />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
+          screenOptions={({
+            route,
+          }: {
+            route: { params?: { title?: string } };
+          }) => ({
+            title: route.params?.title || "",
+          })}
+        >
+          <Stack.Screen
+            name="index"
+            options={{
+              headerBackVisible: false,
+              headerShown: true,
+              headerTitle(props) {
+                return (
+                  <View style={styles.headerContainer}>
+                    <Image
+                      source={require("../assets/images/syft_small.png")}
+                      style={{ width: 260, height: 35 }}
+                    />
+                  </View>
+                );
+              },
+              headerRight: () => (
+                <PlatformPressable
+                  onPress={() => {
+                    router.push("/parent/settings");
+                  }}
+                >
+                  <IconSymbol
+                    name="gear"
+                    color={iconColor}
+                    size={40}
+                    style={styles.settingsIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
+            }}
+          />
+          <Stack.Screen
+            name="chat"
+            options={{
+              headerShown: true,
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="parent/settings"
+            options={{
+              headerShown: true,
+              title: "Settings",
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="parent/profilesList"
+            options={{
+              headerShown: true,
+              title: "Profiles",
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="parent/profileEditor"
+            options={{
+              headerShown: true,
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="parent/botsList"
+            options={{
+              headerShown: true,
+              title: "Bots",
+              headerTintColor: textColor,
+              headerRight: () => (
+                <PlatformPressable
+                  onPress={() => {
+                    router.push("/parent/botEditor");
+                  }}
+                >
+                  <IconSymbol
+                    name="plus.circle.fill"
+                    color={iconColor}
+                    size={40}
+                    style={styles.settingsIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
+            }}
+          />
+          <Stack.Screen
+            name="parent/setPin"
+            options={{
+              headerShown: true,
+              title: "Set Pin",
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="parent/botEditor"
+            options={{
+              headerShown: true,
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="parent/notifications"
+            options={{
+              headerShown: true,
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="parent/subscription"
+            options={{
+              headerShown: true,
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="parent/initialBotSelection"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="login"
+            options={{
+              headerShown: true,
+              headerTitle() {
+                return (
+                  <View style={styles.headerContainer}>
+                    <Image
+                      source={require("../assets/images/syft_small.png")}
+                      style={{ width: 260, height: 35 }}
+                    />
+                  </View>
+                );
+              },
+              headerBackVisible: false,
+            }}
+          />
+          <Stack.Screen
+            name="parent/terms"
+            options={{
+              headerShown: true,
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="parent/deleteAccount"
+            options={{
+              headerShown: true,
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
       </ErrorBoundary>
     </ThemeProvider>
   );

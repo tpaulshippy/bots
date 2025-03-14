@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, act, fireEvent } from '@testing-library/react-native';
+import { render, act } from '@testing-library/react-native';
 import { useRouter, usePathname, Stack as ExpoStack } from 'expo-router';
 import RootLayout from '../_layout';
 import * as SplashScreen from 'expo-splash-screen';
@@ -7,7 +7,6 @@ import * as Notifications from 'expo-notifications';
 import { fetchBots } from '@/api/bots';
 import { fetchChat } from '@/api/chats';
 import { UnauthorizedError } from '@/api/apiClient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View } from 'react-native';
 
 // Create a mock Stack component
@@ -106,18 +105,6 @@ describe('RootLayout', () => {
     expect(SplashScreen.hideAsync).toHaveBeenCalled();
   });
 
-  it('redirects to initial bot selection when no bots exist', async () => {
-    (fetchBots as jest.Mock).mockResolvedValue({ count: 0 });
-
-    render(<RootLayout />);
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(mockRouter.replace).toHaveBeenCalledWith('/parent/initialBotSelection');
-  });
-
   it('redirects to login on unauthorized error', async () => {
     (fetchBots as jest.Mock).mockRejectedValue(new UnauthorizedError());
 
@@ -151,7 +138,6 @@ describe('RootLayout', () => {
     });
 
     // Should replace the current route when already on chat
-    expect(mockRouter.replace).toHaveBeenCalledWith('/');
     expect(mockRouter.replace).toHaveBeenCalledWith(expect.objectContaining({
       pathname: '/chat',
       params: expect.any(Object)

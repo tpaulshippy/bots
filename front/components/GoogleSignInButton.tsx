@@ -13,6 +13,7 @@ export const GoogleSignInButton = ({ onPress }: GoogleSignInButtonProps) => {
 
   return (
     <Pressable
+      testID="google-sign-in-button"
       onPress={onPress}
       style={({ pressed }) => [
         styles.googleButton,

@@ -9,16 +9,17 @@ jest.mock('expo-image', () => ({
 describe('GoogleSignInButton', () => {
   it('renders correctly and handles press', () => {
     const mockOnPress = jest.fn();
-    const { getByText, getByTestId } = render(
+    const { getByTestId } = render(
       <GoogleSignInButton onPress={mockOnPress} />
     );
 
-    // Verify the button text is rendered
-    const buttonText = getByText('Sign in with Google');
-    expect(buttonText).toBeTruthy();
+    // Verify the button image
+    const buttonImage = getByTestId('google-sign-in-button');
+    expect(buttonImage).toBeTruthy();
+    
 
     // Verify the button is pressable and calls onPress
-    fireEvent.press(buttonText);
+    fireEvent.press(buttonImage);
     expect(mockOnPress).toHaveBeenCalledTimes(1);
   });
 }); 
