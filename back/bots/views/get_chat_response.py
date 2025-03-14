@@ -11,7 +11,7 @@ from django.conf import settings
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 # S3 bucket configuration
-S3_BUCKET = 'syftlearningimages'
+S3_BUCKET = settings.AWS_STORAGE_BUCKET_NAME
 S3_CLIENT = boto3.client('s3')
 
 @api_view(['GET', 'POST'])
@@ -40,7 +40,7 @@ def get_chat_response(request, chat_id):
         chat = Chat.objects.get(chat_id=chat_id)
     
     # Handle image uploads if present
-    image_url = None
+    filename = None
     if request.method == 'POST' and request.FILES:
         file = request.FILES.get('image')  # Only allow one image
         if file.size > 20 * 1024 * 1024:
@@ -58,11 +58,11 @@ def get_chat_response(request, chat_id):
             # This will run regardless of whether an exception occurred
             default_storage.delete(file.name)
 
-    # Save the message with the uploaded image URL
-    chat.messages.create(text=user_input, role='user', order=chat.messages.count(), image_url=image_url)
+    # Save the message with the uploaded image filename
+    chat.messages.create(text=user_input, role='user', order=chat.messages.count(), image_filename=filename)
 
     response = chat.get_response()
-    return Response({'response': response, 'chat_id': chat.chat_id, 'image_url': image_url})
+    return Response({'response': response, 'chat_id': chat.chat_id})
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS

@@ -12,7 +12,9 @@ class Message(models.Model):
     output_tokens = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    image_url = models.URLField(blank=True, null=True)
+    image_filename = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
-        return self.chat.user.email + ' - ' + self.chat.profile.name + ' - ' + self.text
+        user_str = getattr(self.chat.user, 'email', 'unknown')
+        profile_str = getattr(self.chat.profile, 'name', 'unknown')
+        return f'{user_str} - {profile_str} - {self.text}'

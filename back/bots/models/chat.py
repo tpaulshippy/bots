@@ -3,10 +3,16 @@ from django.db import models
 import uuid
 from langchain_aws import ChatBedrock
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
+import requests
+import base64
+import boto3
 
 from .profile import Profile
 from .bot import Bot
 from .ai_model import AiModel
+
+S3_CLIENT = boto3.client('s3')
+S3_BUCKET = settings.AWS_STORAGE_BUCKET_NAME
 
 class AiClientWrapper:
     def __init__(self, model_id, client=None):
@@ -76,24 +82,47 @@ class Chat(models.Model):
         return response_text
         
 
+    def setup_human_message_content(self, message):
+        if hasattr(message, 'image_filename') and message.image_filename:
+            return [
+                {"type": "text", "text": message.text},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{self.get_image_data(message.image_filename)}"
+                    }
+                }
+            ]
+        return [{"type": "text", "text": message.text}]
+
     def get_input(self):
         messages = self.messages.exclude(role='system').order_by('-id')[:10]
         messages = sorted(messages, key=lambda message: message.id)
         message_list = []
-        
+
         for message in messages:
             if message.role == "user":
-                message_list.append(HumanMessage(content=message.text))
+                human_message_content = self.setup_human_message_content(message)
+                print(human_message_content)
+                message_list.append(HumanMessage(content=human_message_content))
             elif message.role == "assistant":
                 if len(message_list) > 0: # need to start with a user message
                     message_list.append(AIMessage(content=message.text))
-        
+
         system_message = SystemMessage(content=self.get_system_message())
         message_list.insert(0, system_message)
-    
+
         return message_list
     
     def get_system_message(self):
         if self.bot and self.bot.system_prompt:
             return self.bot.system_prompt
         return "You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."
+
+    def get_image_data(self, filename):
+        try:
+            response = S3_CLIENT.get_object(Bucket=S3_BUCKET, Key=filename)
+            image_data = response['Body'].read()
+            return base64.b64encode(image_data).decode('utf-8')
+        except Exception as e:
+            raise ValueError(f'Unable to retrieve image from S3: {str(e)}')
