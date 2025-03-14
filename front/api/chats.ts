@@ -25,6 +25,7 @@ export interface Chat {
 
 export interface ChatMessage {
     text: string;
+    image_url: string | null;
     role: string;
     isLoading?: boolean | undefined;
 }

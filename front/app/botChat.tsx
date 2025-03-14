@@ -9,9 +9,10 @@ import { KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
 
-import { fetchChatMessages, sendChat, ChatMessage } from "@/api/chats";
+import { fetchChatMessages, sendChat, ChatMessage as ApiChatMessage } from "@/api/chats";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import ChatMessage from '@/app/ChatMessage';
 
 const ITEM_HEIGHT = 50;
 
@@ -20,7 +21,7 @@ export default function Chat() {
   const local = useLocalSearchParams();
   const [chatId, setChatId] = useState<string>();
   const [input, setInput] = useState<string>("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ApiChatMessage[]>([]);
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -87,7 +88,7 @@ export default function Chat() {
     const profileId = await getProfileId();
     const botId = await getBotId();
     if (!profileId) {
-      const newAssistantMessage: ChatMessage = {
+      const newAssistantMessage: ApiChatMessage = {
         role: "assistant",
         text: "Please select a profile first.",
       };
@@ -95,8 +96,8 @@ export default function Chat() {
       return;
     }
 
-    const newUserMessage: ChatMessage = { role: "user", text: inputText };
-    const loadingMessage: ChatMessage = {
+    const newUserMessage: ApiChatMessage = { role: "user", text: inputText };
+    const loadingMessage: ApiChatMessage = {
       role: "assistant",
       isLoading: true,
       text: "...",
@@ -120,7 +121,7 @@ export default function Chat() {
 
     const chatResponse = await sendChat(chatId, formData);
     if (chatResponse) {
-      const newAssistantMessage: ChatMessage = {
+      const newAssistantMessage: ApiChatMessage = {
         role: "assistant",
         text: chatResponse.response,
       };
@@ -153,22 +154,7 @@ export default function Chat() {
           style={styles.list}
           data={[...messages].reverse()}
           keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) =>
-            item.isLoading ? (
-              <ActivityIndicator />
-            ) : (
-              <ThemedText
-                selectable={true}
-                style={
-                  item.role == "user"
-                    ? styles.userMessage
-                    : styles.assistantMessage(assistantColor)
-                }
-              >
-                {item.text}
-              </ThemedText>
-            )
-          }
+          renderItem={({ item }) => <ChatMessage message={item} assistantColor={assistantColor} />}
           getItemLayout={(data, index) => ({
             length: ITEM_HEIGHT,
             offset: ITEM_HEIGHT * index,
@@ -247,22 +233,5 @@ const styles = {
     justifyContent: "center" as FlexAlignType,
     alignItems: "center" as FlexAlignType,
   },
-  sendButtonIcon: {},
-  userMessage: {
-    backgroundColor: "#03465b",
-    color: "#fff",
-    padding: 10,
-    margin: 10,
-    borderRadius: 10,
-    alignSelf: "flex-end" as FlexAlignType,
-  },
-  assistantMessage: (assistantColor: string) => {
-    return {
-      backgroundColor: assistantColor,
-      padding: 10,
-      margin: 10,
-      borderRadius: 10,
-      alignSelf: "flex-start" as FlexAlignType,
-    };
-  },
+  sendButtonIcon: {}
 };
