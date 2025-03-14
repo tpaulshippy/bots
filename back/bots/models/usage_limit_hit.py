@@ -10,6 +10,7 @@ class UsageLimitHit(models.Model):
                                      related_name='usage_limit_hits')
 
     created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
     subscription_level = models.IntegerField(default=0)
     total_input_tokens = models.IntegerField(default=0)
     total_output_tokens = models.IntegerField(default=0)
