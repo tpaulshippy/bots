@@ -48,6 +48,8 @@ export const setTokens = async (tokens: TokenData) => {
 };
 
 export const clearUser = async () => {
-    await AsyncStorage.removeItem("selectedProfile");
+  const tokens = await getTokens();
+  if (tokens && (tokens.access || tokens.refresh)) {
     await setTokens({ access: "", refresh: "" });
+  }
 };

@@ -28,28 +28,26 @@ import { fetchBots } from "@/api/bots";
 import { UnauthorizedError } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Linking from "expo-linking";
-import { setTokens } from "@/api/tokens";
+import { clearUser, setTokens } from "@/api/tokens";
 import { isRunningInExpoGo } from "expo";
 import * as WebBrowser from "expo-web-browser";
 import { fetchProfiles } from "@/api/profiles";
 
 // Initialize Sentry
-if (!__DEV__) {
-  const navigationIntegration = Sentry.reactNavigationIntegration({
-    enableTimeToInitialDisplay: !isRunningInExpoGo(),
-  });
+const navigationIntegration = Sentry.reactNavigationIntegration({
+  enableTimeToInitialDisplay: !isRunningInExpoGo(),
+});
 
-  Sentry.init({
-    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-    // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-    // enableSpotlight: __DEV__,
-    integrations: [
-      // Pass integration
-      navigationIntegration,
-    ],
-    enableNativeFramesTracking: !isRunningInExpoGo(),
-  });
-}
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // enableSpotlight: __DEV__,
+  integrations: [
+    // Pass integration
+    navigationIntegration,
+  ],
+  enableNativeFramesTracking: !isRunningInExpoGo(),
+});
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -151,7 +149,7 @@ export default function RootLayout() {
       const profileData = await AsyncStorage.getItem("selectedProfile");
       if (!profileData) {
         const profiles = await fetchProfiles();
-        if (profiles.count > 0) {
+        if (profiles && profiles.count > 0) {
           await AsyncStorage.setItem(
             "selectedProfile",
             JSON.stringify(profiles.results[0])
@@ -160,7 +158,8 @@ export default function RootLayout() {
       }
     } catch (error) {
       if (error instanceof UnauthorizedError) {
-        router.push("/login");
+        await clearUser();
+        router.replace("/login");
       }
     }
   };

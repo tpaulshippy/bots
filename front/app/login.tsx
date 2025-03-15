@@ -47,7 +47,7 @@ const LoginScreen = () => {
           title="Submit"
           onPress={async () => {
             await setTokens(JSON.parse(manualTokens));
-            router.back();
+            router.replace("/");
           }}
         />
       </View>

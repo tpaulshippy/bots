@@ -79,6 +79,9 @@ export default function ChatList() {
     try {
       const profileId = await getProfileId();
       const data = await fetchChats(profileId, nextPage);
+      if (!data) {
+        return;
+      }
       setChats((prevChats) => {
         if (!data) {
           return prevChats;
@@ -103,7 +106,7 @@ export default function ChatList() {
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         await clearUser();
-        router.push("/login");
+        router.replace("/login");
       }
     }
   };

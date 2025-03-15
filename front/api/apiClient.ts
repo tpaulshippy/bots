@@ -1,4 +1,4 @@
-import { getTokens, setTokens, TokenData } from "./tokens";
+import { clearUser, getTokens, setTokens, TokenData } from "./tokens";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -15,28 +15,39 @@ export class UnauthorizedError extends Error {
     }
 }
 
+export class ForbiddenError extends Error {
+    constructor() {
+        super('Forbidden');
+        this.name = 'ForbiddenError';
+    }
+}
+
 export const apiClient = async <T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
-    const tokens = await getTokens();
-    const request = {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${tokens?.access}`,
-            ...options.headers,
-        },
-    };
-    const url = `${BASE_URL}${endpoint}`;
-    const maxRetries = 3;
+    const maxRetries = 2;
     let attempts = 0;
     while (attempts < maxRetries) {
+        const tokens = await getTokens();
+        const request = {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokens?.access}`,
+                ...options.headers,
+            },
+        };
+        const url = `${BASE_URL}${endpoint}`;
         const response = await fetch(url, request);
         if (response.status === 401) {
             attempts++;
             await refreshWithRefreshToken(tokens);
             continue;
+        }
+
+        if (response.status === 403) {
+            throw new ForbiddenError();
         }
 
         if (options.method === 'DELETE') {
@@ -56,7 +67,7 @@ export const apiClient = async <T>(
             ok: response.ok,
         };
     }
-    await setTokens({ access: "", refresh: "" });
+    throw new UnauthorizedError();
 };
 
 
