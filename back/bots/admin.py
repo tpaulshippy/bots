@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.apps import apps
 from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device, RevenueCatWebhookEvent
+from django.contrib.auth.models import User
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 class UsageLimitHitAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
@@ -64,6 +66,10 @@ class UserAccountAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         return ['user_id', 'pin', 'subscription_level', 'timezone'] + list(super().get_list_display(request))
 
+class UserAdmin(BaseUserAdmin):
+    list_display = ['username', 'email', 'first_name', 'last_name', 'date_joined']
+    ordering = ['-date_joined']
+
 admin.site.register(Chat, ChatAdmin)
 admin.site.register(Message, MessageAdmin)
 admin.site.register(Profile, ProfileAdmin)
@@ -73,3 +79,5 @@ admin.site.register(UserAccount, UserAccountAdmin)
 admin.site.register(AiModel, AiModelAdmin)
 admin.site.register(UsageLimitHit, UsageLimitHitAdmin)
 admin.site.register(RevenueCatWebhookEvent, RevenueCatWebhookEventAdmin)
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
