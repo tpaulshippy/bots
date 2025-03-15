@@ -306,12 +306,6 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
-            name="parent/initialBotSelection"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
             name="login"
             options={{
               headerShown: true,
