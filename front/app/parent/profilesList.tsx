@@ -125,6 +125,7 @@ export default function ProfilesList() {
           <PlatformPressable
           key={item.profile_id}
           style={[
+            profiles.length > 1 ? { width: "46%" } : { width: "65%" },
             styles.profileCard,
             selectedProfile?.profile_id === item.profile_id ?
               { backgroundColor: bgColorSelected } : { backgroundColor: bgColor },
@@ -164,7 +165,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   profileCard: {
-    width: "46%",
     height: 100,
     aspectRatio: 1,
     padding: 5,

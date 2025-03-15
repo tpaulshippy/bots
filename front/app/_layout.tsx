@@ -143,12 +143,16 @@ export default function RootLayout() {
     }
   };
 
-  const initialNavigationChecks = async () => {
-    try {
-      await fetchBots();
-      const profileData = await AsyncStorage.getItem("selectedProfile");
-      if (!profileData) {
-        const profiles = await fetchProfiles();
+  const setProfile = async () => {
+    const profileData = await AsyncStorage.getItem("selectedProfile");
+    const profiles = await fetchProfiles();
+    if (profileData) {
+      const profile = JSON.parse(profileData);
+      const profileExists = profiles?.results.some(
+        (p) => p.profile_id === profile.profile_id
+      );
+      if (!profileExists) {
+        await AsyncStorage.removeItem("selectedProfile");
         if (profiles && profiles.count > 0) {
           await AsyncStorage.setItem(
             "selectedProfile",
@@ -156,6 +160,13 @@ export default function RootLayout() {
           );
         }
       }
+    }
+  }
+
+  const initialNavigationChecks = async () => {
+    try {
+      await fetchBots();
+      await setProfile();
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         await clearUser();
