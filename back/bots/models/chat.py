@@ -47,21 +47,28 @@ class Chat(models.Model):
     def __str__(self):
         return self.title if self.user == None else self.user.email + ' - ' + self.title
 
+    def use_default_model(self, ai=None):
+        try:
+            default_model = AiModel.objects.get(is_default=True)
+        except AiModel.DoesNotExist:
+            raise ValueError("No default AI model configured in the system")
+        
+        self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
+
     def get_response(self, ai=None):
         if self.bot and self.bot.ai_model:
             self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
-            try:
-                default_model = AiModel.objects.get(is_default=True)
-            except AiModel.DoesNotExist:
-                raise ValueError("No default AI model configured in the system")
-            
-            self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
+            self.use_default_model(ai)
+        
+        message_list, contains_image = self.get_input()
+
+        # Check if any messages have image_filename and if the model supports images
+        if contains_image and self.bot and 'image' not in self.bot.ai_model.supported_input_modalities:
+            self.use_default_model(ai)
         
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
-        message_list = self.get_input()
-
         response = self.ai.invoke(
             message_list
         )
@@ -83,7 +90,7 @@ class Chat(models.Model):
         
 
     def setup_human_message_content(self, message):
-        if hasattr(message, 'image_filename') and message.image_filename:
+        if self.has_image(message):
             return [
                 {"type": "text", "text": message.text},
                 {
@@ -94,13 +101,19 @@ class Chat(models.Model):
                 }
             ]
         return [{"type": "text", "text": message.text}]
+    
+    def has_image(self, message: HumanMessage):
+        return hasattr(message, 'image_filename') and message.image_filename
 
     def get_input(self):
+        contains_image = False
         messages = self.messages.exclude(role='system').order_by('-id')[:10]
         messages = sorted(messages, key=lambda message: message.id)
         message_list = []
 
         for message in messages:
+            if self.has_image(message):
+                contains_image = True
             if message.role == "user":
                 human_message_content = self.setup_human_message_content(message)
                 message_list.append(HumanMessage(content=human_message_content))
@@ -111,7 +124,7 @@ class Chat(models.Model):
         system_message = SystemMessage(content=self.get_system_message())
         message_list.insert(0, system_message)
 
-        return message_list
+        return message_list, contains_image
     
     def get_system_message(self):
         if self.bot and self.bot.system_prompt:
