@@ -17,6 +17,31 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 S3_BUCKET = settings.AWS_STORAGE_BUCKET_NAME
 S3_CLIENT = boto3.client('s3')
 
+def compress_and_upload_image(file):
+    try:
+        # Open the image using Pillow
+        image = Image.open(file)
+
+        # Resize the image (e.g., to a maximum width/height of 800px)
+        max_size = (800, 800)
+        image.thumbnail(max_size)
+        
+        # Convert to RGB if it's not already
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+
+        # Compress the image
+        buffered = io.BytesIO()
+        image.save(buffered, format="JPEG", quality=85)  # Adjust quality as needed
+        compressed_image_data = buffered.getvalue()
+
+        # Upload to S3
+        filename = f"{str(uuid.uuid4())}.jpg"
+        S3_CLIENT.upload_fileobj(io.BytesIO(compressed_image_data), S3_BUCKET, Key=filename)
+        return filename
+    except Exception as e:
+        raise ValueError(f'Unable to upload image: {str(e)}')
+
 @api_view(['GET', 'POST'])
 def get_chat_response(request, chat_id):
     user_input = request.data.get('message')
@@ -42,31 +67,6 @@ def get_chat_response(request, chat_id):
     else:
         chat = Chat.objects.get(chat_id=chat_id)
     
-    def compress_and_upload_image(file):
-        try:
-            # Open the image using Pillow
-            image = Image.open(file)
-
-            # Resize the image (e.g., to a maximum width/height of 800px)
-            max_size = (800, 800)
-            image.thumbnail(max_size)
-            
-            # Convert to RGB if it's not already
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-
-            # Compress the image
-            buffered = io.BytesIO()
-            image.save(buffered, format="JPEG", quality=85)  # Adjust quality as needed
-            compressed_image_data = buffered.getvalue()
-
-            # Upload to S3
-            filename = f"{str(uuid.uuid4())}.jpg"
-            S3_CLIENT.upload_fileobj(io.BytesIO(compressed_image_data), S3_BUCKET, Key=filename)
-            return filename
-        except Exception as e:
-            raise ValueError(f'Unable to upload image: {str(e)}')
-
     # Handle image uploads if present
     filename = None
     if request.method == 'POST' and request.FILES:
