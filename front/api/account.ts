@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react-native";
-import { apiClient } from './apiClient';
+import { apiClient, UnauthorizedError } from './apiClient';
 
 export interface Account {
     userId: number;
@@ -20,6 +20,10 @@ export const getAccount = async (): Promise<Account | null> => {
         return data;
     }
     catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
         return null;
     }
@@ -37,6 +41,10 @@ export const updateAccount = async (account: Account): Promise<void> => {
         }
     }
     catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
     }
 };
@@ -51,6 +59,10 @@ export const deleteAccount = async (): Promise<void> => {
             throw new Error(`Failed to delete account with status ${status}`);
         }
     } catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
     }
 };

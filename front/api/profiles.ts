@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react-native";
-import { apiClient } from './apiClient';
+import { apiClient, UnauthorizedError } from './apiClient';
 import { PaginatedResponse } from './chats';
 
 export interface Profile {
@@ -19,6 +19,10 @@ export const fetchProfiles = async (): Promise<PaginatedResponse<Profile> | null
         return data;
     }
     catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
         return { results: [], count: 0 };
     }
@@ -34,6 +38,10 @@ export const fetchProfile = async (id: string): Promise<Profile | null> => {
         return data;
     }
     catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
         return null;
     }
@@ -62,6 +70,10 @@ export const upsertProfile = async (profile: Profile): Promise<Profile | null> =
         }
         return data;
     } catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
         return null;
     }

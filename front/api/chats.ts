@@ -40,6 +40,10 @@ export const fetchChat = async (chatId: string): Promise<Chat | null> => {
         return data;
     }
     catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
         return null;
     }
@@ -88,6 +92,10 @@ export const fetchChatMessages = async (chatId: string, page: number | null): Pr
         return data;
     }
     catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
         return { results: [], count: 0 };
     }
@@ -117,6 +125,10 @@ export const sendChat = async (
         return data;
     }
     catch (error: any) {
+        if (error instanceof UnauthorizedError) {
+            throw error;
+        }
+
         Sentry.captureException(error);
         return null;
     }

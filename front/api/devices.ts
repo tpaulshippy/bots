@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Sentry from "@sentry/react-native";
-import { apiClient } from "./apiClient";
+import { apiClient, UnauthorizedError } from "./apiClient";
 import { PaginatedResponse } from "./chats";
 
 export interface Device {
@@ -13,33 +13,53 @@ export interface Device {
 }
 
 export const fetchDevice = async (deviceId: string): Promise<Device | null> => {
-  const { data, ok, status } = await apiClient<Device>(
-    "/devices/" + deviceId + ".json"
-  );
+  try {
+    const { data, ok, status } = await apiClient<Device>(
+      "/devices/" + deviceId + ".json"
+    );
 
-  if (status === 404) {
+    if (status === 404) {
+      return null;
+    }
+
+    if (!ok) {
+      throw new Error(`Failed to fetch devices with status ${status}`);
+    }
+    return data;
+  } catch (error: any) {
+    if (error instanceof UnauthorizedError) {
+      throw error;
+    }
+
+    Sentry.captureException(error);
     return null;
   }
-
-  if (!ok) {
-    throw new Error(`Failed to fetch devices with status ${status}`);
-  }
-  return data;
 };
 
-export const fetchDeviceByToken = async (token: string): Promise<Device | null> => {
-  const { data, ok, status } = await apiClient<PaginatedResponse<Device>>(
-    `/devices/?notificationToken=${token}`
-  );
+export const fetchDeviceByToken = async (
+  token: string
+): Promise<Device | null> => {
+  try {
+    const { data, ok, status } = await apiClient<PaginatedResponse<Device>>(
+      `/devices/?notificationToken=${token}`
+    );
 
-  if (status === 404 || (data && data.results.length === 0)) {
+    if (status === 404 || (data && data.results.length === 0)) {
+      return null;
+    }
+
+    if (!ok || !data) {
+      throw new Error(`Failed to fetch device with status ${status}`);
+    }
+    return data.results[0]; // Return the first device from the list
+  } catch (error: any) {
+    if (error instanceof UnauthorizedError) {
+      throw error;
+    }
+
+    Sentry.captureException(error);
     return null;
   }
-
-  if (!ok || !data) {
-    throw new Error(`Failed to fetch device with status ${status}`);
-  }
-  return data.results[0]; // Return the first device from the list
 };
 
 export const upsertDevice = async (device: Device): Promise<Device | null> => {
@@ -68,6 +88,10 @@ export const upsertDevice = async (device: Device): Promise<Device | null> => {
     }
     return data;
   } catch (error: any) {
+    if (error instanceof UnauthorizedError) {
+      throw error;
+    }
+
     Sentry.captureException(error);
     return null;
   }

@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react-native";
-import { apiClient } from "./apiClient";
+import { apiClient, UnauthorizedError } from "./apiClient";
 import { PaginatedResponse } from "./chats";
 
 export interface AiModel {
@@ -20,6 +20,10 @@ export const fetchAiModels = async (): Promise<PaginatedResponse<AiModel> | null
     }
     return data;
   } catch (error: any) {
+    if (error instanceof UnauthorizedError) {
+      throw error;
+    }
+
     Sentry.captureException(error);
     return { results: [], count: 0 };
   }
