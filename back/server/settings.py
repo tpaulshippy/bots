@@ -51,6 +51,19 @@ DEBUG = env('DEBUG')
 ALLOWED_HOSTS = [host.strip() for host in env('HOSTS', default='localhost').split(',')]
 
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'Authorization',
+    'x-app-id'
+]
 
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in env('TRUSTED_ORIGINS', default='').split(',')]
 

@@ -1,16 +1,9 @@
 from django.contrib import admin
 from django.apps import apps
-from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device, RevenueCatWebhookEvent
+from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device, RevenueCatWebhookEvent, App, AppAiModel
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-class UsageLimitHitAdmin(admin.ModelAdmin):
-    def get_readonly_fields(self, request, obj=None):
-        return ['created_at', 'modified_at']
-    
-    def get_list_display(self, request):
-        return ['user_account', 'subscription_level', 'total_input_tokens', 'total_output_tokens'] + list(super().get_list_display(request))
-    
 
 class AiModelAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
@@ -18,6 +11,13 @@ class AiModelAdmin(admin.ModelAdmin):
     
     def get_list_display(self, request):
         return ['model_id', 'created_at', 'modified_at'] + list(super().get_list_display(request))
+
+class AppAdmin(admin.ModelAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        return ['created_at', 'modified_at', 'app_id']
+    
+    def get_list_display(self, request):
+        return ['app_id', 'created_at', 'modified_at'] + list(super().get_list_display(request))
 
 class ChatAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
@@ -62,6 +62,14 @@ class RevenueCatWebhookEventAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         return ['created_at', 'raw_event'] + list(super().get_list_display(request))
 
+
+class UsageLimitHitAdmin(admin.ModelAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        return ['created_at', 'modified_at']
+    
+    def get_list_display(self, request):
+        return ['user_account', 'subscription_level', 'total_input_tokens', 'total_output_tokens'] + list(super().get_list_display(request))
+    
 class UserAccountAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         return ['user_id', 'pin', 'subscription_level', 'timezone'] + list(super().get_list_display(request))
@@ -81,3 +89,5 @@ admin.site.register(UsageLimitHit, UsageLimitHitAdmin)
 admin.site.register(RevenueCatWebhookEvent, RevenueCatWebhookEventAdmin)
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
+admin.site.register(App, AppAdmin)
+admin.site.register(AppAiModel)

@@ -1,9 +1,10 @@
 from django.db import models
 from django.core.validators import MinValueValidator
-    
+
 class AiModel(models.Model):
     model_id = models.CharField(max_length=255, unique=True, db_index=True)
     name = models.CharField(max_length=255)
+
     input_token_cost = models.FloatField(
         default=1.0,
         validators=[MinValueValidator(0.0)]
@@ -12,7 +13,6 @@ class AiModel(models.Model):
         default=1.0,
         validators=[MinValueValidator(0.0)]
     )
-    is_default = models.BooleanField(default=False)
     supported_input_modalities = models.JSONField(default=list)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -20,11 +20,3 @@ class AiModel(models.Model):
 
     def __str__(self):
         return self.name
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['is_default'],
-                condition=models.Q(is_default=True),
-                name='unique_default_model'
-            )
-        ]

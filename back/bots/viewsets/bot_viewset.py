@@ -20,7 +20,9 @@ class BotViewSet(viewsets.ModelViewSet):
         self.ensure_bot_exists(user)
         self.ensure_chat_exists(user)
         
-        return Bot.objects.filter(user=user, deleted_at=None).order_by('name')
+        return Bot.objects.filter(user=user,
+                                 app_id=self.request.headers.get('x-app-id', 1),
+                                 deleted_at=None).order_by('name')
 
     def ensure_user_profile_exists(self, user):
         if not Profile.objects.filter(user=user, deleted_at=None).exists():
@@ -64,4 +66,4 @@ class BotViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         # Set the user before saving the object
-        serializer.save(user=self.request.user)
+        serializer.save(user=self.request.user, app_id=self.request.headers.get('x-app-id', 1))

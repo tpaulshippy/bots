@@ -32,6 +32,9 @@ class ChatViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = Chat.objects.filter(user=user)
         if profile_id:
             queryset = queryset.filter(profile__profile_id=profile_id)
+        
+        app_id = self.request.headers.get('x-app-id', 1)
+        queryset = queryset.filter(bot__app_id=app_id)
 
         return queryset.annotate(message_count=Count('messages')).order_by('-id')
 

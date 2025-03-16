@@ -32,7 +32,6 @@ export default function AdvancedBotEditor({
   const buttonIconColor = useThemeColor({}, "text");
   const [aiModels, setAiModels] = useState<AiModel[]>([]);
 
-
   useEffect(() => {
     const fetchModels = async () => {
       const models = await fetchAiModels();
@@ -117,16 +116,20 @@ export default function AdvancedBotEditor({
           onChangeText={(text) => setBot({ ...bot, name: text })}
         />
       </ThemedView>
-      <ThemedView style={styles.formGroup}>
-        <ThemedText style={styles.label}>Model</ThemedText>
-        <ThemedButton onPress={handleModelPress}>
-          <ThemedText
-            style={[styles.input, modelMissing ? styles.missing : {}]}
-          >
-            {aiModels.find(m => m.model_id == bot.ai_model)?.name || "Select a model"}
-          </ThemedText>
-        </ThemedButton>
-      </ThemedView>
+      {/* {config.showAiModels && ( */}
+        <ThemedView style={styles.formGroup}>
+          <ThemedText style={styles.label}>Model</ThemedText>
+          <ThemedButton onPress={handleModelPress}>
+            <ThemedText
+              style={[styles.input, modelMissing ? styles.missing : {}]}
+            >
+              {aiModels.find((m) => m.model_id == bot.ai_model)?.name ||
+                "Select a model"}
+            </ThemedText>
+          </ThemedButton>
+        </ThemedView>
+      {/* )} */}
+
       <Modal visible={isPickerVisible} transparent={true} animationType="slide">
         <ThemedView style={styles.modalContainer}>
           <Picker
@@ -135,7 +138,11 @@ export default function AdvancedBotEditor({
             onValueChange={handlePickerChange}
           >
             {aiModels.map((model, index) => (
-              <Picker.Item key={index} label={model.name} value={model.model_id} />
+              <Picker.Item
+                key={index}
+                label={model.name}
+                value={model.model_id}
+              />
             ))}
           </Picker>
           <ThemedButton

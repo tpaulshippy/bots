@@ -1,4 +1,8 @@
-import { clearUser, getTokens, setTokens, TokenData } from "./tokens";
+import { getTokens, setTokens, TokenData } from "./tokens";
+
+import Config, { DefaultAppName } from "../app/config";
+const appName = process.env.EXPO_PUBLIC_APP_NAME;
+const config = Config()[appName || DefaultAppName];
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -34,11 +38,13 @@ export const apiClient = async <T>(
             ...options,
             headers: {
                 'Content-Type': 'application/json',
+                'x-app-id': config.id,
                 'Authorization': `Bearer ${tokens?.access}`,
                 ...options.headers,
             },
         };
         const url = `${BASE_URL}${endpoint}`;
+        console.log("request", request);
         const response = await fetch(url, request);
         if (response.status === 401) {
             attempts++;

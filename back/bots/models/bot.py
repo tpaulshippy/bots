@@ -3,7 +3,8 @@ from django.db import models
 import uuid
 
 from bots.models.ai_model import AiModel
-    
+from bots.models.app import App    
+
 class Bot(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -15,6 +16,13 @@ class Bot(models.Model):
         on_delete=models.SET_NULL,
         null=True
     )
+    app = models.ForeignKey(
+        App,
+        default=1,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+
     bot_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255)
     system_prompt = models.TextField(null=True, blank=True)

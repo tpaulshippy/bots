@@ -2,6 +2,8 @@ from rest_framework import serializers
 from bots.models import AiModel
 
 class AiModelSerializer(serializers.HyperlinkedModelSerializer):
+    is_default = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = AiModel
         fields = [
@@ -12,5 +14,6 @@ class AiModelSerializer(serializers.HyperlinkedModelSerializer):
             'name',
             'input_token_cost',
             'output_token_cost',
-            'is_default',
-            'url'] 
+            'url',
+            'is_default'
+        ]

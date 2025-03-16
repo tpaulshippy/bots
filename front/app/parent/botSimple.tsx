@@ -2,10 +2,7 @@ import { FlatList, Platform, StyleSheet, Switch, View } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { Picker } from "@react-native-picker/picker";
-import { ThemedButton } from "@/components/ThemedButton";
 import { PlatformPressable } from "@react-navigation/elements";
-import alert from "@/components/Alert";
 import * as Sentry from "@sentry/react-native";
 
 import { useEffect, useLayoutEffect, useState } from "react";
@@ -15,6 +12,10 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
 import { generateSystemPrompt, templates } from "@/api/botTemplates";
+import Config, { DefaultAppName } from "@/app/config";
+
+const appName = process.env.EXPO_PUBLIC_APP_NAME;
+const config = Config()[appName || DefaultAppName];
 
 interface SimpleBotEditorProps {
   botEditing: Bot;
@@ -31,7 +32,6 @@ export default function SimpleBotEditor({
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [nameMissing, setNameMissing] = useState(false);
   const [templateMissing, setTemplateMissing] = useState(false);
-  const [isPickerVisible, setPickerVisible] = useState(false);
   const iconColor = useThemeColor({}, "tint");
   const buttonIconColor = useThemeColor({}, "text");
   const bgColor = useThemeColor({}, "cardBackground");
@@ -96,7 +96,7 @@ export default function SimpleBotEditor({
         <ThemedText style={styles.label}>Select a Template</ThemedText>
         <FlatList
           scrollEnabled={false}
-          data={templates}
+          data={templates.filter((template) => template.app === config.name)}
           keyExtractor={(item) => item.name}
           renderItem={({ item }) => (
             <MenuItem
@@ -114,23 +114,27 @@ export default function SimpleBotEditor({
           )}
         />
       </ThemedView>
-      {templates.find((template) => template.name === bot.template_name)?.inputs.map((input) => (
-        <ThemedView style={styles.formGroup} key={input.name}>
-          <ThemedText style={styles.label}>{input.name}</ThemedText>
-          <ThemedTextInput
-            autoFocus={true}
-            style={[styles.input, nameMissing ? styles.missing : {}]}
-            value={inputs[input.name]}
-            onChangeText={(text) => {
-              setInputs({ ...inputs, [input.name]: text })
-              if (input.name === "Name") {
-                setBotProperty({ name: text })
-              }
-            }}
-          />
-          <ThemedText style={styles.description}>{input.description}</ThemedText>
-        </ThemedView>
-      ))}
+      {templates
+        .find((template) => template.name === bot.template_name)
+        ?.inputs.map((input) => (
+          <ThemedView style={styles.formGroup} key={input.name}>
+            <ThemedText style={styles.label}>{input.name}</ThemedText>
+            <ThemedTextInput
+              autoFocus={true}
+              style={[styles.input, nameMissing ? styles.missing : {}]}
+              value={inputs[input.name]}
+              onChangeText={(text) => {
+                setInputs({ ...inputs, [input.name]: text });
+                if (input.name === "Name") {
+                  setBotProperty({ name: text });
+                }
+              }}
+            />
+            <ThemedText style={styles.description}>
+              {input.description}
+            </ThemedText>
+          </ThemedView>
+        ))}
       <ThemedView style={styles.formGroup}>
         <ThemedText style={styles.label}>Response Length (words)</ThemedText>
         <ThemedTextInput
@@ -138,38 +142,45 @@ export default function SimpleBotEditor({
           style={styles.input}
           value={bot.response_length?.toString()}
           onChangeText={(text) =>
-            setBotProperty({ response_length: text.trim() ? parseInt(text) : 0 })
+            setBotProperty({
+              response_length: text.trim() ? parseInt(text) : 0,
+            })
           }
         />
       </ThemedView>
-      <ThemedView
-        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
-      >
-        <ThemedText style={styles.checkboxLabel}>
-          Restrict Foul Language
-        </ThemedText>
 
-        <Switch
-          value={bot.restrict_language}
-          onValueChange={(value) =>
-            setBotProperty({ restrict_language: value })
-          }
-        />
-      </ThemedView>
-      <ThemedView
-        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
-      >
-        <ThemedText style={styles.checkboxLabel}>
-          Restrict Adult Topics
-        </ThemedText>
+      {config.showRestrictions && (
+        <>
+          <ThemedView
+            style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+          >
+            <ThemedText style={styles.checkboxLabel}>
+              Restrict Foul Language
+            </ThemedText>
 
-        <Switch
-          value={bot.restrict_adult_topics}
-          onValueChange={(value) =>
-            setBotProperty({ restrict_adult_topics: value })
-          }
-        />
-      </ThemedView>
+            <Switch
+              value={bot.restrict_language}
+              onValueChange={(value) =>
+                setBotProperty({ restrict_language: value })
+              }
+            />
+          </ThemedView>
+          <ThemedView
+            style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+          >
+            <ThemedText style={styles.checkboxLabel}>
+              Restrict Adult Topics
+            </ThemedText>
+
+            <Switch
+              value={bot.restrict_adult_topics}
+              onValueChange={(value) =>
+                setBotProperty({ restrict_adult_topics: value })
+              }
+            />
+          </ThemedView>
+        </>
+      )}
     </ThemedView>
   );
 }
