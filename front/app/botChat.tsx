@@ -13,6 +13,12 @@ import { fetchChatMessages, sendChat, ChatMessage as ApiChatMessage } from "@/ap
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
 
+import Config, { DefaultAppName } from "@/app/config";
+
+const appName = process.env.EXPO_PUBLIC_APP_NAME;
+const config = Config()[appName || DefaultAppName];
+
+
 const ITEM_HEIGHT = 50;
 
 export default function Chat() {
@@ -85,7 +91,7 @@ export default function Chat() {
     Keyboard.dismiss();
     const profileId = await getProfileId();
     const botId = await getBotId();
-    if (!profileId) {
+    if (!profileId && config.requireProfile) {
       const newAssistantMessage: ApiChatMessage = {
         role: "assistant",
         image_url: null,
@@ -120,7 +126,9 @@ export default function Chat() {
         type: `image/${fileType}`,
       });
     }
-    formData.append('profile', profileId);
+    if (profileId) {
+      formData.append('profile', profileId);
+    }
     formData.append('bot', botId);
 
     const chatResponse = await sendChat(chatId, formData);

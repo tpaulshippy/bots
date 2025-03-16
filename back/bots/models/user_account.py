@@ -45,14 +45,6 @@ class UserAccount(models.Model):
             total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
             total_input_tokens += input_tokens
             total_output_tokens += output_tokens
-            
-            if model.is_default:
-                # Add costs for chats with no specified bot (using the default model)
-                input_tokens = self.input_tokens_today(None)
-                output_tokens = self.output_tokens_today(None)
-                total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
-                total_input_tokens += input_tokens
-                total_output_tokens += output_tokens
 
         return total, total_input_tokens, total_output_tokens
     

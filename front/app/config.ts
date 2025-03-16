@@ -8,6 +8,8 @@ interface IConfig {
         headerComponent: React.ComponentType;
         settings: string[];
         showRestrictions: boolean;
+        showAiModels: boolean;
+        requireProfile: boolean;
     };
 }
 
@@ -30,7 +32,8 @@ export default function Config() {
                 "Log Out"
             ],
             "showRestrictions": true,
-            "showAiModels": true
+            "showAiModels": true,
+            "requireProfile": true
         },
         "Haiku": {
             "name": "Haiku",
@@ -44,7 +47,8 @@ export default function Config() {
                 "Log Out"
             ],
             "showRestrictions": false,
-            "showAiModels": false
+            "showAiModels": false,
+            "requireProfile": false
         }
     } as IConfig;
 }

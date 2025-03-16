@@ -14,6 +14,10 @@ import { PlatformPressable } from "@react-navigation/elements";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { AiModel, fetchAiModels } from "@/api/aiModels";
 import * as Sentry from "@sentry/react-native";
+import Config, { DefaultAppName } from "@/app/config";
+
+const appName = process.env.EXPO_PUBLIC_APP_NAME;
+const config = Config()[appName || DefaultAppName];
 
 interface AdvancedBotEditorProps {
   botEditing: Bot;
@@ -116,7 +120,7 @@ export default function AdvancedBotEditor({
           onChangeText={(text) => setBot({ ...bot, name: text })}
         />
       </ThemedView>
-      {/* {config.showAiModels && ( */}
+      {config.showAiModels && (
         <ThemedView style={styles.formGroup}>
           <ThemedText style={styles.label}>Model</ThemedText>
           <ThemedButton onPress={handleModelPress}>
@@ -128,7 +132,7 @@ export default function AdvancedBotEditor({
             </ThemedText>
           </ThemedButton>
         </ThemedView>
-      {/* )} */}
+      )}
 
       <Modal visible={isPickerVisible} transparent={true} animationType="slide">
         <ThemedView style={styles.modalContainer}>
