@@ -19,10 +19,10 @@ import { MenuItem } from "@/components/MenuItem";
 import { clearUser } from "@/api/tokens";
 
 import { subscriptionNames } from "@/constants/subscriptions";
-import Config from "@/app/config";
+import Config, { DefaultAppName } from "@/app/config";
 
-const appName = process.env.APP_NAME || "Haiku";
-const config = Config()[appName];
+const appName = process.env.EXPO_PUBLIC_APP_NAME;
+const config = Config()[appName || DefaultAppName];
 
 
 export default function SettingsScreen() {

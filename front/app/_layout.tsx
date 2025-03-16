@@ -32,10 +32,10 @@ import { clearUser, setTokens } from "@/api/tokens";
 import { isRunningInExpoGo } from "expo";
 import * as WebBrowser from "expo-web-browser";
 import { fetchProfiles } from "@/api/profiles";
-import Config from "@/app/config";
+import Config, { DefaultAppName } from "@/app/config";
 
-const appName = process.env.APP_NAME || "Haiku";
-const config = Config()[appName];
+const appName = process.env.EXPO_PUBLIC_APP_NAME;
+const config = Config()[appName || DefaultAppName];
 
 // Initialize Sentry
 const navigationIntegration = Sentry.reactNavigationIntegration({

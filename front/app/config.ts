@@ -1,13 +1,15 @@
 import SyftHeader from "../components/headers/Syft";
 import HaikuHeader from "../components/headers/Haiku";
 
-export interface IConfig {
+interface IConfig {
     [key: string]: {
         name: string;
         headerComponent: React.ComponentType;
         settings: string[];
     };
 }
+
+export const DefaultAppName = "Syft";
 
 export default function Config() {
     return {
