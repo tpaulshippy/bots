@@ -19,6 +19,11 @@ import { MenuItem } from "@/components/MenuItem";
 import { clearUser } from "@/api/tokens";
 
 import { subscriptionNames } from "@/constants/subscriptions";
+import Config from "@/app/config";
+
+const appName = process.env.APP_NAME || "Haiku";
+const config = Config()[appName];
+
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -104,46 +109,53 @@ export default function SettingsScreen() {
           ) : (
             <PinWrapper correctPin={correctPin ? correctPin.toString() : ""}>
               <ThemedView style={[{ backgroundColor }, styles.menuContainer]}>
-                <MenuItem
-                  title="Profiles"
-                  iconName="person.fill"
-                  onPress={() => goTo("/parent/profilesList")}
-                ></MenuItem>
-                <MenuItem
-                  title="Bots"
-                  iconName="cpu"
-                  onPress={() => goTo("/parent/botsList")}
-                ></MenuItem>
-                <MenuItem
-                  title="Notifications"
-                  iconName="bell.fill"
-                  onPress={() => goTo("/parent/notifications")}
-                ></MenuItem>
-                <MenuItem
-                  title="Subscription"
-                  iconName="dollarsign.circle.fill"
-                  onPress={() => goTo("/parent/subscription")}                
-                />
-                <MenuItem
-                  title="Set Pin"
-                  iconName="lock.fill"
-                  onPress={() => goTo("/parent/setPin")}
-                ></MenuItem>
-                <MenuItem
-                  title="Terms of Use and Privacy Policy"
-                  iconName="questionmark.circle.fill"
-                  onPress={() => goTo("/parent/terms")}
-                ></MenuItem>
-                <MenuItem
-                  title="Delete Account"
-                  iconName="trash.fill"
-                  onPress={() => goTo("/parent/deleteAccount")}
-                ></MenuItem>
-                <MenuItem
-                  title="Log Out"
-                  iconName="arrowshape.turn.up.left.fill"
-                  onPress={handleLogout}
-                ></MenuItem>
+                {
+                  [
+                    {
+                      title: "Profiles",
+                      iconName: "person.fill",
+                      onPress: () => goTo("/parent/profilesList"),
+                    },
+                    {
+                      title: "Bots",
+                      iconName: "cpu",
+                      onPress: () => goTo("/parent/botsList"),
+                    },
+                    {
+                      title: "Notifications",
+                      iconName: "bell.fill",
+                      onPress: () => goTo("/parent/notifications"),
+                    },
+                    {
+                      title: "Subscription",
+                      iconName: "dollarsign.circle.fill",
+                      onPress: () => goTo("/parent/subscription"),
+                    },
+                    {
+                      title: "Set Pin",
+                      iconName: "lock.fill",
+                      onPress: () => goTo("/parent/setPin"),
+                    },
+                    {
+                      title: "Terms of Use and Privacy Policy",
+                      iconName: "questionmark.circle.fill",
+                      onPress: () => goTo("/parent/terms"),
+                    },
+                    {
+                      title: "Delete Account",
+                      iconName: "trash.fill",
+                      onPress: () => goTo("/parent/deleteAccount"),
+                    },
+                    {
+                      title: "Log Out",
+                      iconName: "arrowshape.turn.up.left.fill",
+                      onPress: handleLogout,
+                    },
+                  ].filter((menuItem) => config.settings.includes(menuItem.title))
+                  .map((menuItem) => (
+                    <MenuItem {...menuItem} key={menuItem.title} />
+                  ))
+                }
               </ThemedView>
             </PinWrapper>
           )}

@@ -2,7 +2,7 @@ import { ThemedView } from "@/components/ThemedView";
 import ChatList from "./chatList";
 import { StyleSheet } from "react-native";
 
-export default function ChildHome() {
+export default function Index() {
   return (
   <ThemedView style={styles.container}>
     <ChatList />

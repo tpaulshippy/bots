@@ -32,6 +32,10 @@ import { clearUser, setTokens } from "@/api/tokens";
 import { isRunningInExpoGo } from "expo";
 import * as WebBrowser from "expo-web-browser";
 import { fetchProfiles } from "@/api/profiles";
+import Config from "@/app/config";
+
+const appName = process.env.APP_NAME || "Haiku";
+const config = Config()[appName];
 
 // Initialize Sentry
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -211,13 +215,10 @@ export default function RootLayout() {
             options={{
               headerBackVisible: false,
               headerShown: true,
-              headerTitle(props) {
+              headerTitle() {
                 return (
                   <View style={styles.headerContainer}>
-                    <Image
-                      source={require("../assets/images/syft_small.png")}
-                      style={{ width: 260, height: 35 }}
-                    />
+                    <config.headerComponent />
                   </View>
                 );
               },
@@ -325,10 +326,7 @@ export default function RootLayout() {
               headerTitle() {
                 return (
                   <View style={styles.headerContainer}>
-                    <Image
-                      source={require("../assets/images/syft_small.png")}
-                      style={{ width: 260, height: 35 }}
-                    />
+                    <config.headerComponent />
                   </View>
                 );
               },

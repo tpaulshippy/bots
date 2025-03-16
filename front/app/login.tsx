@@ -73,7 +73,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   devSection: {
-    display: "none",
     padding: 20,
     borderBottomWidth: 1,
   },
