@@ -52,10 +52,18 @@ class Device(models.Model):
             not self.notify_on_new_chat and \
             message.chat.user == self.user and \
             message.role == 'user':
+            if message.chat.profile:
+                from_name = message.chat.profile.name
+            else:
+                from_name = self.user.first_name
+            if message.chat.bot:
+                to_name = message.chat.bot.name
+            else:
+                to_name = "unknown"
             NotificationClient().notify(Notification(
                 to=self.notification_token,
                 sound='default',
-                title=f"{message.chat.profile.name} sent {message.chat.bot.name} a message",
+                title=f"{from_name} sent {to_name} a message",
                 body=message.text,
                 data={'chat_id': str(message.chat.chat_id)}
             ))
