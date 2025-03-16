@@ -7,7 +7,7 @@ export default function HaikuHeader() {
       <>
         <Image
         source={require("../../assets/images/haiku_small.png")}
-        style={{ width: 50, height: 50 }}
+        style={{ width: 32, height: 32 }}
       />
         <ThemedText style={styles.headerText}>Haiku AI</ThemedText>
       </>
@@ -16,7 +16,7 @@ export default function HaikuHeader() {
 
 const styles = StyleSheet.create({
     headerText: {
-      fontSize: 30,
+      fontSize: 20,
       fontWeight: "bold",
       marginLeft: 12,
     },
