@@ -9,7 +9,7 @@ import boto3
 
 from .profile import Profile
 from .bot import Bot
-from .ai_model import AiModel
+from .app_ai_model import AppAiModel
 
 S3_CLIENT = boto3.client('s3')
 S3_BUCKET = settings.AWS_STORAGE_BUCKET_NAME
@@ -49,11 +49,23 @@ class Chat(models.Model):
 
     def use_default_model(self, ai=None):
         try:
-            default_model = AiModel.objects.get(is_default=True)
-        except AiModel.DoesNotExist:
+            app = self.bot.app
+            default_model = app.app_ai_models.get(is_default=True)
+            ai_model = default_model.ai_model
+        except AppAiModel.DoesNotExist:
             raise ValueError("No default AI model configured in the system")
         
-        self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
+        self.ai = AiClientWrapper(model_id=ai_model.model_id, client=ai)
+    
+    def use_cheapest_image_processing_model(self, ai=None):
+        app = self.bot.app
+        cheapest_models = app.app_ai_models.order_by('ai_model__input_token_cost')
+        for model in cheapest_models:
+            if 'image' in model.ai_model.supported_input_modalities:
+                self.ai = AiClientWrapper(model_id=model.ai_model.model_id, client=ai)
+                return
+
+        raise ValueError("No image processing AI model configured in the system")
 
     def get_response(self, ai=None):
         if self.bot and self.bot.ai_model:
@@ -65,7 +77,7 @@ class Chat(models.Model):
 
         # Check if any messages have image_filename and if the model supports images
         if contains_image and self.bot and 'image' not in self.bot.ai_model.supported_input_modalities:
-            self.use_default_model(ai)
+            self.use_cheapest_image_processing_model(ai)
         
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."

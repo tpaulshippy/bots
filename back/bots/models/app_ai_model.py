@@ -5,12 +5,14 @@ from bots.models.ai_model import AiModel
 class AppAiModel(models.Model):
     app = models.ForeignKey(
         App,
+        related_name='app_ai_models',
         default=1,
         on_delete=models.SET_NULL,
         null=True
     )
     ai_model = models.ForeignKey(
         AiModel,
+        related_name='app_ai_models',
         default=1,
         on_delete=models.SET_NULL,
         null=True
