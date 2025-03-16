@@ -25,6 +25,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='appaimodel',
-            constraint=models.UniqueConstraint(condition=models.Q(('is_default', True)), fields=('app', 'is_default'), name='unique_default_model'),
+            constraint=models.UniqueConstraint(condition=models.Q(is_default=True), fields=('app', 'is_default'), name='unique_default_model'),
         ),
     ]
