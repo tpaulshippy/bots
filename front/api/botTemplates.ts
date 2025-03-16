@@ -19,10 +19,10 @@ export interface Input {
 
 export const templates: BotTemplate[] = [
     {
-        name: "Blank",
+        name: "Haiku",
         app: "Haiku",
         content:
-            "Your name is {Name}. You are a an AI assistant.",
+            "Your name is {Name}. Always respond in the form of a haiku.",
         inputs: [
             {
                 name: "Name",
