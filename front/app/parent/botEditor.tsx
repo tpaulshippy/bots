@@ -24,6 +24,9 @@ export default function BotEditor() {
       setBot(bot);
     } else {
       const models = await fetchAiModels();
+      if (!models) {
+        return;
+      }
       const defaultModel = models.results.find((model) => model.is_default);
 
       const newBot = {

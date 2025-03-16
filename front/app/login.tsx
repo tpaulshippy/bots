@@ -19,7 +19,6 @@ const APPLE_LOGIN_URL =
 const LoginScreen = () => {
   const router = useRouter();
   const [manualTokens, setManualTokens] = React.useState("");
-  const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
 
   const handleGoogleLogin = async () => {
@@ -36,8 +35,8 @@ const LoginScreen = () => {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.devSection, { borderBottomColor: borderColor }]}>
-        <Text style={[styles.devSectionTitle, { color: textColor }]}>Developer Options</Text>
+      <View style={styles.developerSection}>
+        <Text style={[styles.developerSectionTitle, { color: textColor }]}>Developer Options</Text>
         <ThemedTextInput
           onChangeText={(text) => setManualTokens(text)}
           placeholder="Paste tokens here"
@@ -72,12 +71,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
   },
-  devSection: {
+  developerSection: {
     display: "none",
     padding: 20,
     borderBottomWidth: 1,
   },
-  devSectionTitle: {
+  developerSectionTitle: {
     fontSize: 12,
     marginBottom: 10,
     textAlign: "center",
