@@ -7,6 +7,7 @@ export type ThemedButtonProps = {
   onPress?: () => void;
   style?: any;
   children?: any;
+  disabled?: boolean;
 };
 export function ThemedButton({
   style,

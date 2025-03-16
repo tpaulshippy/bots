@@ -105,6 +105,9 @@ export default function RootLayout() {
           const chat = await fetchChat(
             response.notification.request.content.data.chat_id
           );
+          if (!chat) {
+            return;
+          }
           if (chat.profile.profile_id) {
             await AsyncStorage.setItem(
               "selectedProfile",
