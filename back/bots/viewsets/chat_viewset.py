@@ -33,7 +33,7 @@ class ChatViewSet(viewsets.ReadOnlyModelViewSet):
         if profile_id:
             queryset = queryset.filter(profile__profile_id=profile_id)
 
-        return queryset.annotate(message_count=Count('messages')).order_by('-id')
+        return queryset.annotate(message_count=Count('messages')).order_by('-modified_at')
 
     def get_serializer_class(self):
         if self.action == 'list':
