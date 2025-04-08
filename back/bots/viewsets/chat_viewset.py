@@ -36,7 +36,7 @@ class ChatViewSet(viewsets.ReadOnlyModelViewSet):
         app_id = self.request.headers.get('x-app-id', 1)
         queryset = queryset.filter(bot__app_id=app_id)
 
-        return queryset.annotate(message_count=Count('messages')).order_by('-id')
+        return queryset.annotate(message_count=Count('messages')).order_by('-modified_at')
 
     def get_serializer_class(self):
         if self.action == 'list':
