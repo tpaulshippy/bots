@@ -26,8 +26,8 @@ def support_view(request):
             
             send_mail(subject=full_subject, 
                       message=body, 
-                      from_email=email, 
-                      recipient_list=[settings.EMAIL_HOST_USER])
+                      from_email=settings.EMAIL_RECIPIENT, 
+                      recipient_list=[settings.EMAIL_RECIPIENT])
             return HttpResponse('Thank you for your message. We will be in touch shortly.')
     else:
         form = ContactForm()
