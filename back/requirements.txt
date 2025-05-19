@@ -18,6 +18,8 @@ sentry-sdk[django]
 pytz
 requests
 Pillow
+django-anymail
+
 
 pytest
 pytest-describe
