@@ -43,3 +43,8 @@ app-example
 sentry.properties
 
 .DS_Store
+
+# Expo
+.expo
+dist/
+web-build/

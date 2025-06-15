@@ -39,6 +39,7 @@ export const apiClient = async <T>(
             },
         };
         const url = `${BASE_URL}${endpoint}`;
+        console.log("Fetching", url);
         const response = await fetch(url, request);
         if (response.status === 401) {
             attempts++;

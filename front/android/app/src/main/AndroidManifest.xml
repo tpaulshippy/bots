@@ -29,7 +29,6 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="botsforkids"/>
-        <data android:scheme="com.tpaulshippy.botsforkids"/>
         <data android:scheme="exp+bots-for-kids"/>
       </intent-filter>
     </activity>
