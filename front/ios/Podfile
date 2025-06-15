@@ -13,7 +13,7 @@ install! 'cocoapods',
 
 prepare_react_native_project!
 
-target 'bots' do
+target 'SyftLearning' do
   use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
@@ -64,4 +64,3 @@ target 'bots' do
     end
   end
 end
-

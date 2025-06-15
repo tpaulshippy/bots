@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "Syft.app"
-               BlueprintName = "bots"
-               ReferencedContainer = "container:bots.xcodeproj">
+               BuildableName = "SyftLearning.app"
+               BlueprintName = "SyftLearning"
+               ReferencedContainer = "container:SyftLearning.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "botsTests.xctest"
-               BlueprintName = "botsTests"
-               ReferencedContainer = "container:bots.xcodeproj">
+               BuildableName = "SyftLearningTests.xctest"
+               BlueprintName = "SyftLearningTests"
+               ReferencedContainer = "container:SyftLearning.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "Syft.app"
-            BlueprintName = "bots"
-            ReferencedContainer = "container:bots.xcodeproj">
+            BuildableName = "SyftLearning.app"
+            BlueprintName = "SyftLearning"
+            ReferencedContainer = "container:SyftLearning.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "Syft.app"
-            BlueprintName = "bots"
-            ReferencedContainer = "container:bots.xcodeproj">
+            BuildableName = "SyftLearning.app"
+            BlueprintName = "SyftLearning"
+            ReferencedContainer = "container:SyftLearning.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
