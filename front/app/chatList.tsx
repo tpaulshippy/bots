@@ -79,7 +79,7 @@ export default function ChatList() {
     try {
       const profileId = await getProfileId();
       const data = await fetchChats(profileId, nextPage);
-      if (!data) {
+      if (!data || data.results.length == 0) {
         return;
       }
       setChats((prevChats) => {
@@ -101,9 +101,11 @@ export default function ChatList() {
           return mergedChats;
         }
       });
-      setHasMore(data.next !== null);
+      setHasMore(data.next !== null && data.next !== undefined);
       setRefreshing(false);
     } catch (error) {
+      console.log("Caught error in chatList")
+      console.log(error);
       if (error instanceof UnauthorizedError) {
         await clearUser();
         router.replace("/login");
