@@ -64,16 +64,43 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'bots',
     'django_extensions',
     'rest_framework',
     'corsheaders',
+    'rest_framework.authtoken',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-    'allauth.socialaccount.providers.apple',
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
+    'drf_spectacular',
+    'channels',
+    'bots'
 ]
+
+# Channels
+ASGI_APPLICATION = 'server.asgi.application'
+
+# Channel layer configuration (development)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
+
+# For production, use Redis:
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             "hosts": [('redis', 6379)],
+#         },
+#     },
+# }
 
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
@@ -220,6 +247,23 @@ ACCOUNT_LOGOUT_REDIRECT_URL='/api/login'
 
 REVENUECAT_WEBHOOK_AUTH_HEADER = env('REVENUECAT_WEBHOOK_AUTH_HEADER')
 
+# AWS Configuration
+AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID', default='')
+AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default='')
+AWS_SESSION_TOKEN = env('AWS_SESSION_TOKEN', default=None)
+AWS_REGION = env('AWS_REGION', default='us-west-2')
+AWS_DEFAULT_REGION = AWS_REGION
+
+# AWS Bedrock Configuration
+NOVA_MODEL_ID = env('NOVA_MODEL_ID', default='amazon.nova-express-tts')
+
+# Configure Boto3 to use environment variables
+if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    os.environ['AWS_ACCESS_KEY_ID'] = AWS_ACCESS_KEY_ID
+    os.environ['AWS_SECRET_ACCESS_KEY'] = AWS_SECRET_ACCESS_KEY
+    if AWS_SESSION_TOKEN:
+        os.environ['AWS_SESSION_TOKEN'] = AWS_SESSION_TOKEN
+    os.environ['AWS_DEFAULT_REGION'] = AWS_REGION
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = env('EMAIL_HOST')
