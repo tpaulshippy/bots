@@ -3,7 +3,7 @@ import { apiClient, UnauthorizedError } from './apiClient';
 
 export interface Account {
     userId: number;
-    pin: number;
+    pin: number | null;
     costForToday?: [number];
     maxDailyCost?: number;
     subscriptionLevel?: number;

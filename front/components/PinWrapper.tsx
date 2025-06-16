@@ -1,37 +1,74 @@
-import React, { useState, PropsWithChildren, useEffect } from "react";
-import { StyleSheet } from "react-native";
+import React, { useState, PropsWithChildren, useEffect, useCallback } from "react";
+import { StyleSheet, Alert, View } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "./ThemedText";
 import { ThemedButton } from "@/components/ThemedButton";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { getCachedPin, clearCachedPin } from "@/api/pinStorage";
+import { clearUser } from "@/api/tokens";
+import { router } from "expo-router";
 
 type Props = PropsWithChildren<{
   correctPin: string;
+  onPinVerified?: () => void;
 }>;
 
-export default function PinWrapper({ children, correctPin }: Props) {
+export default function PinWrapper({ children, correctPin, onPinVerified }: Props) {
   const [pinCorrect, setPinCorrect] = useState(false);
-  const checkPin = (enteredPin: string) => {
-    if (enteredPin == correctPin) {
-      setPinCorrect(true);
-    }
-  };
+  const [isVerifying, setIsVerifying] = useState(true);
+  const [enteredPin, setEnteredPin] = useState("");
 
-  return pinCorrect || correctPin === "" ? (
-    <ThemedView style={styles.container}>{children}</ThemedView>
-  ) : (
+  // Check if we need to verify the PIN (always verify for settings access)
+  useEffect(() => {
+    setIsVerifying(false);
+  }, []);
+
+  useEffect(() => {
+    if (enteredPin === correctPin && enteredPin.length > 0) {
+      try {
+        setPinCorrect(true);
+        onPinVerified?.();
+      } catch (error) {
+        console.error("Error handling PIN verification:", error);
+      }
+    }
+  }, [enteredPin, correctPin, onPinVerified]);
+
+
+
+  if (isVerifying) {
+    return (
+      <ThemedView style={styles.container}>
+        <ThemedText>Verifying...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (pinCorrect || correctPin === "") {
+    return (
+      <ThemedView style={styles.container}>
+        {children}
+      </ThemedView>
+    );
+  }
+
+  return (
     <ThemedView style={styles.outerContainer}>
-      <ThemedView style={styles.innerContainer}>
+      <View style={styles.innerContainer}>
+        <ThemedText style={styles.title}>Enter PIN</ThemedText>
         <ThemedTextInput
           autoFocus={true}
           style={styles.pinTextInput}
           keyboardType="numeric"
           secureTextEntry={true}
-          onChangeText={checkPin}
-          placeholder="Enter your pin"
+          value={enteredPin}
+          onChangeText={setEnteredPin}
+          placeholderTextColor="#999"
+
         />
-      </ThemedView>
+
+      </View>
     </ThemedView>
   );
 }
@@ -46,35 +83,34 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   outerContainer: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    alignItems: "flex-start",
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
   innerContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    padding: 10,
+    width: '100%',
+    maxWidth: 300,
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
   },
   pinTextInput: {
-    minWidth: 100,
-    padding: 12,
+    width: '100%',
+    padding: 15,
     borderWidth: 1,
     borderColor: "#555",
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    borderRadius: 8,
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  pinButton: {
-    marginTop: 10,
-    marginLeft: 10,
-    padding: 10,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
+
+
 });

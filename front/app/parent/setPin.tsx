@@ -3,12 +3,14 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { updateAccount } from "@/api/account";
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState, useCallback } from "react";
 import { ThemedButton } from "@/components/ThemedButton";
 import { useNavigation, useRouter } from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { setCachedPin } from "@/api/pinStorage";
+import { getAccount } from "@/api/account";
 
 export default function SetPin() {
   const navigation = useNavigation();
@@ -16,10 +18,23 @@ export default function SetPin() {
   const [pin, setPin] = useState("");
   const iconColor = useThemeColor({}, "tint");
 
-  const savePin = async () => {
-    await updateAccount({ pin: parseInt(pin) });
-    router.back();
-  };
+  const savePin = useCallback(async () => {
+    try {
+      // Update the PIN on the server
+      await updateAccount({ pin: parseInt(pin) });
+      
+      // Update the cached PIN
+      await setCachedPin(pin);
+      
+      // Refresh the account info to ensure we have the latest data
+      await getAccount();
+      
+      router.back();
+    } catch (error) {
+      console.error("Error updating PIN:", error);
+      // Handle error (you might want to show an error message to the user)
+    }
+  }, [pin, router]);
 
   useLayoutEffect(() => {
     if (pin.length > 0) {
