@@ -5,6 +5,9 @@ PODS:
     - ExpoModulesCore
   - EXApplication (6.1.4):
     - ExpoModulesCore
+  - EXAV (15.1.6):
+    - ExpoModulesCore
+    - ReactCommon/turbomodule/core
   - EXConstants (17.1.6):
     - ExpoModulesCore
   - EXImageLoader (5.1.0):
@@ -2487,6 +2490,7 @@ DEPENDENCIES:
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EASClient (from `../node_modules/expo-eas-client/ios`)
   - EXApplication (from `../node_modules/expo-application/ios`)
+  - EXAV (from `../node_modules/expo-av/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - EXImageLoader (from `../node_modules/expo-image-loader/ios`)
   - EXJSONUtils (from `../node_modules/expo-json-utils/ios`)
@@ -2621,6 +2625,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-eas-client/ios"
   EXApplication:
     :path: "../node_modules/expo-application/ios"
+  EXAV:
+    :path: "../node_modules/expo-av/ios"
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
   EXImageLoader:
@@ -2842,6 +2848,7 @@ SPEC CHECKSUMS:
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EASClient: 961c6b0118bed52023fd2c129d41cbca212d60c4
   EXApplication: 63b87ca5204304007fac6b1be432f8afa3731c17
+  EXAV: 3fff236999a5a5c0f9b251d1a902908e4c844199
   EXConstants: 9f310f44bfedba09087042756802040e464323c0
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
   EXJSONUtils: 1d3e4590438c3ee593684186007028a14b3686cd
