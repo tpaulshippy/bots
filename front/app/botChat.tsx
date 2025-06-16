@@ -1,11 +1,12 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { Platform, KeyboardAvoidingView, FlatList, ActivityIndicator, Dimensions, Keyboard, FlexAlignType, View } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 import { ThemedButton } from "@/components/ThemedButton";
-import { ActivityIndicator, FlatList, FlexAlignType, Keyboard } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
 
@@ -148,60 +149,71 @@ export default function Chat() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
-      keyboardVerticalOffset={Platform.select({ ios: 60, android: 80 })}
-    >
-      <ThemedView style={styles.container}>
-        <FlatList
-          inverted
-          style={styles.list}
-          data={[...messages].reverse()}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => <ChatMessage message={item} />}
-          getItemLayout={(data, index) => ({
-            length: ITEM_HEIGHT,
-            offset: ITEM_HEIGHT * index,
-            index,
-          })}
-          onStartReached={handleLoadMore}
-          onStartReachedThreshold={0.5}
-          ListHeaderComponent={loadingMore ? <ActivityIndicator /> : null}
-        />
-        <ThemedView style={styles.inputContainer}>
-          <ThemedTextInput
-            autoFocus={!local.chatId}
-            multiline={true}
-            onChangeText={setInput}
-            value={input}
-            style={styles.input}
-          ></ThemedTextInput>
-          <ThemedButton
-            style={styles.sendButton}
-            onPress={handleImagePicker}
-          >
-            <IconSymbol
-              style={styles.sendButtonIcon}
-              name="camera.fill"
-              color="#bbb"
-              size={45}
-            ></IconSymbol>
-          </ThemedButton>
-          <ThemedButton
-            style={styles.sendButton}
-            onPress={sendChatToServer}
-          >
-            <IconSymbol
-              style={styles.sendButtonIcon}
-              name="arrow.up"
-              color="#bbb"
-              size={45}
-            ></IconSymbol>
-          </ThemedButton>
-        </ThemedView>
-      </ThemedView>
-    </KeyboardAvoidingView>
+    <SafeAreaView style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={useMemo(() => {
+          if (Platform.OS === 'android') return 80;
+          
+          const { height } = Dimensions.get('window');
+          // iPhone SE 3: 667px height
+          // iPhone 16: 874px height
+          if (height >= 800) return 90;    // Taller phones like iPhone 16
+          if (height >= 600) return 60;    // Medium height phones like iPhone SE 3
+          return 50;                       // Smaller devices
+        }, [])}
+      >
+        <ThemedView style={[styles.container, { paddingBottom: 0 }]}>
+          <FlatList
+            inverted
+            style={styles.list}
+            data={[...messages].reverse()}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({ item }) => <ChatMessage message={item} />}
+                getItemLayout={(data, index) => ({
+                  length: ITEM_HEIGHT,
+                  offset: ITEM_HEIGHT * index,
+                  index,
+                })}
+                onStartReached={handleLoadMore}
+                onStartReachedThreshold={0.5}
+                ListHeaderComponent={loadingMore ? <ActivityIndicator /> : null}
+              />
+              <ThemedView style={styles.inputContainer}>
+                <ThemedTextInput
+                  autoFocus={!local.chatId}
+                  multiline={true}
+                  onChangeText={setInput}
+                  value={input}
+                  style={styles.input}
+                ></ThemedTextInput>
+                <ThemedButton
+                  style={styles.sendButton}
+                  onPress={handleImagePicker}
+                >
+                  <IconSymbol
+                    style={styles.sendButtonIcon}
+                    name="camera.fill"
+                    color="#bbb"
+                    size={45}
+                  ></IconSymbol>
+                </ThemedButton>
+                <ThemedButton
+                  style={styles.sendButton}
+                  onPress={sendChatToServer}
+                >
+                  <IconSymbol
+                    style={styles.sendButtonIcon}
+                    name="arrow.up"
+                    color="#bbb"
+                    size={45}
+                  ></IconSymbol>
+                </ThemedButton>
+              </ThemedView>
+          </ThemedView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
   );
 }
 
