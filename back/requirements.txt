@@ -18,6 +18,9 @@ sentry-sdk[django]
 pytz
 requests
 Pillow
+tavily-python
+langchain-openai
+langchain-community
 
 pytest
 pytest-describe

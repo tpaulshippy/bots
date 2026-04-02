@@ -23,6 +23,7 @@ class Bot(models.Model):
     response_length = models.IntegerField(default=200)
     restrict_language = models.BooleanField(default=True)
     restrict_adult_topics = models.BooleanField(default=True)
+    enable_web_search = models.BooleanField(default=False)
     
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

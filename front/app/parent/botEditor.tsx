@@ -37,6 +37,7 @@ export default function BotEditor() {
         response_length: 200,
         restrict_language: true,
         restrict_adult_topics: true,
+        enable_web_search: false,
         deleted_at: null,
       };
       setBot(newBot);

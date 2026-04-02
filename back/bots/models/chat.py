@@ -3,6 +3,10 @@ from django.db import models
 import uuid
 from langchain_aws import ChatBedrock
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from langchain.agents import AgentExecutor, create_openai_functions_agent
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.tools import Tool
+from tavily import TavilyClient
 import requests
 import base64
 import boto3
@@ -63,12 +67,70 @@ class Chat(models.Model):
         
         message_list, contains_image = self.get_input()
 
-        # Check if any messages have image_filename and if the model supports images
         if contains_image and self.bot and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
         
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
+        
+        if self.bot and self.bot.enable_web_search and settings.TAVILY_API_KEY:
+            tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
+            
+            def web_search(query):
+                results = tavily_client.search(query=query)
+                return results
+            
+            tools = [
+                Tool(
+                    name="web_search",
+                    func=web_search,
+                    description="Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data."
+                )
+            ]
+            
+            from langchain_community.chat_models import ChatBedrock
+            from langchain_openai import ChatOpenAI
+            
+            chat_model = ChatBedrock(model_id=self.bot.ai_model.model_id)
+            
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", self.get_system_message()),
+                MessagesPlaceholder(variable_name="chat_history", optional=True),
+                ("human", "{input}"),
+                MessagesPlaceholder(variable_name="agent_scratchpad")
+            ])
+            
+            agent = create_openai_functions_agent(chat_model, tools, prompt)
+            agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+            
+            chat_history = []
+            for msg in self.messages.exclude(role='system').order_by('id'):
+                if msg.role == 'user':
+                    chat_history.append(("human", msg.text))
+                elif msg.role == 'assistant':
+                    chat_history.append(("ai", msg.text))
+            
+            input_text = message_list[-1].content if message_list else ""
+            if isinstance(input_text, list):
+                input_text = input_text[0].get('text', '') if input_text else ''
+            
+            response = agent_executor.invoke({
+                "input": input_text,
+                "chat_history": chat_history[:-1] if chat_history else []
+            })
+            
+            response_text = response['output']
+            message_order = self.messages.count()
+            self.messages.create(
+                text=response_text, 
+                role='assistant', 
+                order=message_order,
+                input_tokens=0,
+                output_tokens=0
+            )
+            self.save()
+            return response_text
+        
         response = self.ai.invoke(
             message_list
         )
