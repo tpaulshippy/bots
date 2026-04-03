@@ -6,4 +6,4 @@ class BotsConfig(AppConfig):
     name = 'bots'
 
     def ready(self):
-        import bots.signals
+        import bots.signals  # noqa: F401

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 import environ
 import sentry_sdk
 
@@ -204,8 +205,6 @@ REST_FRAMEWORK = {
 }
 
 X_FRAME_OPTIONS = 'ALLOWALL'
-
-from datetime import timedelta
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),

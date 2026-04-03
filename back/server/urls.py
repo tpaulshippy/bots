@@ -17,7 +17,6 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.generic.base import RedirectView
-from django.contrib.auth.models import User
 from rest_framework import routers
 from rest_framework_nested.routers import NestedDefaultRouter
 from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet

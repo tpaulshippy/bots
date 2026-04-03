@@ -1,8 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth.models import User
 from bots.models import Chat, Message, Device, Profile, Bot
-from unittest.mock import Mock, patch
-from bots import signals
+from unittest.mock import patch
 
 class SignalsTests(TestCase):
     def setUp(self):

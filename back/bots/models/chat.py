@@ -2,16 +2,19 @@ from django.conf import settings
 from django.db import models
 import uuid
 from langchain_aws import ChatBedrock
-from langchain.schema import HumanMessage, SystemMessage, AIMessage, BaseMessage
+from langchain.schema import HumanMessage, SystemMessage, AIMessage
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import Tool
 from langchain.callbacks.base import BaseCallbackHandler
 from tavily import TavilyClient
 import logging
-import requests
 import base64
 import boto3
+
+from .profile import Profile
+from .bot import Bot
+from .ai_model import AiModel
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +29,6 @@ class TokenTracker(BaseCallbackHandler):
             self.input_tokens += usage.get('input_tokens', 0)
             self.output_tokens += usage.get('output_tokens', 0)
 
-from .profile import Profile
-from .bot import Bot
-from .ai_model import AiModel
 
 S3_CLIENT = boto3.client('s3')
 S3_BUCKET = settings.AWS_STORAGE_BUCKET_NAME
@@ -64,7 +64,7 @@ class Chat(models.Model):
         self.ai = None
 
     def __str__(self):
-        return self.title if self.user == None else self.user.email + ' - ' + self.title
+        return self.title if self.user is None else self.user.email + ' - ' + self.title
 
     def use_default_model(self, ai=None):
         try:

@@ -1,8 +1,6 @@
-from datetime import datetime, time
 from django.db import models
 from .user_account import UserAccount
-from django.utils import timezone
-import pytz
+
 
 class UsageLimitHit(models.Model):
     user_account = models.ForeignKey(UserAccount, 
