@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
 from langchain_core.callbacks.base import BaseCallbackHandler
-from langchain.agents import AgentExecutor, create_react_agent
+from langchain_classic.agents import AgentExecutor, create_react_agent
 from tavily import TavilyClient
 import logging
 import base64

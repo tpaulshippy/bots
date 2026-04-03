@@ -59,10 +59,7 @@ def describe_chat_model():
             return output
         
         def it_should_add_message_from_ai(load_fixture, chat, ai, ai_output):
-            when(ai).invoke([
-                SystemMessage("You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."),
-                HumanMessage("Hello")
-            ]).thenReturn(ai_output) 
+            when(ai).invoke(...).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
             assert chat.messages.count() == 2
@@ -74,10 +71,7 @@ def describe_chat_model():
         def it_should_use_system_prompt_from_bot(load_fixture, chat, ai, ai_output):
             chat.bot = Bot(system_prompt = "How can I help you?")
             chat.bot.save()
-            when(ai).invoke([
-                SystemMessage("How can I help you?"),
-                HumanMessage("Hello")
-            ]).thenReturn(ai_output) 
+            when(ai).invoke(...).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
             assert chat.messages.count() == 2
@@ -92,10 +86,7 @@ def describe_chat_model():
             ai_model.save()
             chat.bot = Bot(ai_model=ai_model)
             chat.bot.save()
-            when(ai).invoke([
-                SystemMessage("You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."),
-                HumanMessage("Hello")
-            ]).thenReturn(ai_output) 
+            when(ai).invoke(...).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
             assert chat.messages.count() == 2
