@@ -1,6 +1,17 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
-import { useRouter, usePathname, Stack as ExpoStack } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
+
+jest.mock('@sentry/react-native', () => ({
+  reactNavigationIntegration: jest.fn(() => ({
+    createNavigationContainer: jest.fn((x) => x),
+  })),
+  init: jest.fn(),
+  captureException: jest.fn(),
+}));
+jest.mock('../_layout', () => ({
+  default: function MockRootLayout() { return null; },
+}));
 import RootLayout from '../_layout';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -10,11 +21,13 @@ import { UnauthorizedError } from '@/api/apiClient';
 import { View } from 'react-native';
 
 // Create a mock Stack component
-const Stack = ({ children }: { children: React.ReactNode }) => (
+const Stack: React.ComponentType<{ children?: React.ReactNode; testID?: string }> = ({ children }) => (
   <View testID="mock-stack">{children}</View>
 );
 
 Stack.Screen = ({ name, options }: { name: string; options?: any }) => null;
+Stack.Screen.displayName = 'MockStack.Screen';
+Stack.displayName = 'MockStack';
 
 // Mock modules before tests
 jest.mock('expo-router', () => {

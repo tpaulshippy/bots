@@ -2,11 +2,11 @@ from django.conf import settings
 from django.db import models
 import uuid
 from langchain_aws import ChatBedrock
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.tools import tool
+from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain.agents import AgentExecutor, create_react_agent
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.tools import Tool
-from langchain.callbacks.base import BaseCallbackHandler
 from tavily import TavilyClient
 import logging
 import base64
@@ -24,10 +24,10 @@ class TokenTracker(BaseCallbackHandler):
         self.output_tokens = 0
     
     def on_llm_end(self, response, *, run_id=None, parent_run_id=None, **kwargs):
-        if hasattr(response, 'llm_output') and response.llm_output:
-            usage = response.llm_output.get('usage', {})
-            self.input_tokens += usage.get('input_tokens', 0)
-            self.output_tokens += usage.get('output_tokens', 0)
+        usage_metadata = getattr(response, 'usage_metadata', None)
+        if usage_metadata:
+            self.input_tokens += usage_metadata.get('input_tokens', 0)
+            self.output_tokens += usage_metadata.get('output_tokens', 0)
 
 
 S3_CLIENT = boto3.client('s3')
@@ -91,7 +91,9 @@ class Chat(models.Model):
         if self.bot and self.bot.enable_web_search and settings.TAVILY_API_KEY:
             tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
             
-            def web_search(query):
+            @tool
+            def web_search(query: str) -> dict:
+                """Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data."""
                 try:
                     results = tavily_client.search(query=query)
                     return {"results": results.get('results', []), "error": None}
@@ -99,18 +101,12 @@ class Chat(models.Model):
                     logger.error(f"Web search error: {str(e)}")
                     return {"results": [], "error": str(e)}
             
-            tools = [
-                Tool(
-                    name="web_search",
-                    func=web_search,
-                    description="Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data."
-                )
-            ]
+            tools = [web_search]
             
-            chat_model = ChatBedrock(model_id=self.bot.ai_model.model_id)
+            chat_model = ChatBedrock(model_id=self.ai.model_id)
             
             prompt = ChatPromptTemplate.from_messages([
-                ("system", self.get_system_message()),
+                ("system", self.get_system_message() + "\n\nTools: {tools}\nTool names: {tool_names}"),
                 MessagesPlaceholder(variable_name="chat_history", optional=True),
                 ("human", "{input}"),
                 MessagesPlaceholder(variable_name="agent_scratchpad")
@@ -119,29 +115,39 @@ class Chat(models.Model):
             agent = create_react_agent(chat_model, tools, prompt)
             
             token_tracker = TokenTracker()
-            agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=10, callbacks=[token_tracker])
+            agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=settings.DEBUG, max_iterations=10, callbacks=[token_tracker])
             
             chat_history = []
-            for msg in self.messages.exclude(role='system').order_by('id'):
+            messages = self.messages.exclude(role='system').order_by('-id')[:10]
+            messages = sorted(messages, key=lambda message: message.id)
+            for msg in messages:
                 if msg.role == 'user':
                     chat_history.append(HumanMessage(content=msg.text))
                 elif msg.role == 'assistant':
                     chat_history.append(AIMessage(content=msg.text))
             
-            input_text = message_list[-1].content if message_list else ""
-            if isinstance(input_text, list):
-                for item in input_text:
-                    if isinstance(item, dict) and item.get('type') == 'text':
-                        input_text = item.get('text', '')
+            last_message = message_list[-1] if message_list else None
+            is_multimodal = False
+            if last_message and isinstance(last_message.content, list):
+                for item in last_message.content:
+                    if isinstance(item, dict) and item.get('type') != 'text':
+                        is_multimodal = True
                         break
-                else:
-                    input_text = ''
             
-            # chat_history[:-1] excludes the last message because it is the current input
-            response = agent_executor.invoke({
-                "input": input_text,
-                "chat_history": chat_history[:-1] if chat_history else []
-            })
+            if is_multimodal:
+                agent_input = {"input": last_message, "chat_history": chat_history[:-1] if chat_history else []}
+            else:
+                input_text = last_message.content if last_message else ""
+                if isinstance(input_text, list):
+                    for item in input_text:
+                        if isinstance(item, dict) and item.get('type') == 'text':
+                            input_text = item.get('text', '')
+                            break
+                    else:
+                        input_text = ''
+                agent_input = {"input": input_text, "chat_history": chat_history[:-1] if chat_history else []}
+            
+            response = agent_executor.invoke(agent_input)
             
             response_text = response['output']
             message_order = self.messages.count()
