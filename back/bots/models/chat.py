@@ -3,13 +3,16 @@ from django.db import models
 import uuid
 from langchain_aws import ChatBedrock
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
-from langchain.agents import AgentExecutor, create_openai_functions_agent
+from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import Tool
 from tavily import TavilyClient
+import logging
 import requests
 import base64
 import boto3
+
+logger = logging.getLogger(__name__)
 
 from .profile import Profile
 from .bot import Bot
@@ -77,8 +80,12 @@ class Chat(models.Model):
             tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
             
             def web_search(query):
-                results = tavily_client.search(query=query)
-                return results
+                try:
+                    results = tavily_client.search(query=query)
+                    return results
+                except Exception as e:
+                    logger.error(f"Web search error: {str(e)}")
+                    return {"results": [], "error": str(e)}
             
             tools = [
                 Tool(
@@ -87,9 +94,6 @@ class Chat(models.Model):
                     description="Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data."
                 )
             ]
-            
-            from langchain_community.chat_models import ChatBedrock
-            from langchain_openai import ChatOpenAI
             
             chat_model = ChatBedrock(model_id=self.bot.ai_model.model_id)
             
@@ -100,7 +104,7 @@ class Chat(models.Model):
                 MessagesPlaceholder(variable_name="agent_scratchpad")
             ])
             
-            agent = create_openai_functions_agent(chat_model, tools, prompt)
+            agent = create_react_agent(chat_model, tools, prompt)
             agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
             
             chat_history = []
@@ -112,8 +116,14 @@ class Chat(models.Model):
             
             input_text = message_list[-1].content if message_list else ""
             if isinstance(input_text, list):
-                input_text = input_text[0].get('text', '') if input_text else ''
+                for item in input_text:
+                    if isinstance(item, dict) and item.get('type') == 'text':
+                        input_text = item.get('text', '')
+                        break
+                else:
+                    input_text = ''
             
+            # chat_history[:-1] excludes the last message because it is the current input
             response = agent_executor.invoke({
                 "input": input_text,
                 "chat_history": chat_history[:-1] if chat_history else []
@@ -121,13 +131,27 @@ class Chat(models.Model):
             
             response_text = response['output']
             message_order = self.messages.count()
+            
+            input_tokens = 0
+            output_tokens = 0
+            if 'intermediate_steps' in response:
+                for step in response['intermediate_steps']:
+                    if isinstance(step, tuple) and len(step) == 2:
+                        _, output = step
+                        if hasattr(output, 'usage_metadata'):
+                            usage = output.usage_metadata
+                            input_tokens += usage.get('input_tokens', 0)
+                            output_tokens += usage.get('output_tokens', 0)
+            
             self.messages.create(
                 text=response_text, 
                 role='assistant', 
                 order=message_order,
-                input_tokens=0,
-                output_tokens=0
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
             )
+            self.input_tokens += input_tokens
+            self.output_tokens += output_tokens
             self.save()
             return response_text
         
