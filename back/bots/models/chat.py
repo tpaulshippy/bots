@@ -2,10 +2,11 @@ from django.conf import settings
 from django.db import models
 import uuid
 from langchain_aws import ChatBedrock
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from langchain.schema import HumanMessage, SystemMessage, AIMessage, BaseMessage
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import Tool
+from langchain.callbacks.base import BaseCallbackHandler
 from tavily import TavilyClient
 import logging
 import requests
@@ -13,6 +14,17 @@ import base64
 import boto3
 
 logger = logging.getLogger(__name__)
+
+class TokenTracker(BaseCallbackHandler):
+    def __init__(self):
+        self.input_tokens = 0
+        self.output_tokens = 0
+    
+    def on_llm_end(self, response, *, run_id=None, parent_run_id=None, **kwargs):
+        if hasattr(response, 'llm_output') and response.llm_output:
+            usage = response.llm_output.get('usage', {})
+            self.input_tokens += usage.get('input_tokens', 0)
+            self.output_tokens += usage.get('output_tokens', 0)
 
 from .profile import Profile
 from .bot import Bot
@@ -82,7 +94,7 @@ class Chat(models.Model):
             def web_search(query):
                 try:
                     results = tavily_client.search(query=query)
-                    return results
+                    return {"results": results.get('results', []), "error": None}
                 except Exception as e:
                     logger.error(f"Web search error: {str(e)}")
                     return {"results": [], "error": str(e)}
@@ -105,14 +117,16 @@ class Chat(models.Model):
             ])
             
             agent = create_react_agent(chat_model, tools, prompt)
-            agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+            
+            token_tracker = TokenTracker()
+            agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=10, callbacks=[token_tracker])
             
             chat_history = []
             for msg in self.messages.exclude(role='system').order_by('id'):
                 if msg.role == 'user':
-                    chat_history.append(("human", msg.text))
+                    chat_history.append(HumanMessage(content=msg.text))
                 elif msg.role == 'assistant':
-                    chat_history.append(("ai", msg.text))
+                    chat_history.append(AIMessage(content=msg.text))
             
             input_text = message_list[-1].content if message_list else ""
             if isinstance(input_text, list):
@@ -132,16 +146,8 @@ class Chat(models.Model):
             response_text = response['output']
             message_order = self.messages.count()
             
-            input_tokens = 0
-            output_tokens = 0
-            if 'intermediate_steps' in response:
-                for step in response['intermediate_steps']:
-                    if isinstance(step, tuple) and len(step) == 2:
-                        _, output = step
-                        if hasattr(output, 'usage_metadata'):
-                            usage = output.usage_metadata
-                            input_tokens += usage.get('input_tokens', 0)
-                            output_tokens += usage.get('output_tokens', 0)
+            input_tokens = token_tracker.input_tokens
+            output_tokens = token_tracker.output_tokens
             
             self.messages.create(
                 text=response_text, 
