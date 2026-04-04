@@ -3,8 +3,6 @@ from django.db import models
 import uuid
 from langchain_aws import ChatBedrock
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.tools import tool
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain.agents import create_agent
@@ -111,7 +109,7 @@ class Chat(models.Model):
                         logger.debug(f"🔍 WEB_SEARCH_FORMATTED_RESULTS:\n{formatted}")
                         return formatted
                     else:
-                        logger.info(f"🔍 WEB_SEARCH_NO_RESULTS: empty result set")
+                        logger.info("🔍 WEB_SEARCH_NO_RESULTS: empty result set")
                         return "No results found."
                 except Exception as e:
                     logger.error(f"🔍 WEB_SEARCH_ERROR: {str(e)}")
@@ -135,12 +133,12 @@ class Chat(models.Model):
             agent_input = self._extract_agent_input(message_list)
             
             logger.info(f"Invoking agent with input: {agent_input[:100]}...")
-            logger.info(f"🤖 AGENT_INVOKE_START: web_search tool available")
+            logger.info("🤖 AGENT_INVOKE_START: web_search tool available")
             
             # Invoke agent - the CompiledStateGraph handles tool loop internally
             response = agent.invoke({"messages": [HumanMessage(content=agent_input)]})
             
-            logger.info(f"🤖 AGENT_INVOKE_COMPLETE: got response")
+            logger.info("🤖 AGENT_INVOKE_COMPLETE: got response")
             
             # Extract response text from the agent result
             # The response is a dict with 'messages' key containing final messages

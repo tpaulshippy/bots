@@ -6,7 +6,6 @@ from django.contrib.auth.models import User
 from bots.models.chat import Chat
 from bots.models.bot import Bot
 from bots.models.ai_model import AiModel
-from tavily import TavilyClient
 import uuid
 
 
@@ -156,16 +155,15 @@ def describe_chat_model():
                         mock_chat_instance = MagicMock()
                         mock_chat_bedrock.return_value = mock_chat_instance
                         
-                        with patch('bots.models.chat.create_react_agent') as mock_agent:
-                            with patch('bots.models.chat.AgentExecutor') as mock_executor_class:
-                                mock_executor = MagicMock()
-                                mock_executor.invoke = MagicMock(return_value={'output': 'Web search result'})
-                                mock_executor_class.return_value = mock_executor
-                                
-                                chat.messages.create(text="What's the latest news?", role="user")
-                                result = chat.get_response(ai=mock_ai)
-                                
-                                assert mock_tavily.called
+                        with patch('bots.models.chat.create_agent') as mock_create_agent:
+                            mock_executor = MagicMock()
+                            mock_executor.invoke = MagicMock(return_value={'output': 'Web search result'})
+                            mock_create_agent.return_value = mock_executor
+                            
+                            chat.messages.create(text="What's the latest news?", role="user")
+                            chat.get_response(ai=mock_ai)
+                            
+                            assert mock_tavily.called
 
         def it_should_not_use_web_search_when_disabled(load_fixture, chat, ai, ai_output):
             from bots.models.bot import Bot

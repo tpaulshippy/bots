@@ -5,17 +5,16 @@ Tests the actual API endpoints by hitting the running server.
 """
 import os
 import sys
+import django
+import requests
+from django.contrib.auth.models import User
+from rest_framework_simplejwt.tokens import RefreshToken
+from bots.models import Bot, AiModel
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'server.settings')
 sys.path.insert(0, '/home/ubuntu/repos/bots/back')
 
-import django
 django.setup()
-
-import requests
-from django.contrib.auth.models import User
-from bots.models import Bot, AiModel
-from rest_framework_simplejwt.tokens import RefreshToken
 
 
 def run_integration_test():
@@ -56,7 +55,7 @@ def run_integration_test():
     refresh = RefreshToken.for_user(user)
     access_token = str(refresh.access_token)
     headers = {'Authorization': f'Bearer {access_token}'}
-    print(f"   Generated JWT token")
+    print("   Generated JWT token")
     
     # Get or create AI model
     ai_model, _ = AiModel.objects.get_or_create(
@@ -102,13 +101,13 @@ def run_integration_test():
             print(f"   Bot name: {bot_data.get('name')}")
             print(f"   enable_web_search: {bot_data.get('enable_web_search')}")
             
-            if bot_data.get('enable_web_search') == True:
+            if bot_data.get('enable_web_search'):
                 print("   ✓ Bot correctly has enable_web_search=True")
             else:
                 print("   ✗ FAIL: enable_web_search should be True")
                 return False
         else:
-            print(f"   ✗ FAIL: Could not get bot details")
+            print("   ✗ FAIL: Could not get bot details")
             print(f"   Response: {response.text[:200]}")
             return False
     except Exception as e:
@@ -126,13 +125,13 @@ def run_integration_test():
         
         if response.status_code == 200:
             bot_data = response.json()
-            if bot_data.get('enable_web_search') == False:
+            if not bot_data.get('enable_web_search'):
                 print("   ✓ Bot correctly has enable_web_search=False")
             else:
                 print("   ✗ FAIL: enable_web_search should be False")
                 return False
         else:
-            print(f"   ✗ FAIL: Could not get bot details")
+            print("   ✗ FAIL: Could not get bot details")
             return False
     except Exception as e:
         print(f"   ✗ ERROR: {e}")
