@@ -4,9 +4,11 @@ import uuid
 from langchain_aws import ChatBedrock
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.tools import tool
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_classic.agents import AgentExecutor, create_react_agent
+from langchain_classic import hub
 from tavily import TavilyClient
 import logging
 import base64
@@ -105,12 +107,24 @@ class Chat(models.Model):
             
             chat_model = ChatBedrock(model_id=self.ai.model_id)
             
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", self.get_system_message() + "\n\nTools: {tools}\nTool names: {tool_names}"),
-                MessagesPlaceholder(variable_name="chat_history", optional=True),
-                ("human", "{input}"),
-                MessagesPlaceholder(variable_name="agent_scratchpad")
-            ])
+        if self.bot and self.bot.enable_web_search and settings.TAVILY_API_KEY:
+            tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
+            
+            @tool
+            def web_search(query: str) -> dict:
+                """Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data."""
+                try:
+                    results = tavily_client.search(query=query)
+                    return {"results": results.get('results', []), "error": None}
+                except Exception as e:
+                    logger.error(f"Web search error: {str(e)}")
+                    return {"results": [], "error": str(e)}
+            
+            tools = [web_search]
+            
+            chat_model = ChatBedrock(model_id=self.ai.model_id)
+            
+            prompt = hub.pull("hwchase17/react")
             
             agent = create_react_agent(chat_model, tools, prompt)
             

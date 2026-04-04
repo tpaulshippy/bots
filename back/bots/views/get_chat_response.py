@@ -58,7 +58,7 @@ def get_chat_response(request, chat_id):
             bot = None
         chat = Chat.objects.create(title=user_input, profile=profile, bot=bot, user=user)
         system_prompt = chat.get_system_message()
-        if bot:
+        if bot and bot.system_prompt:
             system_prompt = bot.system_prompt
         chat.messages.create(text=system_prompt, role='system', order=0)
 
