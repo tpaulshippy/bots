@@ -90,78 +90,56 @@ class Chat(models.Model):
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
         
+        # Use agent with tool calling if web search is enabled
         if self.bot and self.bot.enable_web_search and settings.TAVILY_API_KEY:
+            logger.info(f"Web search enabled for bot {self.bot.name}")
             tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
+            token_tracker = TokenTracker()
             
             @tool
-            def web_search(query: str) -> dict:
+            def web_search(query: str) -> str:
                 """Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data."""
+                logger.info(f"Web search called with query: {query}")
                 try:
                     results = tavily_client.search(query=query)
-                    return {"results": results.get('results', []), "error": None}
+                    logger.info(f"Web search returned {len(results.get('results', []))} results")
+                    # Format results as a readable string for the model
+                    if results.get('results'):
+                        formatted = "\n".join([
+                            f"- {r.get('title', 'No title')}: {r.get('content', '')[:200]}"
+                            for r in results['results'][:3]
+                        ])
+                        return formatted
+                    else:
+                        return "No results found."
                 except Exception as e:
                     logger.error(f"Web search error: {str(e)}")
-                    return {"results": [], "error": str(e)}
+                    return f"Error during search: {str(e)}"
             
+            # Create chat model with tools bound
+            chat_model = ChatBedrock(model_id=self.ai.model_id)
             tools = [web_search]
             
-            chat_model = ChatBedrock(model_id=self.ai.model_id)
-            
-        if self.bot and self.bot.enable_web_search and settings.TAVILY_API_KEY:
-            tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
-            
-            @tool
-            def web_search(query: str) -> dict:
-                """Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data."""
-                try:
-                    results = tavily_client.search(query=query)
-                    return {"results": results.get('results', []), "error": None}
-                except Exception as e:
-                    logger.error(f"Web search error: {str(e)}")
-                    return {"results": [], "error": str(e)}
-            
-            tools = [web_search]
-            
-            chat_model = ChatBedrock(model_id=self.ai.model_id)
-            
+            # Get ReAct prompt from hub
             prompt = hub.pull("hwchase17/react")
             
+            # Create agent
             agent = create_react_agent(chat_model, tools, prompt)
             
-            token_tracker = TokenTracker()
-            agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=settings.DEBUG, max_iterations=10, callbacks=[token_tracker])
+            # Create executor with token tracking
+            agent_executor = AgentExecutor(
+                agent=agent,
+                tools=tools,
+                verbose=settings.DEBUG,
+                max_iterations=10,
+                callbacks=[token_tracker]
+            )
             
-            chat_history = []
-            messages = self.messages.exclude(role='system').order_by('-id')[:10]
-            messages = sorted(messages, key=lambda message: message.id)
-            for msg in messages:
-                if msg.role == 'user':
-                    chat_history.append(HumanMessage(content=msg.text))
-                elif msg.role == 'assistant':
-                    chat_history.append(AIMessage(content=msg.text))
+            # Extract text input from message_list for agent
+            agent_input = self._extract_agent_input(message_list)
             
-            last_message = message_list[-1] if message_list else None
-            is_multimodal = False
-            if last_message and isinstance(last_message.content, list):
-                for item in last_message.content:
-                    if isinstance(item, dict) and item.get('type') != 'text':
-                        is_multimodal = True
-                        break
-            
-            if is_multimodal:
-                agent_input = {"input": last_message, "chat_history": chat_history[:-1] if chat_history else []}
-            else:
-                input_text = last_message.content if last_message else ""
-                if isinstance(input_text, list):
-                    for item in input_text:
-                        if isinstance(item, dict) and item.get('type') == 'text':
-                            input_text = item.get('text', '')
-                            break
-                    else:
-                        input_text = ''
-                agent_input = {"input": input_text, "chat_history": chat_history[:-1] if chat_history else []}
-            
-            response = agent_executor.invoke(agent_input)
+            logger.info(f"Invoking agent with input: {agent_input[:100]}...")
+            response = agent_executor.invoke({"input": agent_input})
             
             response_text = response['output']
             message_order = self.messages.count()
@@ -181,9 +159,35 @@ class Chat(models.Model):
             self.save()
             return response_text
         
-        response = self.ai.invoke(
-            message_list
-        )
+        # Standard response without web search
+        return self.get_response_standard(message_list, ai)
+
+    def _extract_agent_input(self, message_list):
+        """Extract text input from message_list for the agent.
+        
+        Handles both simple text and multimodal content.
+        Assumes message_list has system message at index 0 and user message at end.
+        """
+        # Find the last non-system message (should be the user's query)
+        user_input = ""
+        for msg in reversed(message_list):
+            if isinstance(msg, HumanMessage):
+                if isinstance(msg.content, list):
+                    # Multimodal content - extract text
+                    for item in msg.content:
+                        if isinstance(item, dict) and item.get('type') == 'text':
+                            user_input = item.get('text', '')
+                            break
+                else:
+                    # Simple text content
+                    user_input = msg.content
+                break
+        
+        return user_input if user_input else "Please help me."
+    
+    def get_response_standard(self, message_list, ai=None):
+        """Handle response without web search."""
+        response = self.ai.invoke(message_list)
 
         response_text = response.content
         usage_metadata = response.usage_metadata
