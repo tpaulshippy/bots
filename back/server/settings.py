@@ -53,7 +53,7 @@ ALLOWED_HOSTS = [host.strip() for host in env('HOSTS', default='localhost').spli
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in env('TRUSTED_ORIGINS', default='').split(',')]
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in env('CSRF_TRUSTED_ORIGINS', default='').split(',')]
 
 
 # Application definition
