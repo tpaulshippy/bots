@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 import environ
 import sentry_sdk
 
@@ -23,7 +24,7 @@ env = environ.Env(
 environ.Env.read_env('.env')
 
 sentry_sdk.init(
-    dsn=env('SENTRY_DSN'),
+    dsn=env('SENTRY_DSN', default=None),
     # Set traces_sample_rate to 1.0 to capture 100%
     # of transactions for tracing.
     traces_sample_rate=1.0,
@@ -43,16 +44,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY')
+SECRET_KEY = env('SECRET_KEY', default='test-secret-key-for-development-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG')
+DEBUG = env('DEBUG', default=True)
 
 ALLOWED_HOSTS = [host.strip() for host in env('HOSTS', default='localhost').split(',')]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in env('TRUSTED_ORIGINS', default='').split(',')]
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in env('CSRF_TRUSTED_ORIGINS', default='').split(',')]
 
 
 # Application definition
@@ -177,11 +178,11 @@ SOCIALACCOUNT_PROVIDERS = {
     },
     "apple": {
         "APPS": [{
-            "client_id": env('APPLE_CLIENT_ID'),
-            "secret": env('APPLE_SECRET'),
-            "key": env('APPLE_KEY'),
+            "client_id": env('APPLE_CLIENT_ID', default='test'),
+            "secret": env('APPLE_SECRET', default='test'),
+            "key": env('APPLE_KEY', default='test'),
             "settings": {
-                "certificate_key": open('apple_cert.pem').read()
+                "certificate_key": env('APPLE_CERTIFICATE_KEY', default='')
             }
         }]
     }
@@ -205,8 +206,6 @@ REST_FRAMEWORK = {
 
 X_FRAME_OPTIONS = 'ALLOWALL'
 
-from datetime import timedelta
-
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=31),
@@ -218,16 +217,16 @@ SIMPLE_JWT = {
 
 ACCOUNT_LOGOUT_REDIRECT_URL='/api/login'
 
-REVENUECAT_WEBHOOK_AUTH_HEADER = env('REVENUECAT_WEBHOOK_AUTH_HEADER')
+REVENUECAT_WEBHOOK_AUTH_HEADER = env('REVENUECAT_WEBHOOK_AUTH_HEADER', default='test')
 
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = env('EMAIL_HOST')
-EMAIL_PORT = env('EMAIL_PORT')
-EMAIL_USE_TLS = env('EMAIL_USE_TLS')
-EMAIL_HOST_USER = env('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
-EMAIL_RECIPIENT = env('EMAIL_RECIPIENT')
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+EMAIL_HOST = env('EMAIL_HOST', default='localhost')
+EMAIL_PORT = env('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='test@test.com')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='test')
+EMAIL_RECIPIENT = env('EMAIL_RECIPIENT', default='test@test.com')
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
 SOCIALACCOUNT_EMAIL_REQUIRED = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
@@ -237,4 +236,6 @@ SOCIALACCOUNT_ONLY = True
 SOCIALACCOUNT_QUERY_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 
-AWS_STORAGE_BUCKET_NAME = 'syftlearningimages'
+AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='test-bucket')
+
+TAVILY_API_KEY = env('TAVILY_API_KEY', default='')

@@ -19,6 +19,7 @@ class BotSerializer(serializers.HyperlinkedModelSerializer):
             'response_length',
             'restrict_adult_topics',
             'restrict_language',
+            'enable_web_search',
             'created_at',
             'modified_at',
             'deleted_at',

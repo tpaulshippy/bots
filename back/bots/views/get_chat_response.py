@@ -2,9 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from bots.models import Chat, Profile, Bot
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 import boto3
-from django.core.files.storage import default_storage
 from django.conf import settings
 from PIL import Image
 import io
@@ -60,7 +58,7 @@ def get_chat_response(request, chat_id):
             bot = None
         chat = Chat.objects.create(title=user_input, profile=profile, bot=bot, user=user)
         system_prompt = chat.get_system_message()
-        if bot:
+        if bot and bot.system_prompt:
             system_prompt = bot.system_prompt
         chat.messages.create(text=system_prompt, role='system', order=0)
 

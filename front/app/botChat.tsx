@@ -32,8 +32,10 @@ export default function Chat() {
       setChatId(chatIdQueryString);
 
       fetchChatMessages(chatIdQueryString, nextPage).then((data) => {
-        setMessages([...messages, ...data.results]);
-        setHasMore(data.next !== null);
+        if (data) {
+          setMessages(prev => [...prev, ...data.results]);
+          setHasMore(data.next !== null);
+        }
         setLoadingMore(false);
       });
     }
@@ -114,12 +116,12 @@ export default function Chat() {
     formData.append('message', inputText);
     if (image) {
       const fileUri = image;
-      const fileType = fileUri.split('.').pop();
+      const fileType = fileUri.split('.').pop() || 'jpeg';
       formData.append('image', {
         uri: fileUri,
         name: `image.${fileType}`,
         type: `image/${fileType}`,
-      });
+      } as unknown as Blob);
     }
     formData.append('profile', profileId);
     formData.append('bot', botId);

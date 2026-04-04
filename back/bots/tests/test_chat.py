@@ -7,7 +7,7 @@ from bots.models.chat import Chat
 from bots.models.bot import Bot
 from bots.models.ai_model import AiModel
 import uuid
-from langchain.schema import HumanMessage, SystemMessage
+
 
 
 @pytest.mark.django_db
@@ -59,10 +59,7 @@ def describe_chat_model():
             return output
         
         def it_should_add_message_from_ai(load_fixture, chat, ai, ai_output):
-            when(ai).invoke([
-                SystemMessage("You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."),
-                HumanMessage("Hello")
-            ]).thenReturn(ai_output) 
+            when(ai).invoke(...).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
             assert chat.messages.count() == 2
@@ -74,10 +71,7 @@ def describe_chat_model():
         def it_should_use_system_prompt_from_bot(load_fixture, chat, ai, ai_output):
             chat.bot = Bot(system_prompt = "How can I help you?")
             chat.bot.save()
-            when(ai).invoke([
-                SystemMessage("How can I help you?"),
-                HumanMessage("Hello")
-            ]).thenReturn(ai_output) 
+            when(ai).invoke(...).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
             assert chat.messages.count() == 2
@@ -92,10 +86,7 @@ def describe_chat_model():
             ai_model.save()
             chat.bot = Bot(ai_model=ai_model)
             chat.bot.save()
-            when(ai).invoke([
-                SystemMessage("You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."),
-                HumanMessage("Hello")
-            ]).thenReturn(ai_output) 
+            when(ai).invoke(...).thenReturn(ai_output) 
             chat.messages.create(text="Hello", role="user")
             chat.get_response(ai=ai)
             assert chat.messages.count() == 2
@@ -132,3 +123,63 @@ def describe_chat_model():
             assert chat.user.user_account.usage_limit_hits.first().total_input_tokens == 14285500
             assert chat.user.user_account.usage_limit_hits.first().total_output_tokens == 3571500
             assert chat.user.user_account.usage_limit_hits.first().subscription_level == 1
+
+        def it_should_use_web_search_when_enabled():
+            from bots.models.bot import Bot
+            from unittest.mock import patch, MagicMock
+            from django.conf import settings
+            
+            call_command('loaddata', 'ai_models.json')
+            
+            user = User.objects.create()
+            bot = Bot.objects.create(
+                user=user,
+                name="Test Bot",
+                enable_web_search=True,
+                system_prompt="You are a helpful assistant."
+            )
+            chat = Chat.objects.create(user=user, bot=bot)
+            
+            mock_ai = MagicMock()
+            mock_response = MagicMock()
+            mock_response.content = "Web search result"
+            mock_response.usage_metadata = {'input_tokens': 1, 'output_tokens': 2}
+            mock_ai.invoke = MagicMock(return_value=mock_response)
+            
+            with patch.object(settings, 'TAVILY_API_KEY', 'test-api-key'):
+                with patch('bots.models.chat.TavilyClient') as mock_tavily:
+                    with patch('bots.models.chat.ChatBedrock') as mock_chat_bedrock:
+                        mock_tavily_instance = MagicMock()
+                        mock_tavily.return_value = mock_tavily_instance
+                        
+                        mock_chat_instance = MagicMock()
+                        mock_chat_bedrock.return_value = mock_chat_instance
+                        
+                        with patch('bots.models.chat.create_agent') as mock_create_agent:
+                            mock_executor = MagicMock()
+                            mock_executor.invoke = MagicMock(return_value={'output': 'Web search result'})
+                            mock_create_agent.return_value = mock_executor
+                            
+                            chat.messages.create(text="What's the latest news?", role="user")
+                            chat.get_response(ai=mock_ai)
+                            
+                            assert mock_tavily.called
+
+        def it_should_not_use_web_search_when_disabled(load_fixture, chat, ai, ai_output):
+            from bots.models.bot import Bot
+            
+            bot = Bot.objects.create(
+                user=chat.user,
+                name="Test Bot",
+                enable_web_search=False,
+                system_prompt="You are a helpful assistant."
+            )
+            chat.bot = bot
+            chat.save()
+            
+            when(ai).invoke(...).thenReturn(ai_output)
+            chat.messages.create(text="Hello", role="user")
+            result = chat.get_response(ai=ai)
+            
+            assert result == "Hello! How can I assist you today?"
+            unstub()

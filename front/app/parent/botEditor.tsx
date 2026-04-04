@@ -24,6 +24,9 @@ export default function BotEditor() {
       setBot(bot);
     } else {
       const models = await fetchAiModels();
+      if (!models || models.results.length === 0) {
+        return;
+      }
       const defaultModel = models.results.find((model) => model.is_default);
 
       const newBot = {
@@ -37,6 +40,7 @@ export default function BotEditor() {
         response_length: 200,
         restrict_language: true,
         restrict_adult_topics: true,
+        enable_web_search: false,
         deleted_at: null,
       };
       setBot(newBot);

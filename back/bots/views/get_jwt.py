@@ -1,5 +1,5 @@
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
+from rest_framework.decorators import api_view, permission_classes
+from django.http import JsonResponse, HttpResponseRedirect
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import render

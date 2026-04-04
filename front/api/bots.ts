@@ -13,6 +13,7 @@ export interface Bot {
   response_length: number;
   restrict_language: boolean;
   restrict_adult_topics: boolean;
+  enable_web_search: boolean;
   deleted_at: Date | null;
 }
 

@@ -14,7 +14,9 @@ export default function BotsList({}) {
 
   const refresh = async () => {
     fetchBots().then((data) => {
-      setBots(data.results);
+      if (data) {
+        setBots(data.results);
+      }
     });
   };
 

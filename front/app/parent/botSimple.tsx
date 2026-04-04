@@ -170,6 +170,20 @@ export default function SimpleBotEditor({
           }
         />
       </ThemedView>
+      <ThemedView
+        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+      >
+        <ThemedText style={styles.checkboxLabel}>
+          Enable Web Search
+        </ThemedText>
+
+        <Switch
+          value={bot.enable_web_search}
+          onValueChange={(value) =>
+            setBotProperty({ enable_web_search: value })
+          }
+        />
+      </ThemedView>
     </ThemedView>
   );
 }
