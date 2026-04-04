@@ -34,7 +34,7 @@ jobs:
       - name: Run tests
         run: |
           cd front
-          npm test -- --passWithNoTests --coverage=false
+          npm test -- --passWithNoTests --coverage=false --watchAll=false
 
   backend:
     runs-on: ubuntu-latest
