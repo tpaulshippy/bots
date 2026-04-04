@@ -9,6 +9,8 @@ export interface Account {
     subscriptionLevel?: number;
 }
 
+export type PartialAccount = Partial<Account> & { pin: number };
+
 export const getAccount = async (): Promise<Account | null> => {
     try {
         const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -29,7 +31,7 @@ export const getAccount = async (): Promise<Account | null> => {
     }
 };
 
-export const updateAccount = async (account: Account): Promise<void> => {
+export const updateAccount = async (account: PartialAccount): Promise<void> => {
     try {
         const { ok, status } = await apiClient<void>('/user', {
             method: 'POST',

@@ -21,6 +21,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -107,9 +109,11 @@ export default function NotificationsScreen() {
               notify_on_new_message: true,
               deleted_at: null,
             };
-            newDevice = await upsertDevice(newDevice);
-            setDeviceIdInStorage(newDevice.device_id);
-            setDevice(newDevice);
+            const createdDevice = await upsertDevice(newDevice);
+            if (createdDevice) {
+              setDeviceIdInStorage(createdDevice.device_id);
+              setDevice(createdDevice);
+            }
           }
         }
       } else if (device) {

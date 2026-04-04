@@ -57,6 +57,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: false,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -72,8 +74,8 @@ export default function RootLayout() {
 
   const router = useRouter();
 
-  const notificationListener = useRef<Notifications.EventSubscription>();
-  const responseListener = useRef<Notifications.EventSubscription>();
+  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   const navigateToChat = (chatId: string, title: string) => {
     if (pathname === "/chat") {
@@ -102,9 +104,11 @@ export default function RootLayout() {
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener(
         async (response) => {
-          const chat = await fetchChat(
-            response.notification.request.content.data.chat_id
-          );
+          const data = response.notification.request.content.data as { chat_id?: string };
+          if (!data?.chat_id) {
+            return;
+          }
+          const chat = await fetchChat(data.chat_id);
           if (!chat) {
             return;
           }

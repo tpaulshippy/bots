@@ -14,6 +14,7 @@ export const Colors = {
     icon: '#687076',
     cardBackground: '#fff',
     cardBackgroundSelected: tintColorLight,
+    border: '#ccc',
   },
   dark: {
     text: '#ECEDEE',
@@ -22,5 +23,6 @@ export const Colors = {
     icon: '#9BA1A6',
     cardBackground: '#1C1C1E',
     cardBackgroundSelected: tintColorDark,
+    border: '#444',
   },
 };

@@ -65,6 +65,7 @@
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.12",
+    "@types/lodash": "^4.17.24",
     "@types/react": "~19.0.10",
     "bplist-creator": "^0.1.1",
     "eslint": "^9.0.0",
