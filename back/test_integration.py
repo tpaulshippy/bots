@@ -6,15 +6,16 @@ Tests the actual API endpoints by hitting the running server.
 import os
 import sys
 import django
-import requests
-from django.contrib.auth.models import User
-from rest_framework_simplejwt.tokens import RefreshToken
-from bots.models import Bot, AiModel
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'server.settings')
 sys.path.insert(0, '/home/ubuntu/repos/bots/back')
 
 django.setup()
+
+import requests
+from django.contrib.auth.models import User
+from rest_framework_simplejwt.tokens import RefreshToken
+from bots.models import Bot, AiModel
 
 
 def run_integration_test():
