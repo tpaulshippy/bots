@@ -7,8 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.tools import tool
 from langchain_core.callbacks.base import BaseCallbackHandler
-from langchain_classic.agents import AgentExecutor, create_react_agent
-from langchain_classic import hub
+from langchain.agents import create_agent
 from tavily import TavilyClient
 import logging
 import base64
@@ -94,58 +93,77 @@ class Chat(models.Model):
         if self.bot and self.bot.enable_web_search and settings.TAVILY_API_KEY:
             logger.info(f"Web search enabled for bot {self.bot.name}")
             tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
-            token_tracker = TokenTracker()
             
             @tool
             def web_search(query: str) -> str:
                 """Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data."""
-                logger.info(f"Web search called with query: {query}")
+                logger.info(f"🔍 WEB_SEARCH_TOOL_INVOKED: query='{query}'")
                 try:
                     results = tavily_client.search(query=query)
-                    logger.info(f"Web search returned {len(results.get('results', []))} results")
+                    num_results = len(results.get('results', []))
+                    logger.info(f"🔍 WEB_SEARCH_SUCCESS: returned {num_results} results")
                     # Format results as a readable string for the model
                     if results.get('results'):
                         formatted = "\n".join([
                             f"- {r.get('title', 'No title')}: {r.get('content', '')[:200]}"
                             for r in results['results'][:3]
                         ])
+                        logger.debug(f"🔍 WEB_SEARCH_FORMATTED_RESULTS:\n{formatted}")
                         return formatted
                     else:
+                        logger.info(f"🔍 WEB_SEARCH_NO_RESULTS: empty result set")
                         return "No results found."
                 except Exception as e:
-                    logger.error(f"Web search error: {str(e)}")
+                    logger.error(f"🔍 WEB_SEARCH_ERROR: {str(e)}")
                     return f"Error during search: {str(e)}"
             
-            # Create chat model with tools bound
+            
+            # Create chat model
             chat_model = ChatBedrock(model_id=self.ai.model_id)
             tools = [web_search]
             
-            # Get ReAct prompt from hub
-            prompt = hub.pull("hwchase17/react")
-            
-            # Create agent
-            agent = create_react_agent(chat_model, tools, prompt)
-            
-            # Create executor with token tracking
-            agent_executor = AgentExecutor(
-                agent=agent,
+            # Create modern agent with tool calling support
+            # This is the recommended approach per LangChain docs
+            agent = create_agent(
+                model=chat_model,
                 tools=tools,
-                verbose=settings.DEBUG,
-                max_iterations=10,
-                callbacks=[token_tracker]
+                system_prompt=self.get_system_message(),
+                debug=settings.DEBUG
             )
             
             # Extract text input from message_list for agent
             agent_input = self._extract_agent_input(message_list)
             
             logger.info(f"Invoking agent with input: {agent_input[:100]}...")
-            response = agent_executor.invoke({"input": agent_input})
+            logger.info(f"🤖 AGENT_INVOKE_START: web_search tool available")
             
-            response_text = response['output']
+            # Invoke agent - the CompiledStateGraph handles tool loop internally
+            response = agent.invoke({"messages": [HumanMessage(content=agent_input)]})
+            
+            logger.info(f"🤖 AGENT_INVOKE_COMPLETE: got response")
+            
+            # Extract response text from the agent result
+            # The response is a dict with 'messages' key containing final messages
+            response_text = ""
+            usage_metadata = {"input_tokens": 0, "output_tokens": 0}
+            
+            if isinstance(response, dict) and "messages" in response:
+                for msg in reversed(response["messages"]):
+                    if isinstance(msg, AIMessage):
+                        response_text = msg.content
+                        # Extract token usage from the message metadata
+                        if hasattr(msg, 'usage_metadata') and msg.usage_metadata:
+                            usage_metadata = msg.usage_metadata
+                        break
+            elif isinstance(response, dict) and "output" in response:
+                response_text = response["output"]
+            else:
+                response_text = str(response)
+            
             message_order = self.messages.count()
             
-            input_tokens = token_tracker.input_tokens
-            output_tokens = token_tracker.output_tokens
+            input_tokens = usage_metadata.get('input_tokens', 0)
+            output_tokens = usage_metadata.get('output_tokens', 0)
             
             self.messages.create(
                 text=response_text, 
