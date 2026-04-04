@@ -142,8 +142,9 @@ def run_integration_test():
     print("\n6. Testing POST /api/chats/new with web search enabled bot")
     try:
         import urllib.parse
+        # Use a query that requires current/recent information
         form_data = urllib.parse.urlencode({
-            'message': 'What is the capital of France?',
+            'message': 'What happened in the news today?',
             'bot': str(bot_with_search.bot_id)
         })
         
@@ -168,12 +169,12 @@ def run_integration_test():
     except Exception as e:
         print(f"   ✗ ERROR: {e}")
     
-    # Test 4: Create chat without web search
+    # Test 4: Create chat without web search - same question should not get real-time info
     print("\n7. Testing POST /api/chats/new with web search disabled bot")
     try:
         import urllib.parse
         form_data = urllib.parse.urlencode({
-            'message': 'Hello!',
+            'message': 'What happened in the news today?',
             'bot': str(bot_without_search.bot_id)
         })
         
