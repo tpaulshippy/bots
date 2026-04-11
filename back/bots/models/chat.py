@@ -122,14 +122,12 @@ class Chat(models.Model):
             # Bind tools to the model for proper tool calling
             model_with_tools = chat_model.bind_tools(tools)
             
-            # Extract text input from message_list for agent
-            agent_input = self._extract_agent_input(message_list)
-            
-            logger.info(f"Invoking agent with input: {agent_input[:100]}...")
+            # Use the full message_list which already contains conversation history
+            logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
             logger.info("🤖 AGENT_INVOKE_START: web_search tool available")
             
-            # Build and run the agent loop manually
-            messages = [SystemMessage(content=self.get_system_message()), HumanMessage(content=agent_input)]
+            # Build and run the agent loop manually with full conversation context
+            messages = message_list
             
             # Agentagent loop - keep invoking until no more tool calls
             max_iterations = 5
