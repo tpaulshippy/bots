@@ -1,4 +1,4 @@
-import { FlatList, StyleSheet, Switch } from "react-native";
+import { FlatList, StyleSheet, Switch, Platform } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
