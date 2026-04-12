@@ -37,7 +37,7 @@ class ProfileAdmin(admin.ModelAdmin):
         return ['created_at', 'modified_at', 'profile_id']
 
     def get_list_display(self, request):
-        return ['profile_id', 'created_at', 'modified_at'] + list(super().get_list_display(request))
+        return ['profile_id', 'name', 'user', 'oauth_email', 'created_at', 'modified_at'] + list(super().get_list_display(request))
 
 class BotAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):

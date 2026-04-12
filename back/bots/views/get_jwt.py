@@ -5,13 +5,24 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import render
 import environ
 
-# Initialize environ
+from bots.models import Profile
+
 env = environ.Env(
-    DEBUG=(bool, False)  # Set default values and casting types
+    DEBUG=(bool, False)
 )
 
-# Read from .env file
 environ.Env.read_env('.env')
+
+def get_delegated_tokens(user, teen_profile):
+    """Generate JWT tokens for the parent account (delegated login)."""
+    parent_user = teen_profile.user
+    refresh = RefreshToken.for_user(parent_user)
+    return {
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'active_profile_id': str(teen_profile.profile_id),
+        'is_teen_delegated': True
+    }
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -26,14 +37,17 @@ def get_jwt(request):
     
     user = request.user
 
-    refresh = RefreshToken.for_user(user)
-
-    response_data = {
-        'access': str(refresh.access_token),
-        'refresh': str(refresh),
-    }
+    try:
+        teen_profile = Profile.objects.get(oauth_email=user.email)
+        response_data = get_delegated_tokens(user, teen_profile)
+    except Profile.DoesNotExist:
+        refresh = RefreshToken.for_user(user)
+        response_data = {
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }
         
     if 'json' in request.query_params:
         return JsonResponse(response_data)
 
-    return render(request, 'jwt_template.html', {'app_deep_url': env('APP_DEEP_URL'), 'access': str(refresh.access_token), 'refresh': str(refresh)})
+    return render(request, 'jwt_template.html', {'app_deep_url': env('APP_DEEP_URL'), 'access': response_data['access'], 'refresh': response_data['refresh']})
