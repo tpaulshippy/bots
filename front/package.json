@@ -46,6 +46,8 @@
     "expo-system-ui": "~5.0.8",
     "expo-updates": "~0.28.14",
     "expo-web-browser": "~14.1.6",
+    "katex": "^0.16.45",
+    "marked": "^18.0.0",
     "promise": "^8.3.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
