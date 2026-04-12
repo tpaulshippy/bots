@@ -1,7 +1,6 @@
 import React from "react";
-import { StyleSheet, Pressable, Text, useColorScheme } from "react-native";
+import { StyleSheet, Pressable, useColorScheme } from "react-native";
 import { Image } from "expo-image";
-import { useThemeColor } from "@/hooks/useThemeColor";
 
 interface GoogleSignInButtonProps {
   onPress: () => void;

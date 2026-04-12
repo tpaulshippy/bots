@@ -1,6 +1,5 @@
 import * as Sentry from "@sentry/react-native";
-import { apiClient } from './apiClient';
-import { UnauthorizedError } from './apiClient';
+import { apiClient, UnauthorizedError } from './apiClient';
 
 export interface PaginatedResponse<T> {
     results: T[];

@@ -41,7 +41,7 @@ export default function SelectBot({ setBotSelected }: Props) {
 
     if (!setBotSelected) // When the component is used in the child app, require them to select a bot
       loadSelectedBot();
-  }, []);
+  }, [setBotSelected]);
 
   const handleBotPress = async (bot: Bot) => {
     if (process.env.EXPO_OS === "ios") {

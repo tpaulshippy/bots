@@ -1,16 +1,13 @@
 import { StyleSheet } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
-import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { updateAccount } from "@/api/account";
+import { getAccount, updateAccount } from "@/api/account";
 import { useLayoutEffect, useState, useCallback } from "react";
-import { ThemedButton } from "@/components/ThemedButton";
 import { useNavigation, useRouter } from "expo-router";
 import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { setCachedPin } from "@/api/pinStorage";
-import { getAccount } from "@/api/account";
 
 export default function SetPin() {
   const navigation = useNavigation();
@@ -55,7 +52,7 @@ export default function SetPin() {
         headerRight: () => null,
       });
     }
-  }, [navigation, savePin, pin]);
+  }, [iconColor, navigation, pin, savePin]);
 
   return (
     <ThemedView style={styles.container}>

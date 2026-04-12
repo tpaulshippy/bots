@@ -19,7 +19,7 @@ const DeleteAccountScreen = () => {
             await deleteAccount();
             await clearUser();
             router.replace('/login');
-        } catch (err) {
+        } catch {
             setError('Error deleting account.');
         } finally {
             setLoading(false);

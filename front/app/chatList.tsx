@@ -13,7 +13,6 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatDistance, format } from "date-fns";
 import { useCallback, useState } from "react";
-import { debounce } from "lodash";
 import * as Sentry from "@sentry/react-native";
 
 import { fetchChats, Chat } from "@/api/chats";
@@ -30,7 +29,7 @@ function getRelativeDate(inputDate: string): string {
     const today = format(new Date(), "yyyy-MM-dd");
     const dayInput = format(new Date(inputDate), "yyyy-MM-dd");
 
-    if (dayInput == today) {
+    if (dayInput === today) {
       return "Today";
     }
     const relativeDate = formatDistance(new Date(inputDate), new Date(), {
@@ -50,7 +49,7 @@ export default function ChatList() {
   const router = useRouter();
   const [chats, setChats] = useState<ChatsByDay>({});
   const [refreshing, setRefreshing] = useState(false);
-  const [page, setPage] = useState(1);
+  const [, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
   const groupByDay = (data: Chat[]): ChatsByDay => {
@@ -65,21 +64,22 @@ export default function ChatList() {
     }, {});
   };
 
-  const getProfileId = async () => {
+  const getProfileId = useCallback(async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");
     if (profileData) {
       const profile = JSON.parse(profileData);
       return profile.profile_id;
     }
     return null;
-  };
+  }, []);
 
-  const refresh = async (nextPage: number) => {
+  const refresh = useCallback(async (nextPage: number) => {
     setRefreshing(true);
     try {
       const profileId = await getProfileId();
       const data = await fetchChats(profileId, nextPage);
-      if (!data || data.results.length == 0) {
+      if (!data || data.results.length === 0) {
+        setRefreshing(false);
         return;
       }
       setChats((prevChats) => {
@@ -111,19 +111,19 @@ export default function ChatList() {
         router.replace("/login");
       }
     }
-  };
+  }, [getProfileId, router]);
+
+  const resetRefresh = useCallback(() => {
+    setPage(1);
+    setChats({});
+    void refresh(1);
+  }, [refresh]);
 
   useFocusEffect(
     useCallback(() => {
       resetRefresh();
-    }, [])
+    }, [resetRefresh])
   );
-
-  const resetRefresh = debounce(() => {
-    setPage(1);
-    setChats({});
-    refresh(1);
-  }, 300); // 300ms debounce time
 
   const handleChatPress = async (chat: Chat) => {
     if (process.env.EXPO_OS === "ios") {

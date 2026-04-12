@@ -1,10 +1,9 @@
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { PlatformPressable } from "@react-navigation/elements";
-import { StyleSheet, useColorScheme } from "react-native";
+import { StyleSheet } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { IconSymbol, IconSymbolName } from "./ui/IconSymbol";
-import { Colors } from "@/constants/Colors";
 
 export type MenuItemProps = {
   lightColor?: string;
@@ -25,7 +24,6 @@ export function MenuItem({
   hideChevron = false,
   ...otherProps
 }: MenuItemProps) {
-  const theme = useColorScheme() ?? "light";
   const backgroundColor = useThemeColor(
     { light: lightColor, dark: darkColor },
     "cardBackground"

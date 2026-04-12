@@ -14,9 +14,9 @@ export type PartialAccount = Partial<Account> & { pin: number };
 export const getAccount = async (): Promise<Account | null> => {
     try {
         const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const { data, ok, status } = await apiClient<Account>(`/user?timezone=${deviceTimeZone}`);
+        const { data, status } = await apiClient<Account>(`/user?timezone=${deviceTimeZone}`);
 
-        if (!ok) {
+        if (status !== 200) {
             throw new Error(`Failed to fetch account with status ${status}`);
         }
         return data;
@@ -53,7 +53,7 @@ export const updateAccount = async (account: PartialAccount): Promise<void> => {
 
 export const deleteAccount = async (): Promise<void> => {
     try {
-        const { ok, status } = await apiClient<void>('/user/delete', {
+        const { status } = await apiClient<void>('/user/delete', {
             method: 'DELETE',
         });
 

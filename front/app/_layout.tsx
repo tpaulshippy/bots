@@ -7,7 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
@@ -77,7 +77,7 @@ export default function RootLayout() {
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
-  const navigateToChat = (chatId: string, title: string) => {
+  const navigateToChat = useCallback((chatId: string, title: string) => {
     if (pathname === "/chat") {
       router.replace({
         pathname: "/chat",
@@ -89,7 +89,7 @@ export default function RootLayout() {
         params: { chatId, title },
       });
     }
-  };
+  }, [pathname, router]);
 
   useEffect(() => {
     if (ref?.current) {
@@ -99,7 +99,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     notificationListener.current =
-      Notifications.addNotificationReceivedListener(async (notification) => {});
+      Notifications.addNotificationReceivedListener(async () => {});
 
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener(
@@ -124,33 +124,12 @@ export default function RootLayout() {
       );
 
     return () => {
-      notificationListener.current &&
-        Notifications.removeNotificationSubscription(
-          notificationListener.current
-        );
-      responseListener.current &&
-        Notifications.removeNotificationSubscription(responseListener.current);
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
-  }, []);
+  }, [navigateToChat]);
 
-  const getJWTFromLink = async (event?: any) => {
-    const url = event?.url;
-    if (url) {
-      const { queryParams } = Linking.parse(url);
-
-      if (queryParams && queryParams.access && queryParams.refresh) {
-        const access = queryParams.access as string;
-        const refresh = queryParams.refresh as string;
-        await setTokens({ access, refresh });
-        WebBrowser.dismissBrowser();
-
-        router.replace("/");
-        await initialNavigationChecks();
-      }
-    }
-  };
-
-  const setProfile = async () => {
+  const setProfile = useCallback(async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");
     const profiles = await fetchProfiles();
     if (profileData) {
@@ -168,9 +147,9 @@ export default function RootLayout() {
         }
       }
     }
-  }
+  }, []);
 
-  const initialNavigationChecks = async () => {
+  const initialNavigationChecks = useCallback(async () => {
     try {
       await fetchBots();
       await setProfile();
@@ -180,19 +159,41 @@ export default function RootLayout() {
         router.replace("/login");
       }
     }
-  };
+  }, [router, setProfile]);
+
+  const getJWTFromLink = useCallback(async (event?: any) => {
+    const url = event?.url;
+    if (url) {
+      const { queryParams } = Linking.parse(url);
+
+      if (queryParams && queryParams.access && queryParams.refresh) {
+        const access = queryParams.access as string;
+        const refresh = queryParams.refresh as string;
+        await setTokens({ access, refresh });
+        WebBrowser.dismissBrowser();
+
+        router.replace("/");
+        await initialNavigationChecks();
+      }
+    }
+  }, [initialNavigationChecks, router]);
 
   useEffect(() => {
     if (loaded) {
+      const subscription = Linking.addEventListener("url", getJWTFromLink);
+
       const initialize = async () => {
         SplashScreen.hideAsync();
-        Linking.addEventListener("url", getJWTFromLink);
         await initialNavigationChecks();
       };
 
-      initialize();
+      void initialize();
+
+      return () => {
+        subscription.remove();
+      };
     }
-  }, [loaded]);
+  }, [getJWTFromLink, initialNavigationChecks, loaded]);
 
   if (!loaded) {
     return null;

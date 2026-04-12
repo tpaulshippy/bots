@@ -5,7 +5,7 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bot, fetchBot } from "@/api/bots";
 import AdvancedBotEditor from "./botAdvanced";
 import SimpleBotEditor from "./botSimple";
@@ -17,7 +17,7 @@ export default function BotEditor() {
   const [bot, setBot] = useState<Bot | null>(null);
   const local = useLocalSearchParams();
 
-  const loadSelectedBot = async () => {
+  const loadSelectedBot = useCallback(async () => {
     const botId = local.botId as string;
     if (botId) {
       const bot = await fetchBot(botId);
@@ -45,11 +45,11 @@ export default function BotEditor() {
       };
       setBot(newBot);
     }
-  };
+  }, [local.botId]);
 
   useEffect(() => {
-    loadSelectedBot();
-  }, []);
+    void loadSelectedBot();
+  }, [loadSelectedBot]);
 
   const switchToAdvanced = (bot: Bot) => {
     router.replace({

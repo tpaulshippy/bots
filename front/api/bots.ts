@@ -56,7 +56,7 @@ export const fetchBot = async (id: string): Promise<Bot | null> => {
 
 export const upsertBot = async (bot: Bot): Promise<Bot | null> => {
   try {
-    if (bot.id == -1) {
+    if (bot.id === -1) {
       const { data, ok, status } = await apiClient<Bot>("/bots.json", {
         method: "POST",
         body: JSON.stringify(bot),

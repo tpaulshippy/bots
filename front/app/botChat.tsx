@@ -1,10 +1,8 @@
-import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import React, { useEffect, useState, useMemo } from "react";
-import { Platform, KeyboardAvoidingView, FlatList, ActivityIndicator, Dimensions, Keyboard, FlexAlignType, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Platform, KeyboardAvoidingView, FlatList, ActivityIndicator, Dimensions, Keyboard, FlexAlignType } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Constants from 'expo-constants';
 import { ThemedButton } from "@/components/ThemedButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams } from "expo-router";
@@ -14,19 +12,17 @@ import { fetchChatMessages, sendChat, ChatMessage as ApiChatMessage } from "@/ap
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
 
-const ITEM_HEIGHT = 50;
-
 export default function Chat() {
   const local = useLocalSearchParams();
   const [chatId, setChatId] = useState<string>();
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<ApiChatMessage[]>([]);
-  const [page, setPage] = useState(1);
+  const [, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [image, setImage] = useState<string | null>(null);
 
-  const refresh = async (nextPage: number) => {
+  const refresh = useCallback(async (nextPage: number) => {
     const chatIdQueryString = local.chatId?.toString();
     if (chatIdQueryString) {
       setChatId(chatIdQueryString);
@@ -39,11 +35,11 @@ export default function Chat() {
         setLoadingMore(false);
       });
     }
-  };
+  }, [local.chatId]);
 
   useEffect(() => {
-    refresh(page);
-  }, []);
+    void refresh(1);
+  }, [refresh]);
 
   const getProfileId = async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");
@@ -173,11 +169,6 @@ export default function Chat() {
             data={[...messages].reverse()}
             keyExtractor={(item, index) => index.toString()}
             renderItem={({ item }) => <ChatMessage message={item} />}
-                getItemLayout={(data, index) => ({
-                  length: ITEM_HEIGHT,
-                  offset: ITEM_HEIGHT * index,
-                  index,
-                })}
                 onStartReached={handleLoadMore}
                 onStartReachedThreshold={0.5}
                 ListHeaderComponent={loadingMore ? <ActivityIndicator /> : null}

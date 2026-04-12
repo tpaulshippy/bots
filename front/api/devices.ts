@@ -64,7 +64,7 @@ export const fetchDeviceByToken = async (
 
 export const upsertDevice = async (device: Device): Promise<Device | null> => {
   try {
-    if (device.id == -1) {
+    if (device.id === -1) {
       const { data, ok, status } = await apiClient<Device>("/devices.json", {
         method: "POST",
         body: JSON.stringify(device),

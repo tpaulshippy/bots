@@ -49,7 +49,7 @@ export const fetchProfile = async (id: string): Promise<Profile | null> => {
 
 export const upsertProfile = async (profile: Profile): Promise<Profile | null> => {
     try {
-        if (profile.id == -1) {
+        if (profile.id === -1) {
             const { data, ok, status } = await apiClient<Profile>('/profiles.json', {
                 method: 'POST',
                 body: JSON.stringify(profile),

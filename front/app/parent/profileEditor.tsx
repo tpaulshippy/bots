@@ -5,7 +5,7 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { Profile, fetchProfile, upsertProfile } from "@/api/profiles";
 import alert from "@/components/Alert";
@@ -27,7 +27,7 @@ export default function ProfileEditor() {
   const iconColor = useThemeColor({}, "tint");
   const buttonIconColor = useThemeColor({}, "text");
 
-  const loadSelectedProfile = async () => {
+  const loadSelectedProfile = useCallback(async () => {
     const profileId = local.profileId as string;
     if (profileId) {
       const profile = await fetchProfile(profileId);
@@ -41,17 +41,17 @@ export default function ProfileEditor() {
       };
       setProfile(newProfile);
     }
-  };
+  }, [local.profileId]);
 
   useEffect(() => {
-    loadSelectedProfile();
-  }, []);
+    void loadSelectedProfile();
+  }, [loadSelectedProfile]);
 
-  const validateProfile = async () => {
+  const validateProfile = useCallback(async () => {
     setNameMissing(!profile?.name.trim());
-  };
+  }, [profile?.name]);
 
-  const saveProfile = async () => {
+  const saveProfile = useCallback(async () => {
     await validateProfile();
 
     if (profile) {
@@ -62,7 +62,7 @@ export default function ProfileEditor() {
         Sentry.captureException(error);
       }
     }
-  };
+  }, [profile, router, validateProfile]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -77,7 +77,7 @@ export default function ProfileEditor() {
         </PlatformPressable>
       ),
     });
-  }, [navigation, saveProfile]);
+  }, [iconColor, navigation, saveProfile]);
 
   const deleteProfile = async () => {
     alert("Delete Profile", "Are you sure you want to delete this profile?", [

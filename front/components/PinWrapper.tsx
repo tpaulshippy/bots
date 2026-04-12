@@ -1,13 +1,8 @@
-import React, { useState, PropsWithChildren, useEffect, useCallback } from "react";
-import { StyleSheet, Alert, View } from "react-native";
+import React, { useState, PropsWithChildren, useEffect } from "react";
+import { StyleSheet, View } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "./ThemedText";
-import { ThemedButton } from "@/components/ThemedButton";
-import { useThemeColor } from "@/hooks/useThemeColor";
-import { getCachedPin, clearCachedPin } from "@/api/pinStorage";
-import { clearUser } from "@/api/tokens";
-import { router } from "expo-router";
 
 type Props = PropsWithChildren<{
   correctPin: string;
