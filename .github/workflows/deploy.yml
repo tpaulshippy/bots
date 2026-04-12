@@ -19,7 +19,7 @@ jobs:
           echo "$SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
           ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key root@$SERVER_HOST << 'EOF'
-            cd /home/ubuntu/repos/bots
+            cd /home/bots/repo
             git pull
             cd back
             source ../venv/bin/activate
