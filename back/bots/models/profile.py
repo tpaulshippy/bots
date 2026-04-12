@@ -10,6 +10,7 @@ class Profile(models.Model):
     )
     profile_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255)
+    oauth_email = models.EmailField(max_length=254, null=True, blank=True)
 
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
