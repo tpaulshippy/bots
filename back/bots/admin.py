@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device, RevenueCatWebhookEvent, TeenEmailMapping
+from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device, RevenueCatWebhookEvent
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
@@ -37,7 +37,7 @@ class ProfileAdmin(admin.ModelAdmin):
         return ['created_at', 'modified_at', 'profile_id']
 
     def get_list_display(self, request):
-        return ['profile_id', 'created_at', 'modified_at'] + list(super().get_list_display(request))
+        return ['profile_id', 'name', 'user', 'oauth_email', 'created_at', 'modified_at'] + list(super().get_list_display(request))
 
 class BotAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
@@ -65,13 +65,6 @@ class UserAccountAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         return ['user_id', 'pin', 'subscription_level', 'timezone'] + list(super().get_list_display(request))
 
-class TeenEmailMappingAdmin(admin.ModelAdmin):
-    def get_readonly_fields(self, request, obj=None):
-        return ['created_at', 'modified_at']
-
-    def get_list_display(self, request):
-        return ['oauth_email', 'teen_profile', 'parent_account', 'created_at', 'modified_at']
-
 class UserAdmin(BaseUserAdmin):
     list_display = ['username', 'email', 'first_name', 'last_name', 'date_joined']
     ordering = ['-date_joined']
@@ -85,6 +78,5 @@ admin.site.register(UserAccount, UserAccountAdmin)
 admin.site.register(AiModel, AiModelAdmin)
 admin.site.register(UsageLimitHit, UsageLimitHitAdmin)
 admin.site.register(RevenueCatWebhookEvent, RevenueCatWebhookEventAdmin)
-admin.site.register(TeenEmailMapping, TeenEmailMappingAdmin)
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)

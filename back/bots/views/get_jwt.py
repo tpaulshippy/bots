@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import render
 import environ
 
-from bots.models import TeenEmailMapping
+from bots.models import Profile
 
 env = environ.Env(
     DEBUG=(bool, False)
@@ -38,11 +38,9 @@ def get_jwt(request):
     user = request.user
 
     try:
-        mapping = TeenEmailMapping.objects.select_related('teen_profile', 'parent_account').get(
-            oauth_email=user.email
-        )
-        response_data = get_delegated_tokens(user, mapping.teen_profile)
-    except TeenEmailMapping.DoesNotExist:
+        teen_profile = Profile.objects.get(oauth_email=user.email)
+        response_data = get_delegated_tokens(user, teen_profile)
+    except Profile.DoesNotExist:
         refresh = RefreshToken.for_user(user)
         response_data = {
             'access': str(refresh.access_token),
