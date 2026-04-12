@@ -15,7 +15,7 @@ function generateHtml(content: string, isDark: boolean): string {
   const linkColor = isDark ? '#6db3f2' : '#03465b';
 
   const processedContent = content
-    .replace(/\\\(([^)]+)\\\)/g, (_, latex) => {
+    .replace(/\\\(([\s\S]+?)\\\)/g, (_, latex) => {
       try {
         return katex.renderToString(latex, { throwOnError: false, displayMode: false });
       } catch {
