@@ -13,6 +13,7 @@ import boto3
 from .profile import Profile
 from .bot import Bot
 from .ai_model import AiModel
+from .flashcard import Deck, Flashcard
 
 logger = logging.getLogger(__name__)
 
@@ -114,17 +115,82 @@ class Chat(models.Model):
                     logger.error(f"🔍 WEB_SEARCH_ERROR: {str(e)}")
                     return f"Error during search: {str(e)}"
             
+            # Create flashcard tools outside the web_search if-block for reuse
+            @tool
+            def create_flashcard_deck(name: str, description: str = "", flashcards: list = None) -> str:
+                """Create a new flashcard deck with flashcards. Use this when the user wants to create flashcards for studying.
+                
+                Args:
+                    name: The name of the deck (e.g., "Biology Test Terms")
+                    description: Optional description of the deck
+                    flashcards: Optional list of flashcards, each with 'front' and 'back' keys
+                """
+                logger.info(f"🃏 CREATE_FLASHCARD_DECK_TOOL_INVOKED: name='{name}'")
+                try:
+                    deck = Deck.objects.create(
+                        profile=self.profile,
+                        chat=self,
+                        name=name,
+                        description=description or ""
+                    )
+                    created_cards = 0
+                    if flashcards:
+                        for i, card in enumerate(flashcards):
+                            Flashcard.objects.create(
+                                deck=deck,
+                                front=card.get('front', ''),
+                                back=card.get('back', ''),
+                                order=i
+                            )
+                            created_cards += 1
+                    logger.info(f"🃏 CREATE_FLASHCARD_DECK_SUCCESS: deck_id={deck.deck_id}, cards={created_cards}")
+                    return f"Created deck '{name}' with {created_cards} flashcards. Deck ID: {deck.deck_id}"
+                except Exception as e:
+                    logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {str(e)}")
+                    return f"Error creating deck: {str(e)}"
+            
+            @tool
+            def create_flashcard(deck_name: str, front: str, back: str) -> str:
+                """Add a single flashcard to an existing deck or create a new deck. Use this when the user wants to add flashcards to study.
+                
+                Args:
+                    deck_name: The name of the deck to add the card to
+                    front: The front of the flashcard (question/term)
+                    back: The back of the flashcard (answer/definition)
+                """
+                logger.info(f"🃏 CREATE_FLASHCARD_TOOL_INVOKED: deck_name='{deck_name}'")
+                try:
+                    deck = Deck.objects.filter(profile=self.profile, name=deck_name).first()
+                    if not deck:
+                        deck = Deck.objects.create(
+                            profile=self.profile,
+                            chat=self,
+                            name=deck_name,
+                            description=""
+                        )
+                    max_order = Flashcard.objects.filter(deck=deck).aggregate(models.Max('order'))['order__max'] or -1
+                    Flashcard.objects.create(
+                        deck=deck,
+                        front=front,
+                        back=back,
+                        order=max_order + 1
+                    )
+                    logger.info(f"🃏 CREATE_FLASHCARD_SUCCESS: deck={deck.name}")
+                    return f"Added flashcard to deck '{deck_name}'. Deck ID: {deck.deck_id}"
+                except Exception as e:
+                    logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {str(e)}")
+                    return f"Error creating flashcard: {str(e)}"
             
             # Create chat model with tool binding
             chat_model = ChatBedrock(model_id=self.ai.model_id)
-            tools = [web_search]
+            tools = [web_search, create_flashcard_deck, create_flashcard]
             
             # Bind tools to the model for proper tool calling
             model_with_tools = chat_model.bind_tools(tools)
             
             # Use the full message_list which already contains conversation history
             logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
-            logger.info("🤖 AGENT_INVOKE_START: web_search tool available")
+            logger.info("🤖 AGENT_INVOKE_START: web_search and flashcard tools available")
             
             # Build and run the agent loop manually with full conversation context
             messages = message_list
@@ -155,6 +221,10 @@ class Chat(models.Model):
                     # Execute the tool
                     if tool_name == "web_search":
                         tool_result = web_search.invoke(tool_args)
+                    elif tool_name == "create_flashcard_deck":
+                        tool_result = create_flashcard_deck.invoke(tool_args)
+                    elif tool_name == "create_flashcard":
+                        tool_result = create_flashcard.invoke(tool_args)
                     else:
                         tool_result = f"Unknown tool: {tool_name}"
                     

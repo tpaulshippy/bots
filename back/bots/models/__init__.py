@@ -6,6 +6,7 @@ from .user_account import UserAccount, RevenueCatWebhookEvent
 from .usage_limit_hit import UsageLimitHit
 from .ai_model import AiModel
 from .device import Device
+from .flashcard import Deck, Flashcard
 
 __all__ = [
     'Chat',
@@ -16,5 +17,7 @@ __all__ = [
     'UsageLimitHit',
     'AiModel',
     'Device',
-    'RevenueCatWebhookEvent'
+    'RevenueCatWebhookEvent',
+    'Deck',
+    'Flashcard',
 ]

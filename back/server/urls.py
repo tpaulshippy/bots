@@ -24,6 +24,7 @@ from bots.viewsets.profile_viewset import ProfileViewSet
 from bots.viewsets.bot_viewset import BotViewSet
 from bots.viewsets.ai_model_viewset import AiModelViewSet
 from bots.viewsets.device_viewset import DeviceViewSet
+from bots.viewsets.flashcard_viewset import DeckViewSet, FlashcardViewSet
 from bots.views.get_chat_response import get_chat_response
 from bots.views.get_jwt import get_jwt, start_web_login
 from bots.views.user_account_view import DeleteUserAccountView, user_account_view
@@ -42,9 +43,13 @@ router.register(r'profiles', ProfileViewSet)
 router.register(r'bots', BotViewSet)
 router.register(r'ai_models', AiModelViewSet)
 router.register(r'devices', DeviceViewSet)
+router.register(r'decks', DeckViewSet)
 
 chats_router = NestedDefaultRouter(router, r'chats', lookup='chat')
 chats_router.register(r'messages', MessageViewSet, basename='chat-messages')
+
+decks_router = NestedDefaultRouter(router, r'decks', lookup='deck')
+decks_router.register(r'flashcards', FlashcardViewSet, basename='deck-flashcards')
 
 
 favicon_view = RedirectView.as_view(url='/static/favicon.ico', permanent=True)

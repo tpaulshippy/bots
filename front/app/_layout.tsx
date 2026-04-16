@@ -226,6 +226,29 @@ export default function RootLayout() {
                   </View>
                 );
               },
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => {
+                    const currentPath = pathname;
+                    if (currentPath === "/" || currentPath.startsWith("/(tabs)")) {
+                      router.push("/flashcards");
+                    } else if (currentPath === "/flashcards" || currentPath.startsWith("/flashcards")) {
+                      router.replace("/");
+                    } else if (pathname?.includes("/flashcards")) {
+                      router.replace("/");
+                    } else {
+                      router.push("/flashcards");
+                    }
+                  }}
+                >
+                  <IconSymbol
+                    name="list.bullet"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
               headerRight: () => (
                 <PlatformPressable
                   onPress={() => {
@@ -246,6 +269,37 @@ export default function RootLayout() {
             name="chat"
             options={{
               headerShown: true,
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="flashcards"
+            options={{
+              headerShown: true,
+              title: "Flashcards",
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="flashcards/deck"
+            options={{
+              headerShown: true,
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="flashcards/cardEdit"
+            options={{
+              headerShown: true,
+              title: "Edit Card",
+              headerTintColor: textColor,
+            }}
+          />
+          <Stack.Screen
+            name="flashcards/study"
+            options={{
+              headerShown: true,
+              title: "Study",
               headerTintColor: textColor,
             }}
           />
