@@ -30,11 +30,11 @@ Add a flashcard system to the app where:
 
 ## Backend Implementation (Django)
 
-### 1. Create FlashcardSet Model
+### 1. Create Deck Model
 **File:** `back/bots/models/flashcard.py`
 
 ```python
-class FlashcardSet(models.Model):
+class Deck(models.Model):
     flashcard_set_id = models.UUIDField(default=uuid.uuid4, unique=True)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='flashcard_sets')
     chat = models.ForeignKey(Chat, on_delete=models.SET_NULL, null=True, blank=True, related_name='flashcard_sets')
@@ -46,7 +46,7 @@ class FlashcardSet(models.Model):
 
 class Flashcard(models.Model):
     flashcard_id = models.UUIDField(default=uuid.uuid4, unique=True)
-    flashcard_set = models.ForeignKey(FlashcardSet, on_delete=models.CASCADE, related_name='flashcards')
+    flashcard_set = models.ForeignKey(Deck, on_delete=models.CASCADE, related_name='flashcards')
     front = models.TextField()
     back = models.TextField()
     order = models.IntegerField(default=0)
@@ -66,20 +66,20 @@ class FlashcardSerializer(serializers.HyperlinkedModelSerializer):
         fields = ['id', 'flashcard_id', 'flashcard_set', 'front', 'back', 'order', 'created_at', 'updated_at']
 
 
-class FlashcardSetSerializer(serializers.HyperlinkedModelSerializer):
+class DeckSerializer(serializers.HyperlinkedModelSerializer):
     flashcards = FlashcardSerializer(many=True, read_only=True)
     card_count = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = FlashcardSet
+        model = Deck
         fields = ['id', 'flashcard_set_id', 'profile', 'chat', 'name', 'description', 'flashcards', 'card_count', 'created_at', 'updated_at']
 
 
-class FlashcardSetListSerializer(serializers.HyperlinkedModelSerializer):
+class DeckListSerializer(serializers.HyperlinkedModelSerializer):
     card_count = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = FlashcardSet
+        model = Deck
         fields = ['id', 'flashcard_set_id', 'name', 'description', 'card_count', 'created_at', 'updated_at']
 ```
 
@@ -88,7 +88,7 @@ Add to `back/bots/serializers/__init__.py`
 ### 3. Create Flashcard Viewsets
 **File:** `back/bots/viewsets/flashcard_viewset.py`
 
-#### FlashcardSetViewSet
+#### DeckViewSet
 - `GET /flashcard_sets.json` - List all sets for profile
 - `POST /flashcard_sets.json` - Create new set
 - `GET /flashcard_sets/{id}.json` - Retrieve set with all flashcards
@@ -114,7 +114,7 @@ Add router registration for FlashcardViewSet.
 ### 5. Bot Tool Call Handler
 **File:** `back/bots/views/get_chat_response.py`
 
-When bot returns a tool call with action "create_flashcard" or "create_flashcard_set", parse and create FlashcardSet/Flashcard entries.
+When bot returns a tool call with action "create_flashcard" or "create_flashcard_set", parse and create Deck/Flashcard entries.
 
 Tool call format from bot:
 ```json
@@ -162,7 +162,7 @@ export interface Flashcard {
   updated_at: string;
 }
 
-export interface FlashcardSet {
+export interface Deck {
   id: number;
   flashcard_set_id: string;
   profile: string;
@@ -175,7 +175,7 @@ export interface FlashcardSet {
   updated_at: string;
 }
 
-export interface FlashcardSetListItem {
+export interface DeckListItem {
   id: number;
   flashcard_set_id: string;
   name: string;
@@ -185,12 +185,12 @@ export interface FlashcardSetListItem {
   updated_at: string;
 }
 
-// FlashcardSet endpoints
-export const fetchFlashcardSets = async (profileId: string): Promise<FlashcardSetListItem[]>
-export const fetchFlashcardSet = async (id: number): Promise<FlashcardSet>
-export const createFlashcardSet = async (name: string, description: string, profileId: string, chatId?: string): Promise<FlashcardSet>
-export const updateFlashcardSet = async (id: number, name: string, description: string): Promise<FlashcardSet>
-export const deleteFlashcardSet = async (id: number): Promise<void>
+// Deck endpoints
+export const fetchDecks = async (profileId: string): Promise<DeckListItem[]>
+export const fetchDeck = async (id: number): Promise<Deck>
+export const createDeck = async (name: string, description: string, profileId: string, chatId?: string): Promise<Deck>
+export const updateDeck = async (id: number, name: string, description: string): Promise<Deck>
+export const deleteDeck = async (id: number): Promise<void>
 
 // Flashcard endpoints
 export const fetchFlashcards = async (setId: number): Promise<Flashcard[]>
@@ -320,12 +320,12 @@ export const deleteFlashcard = async (id: number): Promise<void>
 ## File Summary
 
 ### New Backend Files
-- `back/bots/models/flashcard.py` - FlashcardSet and Flashcard models
+- `back/bots/models/flashcard.py` - Deck and Flashcard models
 - `back/bots/serializers/flashcard_serializer.py` - Serializers for both models
 - `back/bots/viewsets/flashcard_viewset.py` - ViewSets for both models
 
 ### Modified Backend Files
-- `back/bots/models/__init__.py` - Export FlashcardSet, Flashcard
+- `back/bots/models/__init__.py` - Export Deck, Flashcard
 - `back/bots/serializers/__init__.py` - Export serializers
 - `back/server/urls.py` - Add flashcard routes
 - `back/bots/views/get_chat_response.py` - Handle flashcard tool calls
