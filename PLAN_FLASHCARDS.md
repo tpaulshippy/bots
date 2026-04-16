@@ -86,7 +86,7 @@ class DeckListSerializer(serializers.HyperlinkedModelSerializer):
 Add to `back/bots/serializers/__init__.py`
 
 ### 3. Create Flashcard Viewdecks
-**File:** `back/bots/viewsets/flashcard_viewdeck.py`
+**File:** `back/bots/viewsets/flashcard_viewset.py`
 
 #### DeckViewSet
 - `GET /decks.json` - List all decks for profile
@@ -322,7 +322,7 @@ export const deleteFlashcard = async (id: number): Promise<void>
 ### New Backend Files
 - `back/bots/models/flashcard.py` - Deck and Flashcard models
 - `back/bots/serializers/flashcard_serializer.py` - Serializers for both models
-- `back/bots/viewsets/flashcard_viewdeck.py` - ViewSets for both models
+- `back/bots/viewsets/flashcard_viewset.py` - ViewSets for both models
 
 ### Modified Backend Files
 - `back/bots/models/__init__.py` - Export Deck, Flashcard
