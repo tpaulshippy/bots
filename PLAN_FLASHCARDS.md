@@ -35,7 +35,7 @@ Add a flashcard system to the app where:
 
 ```python
 class Deck(models.Model):
-    flashcard_set_id = models.UUIDField(default=uuid.uuid4, unique=True)
+    deck_id = models.UUIDField(default=uuid.uuid4, unique=True)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='flashcard_sets')
     chat = models.ForeignKey(Chat, on_delete=models.SET_NULL, null=True, blank=True, related_name='flashcard_sets')
     name = models.CharField(max_length=255)
@@ -72,7 +72,7 @@ class DeckSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Deck
-        fields = ['id', 'flashcard_set_id', 'profile', 'chat', 'name', 'description', 'flashcards', 'card_count', 'created_at', 'updated_at']
+        fields = ['id', 'deck_id', 'profile', 'chat', 'name', 'description', 'flashcards', 'card_count', 'created_at', 'updated_at']
 
 
 class DeckListSerializer(serializers.HyperlinkedModelSerializer):
@@ -80,7 +80,7 @@ class DeckListSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Deck
-        fields = ['id', 'flashcard_set_id', 'name', 'description', 'card_count', 'created_at', 'updated_at']
+        fields = ['id', 'deck_id', 'name', 'description', 'card_count', 'created_at', 'updated_at']
 ```
 
 Add to `back/bots/serializers/__init__.py`
@@ -164,7 +164,7 @@ export interface Flashcard {
 
 export interface Deck {
   id: number;
-  flashcard_set_id: string;
+  deck_id: string;
   profile: string;
   chat: string | null;
   name: string;
@@ -177,7 +177,7 @@ export interface Deck {
 
 export interface DeckListItem {
   id: number;
-  flashcard_set_id: string;
+  deck_id: string;
   name: string;
   description: string;
   card_count: number;
