@@ -36,8 +36,8 @@ Add a flashcard system to the app where:
 ```python
 class Deck(models.Model):
     deck_id = models.UUIDField(default=uuid.uuid4, unique=True)
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='flashcard_sets')
-    chat = models.ForeignKey(Chat, on_delete=models.SET_NULL, null=True, blank=True, related_name='flashcard_sets')
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='decks')
+    chat = models.ForeignKey(Chat, on_delete=models.SET_NULL, null=True, blank=True, related_name='decks')
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -46,7 +46,7 @@ class Deck(models.Model):
 
 class Flashcard(models.Model):
     flashcard_id = models.UUIDField(default=uuid.uuid4, unique=True)
-    flashcard_set = models.ForeignKey(Deck, on_delete=models.CASCADE, related_name='flashcards')
+    deck = models.ForeignKey(Deck, on_delete=models.CASCADE, related_name='flashcards')
     front = models.TextField()
     back = models.TextField()
     order = models.IntegerField(default=0)
@@ -89,18 +89,18 @@ Add to `back/bots/serializers/__init__.py`
 **File:** `back/bots/viewsets/flashcard_viewset.py`
 
 #### DeckViewSet
-- `GET /flashcard_sets.json` - List all sets for profile
-- `POST /flashcard_sets.json` - Create new set
-- `GET /flashcard_sets/{id}.json` - Retrieve set with all flashcards
-- `PUT /flashcard_sets/{id}.json` - Update set
-- `DELETE /flashcard_sets/{id}.json` - Delete set (cascades to flashcards)
+- `GET /decks.json` - List all sets for profile
+- `POST /decks.json` - Create new set
+- `GET /decks/{id}.json` - Retrieve set with all flashcards
+- `PUT /decks/{id}.json` - Update set
+- `DELETE /decks/{id}.json` - Delete set (cascades to flashcards)
 
 #### FlashcardViewSet
-- `GET /flashcard_sets/{set_pk}/flashcards.json` - List cards in a set
-- `POST /flashcard_sets/{set_pk}/flashcards.json` - Add card to set
-- `GET /flashcard_sets/{set_pk}/flashcards/{id}.json` - Retrieve card
-- `PUT /flashcard_sets/{set_pk}/flashcards/{id}.json` - Update card
-- `DELETE /flashcard_sets/{set_pk}/flashcards/{id}.json` - Delete card
+- `GET /decks/{set_pk}/flashcards.json` - List cards in a set
+- `POST /decks/{set_pk}/flashcards.json` - Add card to set
+- `GET /decks/{set_pk}/flashcards/{id}.json` - Retrieve card
+- `PUT /decks/{set_pk}/flashcards/{id}.json` - Update card
+- `DELETE /decks/{set_pk}/flashcards/{id}.json` - Delete card
 
 Filter sets by profile from query params. Permission: IsOwner.
 
