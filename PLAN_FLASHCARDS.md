@@ -85,7 +85,7 @@ class DeckListSerializer(serializers.HyperlinkedModelSerializer):
 
 Add to `back/bots/serializers/__init__.py`
 
-### 3. Create Flashcard Viewdecks
+### 3. Create Flashcard Viewsets
 **File:** `back/bots/viewsets/flashcard_viewset.py`
 
 #### DeckViewSet
@@ -345,7 +345,7 @@ export const deleteFlashcard = async (id: number): Promise<void>
 
 ## Implementation Order
 
-1. Backend: Create models, serializers, viewdeck, routes
+1. Backend: Create models, serializers, viewset, routes
 2. Backend: Add tool call handler in chat response view
 3. Frontend: Create API module
 4. Frontend: Update navigation/layout with hamburger menu
