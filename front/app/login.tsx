@@ -1,16 +1,14 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Platform, Button, View, Text, Pressable, Alert, ActivityIndicator } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, Platform, Button, View, Text, Alert, ActivityIndicator } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
-import * as Linking from "expo-linking";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { setTokens, getTokens, TokenData, clearUser } from "@/api/tokens";
+import { setTokens, TokenData } from "@/api/tokens";
 import { useRouter } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { AppleSignInButton } from "@/components/AppleSignInButton";
-import { ThemedButton } from "@/components/ThemedButton";
 import * as WebBrowser from 'expo-web-browser';
-import { setCachedPin, getCachedPin, clearCachedPin } from "@/api/pinStorage";
+import { setCachedPin, getCachedPin } from "@/api/pinStorage";
 import { getAccount } from "@/api/account";
 import { UnauthorizedError } from "@/api/apiClient";
 import PinWrapper from "@/components/PinWrapper";
@@ -46,11 +44,6 @@ const LoginScreen = () => {
   }, []);
 
   const handlePinVerified = () => {
-    setCachedPinState(null);
-  };
-
-  const handleClearPin = async () => {
-    await clearCachedPin();
     setCachedPinState(null);
   };
 

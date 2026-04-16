@@ -7,8 +7,9 @@
     "icon": "./assets/images/syft.png",
     "scheme": "botsforkids",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "sdkVersion": "53.0.0",
+    "androidStatusBar": {
+      "backgroundColor": "#000000"
+    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -53,7 +54,11 @@
           "photosPermission": "The app accesses your photos to let you send them to your bots.",
           "cameraPermission": "The app accesses your camera to let you send photos to your bots."
         }
-      ]
+      ],
+      "@sentry/react-native",
+      "expo-font",
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

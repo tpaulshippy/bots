@@ -23,8 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd front
-          npm ci
-          npm install
+          npm ci --legacy-peer-deps
 
       - name: Run lint
         run: |

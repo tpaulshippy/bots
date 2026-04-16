@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { ThemedButton } from "@/components/ThemedButton";
 import { useRouter } from "expo-router";
 import * as Progress from "react-native-progress";
 import * as Haptics from "expo-haptics";

@@ -1,4 +1,4 @@
-import { FlatList, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { PlatformPressable } from "@react-navigation/elements";
@@ -10,7 +10,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import {
   useFocusEffect,
-  useLocalSearchParams,
   useNavigation,
   useRouter,
 } from "expo-router";
@@ -20,7 +19,6 @@ import * as Sentry from "@sentry/react-native";
 export default function ProfilesList() {
   const navigation = useNavigation();
   const router = useRouter();
-  const local = useLocalSearchParams();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const tintColor = useThemeColor({}, "tint");
@@ -59,7 +57,7 @@ export default function ProfilesList() {
     }, [])
   );
 
-  const newProfile = async () => {
+  const newProfile = useCallback(async () => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -68,7 +66,7 @@ export default function ProfilesList() {
       pathname: "/parent/profileEditor",
       params: { title: "New Profile", profileId: "" },
     });
-  };
+  }, [router]);
 
   const editProfile = async (profile: Profile) => {
     router.push({
@@ -90,7 +88,7 @@ export default function ProfilesList() {
         </PlatformPressable>
       ),
     });
-  }, [navigation, profiles, newProfile]);
+  }, [navigation, newProfile, tintColor]);
 
   const handleProfilePress = async (profile: Profile) => {
     if (process.env.EXPO_OS === "ios") {
@@ -130,7 +128,7 @@ export default function ProfilesList() {
             selectedProfile?.profile_id === item.profile_id ?
               { backgroundColor: bgColorSelected } : { backgroundColor: bgColor },
           ]}
-          onPress={(ev) => handleProfilePress(item)}
+          onPress={() => handleProfilePress(item)}
           onLongPress={() => editProfile(item)}
         >
           <IconSymbol

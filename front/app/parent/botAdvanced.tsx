@@ -6,7 +6,7 @@ import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { Picker } from "@react-native-picker/picker";
 import { ThemedButton } from "@/components/ThemedButton";
 
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Bot, upsertBot } from "@/api/bots";
 import { useNavigation, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -45,12 +45,12 @@ export default function AdvancedBotEditor({
     fetchModels();
   }, []);
 
-  const validateBot = async () => {
+  const validateBot = useCallback(async () => {
     setNameMissing(!bot?.name.trim());
     setModelMissing(!bot?.ai_model);
-  };
+  }, [bot?.ai_model, bot?.name]);
 
-  const saveBot = async () => {
+  const saveBot = useCallback(async () => {
     await validateBot();
 
     if (bot) {
@@ -61,7 +61,7 @@ export default function AdvancedBotEditor({
         Sentry.captureException(error);
       }
     }
-  };
+  }, [bot, router, validateBot]);
 
   const deleteBot = async () => {
     alert("Delete Bot", "Are you sure you want to delete this bot?", [
@@ -96,7 +96,7 @@ export default function AdvancedBotEditor({
         </PlatformPressable>
       ),
     });
-  }, [navigation, saveBot]);
+  }, [iconColor, navigation, saveBot]);
 
   const handleModelPress = () => {
     setPickerVisible(true);
@@ -123,7 +123,7 @@ export default function AdvancedBotEditor({
           <ThemedText
             style={[styles.input, modelMissing ? styles.missing : {}]}
           >
-            {aiModels.find(m => m.model_id == bot.ai_model)?.name || "Select a model"}
+            {aiModels.find((m) => m.model_id === bot.ai_model)?.name || "Select a model"}
           </ThemedText>
         </ThemedButton>
       </ThemedView>

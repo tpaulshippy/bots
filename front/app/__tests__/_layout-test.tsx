@@ -1,6 +1,13 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
+import RootLayout from '../_layout';
+import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
+import { fetchBots } from '@/api/bots';
+import { fetchChat } from '@/api/chats';
+import { UnauthorizedError } from '@/api/apiClient';
 import { useRouter, usePathname } from 'expo-router';
+import { View } from 'react-native';
 
 jest.mock('@sentry/react-native', () => ({
   reactNavigationIntegration: jest.fn(() => ({
@@ -12,13 +19,6 @@ jest.mock('@sentry/react-native', () => ({
 jest.mock('../_layout', () => ({
   default: function MockRootLayout() { return null; },
 }));
-import RootLayout from '../_layout';
-import * as SplashScreen from 'expo-splash-screen';
-import * as Notifications from 'expo-notifications';
-import { fetchBots } from '@/api/bots';
-import { fetchChat } from '@/api/chats';
-import { UnauthorizedError } from '@/api/apiClient';
-import { View } from 'react-native';
 
 // Create a mock Stack component
 interface MockStackProps {
@@ -177,6 +177,10 @@ describe('RootLayout', () => {
 
     unmount();
 
-    expect(Notifications.removeNotificationSubscription).toHaveBeenCalled();
+    const receivedSubscription = (Notifications.addNotificationReceivedListener as jest.Mock).mock.results[0]?.value;
+    const responseSubscription = (Notifications.addNotificationResponseReceivedListener as jest.Mock).mock.results[0]?.value;
+
+    expect(receivedSubscription.remove).toHaveBeenCalled();
+    expect(responseSubscription.remove).toHaveBeenCalled();
   });
 }); 

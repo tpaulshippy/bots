@@ -8,7 +8,7 @@ import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRouter } from "expo-router";
 import { MenuItem } from "@/components/MenuItem";
 
-export default function BotsList({}) {
+export default function BotsList() {
   const [bots, setBots] = useState<Bot[]>([]);
   const router = useRouter();
 

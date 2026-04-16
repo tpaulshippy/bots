@@ -8,10 +8,17 @@ module.exports = defineConfig([
     ignores: ["dist/*"],
     settings: {
       'import/resolver': {
-        alias: {
-          map: [['@', './']],
-          extensions: ['.js', '.jsx', '.ts', '.tsx']
+        typescript: {
+          project: './tsconfig.json'
         }
+      }
+    }
+  },
+  {
+    files: ['jest.setup.js'],
+    languageOptions: {
+      globals: {
+        jest: 'readonly'
       }
     }
   }

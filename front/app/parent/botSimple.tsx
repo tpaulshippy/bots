@@ -1,16 +1,13 @@
-import { FlatList, Platform, StyleSheet, Switch, View } from "react-native";
+import { FlatList, StyleSheet, Switch, Platform } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { Picker } from "@react-native-picker/picker";
-import { ThemedButton } from "@/components/ThemedButton";
 import { PlatformPressable } from "@react-navigation/elements";
-import alert from "@/components/Alert";
 import * as Sentry from "@sentry/react-native";
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Bot, upsertBot } from "@/api/bots";
-import { useNavigation, useRouter } from "expo-router";
+import { useNavigation } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
@@ -26,23 +23,18 @@ export default function SimpleBotEditor({
   onSwitchEditor,
 }: SimpleBotEditorProps) {
   const navigation = useNavigation();
-  const router = useRouter();
   const [bot, setBot] = useState<Bot>(botEditing);
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [nameMissing, setNameMissing] = useState(false);
-  const [templateMissing, setTemplateMissing] = useState(false);
-  const [isPickerVisible, setPickerVisible] = useState(false);
   const iconColor = useThemeColor({}, "tint");
-  const buttonIconColor = useThemeColor({}, "text");
   const bgColor = useThemeColor({}, "cardBackground");
   const bgColorSelected = useThemeColor({}, "tint");
 
-  const validateBot = async () => {
+  const validateBot = useCallback(async () => {
     setNameMissing(!bot?.name.trim());
-    setTemplateMissing(!bot?.name);
-  };
+  }, [bot?.name]);
 
-  const switchToAdvancedEditor = async () => {
+  const switchToAdvancedEditor = useCallback(async () => {
     await validateBot();
     if (bot) {
       bot.simple_editor = false;
@@ -55,7 +47,7 @@ export default function SimpleBotEditor({
         Sentry.captureException(error);
       }
     }
-  };
+  }, [bot, onSwitchEditor, validateBot]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -70,16 +62,23 @@ export default function SimpleBotEditor({
         </PlatformPressable>
       ),
     });
-  }, [navigation, switchToAdvancedEditor]);
+  }, [iconColor, navigation, switchToAdvancedEditor]);
 
   const setBotProperty = (property: Partial<Bot>) => {
     setBot({ ...bot, ...property });
   };
 
   useEffect(() => {
-    setBotProperty({
-      ...bot,
-      system_prompt: generateSystemPrompt(bot, inputs),
+    setBot((currentBot) => {
+      const systemPrompt = generateSystemPrompt(currentBot, inputs);
+      if (currentBot.system_prompt === systemPrompt) {
+        return currentBot;
+      }
+
+      return {
+        ...currentBot,
+        system_prompt: systemPrompt,
+      };
     });
   }, [
     bot.name,

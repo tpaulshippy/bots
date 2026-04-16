@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Pressable, Text, StyleSheet, Image, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, Image, useColorScheme } from 'react-native';
 
 type AppleSignInButtonProps = {
   onPress: () => void;

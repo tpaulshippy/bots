@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Text, View, Button, Platform, StyleSheet, Switch } from "react-native";
+import { Platform, StyleSheet, Switch } from "react-native";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
-import { useLocalSearchParams } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import {
   upsertDevice,
@@ -77,13 +76,14 @@ export async function registerForPushNotificationsAsync() {
 }
 
 export default function NotificationsScreen() {
-  const [notification, setNotification] = useState<
-    Notifications.Notification | undefined
-  >(undefined);
   const bgColor = useThemeColor({}, "cardBackground");
   const [enableNotifications, setEnableNotifications] = useState(false);
-  const [device, setDevice] = useState(null as DeviceData | null);
-  const local = useLocalSearchParams();
+  const deviceRef = useRef<DeviceData | null>(null);
+
+  const updateDeviceState = (nextDevice: DeviceData | null) => {
+    deviceRef.current = nextDevice;
+  };
+
   useEffect(() => {
     const handleNotifications = async () => {
       if (enableNotifications) {
@@ -98,7 +98,7 @@ export default function NotificationsScreen() {
             existingDevice.notify_on_new_message = true;
             await upsertDevice(existingDevice);
             setDeviceIdInStorage(existingDevice.device_id);
-            setDevice(existingDevice);
+            updateDeviceState(existingDevice);
           } else {
             // Create new device
             let newDevice: DeviceData = {
@@ -112,25 +112,25 @@ export default function NotificationsScreen() {
             const createdDevice = await upsertDevice(newDevice);
             if (createdDevice) {
               setDeviceIdInStorage(createdDevice.device_id);
-              setDevice(createdDevice);
+              updateDeviceState(createdDevice);
             }
           }
         }
-      } else if (device) {
-        device.notify_on_new_chat = false;
-        device.notify_on_new_message = false;
-        await upsertDevice(device);
+      } else if (deviceRef.current) {
+        const updatedDevice = {
+          ...deviceRef.current,
+          notify_on_new_chat: false,
+          notify_on_new_message: false,
+        };
+        await upsertDevice(updatedDevice);
+        updateDeviceState(updatedDevice);
       }
     };
 
-    handleNotifications();
+    void handleNotifications();
   }, [enableNotifications]);
 
   useEffect(() => {
-    if (local.notification) {
-      setNotification(JSON.parse(local.notification as string));
-    }
-
     const setupDevice = async () => {
       const deviceId = await getDeviceIdFromStorage();
       if (!deviceId) {
@@ -141,10 +141,10 @@ export default function NotificationsScreen() {
         if (currentDevice.notify_on_new_message) {
           setEnableNotifications(true);
         }
-        setDevice(currentDevice);
+        updateDeviceState(currentDevice);
       }
     };
-    setupDevice();
+    void setupDevice();
 
   }, []);
 

@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { FlexAlignType, Image, TouchableOpacity, Modal } from "react-native";
+import { ActivityIndicator, FlexAlignType, Image, Modal, TouchableOpacity } from "react-native";
 import { ChatMessage as ApiChatMessage } from "@/api/chats";
-import { ActivityIndicator } from "react-native";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 interface ChatMessageProps {
   message: ApiChatMessage;
@@ -46,16 +46,18 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
       )}
       {message.isLoading && <ActivityIndicator />}
       {message.text && (
-        <ThemedText
-          selectable={true}
-          style={
-            message.role === "user"
-              ? styles.userMessage
-              : styles.assistantMessage(assistantColor)
-        }
-      >
-        {message.text}
-      </ThemedText>
+        message.role === "user" ? (
+          <ThemedText
+            selectable={true}
+            style={styles.userMessage}
+          >
+            {message.text}
+          </ThemedText>
+        ) : (
+          <ThemedView style={styles.assistantMessage(assistantColor)}>
+            <MarkdownRenderer content={message.text} />
+          </ThemedView>
+        )
       )}
     </ThemedView>
   );
