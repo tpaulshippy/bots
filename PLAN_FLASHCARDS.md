@@ -3,9 +3,9 @@
 ## Overview
 Add a flashcard system to the app where:
 - Users can create, edit, and delete flashcard decks (e.g., "Biology Test Terms", "Memory Verses")
-- Each set contains multiple flashcards with front/back text
-- Bot can create flashcards via tool calls during chat (optionally adding to a set)
-- Study mode uses flip card interface per set
+- Each deck contains multiple flashcards with front/back text
+- Bot can create flashcards via tool calls during chat (optionally adding to a deck)
+- Study mode uses flip card interface per deck
 - Hamburger menu in header switches between Chat and Flashcards views
 
 ## Requirements
@@ -20,8 +20,8 @@ Add a flashcard system to the app where:
 
 ### Study Interface
 - Flip card animation to reveal answer
-- Navigate between cards in a set (prev/next)
-- Select which set to study
+- Navigate between cards in a deck (prev/next)
+- Select which deck to study
 
 ### Access
 - Hamburger menu at top-left to switch between Chat list and Flashcards
@@ -63,12 +63,12 @@ Add to `back/bots/models/__init__.py`
 class FlashcardSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Flashcard
-        fields = ['id', 'flashcard_id', 'flashcard_set', 'front', 'back', 'order', 'created_at', 'updated_at']
+        fields = ['id', 'flashcard_id', 'deck', 'front', 'back', 'order', 'created_at', 'updated_at']
 
 
 class DeckSerializer(serializers.HyperlinkedModelSerializer):
     flashcards = FlashcardSerializer(many=True, read_only=True)
-    card_count = serializers.IntegerField(read_only=True)
+    card_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Deck
@@ -76,7 +76,7 @@ class DeckSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class DeckListSerializer(serializers.HyperlinkedModelSerializer):
-    card_count = serializers.IntegerField(read_only=True)
+    card_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Deck
@@ -86,21 +86,21 @@ class DeckListSerializer(serializers.HyperlinkedModelSerializer):
 Add to `back/bots/serializers/__init__.py`
 
 ### 3. Create Flashcard Viewdecks
-**File:** `back/bots/viewdecks/flashcard_viewset.py`
+**File:** `back/bots/viewsets/flashcard_viewdeck.py`
 
 #### DeckViewSet
 - `GET /decks.json` - List all decks for profile
-- `POST /decks.json` - Create new set
-- `GET /decks/{id}.json` - Retrieve set with all flashcards
-- `PUT /decks/{id}.json` - Update set
-- `DELETE /decks/{id}.json` - Delete set (cascades to flashcards)
+- `POST /decks.json` - Create new deck
+- `GET /decks/{id}.json` - Retrieve deck with all flashcards
+- `PUT /decks/{id}.json` - Update deck
+- `DELETE /decks/{id}.json` - Delete deck (cascades to flashcards)
 
 #### FlashcardViewSet
-- `GET /decks/{set_pk}/flashcards.json` - List cards in a set
-- `POST /decks/{set_pk}/flashcards.json` - Add card to set
-- `GET /decks/{set_pk}/flashcards/{id}.json` - Retrieve card
-- `PUT /decks/{set_pk}/flashcards/{id}.json` - Update card
-- `DELETE /decks/{set_pk}/flashcards/{id}.json` - Delete card
+- `GET /decks/{deck_pk}/flashcards.json` - List cards in a deck
+- `POST /decks/{deck_pk}/flashcards.json` - Add card to deck
+- `GET /decks/{deck_pk}/flashcards/{id}.json` - Retrieve card
+- `PUT /decks/{deck_pk}/flashcards/{id}.json` - Update card
+- `DELETE /decks/{deck_pk}/flashcards/{id}.json` - Delete card
 
 Filter decks by profile from query params. Permission: IsOwner.
 
@@ -114,12 +114,12 @@ Add router registration for FlashcardViewSet.
 ### 5. Bot Tool Call Handler
 **File:** `back/bots/views/get_chat_response.py`
 
-When bot returns a tool call with action "create_flashcard" or "create_flashcard_set", parse and create Deck/Flashcard entries.
+When bot returns a tool call with action "create_flashcard" or "create_deck", parse and create Deck/Flashcard entries.
 
 Tool call format from bot:
 ```json
 {
-  "tool": "create_flashcard_set",
+  "tool": "create_flashcard_deck",
   "parameters": {
     "name": "Biology Test Terms",
     "description": "Key terms for Chapter 5",
@@ -136,7 +136,7 @@ Or single card:
 {
   "tool": "create_flashcard",
   "parameters": {
-    "set_name": "Memory Verses",
+    "deck_name": "Memory Verses",
     "front": "John 3:16",
     "back": "For God so loved the world..."
   }
@@ -154,7 +154,7 @@ Or single card:
 export interface Flashcard {
   id: number;
   flashcard_id: string;
-  flashcard_set: number;
+  deck: number;
   front: string;
   back: string;
   order: number;
@@ -193,8 +193,8 @@ export const updateDeck = async (id: number, name: string, description: string):
 export const deleteDeck = async (id: number): Promise<void>
 
 // Flashcard endpoints
-export const fetchFlashcards = async (setId: number): Promise<Flashcard[]>
-export const createFlashcard = async (setId: number, front: string, back: string): Promise<Flashcard>
+export const fetchFlashcards = async (deckId: number): Promise<Flashcard[]>
+export const createFlashcard = async (deckId: number, front: string, back: string): Promise<Flashcard>
 export const updateFlashcard = async (id: number, front: string, back: string): Promise<Flashcard>
 export const deleteFlashcard = async (id: number): Promise<void>
 ```
@@ -206,22 +206,22 @@ export const deleteFlashcard = async (id: number): Promise<void>
 - On press: toggle between "chats" and "flashcards" mode
 - Show different list based on mode
 
-### 3. Flashcard Set List Screen
+### 3. Deck List Screen
 **File:** `front/app/flashcards.tsx`
 
 - FlatList of all flashcard decks
-- Each item shows set name, card count, and truncated description
-- Tap set to view/edit cards or start studying
-- FAB to create new set
+- Each item shows deck name, card count, and truncated description
+- Tap deck to view/edit cards or start studying
+- FAB to create new deck
 
-### 4. Flashcard Set Detail/Edit Screen
-**File:** `front/app/flashcards/set.tsx`
+### 4. Deck Detail/Edit Screen
+**File:** `front/app/flashcards/deck.tsx`
 
-- Header shows set name (editable) and description
-- FlatList of all flashcards in set
+- Header shows deck name (editable) and description
+- FlatList of all flashcards in deck
 - Each card shows truncated front text
 - Tap card to edit
-- FAB to add new card to set
+- FAB to add new card to deck
 - "Study" button in header to start study mode
 
 ### 5. Flashcard Edit Modal/Screen
@@ -234,12 +234,12 @@ export const deleteFlashcard = async (id: number): Promise<void>
 ### 6. Flashcard Study Screen
 **File:** `front/app/flashcards/study.tsx`
 
-- Accepts setId parameter
+- Accepts deckId parameter
 - Display current card (front side)
 - Tap card to flip (animate)
 - Previous/Next buttons to navigate
 - Progress indicator (e.g., "3 / 10")
-- Exit button to return to set
+- Exit button to return to deck
 
 ### 6. Chat Integration
 **File:** `front/app/botChat.tsx`
@@ -252,10 +252,10 @@ export const deleteFlashcard = async (id: number): Promise<void>
 
 ## UI Specifications
 
-### Flashcard Sets List
+### Deck List
 ```
 ┌─────────────────────────────────────────┐
-│ ←  My Flashcard Sets                    │
+│ ←  My Decks                         │
 ├─────────────────────────────────────────┤
 │ ┌─────────────────────────────────────┐ │
 │ │ Biology Test Terms         12 cards │ │
@@ -266,11 +266,11 @@ export const deleteFlashcard = async (id: number): Promise<void>
 │ │ Sunday school verses                │ │
 │ └─────────────────────────────────────┘ │
 │                                         │
-│                           [+ Create Set]│
+│                           [+ Create Deck]│
 └─────────────────────────────────────────┘
 ```
 
-### Flashcard Set Detail
+### Deck Detail
 ```
 ┌─────────────────────────────────────────┐
 │ ← Back     Biology Test    [Study]      │
@@ -322,7 +322,7 @@ export const deleteFlashcard = async (id: number): Promise<void>
 ### New Backend Files
 - `back/bots/models/flashcard.py` - Deck and Flashcard models
 - `back/bots/serializers/flashcard_serializer.py` - Serializers for both models
-- `back/bots/viewdecks/flashcard_viewset.py` - ViewSets for both models
+- `back/bots/viewsets/flashcard_viewdeck.py` - ViewSets for both models
 
 ### Modified Backend Files
 - `back/bots/models/__init__.py` - Export Deck, Flashcard
@@ -333,7 +333,7 @@ export const deleteFlashcard = async (id: number): Promise<void>
 ### New Frontend Files
 - `front/api/flashcards.ts` - API module for decks and cards
 - `front/app/flashcards.tsx` - List of flashcard decks
-- `front/app/flashcards/set.tsx` - Set detail with card list
+- `front/app/flashcards/deck.tsx` - Deck detail with card list
 - `front/app/flashcards/cardEdit.tsx` - Create/edit card form
 - `front/app/flashcards/study.tsx` - Study mode with flip cards
 
@@ -345,12 +345,12 @@ export const deleteFlashcard = async (id: number): Promise<void>
 
 ## Implementation Order
 
-1. Backend: Create models, serializers, viewset, routes
+1. Backend: Create models, serializers, viewdeck, routes
 2. Backend: Add tool call handler in chat response view
 3. Frontend: Create API module
 4. Frontend: Update navigation/layout with hamburger menu
 5. Frontend: Create flashcard decks list screen
-6. Frontend: Create set detail screen with card list
+6. Frontend: Create deck detail screen with card list
 7. Frontend: Create card edit screen
 8. Frontend: Create study screen with flip animation
 9. Frontend: Integrate flashcard creation in chat
