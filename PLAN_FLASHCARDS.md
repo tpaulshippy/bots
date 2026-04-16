@@ -49,9 +49,17 @@ class Flashcard(models.Model):
     deck = models.ForeignKey(Deck, on_delete=models.CASCADE, related_name='flashcards')
     front = models.TextField()
     back = models.TextField()
-    order = models.IntegerField(default=0)
+    order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["deck", "order"], name="unique_flashcard_order_per_deck")
+        ]
+        indexes = [
+            models.Index(fields=["deck", "order"])
+        ]
 ```
 
 Add to `back/bots/models/__init__.py`
@@ -91,18 +99,20 @@ Add to `back/bots/serializers/__init__.py`
 #### DeckViewSet
 - `GET /decks.json` - List all decks for profile
 - `POST /decks.json` - Create new deck
-- `GET /decks/{id}.json` - Retrieve deck with all flashcards
-- `PUT /decks/{id}.json` - Update deck
-- `DELETE /decks/{id}.json` - Delete deck (cascades to flashcards)
+- `GET /decks/{deck_id}.json` - Retrieve deck with all flashcards
+- `PUT /decks/{deck_id}.json` - Update deck
+- `DELETE /decks/{deck_id}.json` - Delete deck (cascades to flashcards)
 
 #### FlashcardViewSet
-- `GET /decks/{deck_pk}/flashcards.json` - List cards in a deck
-- `POST /decks/{deck_pk}/flashcards.json` - Add card to deck
-- `GET /decks/{deck_pk}/flashcards/{id}.json` - Retrieve card
-- `PUT /decks/{deck_pk}/flashcards/{id}.json` - Update card
-- `DELETE /decks/{deck_pk}/flashcards/{id}.json` - Delete card
+- `GET /decks/{deck_id}/flashcards.json` - List cards in a deck
+- `POST /decks/{deck_id}/flashcards.json` - Add card to deck
+- `GET /decks/{deck_id}/flashcards/{flashcard_id}.json` - Retrieve card
+- `PUT /decks/{deck_id}/flashcards/{flashcard_id}.json` - Update card
+- `DELETE /decks/{deck_id}/flashcards/{flashcard_id}.json` - Delete card
 
 Filter decks by profile from query params. Permission: IsOwner.
+
+Scope decks to profiles the authenticated user is authorized to access. If a profile filter is provided, validate it belongs to the authenticated user before applying it. Permission: enforce object-level ownership checks server-side (not query-param trust).
 
 Annotate with card_count for list view.
 
@@ -112,34 +122,36 @@ Annotate with card_count for list view.
 Add router registration for FlashcardViewSet.
 
 ### 5. Bot Tool Call Handler
-**File:** `back/bots/views/get_chat_response.py`
+**File:** `back/bots/models/chat.py` (inside existing agent tool-call loop)
 
-When bot returns a tool call with action "create_flashcard" or "create_deck", parse and create Deck/Flashcard entries.
+Define tools with `@tool` and bind them alongside existing tools. Handle tool calls using LangChain `tool_call["name"]` and `tool_call["args"]`. When bot returns a tool call with name "create_flashcard" or "create_deck", parse and create Deck/Flashcard entries. Persist Deck/Flashcard in the tool implementation and return structured tool results.
 
-Tool call format from bot:
+Tool call format from bot (LangChain style):
 ```json
 {
-  "tool": "create_flashcard_deck",
-  "parameters": {
+  "name": "create_flashcard_deck",
+  "args": {
     "name": "Biology Test Terms",
     "description": "Key terms for Chapter 5",
     "flashcards": [
       {"front": "What is photosynthesis?", "back": "The process by which plants convert light energy into chemical energy"},
       {"front": "What is cellular respiration?", "back": "The process of converting glucose into ATP"}
     ]
-  }
+  },
+  "id": "call_abc123"
 }
 ```
 
 Or single card:
 ```json
 {
-  "tool": "create_flashcard",
-  "parameters": {
+  "name": "create_flashcard",
+  "args": {
     "deck_name": "Memory Verses",
     "front": "John 3:16",
     "back": "For God so loved the world..."
-  }
+  },
+  "id": "call_xyz789"
 }
 ```
 
@@ -187,16 +199,16 @@ export interface DeckListItem {
 
 // Deck endpoints
 export const fetchDecks = async (profileId: string): Promise<DeckListItem[]>
-export const fetchDeck = async (id: number): Promise<Deck>
+export const fetchDeck = async (deckId: string): Promise<Deck>
 export const createDeck = async (name: string, description: string, profileId: string, chatId?: string): Promise<Deck>
-export const updateDeck = async (id: number, name: string, description: string): Promise<Deck>
-export const deleteDeck = async (id: number): Promise<void>
+export const updateDeck = async (deckId: string, name: string, description: string): Promise<Deck>
+export const deleteDeck = async (deckId: string): Promise<void>
 
 // Flashcard endpoints
-export const fetchFlashcards = async (deckId: number): Promise<Flashcard[]>
-export const createFlashcard = async (deckId: number, front: string, back: string): Promise<Flashcard>
-export const updateFlashcard = async (id: number, front: string, back: string): Promise<Flashcard>
-export const deleteFlashcard = async (id: number): Promise<void>
+export const fetchFlashcards = async (deckId: string): Promise<Flashcard[]>
+export const createFlashcard = async (deckId: string, front: string, back: string): Promise<Flashcard>
+export const updateFlashcard = async (flashcardId: string, front: string, back: string): Promise<Flashcard>
+export const deleteFlashcard = async (flashcardId: string): Promise<void>
 ```
 
 ### 2. Navigation Update
@@ -253,7 +265,7 @@ export const deleteFlashcard = async (id: number): Promise<void>
 ## UI Specifications
 
 ### Deck List
-```
+```text
 ┌─────────────────────────────────────────┐
 │ ←  My Decks                         │
 ├─────────────────────────────────────────┤
@@ -271,7 +283,7 @@ export const deleteFlashcard = async (id: number): Promise<void>
 ```
 
 ### Deck Detail
-```
+```text
 ┌─────────────────────────────────────────┐
 │ ← Back     Biology Test    [Study]      │
 ├─────────────────────────────────────────┤
@@ -288,7 +300,7 @@ export const deleteFlashcard = async (id: number): Promise<void>
 ```
 
 ### Study Screen
-```
+```text
 ┌─────────────────────────────┐
 │ ← Back    Study (3/10)     │
 ├─────────────────────────────┤
@@ -328,7 +340,7 @@ export const deleteFlashcard = async (id: number): Promise<void>
 - `back/bots/models/__init__.py` - Export Deck, Flashcard
 - `back/bots/serializers/__init__.py` - Export serializers
 - `back/server/urls.py` - Add flashcard routes
-- `back/bots/views/get_chat_response.py` - Handle flashcard tool calls
+- `back/bots/models/chat.py` - Handle flashcard tool calls
 
 ### New Frontend Files
 - `front/api/flashcards.ts` - API module for decks and cards
