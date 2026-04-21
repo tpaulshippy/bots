@@ -115,7 +115,7 @@ class Chat(models.Model):
                     logger.error(f"🔍 WEB_SEARCH_ERROR: {str(e)}")
                     return f"Error during search: {str(e)}"
             
-            # Create flashcard tools outside the web_search if-block for reuse
+            # Create flashcard tools - available when web search is enabled
             @tool
             def create_flashcard_deck(name: str, description: str = "", flashcards: list = None) -> str:
                 """Create a new flashcard deck with flashcards. Use this when the user wants to create flashcards for studying.
@@ -181,9 +181,10 @@ class Chat(models.Model):
                     logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {str(e)}")
                     return f"Error creating flashcard: {str(e)}"
             
+            tools = [web_search, create_flashcard_deck, create_flashcard]
+            
             # Create chat model with tool binding
             chat_model = ChatBedrock(model_id=self.ai.model_id)
-            tools = [web_search, create_flashcard_deck, create_flashcard]
             
             # Bind tools to the model for proper tool calling
             model_with_tools = chat_model.bind_tools(tools)

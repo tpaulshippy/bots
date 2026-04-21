@@ -14,8 +14,8 @@ export interface Flashcard {
 export interface Deck {
   id: number;
   deck_id: string;
-  profile: string;
-  chat: string | null;
+  profile: number;
+  chat: number | null;
   name: string;
   description: string;
   flashcards: Flashcard[];

@@ -11,7 +11,6 @@ import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import * as Haptics from "expo-haptics";
 import { useCallback, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
@@ -19,7 +18,6 @@ import {
   fetchDeck,
   updateDeck,
   deleteDeck,
-  fetchFlashcards,
   createFlashcard,
   deleteFlashcard,
   Deck,

@@ -1,4 +1,5 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
+from rest_framework.exceptions import NotFound
 from django.db.models import Count, Max
 import uuid
 from bots.models import Deck, Flashcard, Profile
@@ -17,8 +18,11 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         try:
             deck_uuid = uuid.UUID(deck_id)
             deck = Deck.objects.get(deck_id=deck_uuid)
-        except ValueError:
-            deck = Deck.objects.get(id=deck_id)
+        except (ValueError, Deck.DoesNotExist):
+            try:
+                deck = Deck.objects.get(id=deck_id)
+            except (ValueError, Deck.DoesNotExist):
+                raise NotFound("Deck not found")
         
         self.check_object_permissions(self.request, deck)
         
@@ -29,8 +33,11 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         try:
             deck_uuid = uuid.UUID(deck_id)
             deck = Deck.objects.get(deck_id=deck_uuid)
-        except ValueError:
-            deck = Deck.objects.get(id=deck_id)
+        except (ValueError, Deck.DoesNotExist):
+            try:
+                deck = Deck.objects.get(id=deck_id)
+            except (ValueError, Deck.DoesNotExist):
+                raise NotFound("Deck not found")
         
         max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
         serializer.save(deck=deck, order=max_order + 1)
@@ -67,8 +74,11 @@ class DeckViewSet(viewsets.ModelViewSet):
         try:
             deck_uuid = uuid.UUID(lookup_field_value)
             deck = Deck.objects.get(deck_id=deck_uuid)
-        except ValueError:
-            deck = Deck.objects.get(id=lookup_field_value)
+        except (ValueError, Deck.DoesNotExist):
+            try:
+                deck = Deck.objects.get(id=lookup_field_value)
+            except (ValueError, Deck.DoesNotExist):
+                raise NotFound("Deck not found")
 
         self.check_object_permissions(self.request, deck)
         return deck

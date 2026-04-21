@@ -63,6 +63,7 @@ urlpatterns = [
     path('api/', include([
         path('', include(router.urls)),
         path('', include(chats_router.urls)),
+        path('', include(decks_router.urls)),
         path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
         path('chats/<str:chat_id>', get_chat_response, name='get_chat_response'),
         path('login', get_jwt, name='get_jwt'),
