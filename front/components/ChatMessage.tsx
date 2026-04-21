@@ -5,6 +5,7 @@ import { ActivityIndicator, FlexAlignType, Image, Modal, TouchableOpacity } from
 import { ChatMessage as ApiChatMessage } from "@/api/chats";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 interface ChatMessageProps {
   message: ApiChatMessage;
@@ -54,7 +55,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
           </ThemedText>
         ) : (
           <ThemedView style={styles.assistantMessage(assistantColor)}>
-            <ThemedText selectable>{message.text}</ThemedText>
+            <MarkdownRenderer content={message.text} />
           </ThemedView>
         )
       )}
