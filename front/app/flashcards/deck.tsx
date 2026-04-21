@@ -27,7 +27,7 @@ import { PlatformPressable } from "@react-navigation/elements";
 
 export default function DeckDetail() {
   const router = useRouter();
-  const { deckId, title } = useLocalSearchParams<{ deckId: string; title: string }>();
+  const { deckId } = useLocalSearchParams<{ deckId: string }>();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,6 +40,12 @@ export default function DeckDetail() {
   const [newCardBack, setNewCardBack] = useState("");
 
   const refresh = useCallback(async () => {
+    if (!deckId) {
+      Sentry.captureException(new Error("refresh called with missing deckId"));
+      setRefreshing(false);
+      setLoading(false);
+      return;
+    }
     setRefreshing(true);
     try {
       const deckData = await fetchDeck(deckId);
@@ -48,6 +54,8 @@ export default function DeckDetail() {
         setFlashcards(deckData.flashcards || []);
         setEditName(deckData.name);
         setEditDescription(deckData.description);
+      } else {
+        Sentry.captureException(new Error("fetchDeck returned null for valid deckId"));
       }
     } catch (error) {
       Sentry.captureException(error);
@@ -69,9 +77,14 @@ export default function DeckDetail() {
       return;
     }
     try {
-      await updateDeck(deckId, editName.trim(), editDescription.trim());
-      setIsEditing(false);
-      refresh();
+      const result = await updateDeck(deckId, editName.trim(), editDescription.trim());
+      if (result) {
+        setIsEditing(false);
+        refresh();
+      } else {
+        Sentry.captureException(new Error("Failed to update deck: null response"));
+        Alert.alert("Error", "Failed to update deck");
+      }
     } catch (error) {
       Sentry.captureException(error);
       Alert.alert("Error", "Failed to update deck");
@@ -89,8 +102,13 @@ export default function DeckDetail() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteDeck(deckId);
-              router.back();
+              const result = await deleteDeck(deckId);
+              if (result) {
+                router.back();
+              } else {
+                Sentry.captureException(new Error("Failed to delete deck: false response"));
+                Alert.alert("Error", "Failed to delete deck");
+              }
             } catch (error) {
               Sentry.captureException(error);
               Alert.alert("Error", "Failed to delete deck");
@@ -107,11 +125,16 @@ export default function DeckDetail() {
       return;
     }
     try {
-      await createFlashcard(deckId, newCardFront.trim(), newCardBack.trim());
-      setShowAddCard(false);
-      setNewCardFront("");
-      setNewCardBack("");
-      refresh();
+      const result = await createFlashcard(deckId, newCardFront.trim(), newCardBack.trim());
+      if (result) {
+        setShowAddCard(false);
+        setNewCardFront("");
+        setNewCardBack("");
+        refresh();
+      } else {
+        Sentry.captureException(new Error("Failed to add card: null response"));
+        Alert.alert("Error", "Failed to add card");
+      }
     } catch (error) {
       Sentry.captureException(error);
       Alert.alert("Error", "Failed to add card");
@@ -129,8 +152,13 @@ export default function DeckDetail() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteFlashcard(deckId, flashcard.flashcard_id);
-              refresh();
+              const result = await deleteFlashcard(deckId, flashcard.flashcard_id);
+              if (result) {
+                refresh();
+              } else {
+                Sentry.captureException(new Error("Failed to delete card: false response"));
+                Alert.alert("Error", "Failed to delete card");
+              }
             } catch (error) {
               Sentry.captureException(error);
               Alert.alert("Error", "Failed to delete card");

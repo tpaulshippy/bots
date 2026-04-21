@@ -69,13 +69,19 @@ export default function Flashcards() {
     try {
       const profileId = await getProfileId();
       if (!profileId) {
+        Alert.alert("Error", "No profile found");
         return;
       }
-      await createDeck(newDeckName.trim(), newDeckDescription.trim(), profileId);
-      setShowCreateModal(false);
-      setNewDeckName("");
-      setNewDeckDescription("");
-      refresh();
+      const result = await createDeck(newDeckName.trim(), newDeckDescription.trim(), profileId);
+      if (result) {
+        setShowCreateModal(false);
+        setNewDeckName("");
+        setNewDeckDescription("");
+        refresh();
+      } else {
+        Sentry.captureException(new Error("Failed to create deck: null response"));
+        Alert.alert("Error", "Failed to create deck");
+      }
     } catch (error) {
       Sentry.captureException(error);
       Alert.alert("Error", "Failed to create deck");

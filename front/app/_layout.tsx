@@ -265,11 +265,25 @@ export default function RootLayout() {
               ),
             }}
           />
-          <Stack.Screen
+<Stack.Screen
             name="chat"
             options={{
               headerShown: true,
               headerTintColor: textColor,
+              headerRight: () => (
+                <PlatformPressable
+                  onPress={() => {
+                    router.push("/parent/settings");
+                  }}
+                >
+                  <IconSymbol
+                    name="gear"
+                    color={iconColor}
+                    size={40}
+                    style={styles.settingsIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
             }}
           />
           <Stack.Screen
@@ -278,6 +292,18 @@ export default function RootLayout() {
               headerShown: true,
               title: "Flashcards",
               headerTintColor: textColor,
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => router.replace("/")}
+                >
+                  <IconSymbol
+                    name="house"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
             }}
           />
           <Stack.Screen
@@ -285,6 +311,18 @@ export default function RootLayout() {
             options={{
               headerShown: true,
               headerTintColor: textColor,
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => router.push("/flashcards")}
+                >
+                  <IconSymbol
+                    name="chevron.backward"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
             }}
           />
           <Stack.Screen
@@ -293,6 +331,18 @@ export default function RootLayout() {
               headerShown: true,
               title: "Edit Card",
               headerTintColor: textColor,
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => router.back()}
+                >
+                  <IconSymbol
+                    name="chevron.backward"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
             }}
           />
           <Stack.Screen
@@ -301,6 +351,18 @@ export default function RootLayout() {
               headerShown: true,
               title: "Study",
               headerTintColor: textColor,
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => router.back()}
+                >
+                  <IconSymbol
+                    name="chevron.backward"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
             }}
           />
           <Stack.Screen
@@ -422,6 +484,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+  },
+  menuIcon: {
+    marginLeft: 5,
   },
   settingsIcon: {
     marginRight: 5,

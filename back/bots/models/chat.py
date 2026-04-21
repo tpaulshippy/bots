@@ -87,7 +87,73 @@ class Chat(models.Model):
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
         
-        # Use agent with tool calling if web search is enabled
+        @tool
+        def create_flashcard_deck(name: str, description: str = "", flashcards: list = None) -> str:
+            """Create a new flashcard deck with flashcards. Use this when the user wants to create flashcards for studying.
+            
+            Args:
+                name: The name of the deck (e.g., "Biology Test Terms")
+                description: Optional description of the deck
+                flashcards: Optional list of flashcards, each with 'front' and 'back' keys
+            """
+            logger.info(f"🃏 CREATE_FLASHCARD_DECK_TOOL_INVOKED: name='{name}'")
+            try:
+                deck = Deck.objects.create(
+                    profile=self.profile,
+                    chat=self,
+                    name=name,
+                    description=description or ""
+                )
+                created_cards = 0
+                if flashcards:
+                    for i, card in enumerate(flashcards):
+                        Flashcard.objects.create(
+                            deck=deck,
+                            front=card.get('front', ''),
+                            back=card.get('back', ''),
+                            order=i
+                        )
+                        created_cards += 1
+                logger.info(f"🃏 CREATE_FLASHCARD_DECK_SUCCESS: deck_id={deck.deck_id}, cards={created_cards}")
+                return f"Created deck '{name}' with {created_cards} flashcards. Deck ID: {deck.deck_id}"
+            except Exception as e:
+                logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {str(e)}")
+                return f"Error creating deck: {str(e)}"
+        
+        @tool
+        def create_flashcard(deck_name: str, front: str, back: str) -> str:
+            """Add a single flashcard to an existing deck or create a new deck. Use this when the user wants to add flashcards to study.
+            
+            Args:
+                deck_name: The name of the deck to add the card to
+                front: The front of the flashcard (question/term)
+                back: The back of the flashcard (answer/definition)
+            """
+            logger.info(f"🃏 CREATE_FLASHCARD_TOOL_INVOKED: deck_name='{deck_name}'")
+            try:
+                deck = Deck.objects.filter(profile=self.profile, name=deck_name).first()
+                if not deck:
+                    deck = Deck.objects.create(
+                        profile=self.profile,
+                        chat=self,
+                        name=deck_name,
+                        description=""
+                    )
+                max_order = Flashcard.objects.filter(deck=deck).aggregate(models.Max('order'))['order__max'] or -1
+                Flashcard.objects.create(
+                    deck=deck,
+                    front=front,
+                    back=back,
+                    order=max_order + 1
+                )
+                logger.info(f"🃏 CREATE_FLASHCARD_SUCCESS: deck={deck.name}")
+                return f"Added flashcard to deck '{deck_name}'. Deck ID: {deck.deck_id}"
+            except Exception as e:
+                logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {str(e)}")
+                return f"Error creating flashcard: {str(e)}"
+        
+        tools = [create_flashcard_deck, create_flashcard]
+        
         if self.bot and self.bot.enable_web_search and settings.TAVILY_API_KEY:
             logger.info(f"Web search enabled for bot {self.bot.name}")
             tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
@@ -100,7 +166,6 @@ class Chat(models.Model):
                     results = tavily_client.search(query=query)
                     num_results = len(results.get('results', []))
                     logger.info(f"🔍 WEB_SEARCH_SUCCESS: returned {num_results} results")
-                    # Format results as a readable string for the model
                     if results.get('results'):
                         formatted = "\n".join([
                             f"- {r.get('title', 'No title')}: {r.get('content', '')[:200]}"
@@ -115,73 +180,7 @@ class Chat(models.Model):
                     logger.error(f"🔍 WEB_SEARCH_ERROR: {str(e)}")
                     return f"Error during search: {str(e)}"
             
-            # Create flashcard tools - available when web search is enabled
-            @tool
-            def create_flashcard_deck(name: str, description: str = "", flashcards: list = None) -> str:
-                """Create a new flashcard deck with flashcards. Use this when the user wants to create flashcards for studying.
-                
-                Args:
-                    name: The name of the deck (e.g., "Biology Test Terms")
-                    description: Optional description of the deck
-                    flashcards: Optional list of flashcards, each with 'front' and 'back' keys
-                """
-                logger.info(f"🃏 CREATE_FLASHCARD_DECK_TOOL_INVOKED: name='{name}'")
-                try:
-                    deck = Deck.objects.create(
-                        profile=self.profile,
-                        chat=self,
-                        name=name,
-                        description=description or ""
-                    )
-                    created_cards = 0
-                    if flashcards:
-                        for i, card in enumerate(flashcards):
-                            Flashcard.objects.create(
-                                deck=deck,
-                                front=card.get('front', ''),
-                                back=card.get('back', ''),
-                                order=i
-                            )
-                            created_cards += 1
-                    logger.info(f"🃏 CREATE_FLASHCARD_DECK_SUCCESS: deck_id={deck.deck_id}, cards={created_cards}")
-                    return f"Created deck '{name}' with {created_cards} flashcards. Deck ID: {deck.deck_id}"
-                except Exception as e:
-                    logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {str(e)}")
-                    return f"Error creating deck: {str(e)}"
-            
-            @tool
-            def create_flashcard(deck_name: str, front: str, back: str) -> str:
-                """Add a single flashcard to an existing deck or create a new deck. Use this when the user wants to add flashcards to study.
-                
-                Args:
-                    deck_name: The name of the deck to add the card to
-                    front: The front of the flashcard (question/term)
-                    back: The back of the flashcard (answer/definition)
-                """
-                logger.info(f"🃏 CREATE_FLASHCARD_TOOL_INVOKED: deck_name='{deck_name}'")
-                try:
-                    deck = Deck.objects.filter(profile=self.profile, name=deck_name).first()
-                    if not deck:
-                        deck = Deck.objects.create(
-                            profile=self.profile,
-                            chat=self,
-                            name=deck_name,
-                            description=""
-                        )
-                    max_order = Flashcard.objects.filter(deck=deck).aggregate(models.Max('order'))['order__max'] or -1
-                    Flashcard.objects.create(
-                        deck=deck,
-                        front=front,
-                        back=back,
-                        order=max_order + 1
-                    )
-                    logger.info(f"🃏 CREATE_FLASHCARD_SUCCESS: deck={deck.name}")
-                    return f"Added flashcard to deck '{deck_name}'. Deck ID: {deck.deck_id}"
-                except Exception as e:
-                    logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {str(e)}")
-                    return f"Error creating flashcard: {str(e)}"
-            
-            tools = [web_search, create_flashcard_deck, create_flashcard]
+            tools.append(web_search)
             
             # Create chat model with tool binding
             chat_model = ChatBedrock(model_id=self.ai.model_id)
@@ -217,7 +216,11 @@ class Chat(models.Model):
                 for tool_call in response.tool_calls:
                     tool_name = tool_call["name"]
                     tool_args = tool_call["args"]
-                    logger.info(f"🔍 AGENT_TOOL_CALL: {tool_name} with args: {tool_args}")
+                    logger.info(
+                        "🔍 AGENT_TOOL_CALL: %s with arg keys: %s",
+                        tool_name,
+                        list(tool_args.keys()) if isinstance(tool_args, dict) else type(tool_args).__name__,
+                    )
                     
                     # Execute the tool
                     if tool_name == "web_search":

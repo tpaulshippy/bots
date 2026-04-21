@@ -11,6 +11,13 @@ class Deck(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def card_count(self):
+        return self.flashcards.count()
+
+    def __str__(self):
+        return self.name
+
 
 class Flashcard(models.Model):
     flashcard_id = models.UUIDField(default=uuid.uuid4, unique=True)
@@ -28,3 +35,6 @@ class Flashcard(models.Model):
         indexes = [
             models.Index(fields=["deck", "order"])
         ]
+
+    def __str__(self):
+        return f"{self.deck}: {self.front[:50]}"

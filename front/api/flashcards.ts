@@ -80,7 +80,7 @@ export const updateDeck = async (
   description: string
 ): Promise<Deck | null> => {
   const response = await apiClient<Deck>(`/decks/${deckId}.json`, {
-    method: "PUT",
+    method: "PATCH",
     body: JSON.stringify({
       name,
       description,
@@ -136,7 +136,7 @@ export const updateFlashcard = async (
   const response = await apiClient<Flashcard>(
     `/decks/${deckId}/flashcards/${flashcardId}.json`,
     {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify({
         front,
         back,

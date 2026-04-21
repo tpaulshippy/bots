@@ -30,13 +30,23 @@ export default function CardEdit() {
   }, [front, back]);
 
   const handleSave = async () => {
+    if (!deckId || !flashcardId) {
+      Sentry.captureException(new Error("Missing deckId or flashcardId in cardEdit"));
+      Alert.alert("Error", "Invalid card parameters");
+      return;
+    }
     if (!cardFront.trim() || !cardBack.trim()) {
       Alert.alert("Error", "Please fill in both front and back of the card");
       return;
     }
     try {
-      await updateFlashcard(deckId, flashcardId, cardFront.trim(), cardBack.trim());
-      router.back();
+      const result = await updateFlashcard(deckId, flashcardId, cardFront.trim(), cardBack.trim());
+      if (result) {
+        router.back();
+      } else {
+        Sentry.captureException(new Error("Failed to update card: null response"));
+        Alert.alert("Error", "Failed to update card");
+      }
     } catch (error) {
       Sentry.captureException(error);
       Alert.alert("Error", "Failed to update card");
@@ -44,6 +54,11 @@ export default function CardEdit() {
   };
 
   const handleDelete = () => {
+    if (!deckId || !flashcardId) {
+      Sentry.captureException(new Error("Missing deckId or flashcardId in cardEdit"));
+      Alert.alert("Error", "Invalid card parameters");
+      return;
+    }
     Alert.alert(
       "Delete Card",
       "Are you sure you want to delete this card?",
@@ -54,8 +69,13 @@ export default function CardEdit() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteFlashcard(deckId, flashcardId);
-              router.back();
+              const result = await deleteFlashcard(deckId, flashcardId);
+              if (result) {
+                router.back();
+              } else {
+                Sentry.captureException(new Error("Failed to delete card: false response"));
+                Alert.alert("Error", "Failed to delete card");
+              }
             } catch (error) {
               Sentry.captureException(error);
               Alert.alert("Error", "Failed to delete card");
