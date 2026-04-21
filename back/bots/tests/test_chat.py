@@ -1,11 +1,12 @@
 import pytest
 from django.utils import timezone
 from django.core.management import call_command
-from mockito import when, unstub, mock
+from mockito import when, unstub, mock, ANY
 from django.contrib.auth.models import User
 from bots.models.chat import Chat
 from bots.models.bot import Bot
 from bots.models.ai_model import AiModel
+from langchain_core.messages import AIMessage
 import uuid
 
 
@@ -48,61 +49,92 @@ def describe_chat_model():
         
         @pytest.fixture
         def ai_output():
-            class Output:
-                content = "Hello! How can I assist you today?"
-                usage_metadata = {
+            return AIMessage(
+                content="Hello! How can I assist you today?",
+                usage_metadata={
                     "input_tokens": 1,
-                    "output_tokens": 2
+                    "output_tokens": 2,
+                    "total_tokens": 3
                 }
-
-            output = Output()
-            return output
+            )
         
         def it_should_add_message_from_ai(load_fixture, chat, ai, ai_output):
-            when(ai).invoke(...).thenReturn(ai_output) 
-            chat.messages.create(text="Hello", role="user")
-            chat.get_response(ai=ai)
-            assert chat.messages.count() == 2
-            assert chat.messages.last().text == "Hello! How can I assist you today?"
-            assert chat.messages.last().role == "assistant"
-            assert chat.messages.last().input_tokens == 1
-            assert chat.messages.last().output_tokens == 2
+            from unittest.mock import patch
+            
+            mock_model_with_tools = mock()
+            when(mock_model_with_tools).invoke(ANY).thenReturn(ai_output)
+            
+            mock_client = mock()
+            when(mock_client).bind_tools(ANY).thenReturn(mock_model_with_tools)
+            
+            with patch('bots.models.chat.ChatBedrock', return_value=mock_client):
+                chat.messages.create(text="Hello", role="user")
+                chat.get_response(ai=ai)
+                assert chat.messages.count() == 2
+                assert chat.messages.last().text == "Hello! How can I assist you today?"
+                assert chat.messages.last().role == "assistant"
+                assert chat.messages.last().input_tokens == 1
+                assert chat.messages.last().output_tokens == 2
 
         def it_should_use_system_prompt_from_bot(load_fixture, chat, ai, ai_output):
-            chat.bot = Bot(system_prompt = "How can I help you?")
-            chat.bot.save()
-            when(ai).invoke(...).thenReturn(ai_output) 
-            chat.messages.create(text="Hello", role="user")
-            chat.get_response(ai=ai)
-            assert chat.messages.count() == 2
-            assert chat.messages.last().text == "Hello! How can I assist you today?"
-            assert chat.messages.last().role == "assistant"
-            assert chat.messages.last().input_tokens == 1
-            assert chat.messages.last().output_tokens == 2
-            assert chat.ai.model_id == "us.amazon.nova-lite-v1:0"
+            from unittest.mock import patch
+            
+            mock_model_with_tools = mock()
+            when(mock_model_with_tools).invoke(ANY).thenReturn(ai_output)
+            
+            mock_client = mock()
+            when(mock_client).bind_tools(ANY).thenReturn(mock_model_with_tools)
+            
+            with patch('bots.models.chat.ChatBedrock', return_value=mock_client):
+                chat.bot = Bot(system_prompt = "How can I help you?")
+                chat.bot.save()
+                chat.messages.create(text="Hello", role="user")
+                chat.get_response(ai=ai)
+                assert chat.messages.count() == 2
+                assert chat.messages.last().text == "Hello! How can I assist you today?"
+                assert chat.messages.last().role == "assistant"
+                assert chat.messages.last().input_tokens == 1
+                assert chat.messages.last().output_tokens == 2
+                assert chat.ai.model_id == "us.amazon.nova-lite-v1:0"
         
         def it_should_use_model_from_bot(chat, ai, ai_output):
-            ai_model = AiModel(model_id="my-custom-model")
-            ai_model.save()
-            chat.bot = Bot(ai_model=ai_model)
-            chat.bot.save()
-            when(ai).invoke(...).thenReturn(ai_output) 
-            chat.messages.create(text="Hello", role="user")
-            chat.get_response(ai=ai)
-            assert chat.messages.count() == 2
-            assert chat.messages.last().text == "Hello! How can I assist you today?"
-            assert chat.messages.last().role == "assistant"
-            assert chat.messages.last().input_tokens == 1
-            assert chat.messages.last().output_tokens == 2
-            assert chat.ai.model_id == "my-custom-model"
+            from unittest.mock import patch
+            
+            mock_model_with_tools = mock()
+            when(mock_model_with_tools).invoke(ANY).thenReturn(ai_output)
+            
+            mock_client = mock()
+            when(mock_client).bind_tools(ANY).thenReturn(mock_model_with_tools)
+            
+            with patch('bots.models.chat.ChatBedrock', return_value=mock_client):
+                ai_model = AiModel(model_id="my-custom-model")
+                ai_model.save()
+                chat.bot = Bot(ai_model=ai_model)
+                chat.bot.save()
+                chat.messages.create(text="Hello", role="user")
+                chat.get_response(ai=ai)
+                assert chat.messages.count() == 2
+                assert chat.messages.last().text == "Hello! How can I assist you today?"
+                assert chat.messages.last().role == "assistant"
+                assert chat.messages.last().input_tokens == 1
+                assert chat.messages.last().output_tokens == 2
+                assert chat.ai.model_id == "my-custom-model"
 
         def it_should_roll_up_input_and_output_tokens_to_chat(load_fixture, chat, ai, ai_output):
-            when(ai).invoke(...).thenReturn(ai_output)
-            chat.messages.create(text="Hello", role="user")
-            chat.get_response(ai=ai)
-            chat.get_response(ai=ai)
-            assert chat.input_tokens == 2
-            assert chat.output_tokens == 4
+            from unittest.mock import patch
+            
+            mock_model_with_tools = mock()
+            when(mock_model_with_tools).invoke(ANY).thenReturn(ai_output)
+            
+            mock_client = mock()
+            when(mock_client).bind_tools(ANY).thenReturn(mock_model_with_tools)
+            
+            with patch('bots.models.chat.ChatBedrock', return_value=mock_client):
+                chat.messages.create(text="Hello", role="user")
+                chat.get_response(ai=ai)
+                chat.get_response(ai=ai)
+                assert chat.input_tokens == 2
+                assert chat.output_tokens == 4
 
         def it_should_rate_limit_if_cost_goes_over_daily_limit(load_fixture, chat, ai, ai_output):
             chat.input_tokens = 142855
@@ -127,20 +159,25 @@ def describe_chat_model():
         
 
         def it_should_not_use_web_search_when_disabled(load_fixture, chat, ai, ai_output):
-            from bots.models.bot import Bot
+            from unittest.mock import patch
             
-            bot = Bot.objects.create(
-                user=chat.user,
-                name="Test Bot",
-                enable_web_search=False,
-                system_prompt="You are a helpful assistant."
-            )
-            chat.bot = bot
-            chat.save()
+            mock_model_with_tools = mock()
+            when(mock_model_with_tools).invoke(ANY).thenReturn(ai_output)
             
-            when(ai).invoke(...).thenReturn(ai_output)
-            chat.messages.create(text="Hello", role="user")
-            result = chat.get_response(ai=ai)
+            mock_client = mock()
+            when(mock_client).bind_tools(ANY).thenReturn(mock_model_with_tools)
             
-            assert result == "Hello! How can I assist you today?"
-            unstub()
+            with patch('bots.models.chat.ChatBedrock', return_value=mock_client):
+                bot = Bot.objects.create(
+                    user=chat.user,
+                    name="Test Bot",
+                    enable_web_search=False,
+                    system_prompt="You are a helpful assistant."
+                )
+                chat.bot = bot
+                chat.save()
+                
+                chat.messages.create(text="Hello", role="user")
+                result = chat.get_response(ai=ai)
+                
+                assert result == "Hello! How can I assist you today?"

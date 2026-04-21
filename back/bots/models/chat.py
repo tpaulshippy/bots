@@ -154,6 +154,11 @@ class Chat(models.Model):
         
         tools = [create_flashcard_deck, create_flashcard]
         
+        chat_model = ChatBedrock(model_id=self.ai.model_id)
+        model_with_tools = chat_model.bind_tools(tools)
+        
+        web_search = None
+        
         if self.bot and self.bot.enable_web_search and settings.TAVILY_API_KEY:
             logger.info(f"Web search enabled for bot {self.bot.name}")
             tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
@@ -181,126 +186,112 @@ class Chat(models.Model):
                     return f"Error during search: {str(e)}"
             
             tools.append(web_search)
-            
-            # Create chat model with tool binding
-            chat_model = ChatBedrock(model_id=self.ai.model_id)
-            
-            # Bind tools to the model for proper tool calling
             model_with_tools = chat_model.bind_tools(tools)
-            
-            # Use the full message_list which already contains conversation history
+        
+        has_web_search = web_search is not None
+        
+        if has_web_search:
             logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
             logger.info("🤖 AGENT_INVOKE_START: web_search and flashcard tools available")
+        else:
+            logger.info(f"Invoking agent with flashcard tools only ({len(message_list)} messages)")
+            logger.info("🤖 AGENT_INVOKE_START: flashcard tools available (web_search disabled)")
+        
+        messages = message_list
+        
+        max_iterations = 5
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            logger.info(f"🤖 AGENT_LOOP_ITERATION: {iteration}")
             
-            # Build and run the agent loop manually with full conversation context
-            messages = message_list
+            response = model_with_tools.invoke(messages)
+            messages.append(response)
             
-            # Agentagent loop - keep invoking until no more tool calls
-            max_iterations = 5
-            iteration = 0
+            if not response.tool_calls:
+                logger.info(f"🤖 AGENT_LOOP_COMPLETE: no more tool calls after {iteration} iterations")
+                break
             
-            while iteration < max_iterations:
-                iteration += 1
-                logger.info(f"🤖 AGENT_LOOP_ITERATION: {iteration}")
+            for tool_call in response.tool_calls:
+                tool_name = tool_call["name"]
+                tool_args = tool_call["args"]
+                logger.info(
+                    "🔍 AGENT_TOOL_CALL: %s with arg keys: %s",
+                    tool_name,
+                    list(tool_args.keys()) if isinstance(tool_args, dict) else type(tool_args).__name__,
+                )
                 
-                # Call the model
-                response = model_with_tools.invoke(messages)
-                messages.append(response)
-                
-                # Check if model wants to call a tool
-                if not response.tool_calls:
-                    logger.info(f"🤖 AGENT_LOOP_COMPLETE: no more tool calls after {iteration} iterations")
-                    break
-                
-                # Process tool calls
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call["name"]
-                    tool_args = tool_call["args"]
-                    logger.info(
-                        "🔍 AGENT_TOOL_CALL: %s with arg keys: %s",
-                        tool_name,
-                        list(tool_args.keys()) if isinstance(tool_args, dict) else type(tool_args).__name__,
-                    )
-                    
-                    # Execute the tool
-                    if tool_name == "web_search":
+                if tool_name == "web_search":
+                    if has_web_search:
                         tool_result = web_search.invoke(tool_args)
-                    elif tool_name == "create_flashcard_deck":
-                        tool_result = create_flashcard_deck.invoke(tool_args)
-                    elif tool_name == "create_flashcard":
-                        tool_result = create_flashcard.invoke(tool_args)
                     else:
-                        tool_result = f"Unknown tool: {tool_name}"
-                    
-                    logger.info(f"🔍 AGENT_TOOL_RESULT: {tool_result[:100]}")
-                    
-                    # Add tool result to messages
-                    messages.append(ToolMessage(
-                        content=tool_result,
-                        tool_call_id=tool_call["id"],
-                        name=tool_name
-                    ))
-            
-            logger.info("🤖 AGENT_LOOP_COMPLETE: extracting final response")
-            
-            # Extract response text from the final message
-            # The messages list now contains: System, HumanMessage, AIMessage (with tool call), ToolMessage, AIMessage (final response)
-            response_text = ""
-            usage_metadata = {"input_tokens": 0, "output_tokens": 0}
-            
-            # Find the last AIMessage (should be the final response)
+                        tool_result = "Web search is not available."
+                elif tool_name == "create_flashcard_deck":
+                    tool_result = create_flashcard_deck.invoke(tool_args)
+                elif tool_name == "create_flashcard":
+                    tool_result = create_flashcard.invoke(tool_args)
+                else:
+                    tool_result = f"Unknown tool: {tool_name}"
+                
+                logger.info(f"🔍 AGENT_TOOL_RESULT: {tool_result[:100]}")
+                
+                messages.append(ToolMessage(
+                    content=tool_result,
+                    tool_call_id=tool_call["id"],
+                    name=tool_name
+                ))
+        
+        logger.info("🤖 AGENT_LOOP_COMPLETE: extracting final response")
+        
+        response_text = ""
+        usage_metadata = {"input_tokens": 0, "output_tokens": 0}
+        
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage) and not msg.tool_calls:
+                if isinstance(msg.content, str):
+                    response_text = msg.content
+                elif isinstance(msg.content, list):
+                    text_parts = []
+                    for item in msg.content:
+                        if isinstance(item, dict) and item.get('type') == 'text':
+                            text_parts.append(item.get('text', ''))
+                        elif isinstance(item, str):
+                            text_parts.append(item)
+                    response_text = "".join(text_parts).strip()
+                
+                if hasattr(msg, 'usage_metadata') and msg.usage_metadata:
+                    usage_metadata = msg.usage_metadata
+                
+                logger.info(f"🤖 FINAL_RESPONSE: {len(response_text)} chars")
+                break
+        
+        if not response_text:
             for msg in reversed(messages):
-                if isinstance(msg, AIMessage) and not msg.tool_calls:
-                    # This is the final response (no tool calls)
+                if isinstance(msg, AIMessage):
                     if isinstance(msg.content, str):
                         response_text = msg.content
                     elif isinstance(msg.content, list):
-                        # Extract text from content list
-                        text_parts = []
-                        for item in msg.content:
-                            if isinstance(item, dict) and item.get('type') == 'text':
-                                text_parts.append(item.get('text', ''))
-                            elif isinstance(item, str):
-                                text_parts.append(item)
+                        text_parts = [item.get('text', '') for item in msg.content if isinstance(item, dict) and item.get('type') == 'text']
                         response_text = "".join(text_parts).strip()
-                    
-                    # Extract token usage
-                    if hasattr(msg, 'usage_metadata') and msg.usage_metadata:
-                        usage_metadata = msg.usage_metadata
-                    
-                    logger.info(f"🤖 FINAL_RESPONSE: {len(response_text)} chars")
                     break
-            
-            if not response_text:
-                # Fallback: get the last message
-                for msg in reversed(messages):
-                    if isinstance(msg, AIMessage):
-                        if isinstance(msg.content, str):
-                            response_text = msg.content
-                        elif isinstance(msg.content, list):
-                            text_parts = [item.get('text', '') for item in msg.content if isinstance(item, dict) and item.get('type') == 'text']
-                            response_text = "".join(text_parts).strip()
-                        break
-            
-            message_order = self.messages.count()
-            
-            input_tokens = usage_metadata.get('input_tokens', 0)
-            output_tokens = usage_metadata.get('output_tokens', 0)
-            
-            self.messages.create(
-                text=response_text, 
-                role='assistant', 
-                order=message_order,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens
-            )
-            self.input_tokens += input_tokens
-            self.output_tokens += output_tokens
-            self.save()
-            return response_text
         
-        # Standard response without web search
-        return self.get_response_standard(message_list, ai)
+        message_order = self.messages.count()
+        
+        input_tokens = usage_metadata.get('input_tokens', 0)
+        output_tokens = usage_metadata.get('output_tokens', 0)
+        
+        self.messages.create(
+            text=response_text, 
+            role='assistant', 
+            order=message_order,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens
+        )
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+        self.save()
+        return response_text
 
     def _extract_agent_input(self, message_list):
         """Extract text input from message_list for the agent.
