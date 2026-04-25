@@ -1,4 +1,5 @@
 import { apiClient } from "./apiClient";
+import { PaginatedResponse } from "./chats";
 
 export interface Flashcard {
   id: number;
@@ -34,13 +35,13 @@ export interface DeckListItem {
   updated_at: string;
 }
 
-export const fetchDecks = async (profileId: string): Promise<DeckListItem[]> => {
-  const response = await apiClient<DeckListItem[]>(
+export const fetchDecks = async (profileId: string): Promise<PaginatedResponse<DeckListItem>> => {
+  const response = await apiClient<PaginatedResponse<DeckListItem>>(
     `/decks.json?profileId=${profileId}`,
     { method: "GET" }
   );
   if (!response.ok || !response.data) {
-    return [];
+    return { results: [], count: 0 };
   }
   return response.data;
 };
@@ -99,12 +100,12 @@ export const deleteDeck = async (deckId: string): Promise<boolean> => {
   return response.ok;
 };
 
-export const fetchFlashcards = async (deckId: string): Promise<Flashcard[]> => {
-  const response = await apiClient<Flashcard[]>(`/decks/${deckId}/flashcards.json`, {
+export const fetchFlashcards = async (deckId: string): Promise<PaginatedResponse<Flashcard>> => {
+  const response = await apiClient<PaginatedResponse<Flashcard>>(`/decks/${deckId}/flashcards.json`, {
     method: "GET",
   });
   if (!response.ok || !response.data) {
-    return [];
+    return { results: [], count: 0 };
   }
   return response.data;
 };

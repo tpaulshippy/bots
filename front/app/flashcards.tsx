@@ -46,7 +46,7 @@ export default function Flashcards() {
         return;
       }
       const data = await fetchDecks(profileId);
-      setDecks(data || []);
+      setDecks(data.results || []);
     } catch (error) {
       Sentry.captureException(error);
     } finally {

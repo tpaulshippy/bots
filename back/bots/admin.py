@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device, RevenueCatWebhookEvent
+from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device, RevenueCatWebhookEvent, Deck, Flashcard
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
@@ -61,6 +61,20 @@ class RevenueCatWebhookEventAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         return ['created_at', 'raw_event'] + list(super().get_list_display(request))
 
+class DeckAdmin(admin.ModelAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        return ['deck_id', 'created_at', 'updated_at']
+    
+    def get_list_display(self, request):
+        return ['deck_id', 'name', 'profile', 'chat', 'card_count', 'created_at', 'updated_at'] + list(super().get_list_display(request))
+
+class FlashcardAdmin(admin.ModelAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        return ['flashcard_id', 'created_at', 'updated_at']
+    
+    def get_list_display(self, request):
+        return ['flashcard_id', 'deck', 'front', 'order', 'created_at', 'updated_at'] + list(super().get_list_display(request))
+
 class UserAccountAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         return ['user_id', 'pin', 'subscription_level', 'timezone'] + list(super().get_list_display(request))
@@ -78,5 +92,7 @@ admin.site.register(UserAccount, UserAccountAdmin)
 admin.site.register(AiModel, AiModelAdmin)
 admin.site.register(UsageLimitHit, UsageLimitHitAdmin)
 admin.site.register(RevenueCatWebhookEvent, RevenueCatWebhookEventAdmin)
+admin.site.register(Deck, DeckAdmin)
+admin.site.register(Flashcard, FlashcardAdmin)
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)

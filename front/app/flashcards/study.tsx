@@ -34,7 +34,7 @@ export default function Study() {
   useEffect(() => {
     const loadCards = async () => {
       const flashcards = await fetchFlashcards(deckId);
-      setCards(flashcards);
+      setCards(flashcards.results || []);
     };
     loadCards();
   }, [deckId]);

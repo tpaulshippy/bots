@@ -28,6 +28,21 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         
         return Flashcard.objects.filter(deck=deck).order_by('order')
 
+    def get_object(self):
+        lookup_field_value = self.kwargs[self.lookup_field]
+
+        try:
+            flashcard_uuid = uuid.UUID(lookup_field_value)
+            flashcard = Flashcard.objects.get(flashcard_id=flashcard_uuid)
+        except (ValueError, Flashcard.DoesNotExist):
+            try:
+                flashcard = Flashcard.objects.get(id=lookup_field_value)
+            except (ValueError, Flashcard.DoesNotExist):
+                raise NotFound("Flashcard not found")
+
+        self.check_object_permissions(self.request, flashcard)
+        return flashcard
+
     def perform_create(self, serializer):
         deck_id = self.kwargs['deck_pk']
         try:
@@ -61,7 +76,7 @@ class DeckViewSet(viewsets.ModelViewSet):
             except ValueError:
                 queryset = queryset.none()
         
-        return queryset.annotate(card_count=Count('flashcards')).order_by('-created_at')
+        return queryset.annotate(flashcard_count=Count('flashcards')).order_by('-created_at')
 
     def get_serializer_class(self):
         if self.action == 'list':
