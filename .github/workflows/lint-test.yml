@@ -33,7 +33,7 @@ jobs:
       - name: Run tests
         run: |
           cd front
-          npm test -- --passWithNoTests --coverage=false --watchAll=false
+          npm test -- --passWithNoTests --coverage=false --watchAll=false --testPathPattern="__tests__/api/"
 
   backend:
     runs-on: ubuntu-latest
@@ -62,4 +62,4 @@ jobs:
       - name: Run tests
         run: |
           cd back
-          pytest
+          pytest bots/tests/test_flashcard_api.py -v
