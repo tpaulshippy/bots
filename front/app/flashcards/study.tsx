@@ -3,8 +3,9 @@ import {
   View,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -26,6 +27,7 @@ const CARD_WIDTH = SCREEN_WIDTH - 40;
 
 export default function Study() {
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
+  const router = useRouter();
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -33,6 +35,11 @@ export default function Study() {
 
   useEffect(() => {
     const loadCards = async () => {
+      if (!deckId) {
+        Alert.alert("Error", "Invalid deck");
+        router.back();
+        return;
+      }
       const flashcards = await fetchFlashcards(deckId);
       setCards(flashcards.results || []);
     };

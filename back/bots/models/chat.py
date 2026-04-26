@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 import uuid
 from langchain_aws import ChatBedrock
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
@@ -98,24 +98,26 @@ class Chat(models.Model):
             """
             logger.info(f"🃏 CREATE_FLASHCARD_DECK_TOOL_INVOKED: name='{name}'")
             try:
-                deck = Deck.objects.create(
-                    profile=self.profile,
-                    chat=self,
-                    name=name,
-                    description=description or ""
-                )
-                created_cards = 0
-                if flashcards:
-                    for i, card in enumerate(flashcards):
-                        Flashcard.objects.create(
-                            deck=deck,
-                            front=card.get('front', ''),
-                            back=card.get('back', ''),
-                            order=i
-                        )
-                        created_cards += 1
-                logger.info(f"🃏 CREATE_FLASHCARD_DECK_SUCCESS: deck_id={deck.deck_id}, cards={created_cards}")
-                return f"Created deck '{name}' with {created_cards} flashcards. Deck ID: {deck.deck_id}"
+                with transaction.atomic():
+                    deck = Deck.objects.create(
+                        profile=self.profile,
+                        chat=self,
+                        name=name,
+                        description=description or ""
+                    )
+                    deck = Deck.objects.select_for_update().get(pk=deck.pk)
+                    created_cards = 0
+                    if flashcards:
+                        for i, card in enumerate(flashcards):
+                            Flashcard.objects.create(
+                                deck=deck,
+                                front=card.get('front', ''),
+                                back=card.get('back', ''),
+                                order=i
+                            )
+                            created_cards += 1
+                    logger.info(f"🃏 CREATE_FLASHCARD_DECK_SUCCESS: deck_id={deck.deck_id}, cards={created_cards}")
+                    return f"Created deck '{name}' with {created_cards} flashcards. Deck ID: {deck.deck_id}"
             except Exception as e:
                 logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {str(e)}")
                 return f"Error creating deck: {str(e)}"
@@ -131,23 +133,25 @@ class Chat(models.Model):
             """
             logger.info(f"🃏 CREATE_FLASHCARD_TOOL_INVOKED: deck_name='{deck_name}'")
             try:
-                deck = Deck.objects.filter(profile=self.profile, name=deck_name).first()
-                if not deck:
-                    deck = Deck.objects.create(
-                        profile=self.profile,
-                        chat=self,
-                        name=deck_name,
-                        description=""
+                with transaction.atomic():
+                    deck = Deck.objects.filter(profile=self.profile, name=deck_name).first()
+                    if not deck:
+                        deck = Deck.objects.create(
+                            profile=self.profile,
+                            chat=self,
+                            name=deck_name,
+                            description=""
+                        )
+                    deck = Deck.objects.select_for_update().get(pk=deck.pk)
+                    max_order = Flashcard.objects.filter(deck=deck).aggregate(models.Max('order'))['order__max'] or -1
+                    Flashcard.objects.create(
+                        deck=deck,
+                        front=front,
+                        back=back,
+                        order=max_order + 1
                     )
-                max_order = Flashcard.objects.filter(deck=deck).aggregate(models.Max('order'))['order__max'] or -1
-                Flashcard.objects.create(
-                    deck=deck,
-                    front=front,
-                    back=back,
-                    order=max_order + 1
-                )
-                logger.info(f"🃏 CREATE_FLASHCARD_SUCCESS: deck={deck.name}")
-                return f"Added flashcard to deck '{deck_name}'. Deck ID: {deck.deck_id}"
+                    logger.info(f"🃏 CREATE_FLASHCARD_SUCCESS: deck={deck.name}")
+                    return f"Added flashcard to deck '{deck_name}'. Deck ID: {deck.deck_id}"
             except Exception as e:
                 logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {str(e)}")
                 return f"Error creating flashcard: {str(e)}"
