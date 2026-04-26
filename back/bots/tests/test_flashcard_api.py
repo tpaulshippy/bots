@@ -1,5 +1,4 @@
 import pytest
-import uuid
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -264,7 +263,7 @@ class TestChatListAPI:
     def test_chat_list_includes_message_count(self, auth_client, test_profile, test_user, db):
         """Chat list should include message_count field"""
         from bots.models import Chat
-        chat = Chat.objects.create(user=test_user, profile=test_profile, title='Test Chat')
+        Chat.objects.create(user=test_user, profile=test_profile, title='Test Chat')
         
         response = auth_client.get('/api/chats.json')
         
@@ -389,7 +388,7 @@ class TestBotCreateAPI:
     def test_create_bot_with_ai_model(self, auth_client, test_user, db):
         """Should be able to create bot with ai_model field"""
         from bots.models import AiModel
-        ai_model = AiModel.objects.create(model_id='test-model', name='Test Model')
+        AiModel.objects.create(model_id='test-model', name='Test Model')
         
         response = auth_client.post('/api/bots.json', {
             'name': 'New Bot',
@@ -404,7 +403,7 @@ class TestBotCreateAPI:
     def test_create_bot_with_web_search(self, auth_client, test_user, db):
         """Should be able to create bot with enable_web_search field"""
         from bots.models import AiModel
-        ai_model = AiModel.objects.create(model_id='test-model', name='Test Model')
+        AiModel.objects.create(model_id='test-model', name='Test Model')
         
         response = auth_client.post('/api/bots.json', {
             'name': 'Search Bot',
@@ -415,7 +414,7 @@ class TestBotCreateAPI:
         
         assert response.status_code == 201
         data = response.json()
-        assert data['enable_web_search'] == True
+        assert data['enable_web_search']
 
 
 @pytest.mark.django_db
