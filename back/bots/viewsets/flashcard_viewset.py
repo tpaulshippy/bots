@@ -32,7 +32,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         return Flashcard.objects.filter(deck=deck).order_by('order')
 
     def get_object(self):
-        lookup_field_value = self.kwargs[self.lookup_field]
+        lookup_field_value = self.kwargs[self.lookup_url_kwarg]
 
         try:
             flashcard_uuid = uuid.UUID(lookup_field_value)

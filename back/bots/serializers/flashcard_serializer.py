@@ -3,7 +3,13 @@ from bots.models import Deck, Flashcard, Profile, Chat
 
 
 class FlashcardSerializer(serializers.ModelSerializer):
-    deck = serializers.PrimaryKeyRelatedField(read_only=True)
+    deck = serializers.SlugRelatedField(
+        queryset=Deck.objects.all(),
+        slug_field='deck_id',
+        required=False,
+        allow_null=True,
+        default=None,
+    )
 
     class Meta:
         model = Flashcard
@@ -12,9 +18,17 @@ class FlashcardSerializer(serializers.ModelSerializer):
 
 class DeckSerializer(serializers.ModelSerializer):
     flashcards = FlashcardSerializer(many=True, read_only=True)
-    card_count = serializers.IntegerField(read_only=True, source='card_count')
-    profile = serializers.PrimaryKeyRelatedField(read_only=True)
-    chat = serializers.PrimaryKeyRelatedField(read_only=True)
+    card_count = serializers.IntegerField(read_only=True, source='flashcard_count')
+    profile = serializers.SlugRelatedField(
+        queryset=Profile.objects.all(),
+        slug_field='profile_id',
+    )
+    chat = serializers.SlugRelatedField(
+        queryset=Chat.objects.all(),
+        slug_field='chat_id',
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Deck
@@ -22,7 +36,7 @@ class DeckSerializer(serializers.ModelSerializer):
 
 
 class DeckListSerializer(serializers.ModelSerializer):
-    card_count = serializers.IntegerField(read_only=True, source='card_count')
+    card_count = serializers.IntegerField(read_only=True, source='flashcard_count')
 
     class Meta:
         model = Deck
