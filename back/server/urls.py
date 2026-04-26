@@ -35,6 +35,7 @@ from rest_framework_simplejwt.views import (
 )
 from bots.views.auto_login import auto_google_login, auto_apple_login
 from bots.views.revenuecat_webhook import revenuecat_webhook
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from .views import MarketingPageView, TutorialView
 
 router = routers.DefaultRouter()
@@ -65,6 +66,8 @@ urlpatterns = [
         path('', include(chats_router.urls)),
         path('', include(decks_router.urls)),
         path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+        path('schema', SpectacularAPIView.as_view(), name='schema'),
+        path('docs', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
         path('chats/<str:chat_id>', get_chat_response, name='get_chat_response'),
         path('login', get_jwt, name='get_jwt'),
         path('login/web', start_web_login, name='start_web_login'),

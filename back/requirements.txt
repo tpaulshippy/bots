@@ -25,3 +25,4 @@ pytest
 pytest-describe
 mockito
 pytest-django
+drf-spectacular

@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'bots',
     'django_extensions',
     'rest_framework',
+    'drf_spectacular',
     'corsheaders',
     'allauth',
     'allauth.account',
@@ -202,6 +203,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 X_FRAME_OPTIONS = 'ALLOWALL'
@@ -239,3 +241,10 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'
 AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='test-bucket')
 
 TAVILY_API_KEY = env('TAVILY_API_KEY', default='')
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Bots API',
+    'DESCRIPTION': 'API for the Bots application',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
