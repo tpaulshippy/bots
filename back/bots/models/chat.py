@@ -13,7 +13,8 @@ import boto3
 from .profile import Profile
 from .bot import Bot
 from .ai_model import AiModel
-from .flashcard import Deck, Flashcard
+from .deck import Deck
+from .flashcard import Flashcard
 
 logger = logging.getLogger(__name__)
 

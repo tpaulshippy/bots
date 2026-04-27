@@ -6,7 +6,8 @@ from .user_account import UserAccount, RevenueCatWebhookEvent
 from .usage_limit_hit import UsageLimitHit
 from .ai_model import AiModel
 from .device import Device
-from .flashcard import Deck, Flashcard
+from .deck import Deck
+from .flashcard import Flashcard
 
 __all__ = [
     'Chat',
