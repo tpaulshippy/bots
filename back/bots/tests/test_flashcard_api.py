@@ -68,16 +68,22 @@ class TestDeckListAPI:
         deck_data = data['results'][0]
         assert 'card_count' in deck_data, "Deck should have card_count field"
 
-    def test_deck_list_includes_profile_field(self, auth_client, test_profile):
-        """Deck list should include profile field"""
+    def test_deck_list_includes_profile_field(self, auth_client, test_profile, db):
+        """Deck list should NOT include profile field - uses DeckListSerializer"""
+        Deck.objects.create(
+            profile=test_profile,
+            name='Test Deck',
+            description='Test description'
+        )
+        
         response = auth_client.get(f'/api/decks.json?profileId={test_profile.profile_id}')
         
         assert response.status_code == 200
         data = response.json()
         
-        if len(data['results']) > 0:
-            deck_data = data['results'][0]
-            assert 'profile' in deck_data, "Deck should have profile field"
+        assert len(data['results']) > 0
+        deck_data = data['results'][0]
+        assert 'profile' not in deck_data, "Deck list should not have profile field"
 
 
 @pytest.mark.django_db

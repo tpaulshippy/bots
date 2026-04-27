@@ -54,14 +54,14 @@ describe('AI Models API', () => {
     it('should include required fields in ai model items', async () => {
       const response = await fetchAiModels();
 
-      if (response && response.results && response.results.length > 0) {
-        const model = response.results[0];
-        expect(model).toHaveProperty('model_id');
-        expect(model).toHaveProperty('name');
-        expect(model).toHaveProperty('input_token_cost');
-        expect(model).toHaveProperty('output_token_cost');
-        expect(model).toHaveProperty('is_default');
-      }
+      expect(response).toBeDefined();
+      expect(response.results.length).toBeGreaterThan(0);
+      const model = response.results[0];
+      expect(model).toHaveProperty('model_id');
+      expect(model).toHaveProperty('name');
+      expect(model).toHaveProperty('input_token_cost');
+      expect(model).toHaveProperty('output_token_cost');
+      expect(model).toHaveProperty('is_default');
     });
   });
 });

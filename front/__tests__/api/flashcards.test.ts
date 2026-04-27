@@ -24,7 +24,6 @@ jest.mock('../../api/apiClient', () => ({
               {
                 id: 1,
                 deck_id: '550e8400-e29b-41d4-a716-446655440001',
-                profile: '550e8400-e29b-41d4-a716-446655440000',
                 chat: null,
                 name: 'Test Deck 1',
                 description: 'Description 1',
@@ -35,7 +34,6 @@ jest.mock('../../api/apiClient', () => ({
               {
                 id: 2,
                 deck_id: '550e8400-e29b-41d4-a716-446655440002',
-                profile: '550e8400-e29b-41d4-a716-446655440000',
                 chat: null,
                 name: 'Test Deck 2',
                 description: 'Description 2',
@@ -54,7 +52,7 @@ jest.mock('../../api/apiClient', () => ({
           data: {
             id: 3,
             deck_id: '550e8400-e29b-41d4-a716-446655440003',
-            profile: '550e8400-e29b-41d4-a716-446655440000',
+            profile: options.body ? JSON.parse(options.body).profile : '550e8400-e29b-41d4-a716-446655440000',
             chat: options.body ? JSON.parse(options.body).chat : null,
             name: 'New Deck',
             description: 'New description',
@@ -68,6 +66,9 @@ jest.mock('../../api/apiClient', () => ({
     }
     
     if (url.match(/\/decks\/[^/]+\.json$/)) {
+      if (method === 'DELETE') {
+        return Promise.resolve({ ok: true });
+      }
       return Promise.resolve({
         ok: true,
         data: {
@@ -164,13 +165,6 @@ describe('Flashcards API', () => {
       }
     });
 
-    it('should include profile field in deck items', async () => {
-      const response = await fetchDecks(testProfileId);
-
-      if (response.results.length > 0) {
-        expect(response.results[0]).toHaveProperty('profile');
-      }
-    });
   });
 
   describe('fetchFlashcards', () => {

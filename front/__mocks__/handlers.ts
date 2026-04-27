@@ -29,7 +29,7 @@ export const handlers = [
     }, { status: 201 });
   }),
 
-  http.get('/api/decks/:id/', async ({ params }) => {
+  http.get('/api/decks/:id.json', async ({ params }) => {
     await delay(200);
     const id = params.id;
     return HttpResponse.json({
@@ -46,7 +46,7 @@ export const handlers = [
     });
   }),
 
-  http.patch('/api/decks/:id/', async ({ request }) => {
+  http.patch('/api/decks/:id.json', async ({ request }) => {
     await delay(200);
     const body = await request.json();
     return HttpResponse.json({
@@ -63,7 +63,7 @@ export const handlers = [
     });
   }),
 
-  http.delete('/api/decks/:id/', async () => {
+  http.delete('/api/decks/:id.json', async () => {
     await delay(200);
     return HttpResponse.json({}, { status: 204 });
   }),
@@ -94,7 +94,7 @@ export const handlers = [
     }, { status: 201 });
   }),
 
-  http.get('/api/decks/:deck_pk/flashcards/:id/', async ({ params }) => {
+  http.get('/api/decks/:deck_pk/flashcards/:id.json', async ({ params }) => {
     await delay(200);
     const id = params.id;
     return HttpResponse.json({
@@ -109,7 +109,7 @@ export const handlers = [
     });
   }),
 
-  http.patch('/api/decks/:deck_pk/flashcards/:id/', async ({ request }) => {
+  http.patch('/api/decks/:deck_pk/flashcards/:id.json', async ({ request }) => {
     await delay(200);
     const body = await request.json();
     return HttpResponse.json({
@@ -124,7 +124,7 @@ export const handlers = [
     });
   }),
 
-  http.delete('/api/decks/:deck_pk/flashcards/:id/', async () => {
+  http.delete('/api/decks/:deck_pk/flashcards/:id.json', async () => {
     await delay(200);
     return HttpResponse.json({}, { status: 204 });
   }),

@@ -33,13 +33,23 @@ class FlashcardViewSet(viewsets.ModelViewSet):
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_url_kwarg]
+        deck_pk = self.kwargs['deck_pk']
+
+        try:
+            deck_uuid = uuid.UUID(deck_pk)
+            deck = Deck.objects.get(deck_id=deck_uuid)
+        except (ValueError, Deck.DoesNotExist):
+            try:
+                deck = Deck.objects.get(id=deck_pk)
+            except (ValueError, Deck.DoesNotExist):
+                raise NotFound("Deck not found")
 
         try:
             flashcard_uuid = uuid.UUID(lookup_field_value)
-            flashcard = Flashcard.objects.get(flashcard_id=flashcard_uuid)
+            flashcard = Flashcard.objects.get(flashcard_id=flashcard_uuid, deck=deck)
         except (ValueError, Flashcard.DoesNotExist):
             try:
-                flashcard = Flashcard.objects.get(id=lookup_field_value)
+                flashcard = Flashcard.objects.get(id=lookup_field_value, deck=deck)
             except (ValueError, Flashcard.DoesNotExist):
                 raise NotFound("Flashcard not found")
 
@@ -48,18 +58,19 @@ class FlashcardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         deck_id = self.kwargs['deck_pk']
-        try:
-            deck_uuid = uuid.UUID(deck_id)
-            deck = Deck.objects.select_for_update().get(deck_id=deck_uuid)
-        except (ValueError, Deck.DoesNotExist):
-            try:
-                deck = Deck.objects.select_for_update().get(id=deck_id)
-            except (ValueError, Deck.DoesNotExist):
-                raise NotFound("Deck not found")
-        
-        self.check_object_permissions(self.request, deck)
         
         with transaction.atomic():
+            try:
+                deck_uuid = uuid.UUID(deck_id)
+                deck = Deck.objects.select_for_update().get(deck_id=deck_uuid)
+            except (ValueError, Deck.DoesNotExist):
+                try:
+                    deck = Deck.objects.select_for_update().get(id=deck_id)
+                except (ValueError, Deck.DoesNotExist):
+                    raise NotFound("Deck not found")
+            
+            self.check_object_permissions(self.request, deck)
+            
             max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
             serializer.save(deck=deck, order=max_order + 1)
 
