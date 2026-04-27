@@ -226,6 +226,50 @@ export default function RootLayout() {
                   </View>
                 );
               },
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => {
+                    const currentPath = pathname;
+                    if (currentPath === "/" || currentPath.startsWith("/(tabs)")) {
+                      router.push("/flashcards");
+                    } else if (currentPath === "/flashcards" || currentPath.startsWith("/flashcards")) {
+                      router.replace("/");
+                    } else if (pathname?.includes("/flashcards")) {
+                      router.replace("/");
+                    } else {
+                      router.push("/flashcards");
+                    }
+                  }}
+                >
+                  <IconSymbol
+                    name="list.bullet"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
+              headerRight: () => (
+                <PlatformPressable
+                  onPress={() => {
+                    router.push("/parent/settings");
+                  }}
+                >
+                  <IconSymbol
+                    name="gear"
+                    color={iconColor}
+                    size={40}
+                    style={styles.settingsIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
+            }}
+          />
+<Stack.Screen
+            name="chat"
+            options={{
+              headerShown: true,
+              headerTintColor: textColor,
               headerRight: () => (
                 <PlatformPressable
                   onPress={() => {
@@ -243,10 +287,82 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
-            name="chat"
+            name="flashcards"
+            options={{
+              headerShown: true,
+              title: "Flashcards",
+              headerTintColor: textColor,
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => router.replace("/")}
+                >
+                  <IconSymbol
+                    name="house"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
+            }}
+          />
+          <Stack.Screen
+            name="flashcards/deck"
             options={{
               headerShown: true,
               headerTintColor: textColor,
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => router.push("/flashcards")}
+                >
+                  <IconSymbol
+                    name="chevron.backward"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
+            }}
+          />
+          <Stack.Screen
+            name="flashcards/cardEdit"
+            options={{
+              headerShown: true,
+              title: "Edit Card",
+              headerTintColor: textColor,
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => router.back()}
+                >
+                  <IconSymbol
+                    name="chevron.backward"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
+            }}
+          />
+          <Stack.Screen
+            name="flashcards/study"
+            options={{
+              headerShown: true,
+              title: "Study",
+              headerTintColor: textColor,
+              headerLeft: () => (
+                <PlatformPressable
+                  onPress={() => router.back()}
+                >
+                  <IconSymbol
+                    name="chevron.backward"
+                    color={iconColor}
+                    size={40}
+                    style={styles.menuIcon}
+                  ></IconSymbol>
+                </PlatformPressable>
+              ),
             }}
           />
           <Stack.Screen
@@ -368,6 +484,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+  },
+  menuIcon: {
+    marginLeft: 5,
   },
   settingsIcon: {
     marginRight: 5,

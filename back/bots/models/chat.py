@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 import uuid
 from langchain_aws import ChatBedrock
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
@@ -13,6 +13,8 @@ import boto3
 from .profile import Profile
 from .bot import Bot
 from .ai_model import AiModel
+from .deck import Deck
+from .flashcard import Flashcard
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +88,82 @@ class Chat(models.Model):
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
         
-        # Use agent with tool calling if web search is enabled
+        @tool
+        def create_flashcard_deck(name: str, description: str = "", flashcards: list = None) -> str:
+            """Create a new flashcard deck with flashcards. Use this when the user wants to create flashcards for studying.
+            
+            Args:
+                name: The name of the deck (e.g., "Biology Test Terms")
+                description: Optional description of the deck
+                flashcards: Optional list of flashcards, each with 'front' and 'back' keys
+            """
+            logger.info(f"🃏 CREATE_FLASHCARD_DECK_TOOL_INVOKED: name='{name}'")
+            try:
+                with transaction.atomic():
+                    deck = Deck.objects.create(
+                        profile=self.profile,
+                        chat=self,
+                        name=name,
+                        description=description or ""
+                    )
+                    deck = Deck.objects.select_for_update().get(pk=deck.pk)
+                    created_cards = 0
+                    if flashcards:
+                        for i, card in enumerate(flashcards):
+                            Flashcard.objects.create(
+                                deck=deck,
+                                front=card.get('front', ''),
+                                back=card.get('back', ''),
+                                order=i
+                            )
+                            created_cards += 1
+                    logger.info(f"🃏 CREATE_FLASHCARD_DECK_SUCCESS: deck_id={deck.deck_id}, cards={created_cards}")
+                    return f"Created deck '{name}' with {created_cards} flashcards. Deck ID: {deck.deck_id}"
+            except Exception as e:
+                logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {str(e)}")
+                return f"Error creating deck: {str(e)}"
+        
+        @tool
+        def create_flashcard(deck_name: str, front: str, back: str) -> str:
+            """Add a single flashcard to an existing deck or create a new deck. Use this when the user wants to add flashcards to study.
+            
+            Args:
+                deck_name: The name of the deck to add the card to
+                front: The front of the flashcard (question/term)
+                back: The back of the flashcard (answer/definition)
+            """
+            logger.info(f"🃏 CREATE_FLASHCARD_TOOL_INVOKED: deck_name='{deck_name}'")
+            try:
+                with transaction.atomic():
+                    deck = Deck.objects.filter(profile=self.profile, name=deck_name).first()
+                    if not deck:
+                        deck = Deck.objects.create(
+                            profile=self.profile,
+                            chat=self,
+                            name=deck_name,
+                            description=""
+                        )
+                    deck = Deck.objects.select_for_update().get(pk=deck.pk)
+                    max_order = Flashcard.objects.filter(deck=deck).aggregate(models.Max('order'))['order__max'] or -1
+                    Flashcard.objects.create(
+                        deck=deck,
+                        front=front,
+                        back=back,
+                        order=max_order + 1
+                    )
+                    logger.info(f"🃏 CREATE_FLASHCARD_SUCCESS: deck={deck.name}")
+                    return f"Added flashcard to deck '{deck_name}'. Deck ID: {deck.deck_id}"
+            except Exception as e:
+                logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {str(e)}")
+                return f"Error creating flashcard: {str(e)}"
+        
+        tools = [create_flashcard_deck, create_flashcard]
+        
+        chat_model = ChatBedrock(model_id=self.ai.model_id)
+        model_with_tools = chat_model.bind_tools(tools)
+        
+        web_search = None
+        
         if self.bot and self.bot.enable_web_search and settings.TAVILY_API_KEY:
             logger.info(f"Web search enabled for bot {self.bot.name}")
             tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
@@ -99,7 +176,6 @@ class Chat(models.Model):
                     results = tavily_client.search(query=query)
                     num_results = len(results.get('results', []))
                     logger.info(f"🔍 WEB_SEARCH_SUCCESS: returned {num_results} results")
-                    # Format results as a readable string for the model
                     if results.get('results'):
                         formatted = "\n".join([
                             f"- {r.get('title', 'No title')}: {r.get('content', '')[:200]}"
@@ -114,119 +190,113 @@ class Chat(models.Model):
                     logger.error(f"🔍 WEB_SEARCH_ERROR: {str(e)}")
                     return f"Error during search: {str(e)}"
             
-            
-            # Create chat model with tool binding
-            chat_model = ChatBedrock(model_id=self.ai.model_id)
-            tools = [web_search]
-            
-            # Bind tools to the model for proper tool calling
+            tools.append(web_search)
             model_with_tools = chat_model.bind_tools(tools)
-            
-            # Use the full message_list which already contains conversation history
+        
+        has_web_search = web_search is not None
+        
+        if has_web_search:
             logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
-            logger.info("🤖 AGENT_INVOKE_START: web_search tool available")
+            logger.info("🤖 AGENT_INVOKE_START: web_search and flashcard tools available")
+        else:
+            logger.info(f"Invoking agent with flashcard tools only ({len(message_list)} messages)")
+            logger.info("🤖 AGENT_INVOKE_START: flashcard tools available (web_search disabled)")
+        
+        messages = message_list
+        
+        max_iterations = 5
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            logger.info(f"🤖 AGENT_LOOP_ITERATION: {iteration}")
             
-            # Build and run the agent loop manually with full conversation context
-            messages = message_list
+            response = model_with_tools.invoke(messages)
+            messages.append(response)
             
-            # Agentagent loop - keep invoking until no more tool calls
-            max_iterations = 5
-            iteration = 0
+            if not response.tool_calls:
+                logger.info(f"🤖 AGENT_LOOP_COMPLETE: no more tool calls after {iteration} iterations")
+                break
             
-            while iteration < max_iterations:
-                iteration += 1
-                logger.info(f"🤖 AGENT_LOOP_ITERATION: {iteration}")
+            for tool_call in response.tool_calls:
+                tool_name = tool_call["name"]
+                tool_args = tool_call["args"]
+                logger.info(
+                    "🔍 AGENT_TOOL_CALL: %s with arg keys: %s",
+                    tool_name,
+                    list(tool_args.keys()) if isinstance(tool_args, dict) else type(tool_args).__name__,
+                )
                 
-                # Call the model
-                response = model_with_tools.invoke(messages)
-                messages.append(response)
-                
-                # Check if model wants to call a tool
-                if not response.tool_calls:
-                    logger.info(f"🤖 AGENT_LOOP_COMPLETE: no more tool calls after {iteration} iterations")
-                    break
-                
-                # Process tool calls
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call["name"]
-                    tool_args = tool_call["args"]
-                    logger.info(f"🔍 AGENT_TOOL_CALL: {tool_name} with args: {tool_args}")
-                    
-                    # Execute the tool
-                    if tool_name == "web_search":
+                if tool_name == "web_search":
+                    if has_web_search:
                         tool_result = web_search.invoke(tool_args)
                     else:
-                        tool_result = f"Unknown tool: {tool_name}"
-                    
-                    logger.info(f"🔍 AGENT_TOOL_RESULT: {tool_result[:100]}")
-                    
-                    # Add tool result to messages
-                    messages.append(ToolMessage(
-                        content=tool_result,
-                        tool_call_id=tool_call["id"],
-                        name=tool_name
-                    ))
-            
-            logger.info("🤖 AGENT_LOOP_COMPLETE: extracting final response")
-            
-            # Extract response text from the final message
-            # The messages list now contains: System, HumanMessage, AIMessage (with tool call), ToolMessage, AIMessage (final response)
-            response_text = ""
-            usage_metadata = {"input_tokens": 0, "output_tokens": 0}
-            
-            # Find the last AIMessage (should be the final response)
+                        tool_result = "Web search is not available."
+                elif tool_name == "create_flashcard_deck":
+                    tool_result = create_flashcard_deck.invoke(tool_args)
+                elif tool_name == "create_flashcard":
+                    tool_result = create_flashcard.invoke(tool_args)
+                else:
+                    tool_result = f"Unknown tool: {tool_name}"
+                
+                logger.info(f"🔍 AGENT_TOOL_RESULT: {tool_result[:100]}")
+                
+                messages.append(ToolMessage(
+                    content=tool_result,
+                    tool_call_id=tool_call["id"],
+                    name=tool_name
+                ))
+        
+        logger.info("🤖 AGENT_LOOP_COMPLETE: extracting final response")
+        
+        response_text = ""
+        usage_metadata = {"input_tokens": 0, "output_tokens": 0}
+        
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage) and not msg.tool_calls:
+                if isinstance(msg.content, str):
+                    response_text = msg.content
+                elif isinstance(msg.content, list):
+                    text_parts = []
+                    for item in msg.content:
+                        if isinstance(item, dict) and item.get('type') == 'text':
+                            text_parts.append(item.get('text', ''))
+                        elif isinstance(item, str):
+                            text_parts.append(item)
+                    response_text = "".join(text_parts).strip()
+                
+                if hasattr(msg, 'usage_metadata') and msg.usage_metadata:
+                    usage_metadata = msg.usage_metadata
+                
+                logger.info(f"🤖 FINAL_RESPONSE: {len(response_text)} chars")
+                break
+        
+        if not response_text:
             for msg in reversed(messages):
-                if isinstance(msg, AIMessage) and not msg.tool_calls:
-                    # This is the final response (no tool calls)
+                if isinstance(msg, AIMessage):
                     if isinstance(msg.content, str):
                         response_text = msg.content
                     elif isinstance(msg.content, list):
-                        # Extract text from content list
-                        text_parts = []
-                        for item in msg.content:
-                            if isinstance(item, dict) and item.get('type') == 'text':
-                                text_parts.append(item.get('text', ''))
-                            elif isinstance(item, str):
-                                text_parts.append(item)
+                        text_parts = [item.get('text', '') for item in msg.content if isinstance(item, dict) and item.get('type') == 'text']
                         response_text = "".join(text_parts).strip()
-                    
-                    # Extract token usage
-                    if hasattr(msg, 'usage_metadata') and msg.usage_metadata:
-                        usage_metadata = msg.usage_metadata
-                    
-                    logger.info(f"🤖 FINAL_RESPONSE: {len(response_text)} chars")
                     break
-            
-            if not response_text:
-                # Fallback: get the last message
-                for msg in reversed(messages):
-                    if isinstance(msg, AIMessage):
-                        if isinstance(msg.content, str):
-                            response_text = msg.content
-                        elif isinstance(msg.content, list):
-                            text_parts = [item.get('text', '') for item in msg.content if isinstance(item, dict) and item.get('type') == 'text']
-                            response_text = "".join(text_parts).strip()
-                        break
-            
-            message_order = self.messages.count()
-            
-            input_tokens = usage_metadata.get('input_tokens', 0)
-            output_tokens = usage_metadata.get('output_tokens', 0)
-            
-            self.messages.create(
-                text=response_text, 
-                role='assistant', 
-                order=message_order,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens
-            )
-            self.input_tokens += input_tokens
-            self.output_tokens += output_tokens
-            self.save()
-            return response_text
         
-        # Standard response without web search
-        return self.get_response_standard(message_list, ai)
+        message_order = self.messages.count()
+        
+        input_tokens = usage_metadata.get('input_tokens', 0)
+        output_tokens = usage_metadata.get('output_tokens', 0)
+        
+        self.messages.create(
+            text=response_text, 
+            role='assistant', 
+            order=message_order,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens
+        )
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+        self.save()
+        return response_text
 
     def _extract_agent_input(self, message_list):
         """Extract text input from message_list for the agent.
