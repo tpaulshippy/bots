@@ -121,14 +121,17 @@ class DeckViewSet(viewsets.ModelViewSet):
             if not profile:
                 raise drf_serializers.ValidationError("No profile found for user")
         
-        chat = None
         if chat_id:
             try:
                 chat_uuid = uuid.UUID(chat_id)
                 from bots.models import Chat
                 chat = Chat.objects.get(chat_id=chat_uuid, user=user)
-            except (ValueError, Chat.DoesNotExist):
-                chat = None
+            except ValueError:
+                raise drf_serializers.ValidationError(f"Invalid UUID format for chat_id: {chat_id}")
+            except Chat.DoesNotExist:
+                raise drf_serializers.ValidationError(f"Chat with ID {chat_id} not found or unauthorized")
+        else:
+            chat = None
         
         serializer.save(profile=profile, chat=chat)
 
