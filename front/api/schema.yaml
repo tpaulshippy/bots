@@ -379,14 +379,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Deck'
           description: ''
-  /api/decks/{deck_pk}/flashcards/:
+  /api/decks/{deck_id_pk}/flashcards/:
     get:
       operationId: decks_flashcards_list
       parameters:
       - in: path
-        name: deck_pk
+        name: deck_id_pk
         schema:
-          type: integer
+          type: string
         required: true
       - name: page
         required: false
@@ -410,9 +410,9 @@ paths:
       operationId: decks_flashcards_create
       parameters:
       - in: path
-        name: deck_pk
+        name: deck_id_pk
         schema:
-          type: integer
+          type: string
         required: true
       tags:
       - decks
@@ -438,20 +438,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Flashcard'
           description: ''
-  /api/decks/{deck_pk}/flashcards/{id}/:
+  /api/decks/{deck_id_pk}/flashcards/{flashcardId}/:
     get:
       operationId: decks_flashcards_retrieve
       parameters:
       - in: path
-        name: deck_pk
+        name: deck_id_pk
         schema:
-          type: integer
+          type: string
         required: true
       - in: path
-        name: id
+        name: flashcardId
         schema:
-          type: integer
-        description: A unique integer value identifying this flashcard.
+          type: string
+          format: uuid
         required: true
       tags:
       - decks
@@ -469,15 +469,15 @@ paths:
       operationId: decks_flashcards_update
       parameters:
       - in: path
-        name: deck_pk
+        name: deck_id_pk
         schema:
-          type: integer
+          type: string
         required: true
       - in: path
-        name: id
+        name: flashcardId
         schema:
-          type: integer
-        description: A unique integer value identifying this flashcard.
+          type: string
+          format: uuid
         required: true
       tags:
       - decks
@@ -507,15 +507,15 @@ paths:
       operationId: decks_flashcards_partial_update
       parameters:
       - in: path
-        name: deck_pk
+        name: deck_id_pk
         schema:
-          type: integer
+          type: string
         required: true
       - in: path
-        name: id
+        name: flashcardId
         schema:
-          type: integer
-        description: A unique integer value identifying this flashcard.
+          type: string
+          format: uuid
         required: true
       tags:
       - decks
@@ -544,15 +544,15 @@ paths:
       operationId: decks_flashcards_destroy
       parameters:
       - in: path
-        name: deck_pk
+        name: deck_id_pk
         schema:
-          type: integer
+          type: string
         required: true
       - in: path
-        name: id
+        name: flashcardId
         schema:
-          type: integer
-        description: A unique integer value identifying this flashcard.
+          type: string
+          format: uuid
         required: true
       tags:
       - decks
@@ -1349,13 +1349,6 @@ components:
         deck_id:
           type: string
           format: uuid
-        profile:
-          type: string
-          format: uuid
-        chat:
-          type: string
-          format: uuid
-          nullable: true
         name:
           type: string
           maxLength: 255
@@ -1377,7 +1370,6 @@ components:
       - created_at
       - id
       - name
-      - profile
       - updated_at
     Device:
       type: object

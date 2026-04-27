@@ -6,7 +6,7 @@ set -e
 
 BACKEND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../back" && pwd)"
 FRONTEND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../front" && pwd)"
-SCHEMA_FILE="$FRONTEND_DIR/api/schema.json"
+SCHEMA_FILE="$FRONTEND_DIR/api/schema.yaml"
 
 echo "=== Generating OpenAPI Schema ==="
 cd "$BACKEND_DIR"

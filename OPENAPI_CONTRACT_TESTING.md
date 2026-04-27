@@ -17,7 +17,7 @@ The system uses OpenAPI schema generated from Django REST Framework to:
 - `back/bots/tests/test_flashcard_api.py` - API contract tests (12 tests)
 
 ### Frontend
-- `front/api/schema.json` - OpenAPI schema file
+- `front/api/schema.yaml` - OpenAPI schema file
 - `front/__mocks__/handlers.ts` - MSW handlers for API mocking
 - `front/__tests__/api/flashcards.test.ts` - Frontend API tests (11 tests)
 
@@ -48,7 +48,7 @@ After making changes to serializers, viewsets, or models that affect the API:
 ```
 
 Then:
-1. Review `front/api/schema.json` for changes
+1. Review `front/api/schema.yaml` for changes
 2. Update `front/__mocks__/handlers.ts` if needed
 3. Run tests to verify nothing broke
 
