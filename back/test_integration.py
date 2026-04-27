@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Integration test for web search feature.
+Integration test for web search and flashcard features.
 Tests the actual API endpoints by hitting the running server.
 """
 import os
@@ -13,14 +13,15 @@ sys.path.insert(0, '/home/ubuntu/repos/bots/back')
 django.setup()
 
 import requests
+import urllib.parse
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
-from bots.models import Bot, AiModel
+from bots.models import Bot, AiModel, Deck, Flashcard, Profile, UserAccount, Chat
 
 
 def run_integration_test():
     print("=" * 60)
-    print("Integration Test: Web Search Feature")
+    print("Integration Test: Web Search and Flashcard Features")
     print("=" * 60)
     
     base_url = "http://localhost:8000"
@@ -50,7 +51,26 @@ def run_integration_test():
         user.set_password('testpass123')
         user.save()
     
-    print(f"   Using user: {user.username}")
+    # Create or get profile for user
+    from bots.models import Profile
+    profile, _ = Profile.objects.get_or_create(
+        user=user,
+        defaults={'name': 'Test Profile'}
+    )
+    
+    # Create or get user account with higher subscription
+    from bots.models import UserAccount
+    UserAccount.objects.filter(user=user).delete()
+    user_account = UserAccount.objects.create(
+        user=user,
+        subscription_level=2,
+        timezone='UTC'
+    )
+    
+    # Clear any existing chats that might have accumulated costs
+    Chat.objects.filter(user=user).delete()
+    
+    print(f"   Using user: {user.username} (subscription_level={user_account.subscription_level})")
     
     # Get JWT token
     refresh = RefreshToken.for_user(user)
@@ -141,11 +161,11 @@ def run_integration_test():
     # Test 3: Create chat with web search enabled bot
     print("\n6. Testing POST /api/chats/new with web search enabled bot")
     try:
-        import urllib.parse
         # Use a query that requires current/recent information
         form_data = urllib.parse.urlencode({
             'message': 'What happened in the news today?',
-            'bot': str(bot_with_search.bot_id)
+            'bot': str(bot_with_search.bot_id),
+            'profile': str(profile.profile_id)
         })
         
         response = requests.post(
@@ -172,10 +192,10 @@ def run_integration_test():
     # Test 4: Create chat without web search - same question should not get real-time info
     print("\n7. Testing POST /api/chats/new with web search disabled bot")
     try:
-        import urllib.parse
         form_data = urllib.parse.urlencode({
             'message': 'What happened in the news today?',
-            'bot': str(bot_without_search.bot_id)
+            'bot': str(bot_without_search.bot_id),
+            'profile': str(profile.profile_id)
         })
         
         response = requests.post(
@@ -229,6 +249,125 @@ def run_integration_test():
     bot_with_search.delete()
     bot_without_search.delete()
     print("   ✓ Cleanup complete")
+    
+    # Test 6: Flashcard creation via chat
+    print("\n10. Testing flashcard creation via chat")
+    bot_for_flashcards = Bot.objects.create(
+        user=user,
+        name='Test Flashcard Bot',
+        ai_model=ai_model,
+        system_prompt='You are a helpful assistant that creates flashcards.',
+        enable_web_search=False
+    )
+    print(f"   Created bot for flashcard testing: {bot_for_flashcards.name}")
+    
+    try:
+        # Test creating a flashcard deck with cards
+        form_data = urllib.parse.urlencode({
+            'message': 'Create a flashcard deck called "Spanish Basics" with these cards: "Hola" -> "Hello", "Adios" -> "Goodbye", "Gracias" -> "Thank you"',
+            'bot': str(bot_for_flashcards.bot_id),
+            'profile': str(profile.profile_id)
+        })
+        
+        response = requests.post(
+            f"{base_url}/api/chats/new",
+            headers={**headers, 'Content-Type': 'application/x-www-form-urlencoded'},
+            data=form_data
+        )
+        print(f"   Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            chat_data = response.json()
+            response_text = chat_data.get('response', '')
+            print(f"   Chat response: {response_text[:150]}...")
+            
+            # Check if deck was created
+            deck = Deck.objects.filter(profile=profile, name='Spanish Basics').first()
+            if deck:
+                print(f"   ✓ Deck 'Spanish Basics' created with ID: {deck.deck_id}")
+                
+                # Check flashcards in the deck
+                cards = Flashcard.objects.filter(deck=deck).order_by('order')
+                print(f"   ✓ Found {cards.count()} flashcards in deck")
+                for card in cards:
+                    print(f"      - {card.front} -> {card.back}")
+                
+                # Verify expected cards
+                expected_cards = [
+                    ('Hola', 'Hello'),
+                    ('Adios', 'Goodbye'),
+                    ('Gracias', 'Thank you')
+                ]
+                actual_cards = [(c.front, c.back) for c in cards]
+                if actual_cards == expected_cards:
+                    print("   ✓ Flashcards match expected content")
+                else:
+                    print(f"   ✗ WARNING: Cards don't match. Expected {expected_cards}, got {actual_cards}")
+            else:
+                print("   ✗ WARNING: Deck not found in database (may have been cleaned up or creation failed)")
+                print(f"   Response: {response_text}")
+        else:
+            print(f"   Response: {response.text[:500]}")
+    except Exception as e:
+        print(f"   ✗ ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # Test 7: Adding single flashcard to existing deck
+    print("\n11. Testing adding single flashcard to existing deck")
+    
+    # Reset chat history to avoid rate limit
+    Chat.objects.filter(user=user).delete()
+    
+    try:
+        # First create a deck to add to
+        existing_deck = Deck.objects.create(
+            profile=profile,
+            chat=None,
+            name='Existing Deck',
+            description='A test deck'
+        )
+        print(f"   Created existing deck: {existing_deck.name}")
+        
+        form_data = urllib.parse.urlencode({
+            'message': 'Add a flashcard to the "Existing Deck" deck with front "New Card" and back "New Answer"',
+            'bot': str(bot_for_flashcards.bot_id),
+            'profile': str(profile.profile_id)
+        })
+        
+        response = requests.post(
+            f"{base_url}/api/chats/new",
+            headers={**headers, 'Content-Type': 'application/x-www-form-urlencoded'},
+            data=form_data
+        )
+        print(f"   Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            chat_data = response.json()
+            response_text = chat_data.get('response', '')
+            print(f"   Chat response: {response_text[:150]}...")
+            
+            # Check if flashcard was added
+            card = Flashcard.objects.filter(deck=existing_deck, front='New Card').first()
+            if card:
+                print(f"   ✓ Flashcard added: {card.front} -> {card.back}")
+                card.delete()
+            else:
+                print("   ✗ WARNING: Flashcard not found")
+        else:
+            print(f"   Response: {response.text[:500]}")
+        
+        existing_deck.delete()
+    except Exception as e:
+        print(f"   ✗ ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # Cleanup flashcards
+    print("\n12. Cleaning up flashcard test data")
+    bot_for_flashcards.delete()
+    Deck.objects.filter(profile=profile, name='Spanish Basics').delete()
+    print("   ✓ Flashcard cleanup complete")
     
     print("\n" + "=" * 60)
     print("INTEGRATION TESTS COMPLETED!")
