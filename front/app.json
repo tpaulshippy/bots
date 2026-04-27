@@ -2,7 +2,7 @@
   "expo": {
     "name": "Syft Learning",
     "slug": "bots-for-kids",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/syft.png",
     "scheme": "botsforkids",
@@ -72,7 +72,7 @@
       }
     },
     "owner": "tpaulshippy",
-    "runtimeVersion": "1.0.3",
+    "runtimeVersion": "1.0.4",
     "updates": {
       "url": "https://u.expo.dev/c5f43f2f-c295-4b8e-b4ee-fb40063ee003",
       "requestHeaders": {
