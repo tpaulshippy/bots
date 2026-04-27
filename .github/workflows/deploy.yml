@@ -24,4 +24,5 @@ jobs:
             cd back
             ../venv/bin/pip install -r requirements.txt
             ../venv/bin/python manage.py migrate --noinput || true
+            sudo systemctl restart bots
           EOF
