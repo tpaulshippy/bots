@@ -22,6 +22,7 @@ jobs:
             cd /home/bots/repo
             git pull
             cd back
+            pip install -r requirements.txt
             source ../venv/bin/activate
             python manage.py migrate --noinput || true
           EOF
