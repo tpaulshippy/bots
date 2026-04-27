@@ -48,3 +48,4 @@ sentry.properties
 .expo
 dist/
 web-build/
+credentials.json
