@@ -15,7 +15,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "com.tpaulshippy.botsforkids"
+      "bundleIdentifier": "com.tpaulshippy.botsforkids",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
