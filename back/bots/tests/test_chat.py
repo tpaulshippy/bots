@@ -6,6 +6,9 @@ from django.contrib.auth.models import User
 from bots.models.chat import Chat
 from bots.models.bot import Bot
 from bots.models.ai_model import AiModel
+from bots.models.flashcard import Flashcard
+from bots.models.deck import Deck
+from bots.models.profile import Profile
 from langchain_core.messages import AIMessage
 import uuid
 
@@ -181,3 +184,23 @@ def describe_chat_model():
                 result = chat.get_response(ai=ai)
                 
                 assert result == "Hello! How can I assist you today?"
+
+
+@pytest.mark.django_db
+def test_flashcard_order_increments():
+    from bots.models.profile import Profile
+    from bots.models.flashcard import Flashcard
+    
+    chat = Chat.objects.create()
+    profile = Profile.objects.create(user=chat.user)
+    deck = Deck.objects.create(chat=chat, name="Test Deck", profile=profile)
+    
+    Flashcard.objects.create(deck=deck, front="front0", back="back0", order=0)
+    Flashcard.objects.create(deck=deck, front="front1", back="back1", order=1)
+    Flashcard.objects.create(deck=deck, front="front2", back="back2", order=2)
+    
+    card_count = Flashcard.objects.filter(deck=deck).count()
+    assert card_count == 3, f"Expected 3 cards, got {card_count}"
+    
+    orders = list(Flashcard.objects.filter(deck=deck).order_by('order').values_list('order', flat=True))
+    assert orders == [0, 1, 2], f"Expected orders [0, 1, 2], got {orders}"
