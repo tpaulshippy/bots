@@ -3,7 +3,7 @@ import React
 import ReactAppDependencyProvider
 
 @UIApplicationMain
-public class AppDelegate: ExpoAppDelegate {
+class AppDelegate: ExpoAppDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
