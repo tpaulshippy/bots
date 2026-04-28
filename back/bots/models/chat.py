@@ -144,7 +144,7 @@ class Chat(models.Model):
                             description=""
                         )
                         deck = Deck.objects.select_for_update().get(pk=deck.pk)
-                    max_order = Flashcard.objects.filter(deck=deck).aggregate(models.Max('order'))['order__max'] or -1
+                    max_order = Flashcard.objects.select_for_update().filter(deck=deck).aggregate(models.Max('order'))['order__max'] or -1
                     Flashcard.objects.create(
                         deck=deck,
                         front=front,
