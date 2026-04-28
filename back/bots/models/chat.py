@@ -135,7 +135,7 @@ class Chat(models.Model):
             logger.info(f"🃏 CREATE_FLASHCARD_TOOL_INVOKED: deck_name='{deck_name}'")
             try:
                 with transaction.atomic():
-                    deck = Deck.objects.select_for_update().filter(profile=self.profile, name=deck_name).first()
+                    deck = Deck.objects.filter(profile=self.profile, name=deck_name).first()
                     if not deck:
                         deck = Deck.objects.create(
                             profile=self.profile,
@@ -143,7 +143,6 @@ class Chat(models.Model):
                             name=deck_name,
                             description=""
                         )
-                        deck = Deck.objects.select_for_update().get(pk=deck.pk)
                     last_card = Flashcard.objects.filter(deck=deck).order_by('-order').first()
                     max_order = last_card.order if last_card else -1
                     Flashcard.objects.create(
