@@ -6,9 +6,9 @@ from django.contrib.auth.models import User
 from bots.models.chat import Chat
 from bots.models.bot import Bot
 from bots.models.ai_model import AiModel
-from bots.models.flashcard import Flashcard
 from bots.models.deck import Deck
 from bots.models.profile import Profile
+from bots.models.flashcard import Flashcard
 from langchain_core.messages import AIMessage
 import uuid
 
@@ -188,9 +188,6 @@ def describe_chat_model():
 
 @pytest.mark.django_db
 def test_flashcard_order_increments():
-    from bots.models.profile import Profile
-    from bots.models.flashcard import Flashcard
-    
     chat = Chat.objects.create()
     profile = Profile.objects.create(user=chat.user)
     deck = Deck.objects.create(chat=chat, name="Test Deck", profile=profile)
