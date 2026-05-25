@@ -10,7 +10,8 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useRouter, useLocalSearchParams, useNavigation } from "expo-router";
+import { useLayoutEffect } from "react";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -48,6 +49,8 @@ export default function DeckDetail() {
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "cardBackground");
 
+  const navigation = useNavigation();
+
   const refresh = useCallback(async () => {
     if (!deckId) {
       Sentry.captureException(new Error("refresh called with missing deckId"));
@@ -79,6 +82,16 @@ export default function DeckDetail() {
       refresh();
     }, [refresh])
   );
+
+  useLayoutEffect(() => {
+    if (showAddCard) {
+      navigation.setOptions({ title: "Add New Card" });
+    } else if (isEditing) {
+      navigation.setOptions({ title: "Edit Deck" });
+    } else {
+      navigation.setOptions({ title: deck?.name || "" });
+    }
+  }, [showAddCard, isEditing, deck?.name, navigation]);
 
   const handleSaveDeck = async () => {
     if (!editName.trim()) {
@@ -205,7 +218,6 @@ export default function DeckDetail() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.modalContainer}>
-              <ThemedText style={styles.modalTitle}>Add New Card</ThemedText>
               <TextInput
                 style={[styles.input, styles.cardInput, { borderColor, color: textColor }]}
                 placeholder="Front (question)"
@@ -256,7 +268,6 @@ export default function DeckDetail() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.modalContainer}>
-              <ThemedText style={styles.modalTitle}>Edit Deck</ThemedText>
               <TextInput
                 style={[styles.input, { borderColor, color: textColor }]}
                 placeholder="Deck name"
@@ -448,12 +459,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     justifyContent: "center",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
   },
   input: {
     borderWidth: 1,
