@@ -1,24 +1,13 @@
-import { ThemedView } from "@/components/ThemedView";
-import ChatList from "./chatList";
-import { StyleSheet } from "react-native";
+import { useEffect } from "react";
+import { useRouter } from "expo-router";
 
 export default function ChildHome() {
-  return (
-  <ThemedView style={styles.container}>
-    <ChatList />
-  </ThemedView>
-  );
-}
+  const router = useRouter();
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  titleContainer: {
-    flexDirection: "row",
-    paddingLeft: 20
-  },
-  list: {
-    padding: 20,
-  },
-});
+  useEffect(() => {
+    // Redirect to chat screen as the default landing page
+    router.replace("/chat");
+  }, [router]);
+
+  return null;
+}
