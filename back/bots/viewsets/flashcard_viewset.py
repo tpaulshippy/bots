@@ -1,17 +1,11 @@
-import logging
 import uuid
 
 from django.db.models import Count, Max
-from django.db import transaction
-from django.db.utils import IntegrityError
 from rest_framework import viewsets
-from rest_framework.exceptions import NotFound, ValidationError
-
+from rest_framework.exceptions import NotFound
 from bots.models import Deck, Flashcard, Profile
 from bots.permissions import IsOwner
 from bots.serializers import FlashcardSerializer, DeckSerializer, DeckListSerializer
-
-logger = logging.getLogger(__name__)
 
 
 class FlashcardViewSet(viewsets.ModelViewSet):
@@ -23,7 +17,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         deck_id = self.kwargs['deck_pk']
-        
+
         try:
             deck_uuid = uuid.UUID(deck_id)
             deck = Deck.objects.get(deck_id=deck_uuid)
@@ -32,10 +26,10 @@ class FlashcardViewSet(viewsets.ModelViewSet):
                 deck = Deck.objects.get(id=deck_id)
             except (ValueError, Deck.DoesNotExist):
                 raise NotFound("Deck not found")
-        
+
         self.check_object_permissions(self.request, deck)
-        
-        return Flashcard.objects.filter(deck=deck).order_by('order')
+
+        return Flashcard.objects.filter(deck=deck).order_by('order', 'created_at')
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_url_kwarg]
@@ -64,61 +58,20 @@ class FlashcardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         deck_id = self.kwargs['deck_pk']
-        max_retries = 3
-        
-        with transaction.atomic():
-            try:
-                deck_uuid = uuid.UUID(deck_id)
-                deck = Deck.objects.get(deck_id=deck_uuid)
-            except (ValueError, Deck.DoesNotExist):
-                try:
-                    deck = Deck.objects.get(id=deck_id)
-                except (ValueError, Deck.DoesNotExist):
-                    raise NotFound("Deck not found")
-            
-            self.check_object_permissions(self.request, deck)
-            
-            # Retry logic for race conditions (SQLite doesn't support select_for_update)
-            for attempt in range(max_retries):
-                max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
-                try:
-                    serializer.save(deck=deck, order=max_order + 1)
-                    return
-                except IntegrityError:
-                    if attempt < max_retries - 1:
-                        logger.warning(
-                            "Retrying flashcard creation due to race condition: deck_id=%s, attempt=%d",
-                            deck.id,
-                            attempt + 1
-                        )
-                        continue
-                    else:
-                        raise
-            
-            # Should not reach here, but just in case
-            logger.error(
-                "Failed to create flashcard after %d retries: deck_id=%s",
-                max_retries,
-                deck.id
-            )
-            raise ValidationError(
-                f"Failed to create flashcard due to concurrent requests: deck={deck.id}"
-            )
 
-    def perform_update(self, serializer):
         try:
-            serializer.save()
-        except IntegrityError as e:
-            deck_id = serializer.instance.deck.id if serializer.instance and serializer.instance.deck else "unknown"
-            logger.error(
-                "IntegrityError updating flashcard: deck_id=%s, constraint=%s, error=%s",
-                deck_id,
-                "unique_flashcard_order_per_deck",
-                str(e)
-            )
-            raise ValidationError(
-                f"Flashcard order must be unique per deck: deck={deck_id}"
-            )
+            deck_uuid = uuid.UUID(deck_id)
+            deck = Deck.objects.get(deck_id=deck_uuid)
+        except (ValueError, Deck.DoesNotExist):
+            try:
+                deck = Deck.objects.get(id=deck_id)
+            except (ValueError, Deck.DoesNotExist):
+                raise NotFound("Deck not found")
+
+        self.check_object_permissions(self.request, deck)
+
+        max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
+        serializer.save(deck=deck, order=max_order + 1)
 
 
 class DeckViewSet(viewsets.ModelViewSet):
@@ -129,16 +82,16 @@ class DeckViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         profile_id = self.request.query_params.get('profileId')
-        
+
         queryset = Deck.objects.filter(profile__user=user)
-        
+
         if profile_id:
             try:
                 profile_uuid = uuid.UUID(profile_id)
                 queryset = queryset.filter(profile__profile_id=profile_uuid)
             except ValueError:
                 queryset = queryset.none()
-        
+
         return queryset.annotate(flashcard_count=Count('flashcards')).order_by('-created_at')
 
     def get_serializer_class(self):
@@ -166,7 +119,7 @@ class DeckViewSet(viewsets.ModelViewSet):
         user = self.request.user
         profile_id = self.request.data.get('profile')
         chat_id = self.request.data.get('chat')
-        
+
         if profile_id:
             try:
                 profile_uuid = uuid.UUID(profile_id)
@@ -177,7 +130,7 @@ class DeckViewSet(viewsets.ModelViewSet):
             profile = Profile.objects.filter(user=user).first()
             if not profile:
                 raise drf_serializers.ValidationError("No profile found for user")
-        
+
         if chat_id:
             try:
                 chat_uuid = uuid.UUID(chat_id)
@@ -189,7 +142,7 @@ class DeckViewSet(viewsets.ModelViewSet):
                 raise drf_serializers.ValidationError(f"Chat with ID {chat_id} not found or unauthorized")
         else:
             chat = None
-        
+
         serializer.save(profile=profile, chat=chat)
 
     def perform_update(self, serializer):

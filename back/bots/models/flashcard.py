@@ -12,9 +12,6 @@ class Flashcard(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["deck", "order"], name="unique_flashcard_order_per_deck")
-        ]
         indexes = [
             models.Index(fields=["deck", "order"])
         ]
