@@ -21,6 +21,7 @@ import * as Haptics from "expo-haptics";
 
 import { fetchFlashcards, Flashcard } from "@/api/flashcards";
 import { PlatformPressable } from "@react-navigation/elements";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - 40;
@@ -32,6 +33,14 @@ export default function Study() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const flip = useSharedValue(0);
+
+  const cardBackground = useThemeColor({}, "cardBackground");
+  const studyCardBack = useThemeColor({}, "studyCardBack");
+  const textColor = useThemeColor({}, "text");
+  const iconColor = useThemeColor({}, "icon");
+  const tint = useThemeColor({}, "tint");
+  const disabledColor = useThemeColor({}, "disabled");
+  const navButtonBg = useThemeColor({}, "border");
 
   useEffect(() => {
     const loadCards = async () => {
@@ -118,30 +127,55 @@ export default function Study() {
         onPress={flipCard}
         activeOpacity={0.9}
       >
-        <Animated.View style={[styles.card, styles.cardFront, frontAnimatedStyle]}>
-          <ThemedText style={styles.cardText}>{currentCard?.front}</ThemedText>
-          <ThemedText style={styles.tapHint}>Tap to reveal</ThemedText>
+        <Animated.View
+          style={[
+            styles.card,
+            styles.cardFront,
+            frontAnimatedStyle,
+            { backgroundColor: cardBackground },
+          ]}
+        >
+          <ThemedText style={[styles.cardText, { color: textColor }]}>
+            {currentCard?.front}
+          </ThemedText>
+          <ThemedText style={[styles.tapHint, { color: iconColor }]}>
+            Tap to reveal
+          </ThemedText>
         </Animated.View>
-        <Animated.View style={[styles.card, styles.cardBack, backAnimatedStyle]}>
-          <ThemedText style={styles.cardText}>{currentCard?.back}</ThemedText>
+        <Animated.View
+          style={[
+            styles.card,
+            styles.cardBack,
+            backAnimatedStyle,
+            { backgroundColor: studyCardBack },
+          ]}
+        >
+          <ThemedText style={[styles.cardText, { color: textColor }]}>
+            {currentCard?.back}
+          </ThemedText>
         </Animated.View>
       </TouchableOpacity>
 
       <View style={styles.navigation}>
         <PlatformPressable
-          style={[styles.navButton, currentIndex === 0 && styles.navButtonDisabled]}
+          style={[
+            styles.navButton,
+            { backgroundColor: navButtonBg },
+            currentIndex === 0 && styles.navButtonDisabled,
+          ]}
           onPress={goToPrev}
           disabled={currentIndex === 0}
         >
           <IconSymbol
             name="chevron.left"
             size={30}
-            color={currentIndex === 0 ? "#ccc" : "#03465b"}
+            color={currentIndex === 0 ? disabledColor : tint}
           />
         </PlatformPressable>
         <PlatformPressable
           style={[
             styles.navButton,
+            { backgroundColor: navButtonBg },
             currentIndex === cards.length - 1 && styles.navButtonDisabled,
           ]}
           onPress={goToNext}
@@ -150,7 +184,7 @@ export default function Study() {
           <IconSymbol
             name="chevron.right"
             size={30}
-            color={currentIndex === cards.length - 1 ? "#ccc" : "#03465b"}
+            color={currentIndex === cards.length - 1 ? disabledColor : tint}
           />
         </PlatformPressable>
       </View>
@@ -180,7 +214,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: "100%",
     height: "100%",
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 20,
     justifyContent: "center",
@@ -191,22 +224,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  cardFront: {
-    backgroundColor: "#fff",
-  },
-  cardBack: {
-    backgroundColor: "#f0f8ff",
-  },
+  cardFront: {},
+  cardBack: {},
   cardText: {
     fontSize: 20,
     textAlign: "center",
-    color: "#333",
   },
   tapHint: {
     position: "absolute",
     bottom: 20,
     fontSize: 14,
-    color: "#888",
   },
   navigation: {
     flexDirection: "row",
@@ -217,14 +244,12 @@ const styles = StyleSheet.create({
   navButton: {
     padding: 20,
     borderRadius: 30,
-    backgroundColor: "#f0f0f0",
   },
   navButtonDisabled: {
     opacity: 0.5,
   },
   emptyText: {
     fontSize: 18,
-    color: "#888",
     textAlign: "center",
     marginTop: 100,
   },

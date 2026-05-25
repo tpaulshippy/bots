@@ -15,6 +15,8 @@ export const Colors = {
     cardBackground: '#fff',
     cardBackgroundSelected: tintColorLight,
     border: '#ccc',
+    studyCardBack: '#f0f8ff',
+    disabled: '#ccc',
   },
   dark: {
     text: '#ECEDEE',
@@ -24,5 +26,7 @@ export const Colors = {
     cardBackground: '#1C1C1E',
     cardBackgroundSelected: tintColorDark,
     border: '#444',
+    studyCardBack: '#1a2a3a',
+    disabled: '#555',
   },
 };
