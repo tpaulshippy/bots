@@ -57,14 +57,16 @@ export default function DeckDetail() {
   };
   const navigation = useNavigation<StackNavigationProp<FlashcardsParamList, "flashcards/deck">>();
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (isPullToRefresh = false) => {
     if (!deckId) {
       Sentry.captureException(new Error("refresh called with missing deckId"));
       setRefreshing(false);
       setLoading(false);
       return;
     }
-    setRefreshing(true);
+    if (isPullToRefresh) {
+      setRefreshing(true);
+    }
     try {
       const deckData = await fetchDeck(deckId);
       if (deckData) {
@@ -351,7 +353,7 @@ export default function DeckDetail() {
         data={flashcards}
         keyExtractor={(item) => item.flashcard_id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => refresh(true)} />
         }
         renderItem={({ item, index }) => (
           <PlatformPressable
