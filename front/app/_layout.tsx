@@ -250,10 +250,10 @@ export default function RootLayout() {
               headerTintColor: textColor,
               headerLeft: () => (
                 <PlatformPressable
-                  onPress={() => setIsDrawerOpen(true)}
+                  onPress={() => router.push("/chatHistory")}
                 >
                   <IconSymbol
-                    name="line.3.horizontal"
+                    name="chevron.backward"
                     color={iconColor}
                     size={40}
                     style={styles.menuIcon}
