@@ -7,7 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as Notifications from "expo-notifications";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
@@ -32,6 +32,7 @@ import { clearUser, setTokens } from "@/api/tokens";
 import { isRunningInExpoGo } from "expo";
 import * as WebBrowser from "expo-web-browser";
 import { fetchProfiles } from "@/api/profiles";
+import { NavigationDrawer } from "@/components/NavigationDrawer";
 
 // Initialize Sentry
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -71,6 +72,7 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
   const ref = useNavigationContainerRef();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const router = useRouter();
 
@@ -202,91 +204,85 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <ErrorBoundary>
-        <Stack
-          screenOptions={({
-            route,
-          }: {
-            route: { params?: { title?: string } };
-          }) => ({
-            title: route.params?.title || "",
-          })}
-        >
-          <Stack.Screen
-            name="index"
+        <View style={{ flex: 1 }}>
+          <Stack
+            screenOptions={({
+              route,
+            }: {
+              route: { params?: { title?: string } };
+            }) => ({
+              title: route.params?.title || "",
+            })}
+          >
+            <Stack.Screen
+              name="index"
+              options={{
+                headerBackVisible: false,
+                headerShown: true,
+                headerTitle(props) {
+                  return (
+                    <View style={styles.headerContainer}>
+                      <Image
+                        source={require("../assets/images/syft_small.png")}
+                        style={{ width: 260, height: 35 }}
+                      />
+                    </View>
+                  );
+                },
+                headerLeft: () => (
+                  <PlatformPressable
+                    onPress={() => setIsDrawerOpen(true)}
+                  >
+                    <IconSymbol
+                      name="line.3.horizontal"
+                      color={iconColor}
+                      size={40}
+                      style={styles.menuIcon}
+                    ></IconSymbol>
+                  </PlatformPressable>
+                ),
+            }}
+          />
+           <Stack.Screen
+            name="chat"
             options={{
-              headerBackVisible: false,
               headerShown: true,
-              headerTitle(props) {
-                return (
-                  <View style={styles.headerContainer}>
-                    <Image
-                      source={require("../assets/images/syft_small.png")}
-                      style={{ width: 260, height: 35 }}
-                    />
-                  </View>
-                );
-              },
+              headerTintColor: textColor,
               headerLeft: () => (
                 <PlatformPressable
-                  onPress={() => {
-                    const currentPath = pathname;
-                    if (currentPath === "/" || currentPath.startsWith("/(tabs)")) {
-                      router.push("/flashcards");
-                    } else if (currentPath === "/flashcards" || currentPath.startsWith("/flashcards")) {
-                      router.replace("/");
-                    } else if (pathname?.includes("/flashcards")) {
-                      router.replace("/");
-                    } else {
-                      router.push("/flashcards");
-                    }
-                  }}
+                  onPress={() => setIsDrawerOpen(true)}
                 >
                   <IconSymbol
-                    name="list.bullet"
+                    name="line.3.horizontal"
                     color={iconColor}
                     size={40}
                     style={styles.menuIcon}
                   ></IconSymbol>
                 </PlatformPressable>
               ),
-              headerRight: () => (
-                <PlatformPressable
-                  onPress={() => {
-                    router.push("/parent/settings");
-                  }}
-                >
-                  <IconSymbol
-                    name="gear"
-                    color={iconColor}
-                    size={40}
-                    style={styles.settingsIcon}
-                  ></IconSymbol>
-                </PlatformPressable>
-              ),
             }}
           />
-<Stack.Screen
-            name="chat"
+           <Stack.Screen
+            name="chatHistory"
             options={{
               headerShown: true,
+              title: "Chats",
               headerTintColor: textColor,
-              headerRight: () => (
+              headerLeft: () => (
                 <PlatformPressable
-                  onPress={() => {
-                    router.push("/parent/settings");
-                  }}
+                  onPress={() => setIsDrawerOpen(true)}
                 >
                   <IconSymbol
-                    name="gear"
+                    name="line.3.horizontal"
                     color={iconColor}
                     size={40}
-                    style={styles.settingsIcon}
+                    style={styles.menuIcon}
                   ></IconSymbol>
                 </PlatformPressable>
               ),
             }}
           />
-          <Stack.Screen
+             <Stack.Screen
             name="flashcards"
             options={{
               headerShown: true,
@@ -294,10 +290,10 @@ export default function RootLayout() {
               headerTintColor: textColor,
               headerLeft: () => (
                 <PlatformPressable
-                  onPress={() => router.replace("/")}
+                  onPress={() => setIsDrawerOpen(true)}
                 >
                   <IconSymbol
-                    name="house"
+                    name="line.3.horizontal"
                     color={iconColor}
                     size={40}
                     style={styles.menuIcon}
@@ -472,7 +468,12 @@ export default function RootLayout() {
           />
           <Stack.Screen name="+not-found" />
         </Stack>
+        <NavigationDrawer
+          isOpen={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+        />
         <StatusBar style="auto" />
+        </View>
       </ErrorBoundary>
     </ThemeProvider>
   );
