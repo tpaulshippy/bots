@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useState, useEffect } from "react";
 import * as Sentry from "@sentry/react-native";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 import { updateFlashcard, deleteFlashcard } from "@/api/flashcards";
 import { PlatformPressable } from "@react-navigation/elements";
@@ -26,6 +27,7 @@ export default function CardEdit() {
   }>();
   const [cardFront, setCardFront] = useState(front || "");
   const [cardBack, setCardBack] = useState(back || "");
+  const textColor = useThemeColor({}, 'text');
 
   useEffect(() => {
     setCardFront(front || "");
@@ -102,7 +104,7 @@ export default function CardEdit() {
           <View style={styles.content}>
             <ThemedText style={styles.label}>Front (question)</ThemedText>
             <TextInput
-              style={[styles.input, styles.cardInput]}
+              style={[styles.input, styles.cardInput, { color: textColor }]}
               placeholder="Enter the question or term"
               placeholderTextColor="#888"
               value={cardFront}
@@ -112,7 +114,7 @@ export default function CardEdit() {
 
             <ThemedText style={styles.label}>Back (answer)</ThemedText>
             <TextInput
-              style={[styles.input, styles.cardInput]}
+              style={[styles.input, styles.cardInput, { color: textColor }]}
               placeholder="Enter the answer or definition"
               placeholderTextColor="#888"
               value={cardBack}

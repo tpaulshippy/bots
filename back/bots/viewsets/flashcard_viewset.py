@@ -2,6 +2,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import NotFound
 from django.db.models import Count, Max
 from django.db import transaction
+from django.db.utils import IntegrityError
 import uuid
 from bots.models import Deck, Flashcard, Profile
 from bots.permissions import IsOwner
@@ -70,6 +71,9 @@ class FlashcardViewSet(viewsets.ModelViewSet):
                     raise NotFound("Deck not found")
             
             self.check_object_permissions(self.request, deck)
+            
+            # Lock flashcard rows to prevent race conditions on order
+            Flashcard.objects.filter(deck=deck).select_for_update().order_by('-order').first()
             
             max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
             serializer.save(deck=deck, order=max_order + 1)
