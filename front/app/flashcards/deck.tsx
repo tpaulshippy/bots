@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams, useNavigation } from "expo-router";
-import { useLayoutEffect, useRef, useCallback, useEffect, useState } from "react";
+import { useLayoutEffect, useCallback, useState } from "react";
 import type { StackNavigationProp } from "@react-navigation/stack";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -48,7 +48,6 @@ export default function DeckDetail() {
   const iconColor = useThemeColor({}, "icon");
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "cardBackground");
-  const focusCount = useRef(0);
 
   type FlashcardsParamList = {
     "flashcards/deck": { deckId: string };
@@ -85,18 +84,9 @@ export default function DeckDetail() {
     }
   }, [deckId]);
 
-  useEffect(() => {
-    if (focusCount.current === 0) {
-      refresh();
-    }
-  }, [refresh]);
-
   useFocusEffect(
     useCallback(() => {
-      focusCount.current += 1;
-      if (focusCount.current > 1) {
-        refresh();
-      }
+      refresh();
     }, [refresh])
   );
 
