@@ -1,16 +1,11 @@
-import logging
 import uuid
 
 from django.db.models import Count, Max
-from django.db import transaction
-from django.db.utils import IntegrityError
 from rest_framework import viewsets
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound
 from bots.models import Deck, Flashcard, Profile
 from bots.permissions import IsOwner
 from bots.serializers import FlashcardSerializer, DeckSerializer, DeckListSerializer
-
-logger = logging.getLogger(__name__)
 
 
 class FlashcardViewSet(viewsets.ModelViewSet):
@@ -34,7 +29,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         
         self.check_object_permissions(self.request, deck)
         
-        return Flashcard.objects.filter(deck=deck).order_by('order')
+        return Flashcard.objects.filter(deck=deck).order_by('order', 'created_at')
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_url_kwarg]
@@ -63,34 +58,20 @@ class FlashcardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         deck_id = self.kwargs['deck_pk']
-        max_retries = 3
 
-        with transaction.atomic():
+        try:
+            deck_uuid = uuid.UUID(deck_id)
+            deck = Deck.objects.get(deck_id=deck_uuid)
+        except (ValueError, Deck.DoesNotExist):
             try:
-                deck_uuid = uuid.UUID(deck_id)
-                deck = Deck.objects.get(deck_id=deck_uuid)
+                deck = Deck.objects.get(id=deck_id)
             except (ValueError, Deck.DoesNotExist):
-                try:
-                    deck = Deck.objects.get(id=deck_id)
-                except (ValueError, Deck.DoesNotExist):
-                    raise NotFound("Deck not found")
+                raise NotFound("Deck not found")
 
-            self.check_object_permissions(self.request, deck)
+        self.check_object_permissions(self.request, deck)
 
-            for attempt in range(max_retries):
-                try:
-                    with transaction.atomic():
-                        max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
-                        serializer.save(deck=deck, order=max_order + 1)
-                        return
-                except IntegrityError:
-                    if attempt < max_retries - 1:
-                        logger.warning(
-                            "Retrying flashcard create (race condition): deck_id=%s",
-                            deck.id,
-                        )
-                        continue
-                    raise
+        max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
+        serializer.save(deck=deck, order=max_order + 1)
 
 
 class DeckViewSet(viewsets.ModelViewSet):
