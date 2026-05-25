@@ -3,6 +3,9 @@ import {
   View,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
@@ -88,36 +91,46 @@ export default function CardEdit() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.content}>
-        <ThemedText style={styles.label}>Front (question)</ThemedText>
-        <TextInput
-          style={[styles.input, styles.cardInput]}
-          placeholder="Enter the question or term"
-          placeholderTextColor="#888"
-          value={cardFront}
-          onChangeText={setCardFront}
-          multiline
-        />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.content}>
+            <ThemedText style={styles.label}>Front (question)</ThemedText>
+            <TextInput
+              style={[styles.input, styles.cardInput]}
+              placeholder="Enter the question or term"
+              placeholderTextColor="#888"
+              value={cardFront}
+              onChangeText={setCardFront}
+              multiline
+            />
 
-        <ThemedText style={styles.label}>Back (answer)</ThemedText>
-        <TextInput
-          style={[styles.input, styles.cardInput]}
-          placeholder="Enter the answer or definition"
-          placeholderTextColor="#888"
-          value={cardBack}
-          onChangeText={setCardBack}
-          multiline
-        />
+            <ThemedText style={styles.label}>Back (answer)</ThemedText>
+            <TextInput
+              style={[styles.input, styles.cardInput]}
+              placeholder="Enter the answer or definition"
+              placeholderTextColor="#888"
+              value={cardBack}
+              onChangeText={setCardBack}
+              multiline
+            />
 
-        <View style={styles.buttons}>
-          <PlatformPressable style={styles.deleteButton} onPress={handleDelete}>
-            <ThemedText style={styles.deleteButtonText}>Delete</ThemedText>
-          </PlatformPressable>
-          <PlatformPressable style={styles.saveButton} onPress={handleSave}>
-            <ThemedText style={styles.saveButtonText}>Save</ThemedText>
-          </PlatformPressable>
-        </View>
-      </View>
+            <View style={styles.buttons}>
+              <PlatformPressable style={styles.deleteButton} onPress={handleDelete}>
+                <ThemedText style={styles.deleteButtonText}>Delete</ThemedText>
+              </PlatformPressable>
+              <PlatformPressable style={styles.saveButton} onPress={handleSave}>
+                <ThemedText style={styles.saveButtonText}>Save</ThemedText>
+              </PlatformPressable>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ThemedView>
   );
 }
@@ -125,6 +138,12 @@ export default function CardEdit() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     flex: 1,

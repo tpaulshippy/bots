@@ -6,8 +6,13 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
-import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useRouter, useLocalSearchParams, useNavigation } from "expo-router";
+import { useLayoutEffect } from "react";
+import type { StackNavigationProp } from "@react-navigation/stack";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -24,6 +29,7 @@ import {
   Flashcard,
 } from "@/api/flashcards";
 import { PlatformPressable } from "@react-navigation/elements";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function DeckDetail() {
   const router = useRouter();
@@ -38,6 +44,18 @@ export default function DeckDetail() {
   const [showAddCard, setShowAddCard] = useState(false);
   const [newCardFront, setNewCardFront] = useState("");
   const [newCardBack, setNewCardBack] = useState("");
+  const borderColor = useThemeColor({}, "border");
+  const textColor = useThemeColor({}, "text");
+  const iconColor = useThemeColor({}, "icon");
+  const tintColor = useThemeColor({}, "tint");
+  const cardBackground = useThemeColor({}, "cardBackground");
+
+  type FlashcardsParamList = {
+    "flashcards/deck": { deckId: string };
+    "flashcards/study": { deckId: string; title?: string };
+    "flashcards/cardEdit": { deckId: string; flashcardId: string; front: string; back: string };
+  };
+  const navigation = useNavigation<StackNavigationProp<FlashcardsParamList, "flashcards/deck">>();
 
   const refresh = useCallback(async () => {
     if (!deckId) {
@@ -70,6 +88,17 @@ export default function DeckDetail() {
       refresh();
     }, [refresh])
   );
+
+  useLayoutEffect(() => {
+    if (!navigation.isFocused()) return;
+    if (showAddCard) {
+      navigation.setOptions({ title: "Add New Card" });
+    } else if (isEditing) {
+      navigation.setOptions({ title: "Edit Deck" });
+    } else {
+      navigation.setOptions({ title: deck?.name || "" });
+    }
+  }, [showAddCard, isEditing, deck?.name, navigation]);
 
   const handleSaveDeck = async () => {
     if (!editName.trim()) {
@@ -187,40 +216,49 @@ export default function DeckDetail() {
   if (showAddCard) {
     return (
       <ThemedView style={styles.container}>
-        <View style={styles.modalContainer}>
-          <ThemedText style={styles.modalTitle}>Add New Card</ThemedText>
-          <TextInput
-            style={[styles.input, styles.cardInput]}
-            placeholder="Front (question)"
-            placeholderTextColor="#888"
-            value={newCardFront}
-            onChangeText={setNewCardFront}
-            multiline
-          />
-          <TextInput
-            style={[styles.input, styles.cardInput]}
-            placeholder="Back (answer)"
-            placeholderTextColor="#888"
-            value={newCardBack}
-            onChangeText={setNewCardBack}
-            multiline
-          />
-          <View style={styles.modalButtons}>
-            <PlatformPressable
-              style={styles.cancelButton}
-              onPress={() => {
-                setShowAddCard(false);
-                setNewCardFront("");
-                setNewCardBack("");
-              }}
-            >
-              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-            </PlatformPressable>
-            <PlatformPressable style={styles.saveButton} onPress={handleAddCard}>
-              <ThemedText style={styles.saveButtonText}>Add</ThemedText>
-            </PlatformPressable>
-          </View>
-        </View>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.modalContainer}>
+              <TextInput
+                style={[styles.input, styles.cardInput, { borderColor, color: textColor }]}
+                placeholder="Front (question)"
+                placeholderTextColor={iconColor}
+                value={newCardFront}
+                onChangeText={setNewCardFront}
+                multiline
+              />
+              <TextInput
+                style={[styles.input, styles.cardInput, { borderColor, color: textColor }]}
+                placeholder="Back (answer)"
+                placeholderTextColor={iconColor}
+                value={newCardBack}
+                onChangeText={setNewCardBack}
+                multiline
+              />
+              <View style={styles.modalButtons}>
+                <PlatformPressable
+                  style={[styles.cancelButton, { backgroundColor: cardBackground }]}
+                  onPress={() => {
+                    setShowAddCard(false);
+                    setNewCardFront("");
+                    setNewCardBack("");
+                  }}
+                >
+                  <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+                </PlatformPressable>
+                <PlatformPressable style={[styles.saveButton, { backgroundColor: tintColor }]} onPress={handleAddCard}>
+                  <ThemedText style={styles.saveButtonText}>Add</ThemedText>
+                </PlatformPressable>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </ThemedView>
     );
   }
@@ -228,54 +266,63 @@ export default function DeckDetail() {
   if (isEditing) {
     return (
       <ThemedView style={styles.container}>
-        <View style={styles.modalContainer}>
-          <ThemedText style={styles.modalTitle}>Edit Deck</ThemedText>
-          <TextInput
-            style={styles.input}
-            placeholder="Deck name"
-            placeholderTextColor="#888"
-            value={editName}
-            onChangeText={setEditName}
-          />
-          <TextInput
-            style={[styles.input, styles.descriptionInput]}
-            placeholder="Description"
-            placeholderTextColor="#888"
-            value={editDescription}
-            onChangeText={setEditDescription}
-            multiline
-          />
-          <View style={styles.modalButtons}>
-            <PlatformPressable
-              style={styles.cancelButton}
-              onPress={() => {
-                setIsEditing(false);
-                setEditName(deck?.name || "");
-                setEditDescription(deck?.description || "");
-              }}
-            >
-              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-            </PlatformPressable>
-            <PlatformPressable style={styles.saveButton} onPress={handleSaveDeck}>
-              <ThemedText style={styles.saveButtonText}>Save</ThemedText>
-            </PlatformPressable>
-          </View>
-        </View>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.modalContainer}>
+              <TextInput
+                style={[styles.input, { borderColor, color: textColor }]}
+                placeholder="Deck name"
+                placeholderTextColor={iconColor}
+                value={editName}
+                onChangeText={setEditName}
+              />
+              <TextInput
+                style={[styles.input, styles.descriptionInput, { borderColor, color: textColor }]}
+                placeholder="Description"
+                placeholderTextColor={iconColor}
+                value={editDescription}
+                onChangeText={setEditDescription}
+                multiline
+              />
+              <View style={styles.modalButtons}>
+                <PlatformPressable
+                  style={[styles.cancelButton, { backgroundColor: cardBackground }]}
+                  onPress={() => {
+                    setIsEditing(false);
+                    setEditName(deck?.name || "");
+                    setEditDescription(deck?.description || "");
+                  }}
+                >
+                  <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+                </PlatformPressable>
+                <PlatformPressable style={[styles.saveButton, { backgroundColor: tintColor }]} onPress={handleSaveDeck}>
+                  <ThemedText style={styles.saveButtonText}>Save</ThemedText>
+                </PlatformPressable>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </ThemedView>
     );
   }
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: borderColor }]}>
         <PlatformPressable style={styles.headerButton} onPress={() => setIsEditing(true)}>
-          <IconSymbol name="pencil" size={20} color="#666" />
+          <IconSymbol name="pencil" size={20} color={iconColor} />
         </PlatformPressable>
         <PlatformPressable style={styles.headerButton} onPress={handleDeleteDeck}>
           <IconSymbol name="trash" size={20} color="#d33" />
         </PlatformPressable>
         <PlatformPressable
-          style={[styles.studyButton]}
+          style={[styles.studyButton, { backgroundColor: tintColor }]}
           onPress={handleStudyPress}
         >
           <ThemedText style={styles.studyButtonText}>Study</ThemedText>
@@ -283,10 +330,10 @@ export default function DeckDetail() {
       </View>
 
       {deck?.description ? (
-        <ThemedText style={styles.description}>{deck.description}</ThemedText>
+        <ThemedText style={[styles.description, { color: iconColor }]}>{deck.description}</ThemedText>
       ) : null}
 
-      <PlatformPressable style={styles.fab} onPress={() => setShowAddCard(true)}>
+      <PlatformPressable style={[styles.fab, { backgroundColor: tintColor }]} onPress={() => setShowAddCard(true)}>
         <IconSymbol name="plus" color="white"></IconSymbol>
       </PlatformPressable>
 
@@ -299,7 +346,7 @@ export default function DeckDetail() {
         }
         renderItem={({ item, index }) => (
           <PlatformPressable
-            style={styles.cardItem}
+            style={[styles.cardItem, { borderBottomColor: borderColor }]}
             onPress={() =>
               router.push({
                 pathname: "/flashcards/cardEdit",
@@ -313,7 +360,7 @@ export default function DeckDetail() {
             }
             onLongPress={() => handleDeleteCard(item)}
           >
-            <ThemedText style={styles.cardNumber}>#{index + 1}</ThemedText>
+            <ThemedText style={[styles.cardNumber, { color: iconColor }]}>#{index + 1}</ThemedText>
             <ThemedText style={styles.cardFront} numberOfLines={2}>
               {item.front}
             </ThemedText>
@@ -321,8 +368,8 @@ export default function DeckDetail() {
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyText}>No cards yet</ThemedText>
-            <ThemedText style={styles.emptySubtext}>
+            <ThemedText style={[styles.emptyText, { color: iconColor }]}>No cards yet</ThemedText>
+            <ThemedText style={[styles.emptySubtext, { color: iconColor }]}>
               Tap + to add your first card
             </ThemedText>
           </View>
@@ -336,19 +383,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
   },
   headerButton: {
     padding: 8,
   },
   studyButton: {
-    backgroundColor: "#03465b",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -359,7 +410,6 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 14,
-    color: "#666",
     padding: 12,
     paddingTop: 0,
   },
@@ -371,12 +421,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
     alignItems: "center",
   },
   cardNumber: {
     fontSize: 14,
-    color: "#888",
     marginRight: 12,
     width: 30,
   },
@@ -388,7 +436,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 30,
     right: 30,
-    backgroundColor: "#03465b",
     width: 60,
     height: 60,
     borderRadius: 30,
@@ -410,11 +457,9 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: "#888",
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#666",
     marginTop: 8,
   },
   modalContainer: {
@@ -422,15 +467,8 @@ const styles = StyleSheet.create({
     padding: 20,
     justifyContent: "center",
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
@@ -454,7 +492,6 @@ const styles = StyleSheet.create({
     padding: 12,
     marginRight: 10,
     borderRadius: 8,
-    backgroundColor: "#ccc",
     alignItems: "center",
   },
   cancelButtonText: {
@@ -466,7 +503,6 @@ const styles = StyleSheet.create({
     padding: 12,
     marginLeft: 10,
     borderRadius: 8,
-    backgroundColor: "#03465b",
     alignItems: "center",
   },
   saveButtonText: {
