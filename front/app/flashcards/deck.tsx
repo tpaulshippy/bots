@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams, useNavigation } from "expo-router";
 import { useLayoutEffect } from "react";
+import type { StackNavigationProp } from "@react-navigation/stack";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -49,7 +50,12 @@ export default function DeckDetail() {
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "cardBackground");
 
-  const navigation = useNavigation();
+  type FlashcardsParamList = {
+    "flashcards/deck": { deckId: string };
+    "flashcards/study": { deckId: string; title?: string };
+    "flashcards/cardEdit": { deckId: string; flashcardId: string; front: string; back: string };
+  };
+  const navigation = useNavigation<StackNavigationProp<FlashcardsParamList, "flashcards/deck">>();
 
   const refresh = useCallback(async () => {
     if (!deckId) {
@@ -84,6 +90,7 @@ export default function DeckDetail() {
   );
 
   useLayoutEffect(() => {
+    if (!navigation.isFocused()) return;
     if (showAddCard) {
       navigation.setOptions({ title: "Add New Card" });
     } else if (isEditing) {
