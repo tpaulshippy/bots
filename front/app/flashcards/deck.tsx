@@ -11,12 +11,11 @@ import {
   ScrollView,
 } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams, useNavigation } from "expo-router";
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useRef, useCallback, useEffect, useState } from "react";
 import type { StackNavigationProp } from "@react-navigation/stack";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { useCallback, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import {
@@ -49,6 +48,7 @@ export default function DeckDetail() {
   const iconColor = useThemeColor({}, "icon");
   const tintColor = useThemeColor({}, "tint");
   const cardBackground = useThemeColor({}, "cardBackground");
+  const focusCount = useRef(0);
 
   type FlashcardsParamList = {
     "flashcards/deck": { deckId: string };
@@ -83,9 +83,18 @@ export default function DeckDetail() {
     }
   }, [deckId]);
 
+  useEffect(() => {
+    if (focusCount.current === 0) {
+      refresh();
+    }
+  }, [refresh]);
+
   useFocusEffect(
     useCallback(() => {
-      refresh();
+      focusCount.current += 1;
+      if (focusCount.current > 1) {
+        refresh();
+      }
     }, [refresh])
   );
 
@@ -205,7 +214,7 @@ export default function DeckDetail() {
     });
   };
 
-  if (loading) {
+  if (loading && !deck) {
     return (
       <ThemedView style={styles.container}>
         <ActivityIndicator style={styles.activityIndicator} />
