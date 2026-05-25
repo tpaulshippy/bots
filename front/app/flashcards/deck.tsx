@@ -11,12 +11,11 @@ import {
   ScrollView,
 } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams, useNavigation } from "expo-router";
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useCallback, useState } from "react";
 import type { StackNavigationProp } from "@react-navigation/stack";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { useCallback, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import {
@@ -57,14 +56,16 @@ export default function DeckDetail() {
   };
   const navigation = useNavigation<StackNavigationProp<FlashcardsParamList, "flashcards/deck">>();
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (isPullToRefresh = false) => {
     if (!deckId) {
       Sentry.captureException(new Error("refresh called with missing deckId"));
       setRefreshing(false);
       setLoading(false);
       return;
     }
-    setRefreshing(true);
+    if (isPullToRefresh) {
+      setRefreshing(true);
+    }
     try {
       const deckData = await fetchDeck(deckId);
       if (deckData) {
@@ -205,7 +206,7 @@ export default function DeckDetail() {
     });
   };
 
-  if (loading) {
+  if (loading && !deck) {
     return (
       <ThemedView style={styles.container}>
         <ActivityIndicator style={styles.activityIndicator} />
@@ -342,7 +343,7 @@ export default function DeckDetail() {
         data={flashcards}
         keyExtractor={(item) => item.flashcard_id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => refresh(true)} />
         }
         renderItem={({ item, index }) => (
           <PlatformPressable
