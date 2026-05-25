@@ -1,7 +1,6 @@
 import {
   StyleSheet,
   View,
-  TextInput,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -10,6 +9,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { useState, useEffect } from "react";
 import * as Sentry from "@sentry/react-native";
 
@@ -101,20 +101,18 @@ export default function CardEdit() {
         >
           <View style={styles.content}>
             <ThemedText style={styles.label}>Front (question)</ThemedText>
-            <TextInput
+            <ThemedTextInput
               style={[styles.input, styles.cardInput]}
               placeholder="Enter the question or term"
-              placeholderTextColor="#888"
               value={cardFront}
               onChangeText={setCardFront}
               multiline
             />
 
             <ThemedText style={styles.label}>Back (answer)</ThemedText>
-            <TextInput
+            <ThemedTextInput
               style={[styles.input, styles.cardInput]}
               placeholder="Enter the answer or definition"
-              placeholderTextColor="#888"
               value={cardBack}
               onChangeText={setCardBack}
               multiline

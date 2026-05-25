@@ -1,11 +1,17 @@
-from rest_framework import viewsets
-from rest_framework.exceptions import NotFound
+import logging
+import uuid
+
 from django.db.models import Count, Max
 from django.db import transaction
-import uuid
+from django.db.utils import IntegrityError
+from rest_framework import viewsets
+from rest_framework.exceptions import NotFound, ValidationError
+
 from bots.models import Deck, Flashcard, Profile
 from bots.permissions import IsOwner
 from bots.serializers import FlashcardSerializer, DeckSerializer, DeckListSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class FlashcardViewSet(viewsets.ModelViewSet):
@@ -58,21 +64,61 @@ class FlashcardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         deck_id = self.kwargs['deck_pk']
+        max_retries = 3
         
         with transaction.atomic():
             try:
                 deck_uuid = uuid.UUID(deck_id)
-                deck = Deck.objects.select_for_update().get(deck_id=deck_uuid)
+                deck = Deck.objects.get(deck_id=deck_uuid)
             except (ValueError, Deck.DoesNotExist):
                 try:
-                    deck = Deck.objects.select_for_update().get(id=deck_id)
+                    deck = Deck.objects.get(id=deck_id)
                 except (ValueError, Deck.DoesNotExist):
                     raise NotFound("Deck not found")
             
             self.check_object_permissions(self.request, deck)
             
-            max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
-            serializer.save(deck=deck, order=max_order + 1)
+            # Retry logic for race conditions (SQLite doesn't support select_for_update)
+            for attempt in range(max_retries):
+                max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
+                try:
+                    serializer.save(deck=deck, order=max_order + 1)
+                    return
+                except IntegrityError:
+                    if attempt < max_retries - 1:
+                        logger.warning(
+                            "Retrying flashcard creation due to race condition: deck_id=%s, attempt=%d",
+                            deck.id,
+                            attempt + 1
+                        )
+                        continue
+                    else:
+                        raise
+            
+            # Should not reach here, but just in case
+            logger.error(
+                "Failed to create flashcard after %d retries: deck_id=%s",
+                max_retries,
+                deck.id
+            )
+            raise ValidationError(
+                f"Failed to create flashcard due to concurrent requests: deck={deck.id}"
+            )
+
+    def perform_update(self, serializer):
+        try:
+            serializer.save()
+        except IntegrityError as e:
+            deck_id = serializer.instance.deck.id if serializer.instance and serializer.instance.deck else "unknown"
+            logger.error(
+                "IntegrityError updating flashcard: deck_id=%s, constraint=%s, error=%s",
+                deck_id,
+                "unique_flashcard_order_per_deck",
+                str(e)
+            )
+            raise ValidationError(
+                f"Flashcard order must be unique per deck: deck={deck_id}"
+            )
 
 
 class DeckViewSet(viewsets.ModelViewSet):
