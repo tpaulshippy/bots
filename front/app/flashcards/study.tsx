@@ -38,9 +38,9 @@ export default function Study() {
   const studyCardBack = useThemeColor({}, "studyCardBack");
   const textColor = useThemeColor({}, "text");
   const iconColor = useThemeColor({}, "icon");
-  const tint = useThemeColor({}, "tint");
   const disabledColor = useThemeColor({}, "disabled");
-  const navButtonBg = useThemeColor({}, "border");
+  const navButtonBg = useThemeColor({}, "navButton");
+  const navButtonIcon = useThemeColor({}, "navButtonIcon");
 
   useEffect(() => {
     const loadCards = async () => {
@@ -169,7 +169,7 @@ export default function Study() {
           <IconSymbol
             name="chevron.left"
             size={30}
-            color={currentIndex === 0 ? disabledColor : tint}
+            color={currentIndex === 0 ? disabledColor : navButtonIcon}
           />
         </PlatformPressable>
         <PlatformPressable
@@ -184,7 +184,7 @@ export default function Study() {
           <IconSymbol
             name="chevron.right"
             size={30}
-            color={currentIndex === cards.length - 1 ? disabledColor : tint}
+            color={currentIndex === cards.length - 1 ? disabledColor : navButtonIcon}
           />
         </PlatformPressable>
       </View>
