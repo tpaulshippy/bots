@@ -17,7 +17,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         deck_id = self.kwargs['deck_pk']
-        
+
         try:
             deck_uuid = uuid.UUID(deck_id)
             deck = Deck.objects.get(deck_id=deck_uuid)
@@ -26,9 +26,9 @@ class FlashcardViewSet(viewsets.ModelViewSet):
                 deck = Deck.objects.get(id=deck_id)
             except (ValueError, Deck.DoesNotExist):
                 raise NotFound("Deck not found")
-        
+
         self.check_object_permissions(self.request, deck)
-        
+
         return Flashcard.objects.filter(deck=deck).order_by('order', 'created_at')
 
     def get_object(self):
@@ -82,16 +82,16 @@ class DeckViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         profile_id = self.request.query_params.get('profileId')
-        
+
         queryset = Deck.objects.filter(profile__user=user)
-        
+
         if profile_id:
             try:
                 profile_uuid = uuid.UUID(profile_id)
                 queryset = queryset.filter(profile__profile_id=profile_uuid)
             except ValueError:
                 queryset = queryset.none()
-        
+
         return queryset.annotate(flashcard_count=Count('flashcards')).order_by('-created_at')
 
     def get_serializer_class(self):
@@ -119,7 +119,7 @@ class DeckViewSet(viewsets.ModelViewSet):
         user = self.request.user
         profile_id = self.request.data.get('profile')
         chat_id = self.request.data.get('chat')
-        
+
         if profile_id:
             try:
                 profile_uuid = uuid.UUID(profile_id)
@@ -130,7 +130,7 @@ class DeckViewSet(viewsets.ModelViewSet):
             profile = Profile.objects.filter(user=user).first()
             if not profile:
                 raise drf_serializers.ValidationError("No profile found for user")
-        
+
         if chat_id:
             try:
                 chat_uuid = uuid.UUID(chat_id)
@@ -142,7 +142,7 @@ class DeckViewSet(viewsets.ModelViewSet):
                 raise drf_serializers.ValidationError(f"Chat with ID {chat_id} not found or unauthorized")
         else:
             chat = None
-        
+
         serializer.save(profile=profile, chat=chat)
 
     def perform_update(self, serializer):
