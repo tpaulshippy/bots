@@ -1,4 +1,4 @@
-import { Modal, Platform, StyleSheet } from "react-native";
+import { Modal, Platform, StyleSheet, Switch } from "react-native";
 import alert from "@/components/Alert";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -29,6 +29,7 @@ export default function AdvancedBotEditor({
   const [modelMissing, setModelMissing] = useState(false);
   const [isPickerVisible, setPickerVisible] = useState(false);
   const iconColor = useThemeColor({}, "tint");
+  const bgColor = useThemeColor({}, "cardBackground");
   const buttonIconColor = useThemeColor({}, "text");
   const [aiModels, setAiModels] = useState<AiModel[]>([]);
 
@@ -156,6 +157,20 @@ export default function AdvancedBotEditor({
         />
       </ThemedView>
 
+      <ThemedView
+        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+      >
+        <ThemedText style={styles.checkboxLabel}>
+          Enable Web Search
+        </ThemedText>
+        <Switch
+          value={bot.enable_web_search}
+          onValueChange={(value) =>
+            setBot({ ...bot, enable_web_search: value })
+          }
+        />
+      </ThemedView>
+
       <ThemedView style={styles.buttons}>
         <ThemedButton onPress={() => deleteBot()} style={styles.button}>
           <IconSymbol
@@ -184,6 +199,20 @@ const styles = StyleSheet.create({
   formGroup: {
     width: "100%",
     marginBottom: 15,
+  },
+  formGroupCheckbox: {
+    width: "100%",
+    marginBottom: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 10,
+    padding: 5,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    marginBottom: 5,
+    marginLeft: 10,
   },
   label: {
     fontSize: 16,
