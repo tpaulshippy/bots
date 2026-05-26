@@ -86,6 +86,7 @@ export default function SimpleBotEditor({
     bot.response_length,
     bot.restrict_language,
     bot.restrict_adult_topics,
+    bot.enable_web_search,
     inputs,
   ]);
 

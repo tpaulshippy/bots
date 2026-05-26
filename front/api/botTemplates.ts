@@ -65,5 +65,9 @@ export const generateSystemPrompt = (bot: Bot, inputs: Record<string, string>) =
         prompt += "Always avoid discussing adult topics.";
         prompt += "\n\n";
     }
+    if (bot.enable_web_search) {
+        prompt += "You have the ability to search the web for current information. Use the web search tool whenever you need to find up-to-date facts, recent events, or information beyond your training data.";
+        prompt += "\n\n";
+    }
     return prompt;
 };
