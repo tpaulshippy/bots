@@ -1,4 +1,4 @@
-import { Modal, Platform, StyleSheet } from "react-native";
+import { Modal, Platform, StyleSheet, Switch } from "react-native";
 import alert from "@/components/Alert";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -13,7 +13,6 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { PlatformPressable } from "@react-navigation/elements";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { AiModel, fetchAiModels } from "@/api/aiModels";
-import { Switch } from "react-native";
 import * as Sentry from "@sentry/react-native";
 
 interface AdvancedBotEditorProps {

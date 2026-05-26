@@ -66,7 +66,10 @@ export const generateSystemPrompt = (bot: Bot, inputs: Record<string, string>) =
         prompt += "\n\n";
     }
     if (bot.enable_web_search) {
-        prompt += "You have the ability to search the web for current information. Use the web search tool whenever you need to find up-to-date facts, recent events, or information beyond your training data.";
+        if (prompt) {
+            prompt += "\n\n";
+        }
+        prompt += "You may use the web_search tool to look up current information. Use it when you need to find up-to-date facts, recent events, or information beyond your training data.";
         prompt += "\n\n";
     }
     return prompt;
