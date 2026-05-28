@@ -9,10 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Pressable,
 } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams, useNavigation } from "expo-router";
 import { useLayoutEffect, useCallback, useState } from "react";
-import type { StackNavigationProp } from "@react-navigation/stack";
+import type { StackNavigationProp } from "expo-router/js-stack";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -27,7 +28,6 @@ import {
   Deck,
   Flashcard,
 } from "@/api/flashcards";
-import { PlatformPressable } from "@react-navigation/elements";
 import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function DeckDetail() {
@@ -243,7 +243,7 @@ export default function DeckDetail() {
                 multiline
               />
               <View style={styles.modalButtons}>
-                <PlatformPressable
+                <Pressable
                   style={[styles.cancelButton, { backgroundColor: cardBackground }]}
                   onPress={() => {
                     setShowAddCard(false);
@@ -252,10 +252,10 @@ export default function DeckDetail() {
                   }}
                 >
                   <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-                </PlatformPressable>
-                <PlatformPressable style={[styles.saveButton, { backgroundColor: tintColor }]} onPress={handleAddCard}>
+                </Pressable>
+                <Pressable style={[styles.saveButton, { backgroundColor: tintColor }]} onPress={handleAddCard}>
                   <ThemedText style={styles.saveButtonText}>Add</ThemedText>
-                </PlatformPressable>
+                </Pressable>
               </View>
             </View>
           </ScrollView>
@@ -292,7 +292,7 @@ export default function DeckDetail() {
                 multiline
               />
               <View style={styles.modalButtons}>
-                <PlatformPressable
+                <Pressable
                   style={[styles.cancelButton, { backgroundColor: cardBackground }]}
                   onPress={() => {
                     setIsEditing(false);
@@ -301,10 +301,10 @@ export default function DeckDetail() {
                   }}
                 >
                   <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-                </PlatformPressable>
-                <PlatformPressable style={[styles.saveButton, { backgroundColor: tintColor }]} onPress={handleSaveDeck}>
+                </Pressable>
+                <Pressable style={[styles.saveButton, { backgroundColor: tintColor }]} onPress={handleSaveDeck}>
                   <ThemedText style={styles.saveButtonText}>Save</ThemedText>
-                </PlatformPressable>
+                </Pressable>
               </View>
             </View>
           </ScrollView>
@@ -316,27 +316,27 @@ export default function DeckDetail() {
   return (
     <ThemedView style={styles.container}>
       <View style={[styles.header, { borderBottomColor: borderColor }]}>
-        <PlatformPressable style={styles.headerButton} onPress={() => setIsEditing(true)}>
+        <Pressable style={styles.headerButton} onPress={() => setIsEditing(true)}>
           <IconSymbol name="pencil" size={20} color={iconColor} />
-        </PlatformPressable>
-        <PlatformPressable style={styles.headerButton} onPress={handleDeleteDeck}>
+        </Pressable>
+        <Pressable style={styles.headerButton} onPress={handleDeleteDeck}>
           <IconSymbol name="trash" size={20} color="#d33" />
-        </PlatformPressable>
-        <PlatformPressable
+        </Pressable>
+        <Pressable
           style={[styles.studyButton, { backgroundColor: tintColor }]}
           onPress={handleStudyPress}
         >
           <ThemedText style={styles.studyButtonText}>Study</ThemedText>
-        </PlatformPressable>
+        </Pressable>
       </View>
 
       {deck?.description ? (
         <ThemedText style={[styles.description, { color: iconColor }]}>{deck.description}</ThemedText>
       ) : null}
 
-      <PlatformPressable style={[styles.fab, { backgroundColor: tintColor }]} onPress={() => setShowAddCard(true)}>
+      <Pressable style={[styles.fab, { backgroundColor: tintColor }]} onPress={() => setShowAddCard(true)}>
         <IconSymbol name="plus" color="white"></IconSymbol>
-      </PlatformPressable>
+      </Pressable>
 
       <FlatList
         style={styles.list}
@@ -346,7 +346,7 @@ export default function DeckDetail() {
           <RefreshControl refreshing={refreshing} onRefresh={() => refresh(true)} />
         }
         renderItem={({ item, index }) => (
-          <PlatformPressable
+          <Pressable
             style={[styles.cardItem, { borderBottomColor: borderColor }]}
             onPress={() =>
               router.push({
@@ -365,7 +365,7 @@ export default function DeckDetail() {
             <ThemedText style={styles.cardFront} numberOfLines={2}>
               {item.front}
             </ThemedText>
-          </PlatformPressable>
+          </Pressable>
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>

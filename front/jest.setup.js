@@ -23,10 +23,6 @@ jest.mock('@/components/ui/IconSymbol', () => ({
   IconSymbol: 'IconSymbol',
 }));
 
-// Mock PlatformPressable
-jest.mock('@react-navigation/elements', () => ({
-  PlatformPressable: 'PlatformPressable',
-}));
 
 // Mock Sentry
 jest.mock('@sentry/react-native', () => ({

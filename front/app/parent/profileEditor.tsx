@@ -3,6 +3,7 @@ import {
   Platform,
   StyleSheet,
   KeyboardAvoidingView,
+  Pressable,
 } from "react-native";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
@@ -12,7 +13,6 @@ import alert from "@/components/Alert";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { ThemedButton } from "@/components/ThemedButton";
@@ -67,14 +67,14 @@ export default function ProfileEditor() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <PlatformPressable onPress={saveProfile}>
+        <Pressable onPress={saveProfile}>
           <IconSymbol
             name="checkmark"
             color={iconColor}
             size={40}
             style={styles.saveIcon}
           ></IconSymbol>
-        </PlatformPressable>
+        </Pressable>
       ),
     });
   }, [iconColor, navigation, saveProfile]);

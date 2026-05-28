@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  Pressable,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
@@ -20,7 +21,6 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { fetchFlashcards, Flashcard } from "@/api/flashcards";
-import { PlatformPressable } from "@react-navigation/elements";
 import { useThemeColor } from "@/hooks/useThemeColor";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -157,7 +157,7 @@ export default function Study() {
       </TouchableOpacity>
 
       <View style={styles.navigation}>
-        <PlatformPressable
+        <Pressable
           style={[
             styles.navButton,
             { backgroundColor: navButtonBg },
@@ -171,8 +171,8 @@ export default function Study() {
             size={30}
             color={currentIndex === 0 ? disabledColor : navButtonIcon}
           />
-        </PlatformPressable>
-        <PlatformPressable
+        </Pressable>
+        <Pressable
           style={[
             styles.navButton,
             { backgroundColor: navButtonBg },
@@ -186,7 +186,7 @@ export default function Study() {
             size={30}
             color={currentIndex === cards.length - 1 ? disabledColor : navButtonIcon}
           />
-        </PlatformPressable>
+        </Pressable>
       </View>
     </ThemedView>
   );

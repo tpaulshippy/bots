@@ -2,7 +2,7 @@ import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
-} from "@react-navigation/native";
+} from "expo-router/react-navigation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
@@ -11,14 +11,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as Notifications from "expo-notifications";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Pressable } from "react-native";
 import {
   useRouter,
   Stack,
   usePathname,
   useNavigationContainerRef,
 } from "expo-router";
-import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { Image } from "expo-image";
@@ -230,7 +229,7 @@ export default function RootLayout() {
                   );
                 },
                 headerLeft: () => (
-                  <PlatformPressable
+                  <Pressable
                     onPress={() => setIsDrawerOpen(true)}
                   >
                     <IconSymbol
@@ -239,7 +238,7 @@ export default function RootLayout() {
                       size={40}
                       style={styles.menuIcon}
                     ></IconSymbol>
-                  </PlatformPressable>
+                  </Pressable>
                 ),
             }}
           />
@@ -249,7 +248,7 @@ export default function RootLayout() {
               headerShown: true,
               headerTintColor: textColor,
               headerLeft: () => (
-                <PlatformPressable
+                <Pressable
                   onPress={() => router.replace("/chatHistory")}
                 >
                   <IconSymbol
@@ -258,7 +257,7 @@ export default function RootLayout() {
                     size={40}
                     style={styles.menuIcon}
                   ></IconSymbol>
-                </PlatformPressable>
+                </Pressable>
               ),
             }}
           />
@@ -269,7 +268,7 @@ export default function RootLayout() {
               title: "Chats",
               headerTintColor: textColor,
               headerLeft: () => (
-                <PlatformPressable
+                <Pressable
                   onPress={() => setIsDrawerOpen(true)}
                 >
                   <IconSymbol
@@ -278,7 +277,7 @@ export default function RootLayout() {
                     size={40}
                     style={styles.menuIcon}
                   ></IconSymbol>
-                </PlatformPressable>
+                </Pressable>
               ),
             }}
           />
@@ -289,7 +288,7 @@ export default function RootLayout() {
               title: "Flashcards",
               headerTintColor: textColor,
               headerLeft: () => (
-                <PlatformPressable
+                <Pressable
                   onPress={() => setIsDrawerOpen(true)}
                 >
                   <IconSymbol
@@ -298,7 +297,7 @@ export default function RootLayout() {
                     size={40}
                     style={styles.menuIcon}
                   ></IconSymbol>
-                </PlatformPressable>
+                </Pressable>
               ),
             }}
           />
@@ -308,7 +307,7 @@ export default function RootLayout() {
               headerShown: true,
               headerTintColor: textColor,
               headerLeft: () => (
-                <PlatformPressable
+                <Pressable
                   onPress={() => router.push("/flashcards")}
                 >
                   <IconSymbol
@@ -317,7 +316,7 @@ export default function RootLayout() {
                     size={40}
                     style={styles.menuIcon}
                   ></IconSymbol>
-                </PlatformPressable>
+                </Pressable>
               ),
             }}
           />
@@ -328,7 +327,7 @@ export default function RootLayout() {
               title: "Edit Card",
               headerTintColor: textColor,
               headerLeft: () => (
-                <PlatformPressable
+                <Pressable
                   onPress={() => router.back()}
                 >
                   <IconSymbol
@@ -337,7 +336,7 @@ export default function RootLayout() {
                     size={40}
                     style={styles.menuIcon}
                   ></IconSymbol>
-                </PlatformPressable>
+                </Pressable>
               ),
             }}
           />
@@ -348,7 +347,7 @@ export default function RootLayout() {
               title: "Study",
               headerTintColor: textColor,
               headerLeft: () => (
-                <PlatformPressable
+                <Pressable
                   onPress={() => router.back()}
                 >
                   <IconSymbol
@@ -357,7 +356,7 @@ export default function RootLayout() {
                     size={40}
                     style={styles.menuIcon}
                   ></IconSymbol>
-                </PlatformPressable>
+                </Pressable>
               ),
             }}
           />
@@ -391,7 +390,7 @@ export default function RootLayout() {
               title: "Bots",
               headerTintColor: textColor,
               headerRight: () => (
-                <PlatformPressable
+                <Pressable
                   onPress={() => {
                     router.push("/parent/botEditor");
                   }}
@@ -402,7 +401,7 @@ export default function RootLayout() {
                     size={40}
                     style={styles.settingsIcon}
                   ></IconSymbol>
-                </PlatformPressable>
+                </Pressable>
               ),
             }}
           />

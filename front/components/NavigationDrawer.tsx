@@ -5,9 +5,9 @@ import {
   Animated,
   TouchableWithoutFeedback,
   Platform,
+  Pressable,
 } from "react-native";
 import { useRouter, usePathname } from "expo-router";
-import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -83,7 +83,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
         <ThemedView style={styles.drawerContent}>
           <View style={styles.drawerHeader}>
             <ThemedText style={styles.drawerTitle}>Menu</ThemedText>
-            <PlatformPressable
+            <Pressable
               onPress={onClose}
               style={styles.closeButton}
             >
@@ -92,14 +92,14 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 color={textColor}
                 size={28}
               />
-            </PlatformPressable>
+            </Pressable>
           </View>
 
           <View style={styles.menuItemsContainer}>
             {menuItems.map((item) => {
               const isActive = isItemActive(item.path);
               return (
-                <PlatformPressable
+                <Pressable
                   key={item.path}
                   onPress={() => handleMenuPress(item.path)}
                   style={[
@@ -121,7 +121,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                   >
                     {item.label}
                   </ThemedText>
-                </PlatformPressable>
+                </Pressable>
               );
             })}
           </View>

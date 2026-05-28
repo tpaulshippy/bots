@@ -1,4 +1,4 @@
-import { Modal, Platform, StyleSheet, Switch } from "react-native";
+import { Modal, Platform, StyleSheet, Switch, Pressable } from "react-native";
 import alert from "@/components/Alert";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -10,7 +10,6 @@ import React, { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { Bot, upsertBot } from "@/api/bots";
 import { useNavigation, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { PlatformPressable } from "@react-navigation/elements";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { AiModel, fetchAiModels } from "@/api/aiModels";
 import * as Sentry from "@sentry/react-native";
@@ -87,14 +86,14 @@ export default function AdvancedBotEditor({
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <PlatformPressable onPress={saveBot}>
+        <Pressable onPress={saveBot}>
           <IconSymbol
             name="checkmark"
             color={iconColor}
             size={40}
             style={styles.saveIcon}
           ></IconSymbol>
-        </PlatformPressable>
+        </Pressable>
       ),
     });
   }, [iconColor, navigation, saveBot]);

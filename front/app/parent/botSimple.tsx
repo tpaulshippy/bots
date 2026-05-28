@@ -1,8 +1,7 @@
-import { FlatList, StyleSheet, Switch, Platform } from "react-native";
+import { FlatList, StyleSheet, Switch, Platform, Pressable } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { PlatformPressable } from "@react-navigation/elements";
 import * as Sentry from "@sentry/react-native";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
@@ -52,14 +51,14 @@ export default function SimpleBotEditor({
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <PlatformPressable onPress={switchToAdvancedEditor}>
+        <Pressable onPress={switchToAdvancedEditor}>
           <IconSymbol
             name="checkmark"
             color={iconColor}
             size={40}
             style={styles.saveIcon}
           ></IconSymbol>
-        </PlatformPressable>
+        </Pressable>
       ),
     });
   }, [iconColor, navigation, switchToAdvancedEditor]);

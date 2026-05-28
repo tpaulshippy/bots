@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Pressable,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
@@ -14,7 +15,6 @@ import { useState, useEffect } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import { updateFlashcard, deleteFlashcard } from "@/api/flashcards";
-import { PlatformPressable } from "@react-navigation/elements";
 
 export default function CardEdit() {
   const router = useRouter();
@@ -119,12 +119,12 @@ export default function CardEdit() {
             />
 
             <View style={styles.buttons}>
-              <PlatformPressable style={styles.deleteButton} onPress={handleDelete}>
+              <Pressable style={styles.deleteButton} onPress={handleDelete}>
                 <ThemedText style={styles.deleteButtonText}>Delete</ThemedText>
-              </PlatformPressable>
-              <PlatformPressable style={styles.saveButton} onPress={handleSave}>
+              </Pressable>
+              <Pressable style={styles.saveButton} onPress={handleSave}>
                 <ThemedText style={styles.saveButtonText}>Save</ThemedText>
-              </PlatformPressable>
+              </Pressable>
             </View>
           </View>
         </ScrollView>
