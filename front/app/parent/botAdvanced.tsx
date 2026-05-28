@@ -45,13 +45,9 @@ export default function AdvancedBotEditor({
     fetchModels();
   }, []);
 
-  const validateBot = useCallback(async () => {
+  const saveBot = useCallback(async () => {
     setNameMissing(!bot?.name.trim());
     setModelMissing(!bot?.ai_model);
-  }, [bot?.ai_model, bot?.name]);
-
-  const saveBot = useCallback(async () => {
-    await validateBot();
 
     if (bot) {
       try {
@@ -61,7 +57,7 @@ export default function AdvancedBotEditor({
         Sentry.captureException(error);
       }
     }
-  }, [bot, router, validateBot]);
+  }, [bot, router]);
 
   const deleteBot = async () => {
     alert("Delete Bot", "Are you sure you want to delete this bot?", [

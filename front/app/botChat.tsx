@@ -14,7 +14,7 @@ import ChatMessage from '@/components/ChatMessage';
 
 export default function Chat() {
   const local = useLocalSearchParams();
-  const [chatId, setChatId] = useState<string>();
+  const [chatId, setChatId] = useState<string | undefined>(() => local.chatId?.toString());
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<ApiChatMessage[]>([]);
   const [, setPage] = useState(1);
@@ -38,8 +38,17 @@ export default function Chat() {
   }, [local.chatId]);
 
   useEffect(() => {
-    void refresh(1);
-  }, [refresh]);
+    const chatIdQueryString = local.chatId?.toString();
+    if (chatIdQueryString) {
+      fetchChatMessages(chatIdQueryString, 1).then((data) => {
+        if (data) {
+          setMessages(data.results);
+          setHasMore(data.next !== null);
+        }
+        setLoadingMore(false);
+      });
+    }
+  }, [local.chatId]);
 
   const getProfileId = async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");

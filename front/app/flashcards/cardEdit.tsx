@@ -11,7 +11,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import { updateFlashcard, deleteFlashcard } from "@/api/flashcards";
@@ -24,13 +24,8 @@ export default function CardEdit() {
     front: string;
     back: string;
   }>();
-  const [cardFront, setCardFront] = useState(front || "");
-  const [cardBack, setCardBack] = useState(back || "");
-
-  useEffect(() => {
-    setCardFront(front || "");
-    setCardBack(back || "");
-  }, [front, back]);
+  const [cardFront, setCardFront] = useState(() => front || "");
+  const [cardBack, setCardBack] = useState(() => back || "");
 
   const handleSave = async () => {
     if (!deckId || !flashcardId) {

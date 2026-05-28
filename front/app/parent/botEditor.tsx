@@ -5,7 +5,7 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bot, fetchBot } from "@/api/bots";
 import AdvancedBotEditor from "./botAdvanced";
 import SimpleBotEditor from "./botSimple";
@@ -17,39 +17,40 @@ export default function BotEditor() {
   const [bot, setBot] = useState<Bot | null>(null);
   const local = useLocalSearchParams();
 
-  const loadSelectedBot = useCallback(async () => {
-    const botId = local.botId as string;
-    if (botId) {
-      const bot = await fetchBot(botId);
-      setBot(bot);
-    } else {
-      const models = await fetchAiModels();
-      if (!models || models.results.length === 0) {
-        return;
-      }
-      const defaultModel = models.results.find((model) => model.is_default);
-
-      const newBot = {
-        id: -1,
-        bot_id: "",
-        name: "",
-        ai_model: defaultModel?.model_id || models.results[0]?.model_id || "",
-        system_prompt: "",
-        simple_editor: true,
-        template_name: "",
-        response_length: 200,
-        restrict_language: true,
-        restrict_adult_topics: true,
-        enable_web_search: false,
-        deleted_at: null,
-      };
-      setBot(newBot);
-    }
-  }, [local.botId]);
-
   useEffect(() => {
-    void loadSelectedBot();
-  }, [loadSelectedBot]);
+    let cancelled = false;
+    const loadSelectedBot = async () => {
+      const botId = local.botId as string;
+      if (botId) {
+        const bot = await fetchBot(botId);
+        if (!cancelled) setBot(bot);
+      } else {
+        const models = await fetchAiModels();
+        if (!models || models.results.length === 0) {
+          return;
+        }
+        const defaultModel = models.results.find((model) => model.is_default);
+
+        const newBot = {
+          id: -1,
+          bot_id: "",
+          name: "",
+          ai_model: defaultModel?.model_id || models.results[0]?.model_id || "",
+          system_prompt: "",
+          simple_editor: true,
+          template_name: "",
+          response_length: 200,
+          restrict_language: true,
+          restrict_adult_topics: true,
+          enable_web_search: false,
+          deleted_at: null,
+        };
+        if (!cancelled) setBot(newBot);
+      }
+    };
+    loadSelectedBot();
+    return () => { cancelled = true; };
+  }, [local.botId]);
 
   const switchToAdvanced = (bot: Bot) => {
     router.replace({

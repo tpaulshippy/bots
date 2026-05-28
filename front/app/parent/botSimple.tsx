@@ -4,7 +4,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import * as Sentry from "@sentry/react-native";
 
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { Bot, upsertBot } from "@/api/bots";
 import { useNavigation } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -29,16 +29,13 @@ export default function SimpleBotEditor({
   const bgColor = useThemeColor({}, "cardBackground");
   const bgColorSelected = useThemeColor({}, "tint");
 
-  const validateBot = useCallback(async () => {
-    setNameMissing(!bot?.name.trim());
-  }, [bot?.name]);
-
   const switchToAdvancedEditor = useCallback(async () => {
-    await validateBot();
+    setNameMissing(!bot?.name.trim());
     if (bot) {
-      bot.simple_editor = false;
+      const systemPrompt = generateSystemPrompt(bot, inputs);
+      const updatedBot = { ...bot, simple_editor: false, system_prompt: systemPrompt };
       try {
-        const newBot = await upsertBot(bot);
+        const newBot = await upsertBot(updatedBot);
         if (onSwitchEditor && newBot) {
           onSwitchEditor(newBot);
         }
@@ -46,7 +43,7 @@ export default function SimpleBotEditor({
         Sentry.captureException(error);
       }
     }
-  }, [bot, onSwitchEditor, validateBot]);
+  }, [bot, inputs, onSwitchEditor]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -66,28 +63,6 @@ export default function SimpleBotEditor({
   const setBotProperty = (property: Partial<Bot>) => {
     setBot({ ...bot, ...property });
   };
-
-  useEffect(() => {
-    setBot((currentBot) => {
-      const systemPrompt = generateSystemPrompt(currentBot, inputs);
-      if (currentBot.system_prompt === systemPrompt) {
-        return currentBot;
-      }
-
-      return {
-        ...currentBot,
-        system_prompt: systemPrompt,
-      };
-    });
-  }, [
-    bot.name,
-    bot.template_name,
-    bot.response_length,
-    bot.restrict_language,
-    bot.restrict_adult_topics,
-    bot.enable_web_search,
-    inputs,
-  ]);
 
   return (
     <ThemedView style={styles.container}>

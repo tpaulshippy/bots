@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -36,7 +36,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
 
   const drawerWidth = 250;
 
-  const slideAnim = useRef(new Animated.Value(-drawerWidth)).current;
+  const [slideAnim] = useState(() => new Animated.Value(-drawerWidth));
 
   useEffect(() => {
     Animated.timing(slideAnim, {

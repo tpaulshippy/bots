@@ -27,25 +27,26 @@ export default function ProfileEditor() {
   const iconColor = useThemeColor({}, "tint");
   const buttonIconColor = useThemeColor({}, "text");
 
-  const loadSelectedProfile = useCallback(async () => {
-    const profileId = local.profileId as string;
-    if (profileId) {
-      const profile = await fetchProfile(profileId);
-      setProfile(profile);
-    } else {
-      const newProfile = {
-        id: -1,
-        profile_id: "",
-        name: "",
-        deleted_at: null,
-      };
-      setProfile(newProfile);
-    }
-  }, [local.profileId]);
-
   useEffect(() => {
-    void loadSelectedProfile();
-  }, [loadSelectedProfile]);
+    let cancelled = false;
+    const loadSelectedProfile = async () => {
+      const profileId = local.profileId as string;
+      if (profileId) {
+        const profile = await fetchProfile(profileId);
+        if (!cancelled) setProfile(profile);
+      } else {
+        const newProfile = {
+          id: -1,
+          profile_id: "",
+          name: "",
+          deleted_at: null,
+        };
+        if (!cancelled) setProfile(newProfile);
+      }
+    };
+    loadSelectedProfile();
+    return () => { cancelled = true; };
+  }, [local.profileId]);
 
   const validateProfile = useCallback(async () => {
     setNameMissing(!profile?.name.trim());
