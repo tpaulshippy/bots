@@ -89,7 +89,7 @@
       "requestHeaders": {
         "expo-channel-name": "production"
       },
-      "checkAutomatically": "NEVER"
+      "checkAutomatically": "ON_LOAD"
     }
   }
 }
