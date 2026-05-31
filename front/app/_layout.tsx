@@ -9,7 +9,6 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as Notifications from "expo-notifications";
-import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import {

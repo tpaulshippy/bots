@@ -72,12 +72,13 @@
       }
     },
     "owner": "tpaulshippy",
-    "runtimeVersion": "1.0.4",
+    "runtimeVersion": "1.0.5",
     "updates": {
       "url": "https://u.expo.dev/c5f43f2f-c295-4b8e-b4ee-fb40063ee003",
       "requestHeaders": {
         "expo-channel-name": "production"
-      }
+      },
+      "checkAutomatically": "NEVER"
     }
   }
 }

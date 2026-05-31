@@ -248,7 +248,7 @@ const styles = {
     width: 60,
     marginRight: 12,
     marginVertical: 12,
-    borderRadius: "50%",
+    borderRadius: 30,
     justifyContent: "center" as FlexAlignType,
     alignItems: "center" as FlexAlignType,
   },

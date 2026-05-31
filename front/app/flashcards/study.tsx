@@ -11,13 +11,6 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useState, useEffect } from "react";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  interpolate,
-  Easing,
-} from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { fetchFlashcards, Flashcard } from "@/api/flashcards";
@@ -32,7 +25,6 @@ export default function Study() {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const flip = useSharedValue(0);
 
   const cardBackground = useThemeColor({}, "cardBackground");
   const studyCardBack = useThemeColor({}, "studyCardBack");
@@ -59,10 +51,6 @@ export default function Study() {
     if (process.env.EXPO_OS === "ios") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    flip.value = withTiming(isFlipped ? 0 : 1, {
-      duration: 400,
-      easing: Easing.inOut(Easing.ease),
-    });
     setIsFlipped(!isFlipped);
   };
 
@@ -71,7 +59,6 @@ export default function Study() {
       if (process.env.EXPO_OS === "ios") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-      flip.value = 0;
       setIsFlipped(false);
       setCurrentIndex(currentIndex + 1);
     }
@@ -82,27 +69,10 @@ export default function Study() {
       if (process.env.EXPO_OS === "ios") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-      flip.value = 0;
       setIsFlipped(false);
       setCurrentIndex(currentIndex - 1);
     }
   };
-
-  const frontAnimatedStyle = useAnimatedStyle(() => {
-    const rotateY = interpolate(flip.value, [0, 1], [0, 180]);
-    return {
-      transform: [{ perspective: 1000 }, { rotateY: `${rotateY}deg` }],
-      backfaceVisibility: "hidden" as const,
-    };
-  });
-
-  const backAnimatedStyle = useAnimatedStyle(() => {
-    const rotateY = interpolate(flip.value, [0, 1], [180, 360]);
-    return {
-      transform: [{ perspective: 1000 }, { rotateY: `${rotateY}deg` }],
-      backfaceVisibility: "hidden" as const,
-    };
-  });
 
   if (cards.length === 0) {
     return (
@@ -127,33 +97,32 @@ export default function Study() {
         onPress={flipCard}
         activeOpacity={0.9}
       >
-        <Animated.View
-          style={[
-            styles.card,
-            styles.cardFront,
-            frontAnimatedStyle,
-            { backgroundColor: cardBackground },
-          ]}
-        >
-          <ThemedText style={[styles.cardText, { color: textColor }]}>
-            {currentCard?.front}
-          </ThemedText>
-          <ThemedText style={[styles.tapHint, { color: iconColor }]}>
-            Tap to reveal
-          </ThemedText>
-        </Animated.View>
-        <Animated.View
-          style={[
-            styles.card,
-            styles.cardBack,
-            backAnimatedStyle,
-            { backgroundColor: studyCardBack },
-          ]}
-        >
-          <ThemedText style={[styles.cardText, { color: textColor }]}>
-            {currentCard?.back}
-          </ThemedText>
-        </Animated.View>
+        {!isFlipped ? (
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: cardBackground },
+            ]}
+          >
+            <ThemedText style={[styles.cardText, { color: textColor }]}>
+              {currentCard?.front}
+            </ThemedText>
+            <ThemedText style={[styles.tapHint, { color: iconColor }]}>
+              Tap to reveal
+            </ThemedText>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: studyCardBack },
+            ]}
+          >
+            <ThemedText style={[styles.cardText, { color: textColor }]}>
+              {currentCard?.back}
+            </ThemedText>
+          </View>
+        )}
       </TouchableOpacity>
 
       <View style={styles.navigation}>
@@ -224,8 +193,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  cardFront: {},
-  cardBack: {},
   cardText: {
     fontSize: 20,
     textAlign: "center",
