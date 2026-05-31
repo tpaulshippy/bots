@@ -72,9 +72,7 @@
       }
     },
     "owner": "tpaulshippy",
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
+    "runtimeVersion": "1.0.4",
     "updates": {
       "url": "https://u.expo.dev/c5f43f2f-c295-4b8e-b4ee-fb40063ee003",
       "requestHeaders": {
