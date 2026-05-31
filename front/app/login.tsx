@@ -148,31 +148,33 @@ const LoginScreen = () => {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.devSection, { borderBottomColor: borderColor }]}>
-        <Text style={[styles.devSectionTitle, { color: textColor }]}>Developer Options</Text>
-        <ThemedTextInput
-          onChangeText={(text) => setManualTokens(text)}
-          placeholder="Paste tokens here"
-          style={styles.tokenInput}
-        />
-        <Button
-          title="Submit"
-          onPress={async () => {
-            try {
-              await setTokens(JSON.parse(manualTokens));
-              // After setting tokens, get account info and cache the PIN if it exists
-              const account = await getAccount();
-              if (account?.pin !== null && account?.pin !== undefined) {
-                await setCachedPin(account.pin.toString());
+      {__DEV__ && (
+        <View style={[styles.devSection, { borderBottomColor: borderColor }]}>
+          <Text style={[styles.devSectionTitle, { color: textColor }]}>Developer Options</Text>
+          <ThemedTextInput
+            onChangeText={(text) => setManualTokens(text)}
+            placeholder="Paste tokens here"
+            style={styles.tokenInput}
+          />
+          <Button
+            title="Submit"
+            onPress={async () => {
+              try {
+                await setTokens(JSON.parse(manualTokens));
+                // After setting tokens, get account info and cache the PIN if it exists
+                const account = await getAccount();
+                if (account?.pin !== null && account?.pin !== undefined) {
+                  await setCachedPin(account.pin.toString());
+                }
+                router.replace("/");
+              } catch (error) {
+                console.error("Error during manual login:", error);
+                Alert.alert("Error", "Invalid token format. Please check and try again.");
               }
-              router.replace("/");
-            } catch (error) {
-              console.error("Error during manual login:", error);
-              Alert.alert("Error", "Invalid token format. Please check and try again.");
-            }
-          }}
-        />
-      </View>
+            }}
+          />
+        </View>
+      )}
 
       <ThemedView style={styles.mainContent}>
         <GoogleSignInButton onPress={handleGoogleLogin} />
