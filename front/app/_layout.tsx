@@ -73,7 +73,6 @@ export default function RootLayout() {
   });
   const ref = useNavigationContainerRef();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [initializing, setInitializing] = useState(true);
 
   const router = useRouter();
 
@@ -188,35 +187,20 @@ export default function RootLayout() {
     if (loaded) {
       const subscription = Linking.addEventListener("url", getJWTFromLink);
 
-      const initialize = async () => {
-        try {
-          await initialNavigationChecks();
-        } catch (error) {
-          console.error("Fatal initialization error:", error);
-          Sentry.captureException?.(error);
-        } finally {
-          setInitializing(false);
-          await SplashScreen.hideAsync();
-        }
-      };
+      // Hide splash screen immediately so the UI is never blocked
+      SplashScreen.hideAsync().catch(() => {});
 
-      void initialize();
-
-      // Safety timeout: never block the UI for more than 15 seconds
-      const safetyTimeout = setTimeout(() => {
-        setInitializing(false);
-        SplashScreen.hideAsync().catch(() => {});
-      }, 15000);
+      // Run auth checks in the background without blocking rendering
+      void initialNavigationChecks();
 
       return () => {
         subscription.remove();
-        clearTimeout(safetyTimeout);
       };
     }
   }, [getJWTFromLink, initialNavigationChecks, loaded]);
 
-  if (!loaded || initializing) {
-    // Return a view matching splash screen background to prevent black screen
+  if (!loaded) {
+    // Only block while fonts are loading; network calls run in background
     return (
       <View style={{ flex: 1, backgroundColor: "#000" }}>
         <ActivityIndicator size="large" color="#fff" style={{ flex: 1 }} />

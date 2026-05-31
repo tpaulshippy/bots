@@ -1,7 +1,6 @@
 import { getTokens, setTokens, TokenData } from "./tokens";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
-const FETCH_TIMEOUT_MS = 15000;
 
 export interface ApiResponse<T> {
     data: T | null;
@@ -23,18 +22,6 @@ export class ForbiddenError extends Error {
     }
 }
 
-const fetchWithTimeout = (
-    url: string,
-    options: RequestInit = {},
-    timeoutMs = FETCH_TIMEOUT_MS
-): Promise<Response> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, { ...options, signal: controller.signal }).finally(() =>
-        clearTimeout(timeoutId)
-    );
-};
-
 export const apiClient = async <T>(
     endpoint: string,
     options: RequestInit = {}
@@ -52,7 +39,7 @@ export const apiClient = async <T>(
             },
         };
         const url = `${BASE_URL}${endpoint}`;
-        const response = await fetchWithTimeout(url, request);
+        const response = await fetch(url, request);
         if (response.status === 401) {
             attempts++;
             await refreshWithRefreshToken(tokens);
@@ -89,7 +76,7 @@ export const refreshWithRefreshToken = async (tokens: TokenData | null) => {
         throw new UnauthorizedError();
     }
 
-    const response = await fetchWithTimeout(`${BASE_URL}/token/refresh/`, {
+    const response = await fetch(`${BASE_URL}/token/refresh/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
