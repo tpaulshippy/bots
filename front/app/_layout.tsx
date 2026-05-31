@@ -202,8 +202,15 @@ export default function RootLayout() {
 
       void initialize();
 
+      // Safety timeout: never block the UI for more than 15 seconds
+      const safetyTimeout = setTimeout(() => {
+        setInitializing(false);
+        SplashScreen.hideAsync().catch(() => {});
+      }, 15000);
+
       return () => {
         subscription.remove();
+        clearTimeout(safetyTimeout);
       };
     }
   }, [getJWTFromLink, initialNavigationChecks, loaded]);
