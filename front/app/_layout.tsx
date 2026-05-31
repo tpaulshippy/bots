@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as Notifications from "expo-notifications";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { StyleSheet, View, Pressable } from "react-native";
+import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import {
   useRouter,
   Stack,
@@ -38,16 +38,18 @@ const navigationIntegration = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: !isRunningInExpoGo(),
 });
 
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // enableSpotlight: __DEV__,
-  integrations: [
-    // Pass integration
-    navigationIntegration,
-  ],
-  enableNativeFramesTracking: !isRunningInExpoGo(),
-});
+if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+    // enableSpotlight: __DEV__,
+    integrations: [
+      // Pass integration
+      navigationIntegration,
+    ],
+    enableNativeFramesTracking: !isRunningInExpoGo(),
+  });
+}
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -72,6 +74,7 @@ export default function RootLayout() {
   });
   const ref = useNavigationContainerRef();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   const router = useRouter();
 
@@ -158,6 +161,9 @@ export default function RootLayout() {
       if (error instanceof UnauthorizedError) {
         await clearUser();
         router.replace("/login");
+      } else {
+        console.error("Initialization error:", error);
+        Sentry.captureException?.(error);
       }
     }
   }, [router, setProfile]);
@@ -184,8 +190,15 @@ export default function RootLayout() {
       const subscription = Linking.addEventListener("url", getJWTFromLink);
 
       const initialize = async () => {
-        SplashScreen.hideAsync();
-        await initialNavigationChecks();
+        try {
+          await initialNavigationChecks();
+        } catch (error) {
+          console.error("Fatal initialization error:", error);
+          Sentry.captureException?.(error);
+        } finally {
+          setInitializing(false);
+          await SplashScreen.hideAsync();
+        }
       };
 
       void initialize();
@@ -196,8 +209,13 @@ export default function RootLayout() {
     }
   }, [getJWTFromLink, initialNavigationChecks, loaded]);
 
-  if (!loaded) {
-    return null;
+  if (!loaded || initializing) {
+    // Return a view matching splash screen background to prevent black screen
+    return (
+      <View style={{ flex: 1, backgroundColor: "#000" }}>
+        <ActivityIndicator size="large" color="#fff" style={{ flex: 1 }} />
+      </View>
+    );
   }
 
   return (

@@ -56,7 +56,6 @@
           "cameraPermission": "The app accesses your camera to let you send photos to your bots."
         }
       ],
-      "@sentry/react-native",
       "expo-font",
       "expo-image",
       "expo-web-browser"
@@ -73,7 +72,9 @@
       }
     },
     "owner": "tpaulshippy",
-    "runtimeVersion": "1.0.4",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/c5f43f2f-c295-4b8e-b4ee-fb40063ee003",
       "requestHeaders": {
