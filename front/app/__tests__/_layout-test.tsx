@@ -52,11 +52,6 @@ jest.mock('expo-router', () => {
   };
 });
 
-jest.mock('@react-navigation/native', () => ({
-  ...jest.requireActual('@react-navigation/native'),
-  ThemeProvider: ({ children }: { children: React.ReactNode }) => children,
-}));
-
 jest.mock('expo-font', () => ({
   useFonts: () => [true],
 }));

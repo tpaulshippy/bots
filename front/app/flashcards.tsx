@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Pressable,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
@@ -17,7 +18,6 @@ import { useCallback, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import { fetchDecks, createDeck, DeckListItem } from "@/api/flashcards";
-import { PlatformPressable } from "@react-navigation/elements";
 
 export default function Flashcards() {
   const router = useRouter();
@@ -119,7 +119,7 @@ export default function Flashcards() {
             multiline
           />
           <View style={styles.modalButtons}>
-            <PlatformPressable
+            <Pressable
               style={styles.cancelButton}
               onPress={() => {
                 setShowCreateModal(false);
@@ -128,13 +128,13 @@ export default function Flashcards() {
               }}
             >
               <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-            </PlatformPressable>
-            <PlatformPressable
+            </Pressable>
+            <Pressable
               style={styles.saveButton}
               onPress={handleCreateDeck}
             >
               <ThemedText style={styles.saveButtonText}>Create</ThemedText>
-            </PlatformPressable>
+            </Pressable>
           </View>
         </View>
       </ThemedView>
@@ -143,9 +143,9 @@ export default function Flashcards() {
 
   return (
     <ThemedView style={styles.container}>
-      <PlatformPressable style={styles.fab} onPress={() => setShowCreateModal(true)}>
+      <Pressable style={styles.fab} onPress={() => setShowCreateModal(true)}>
         <IconSymbol name="plus" color="white"></IconSymbol>
-      </PlatformPressable>
+      </Pressable>
 
       {loading ? (
         <ActivityIndicator style={styles.activityIndicator} />
@@ -158,7 +158,7 @@ export default function Flashcards() {
             <RefreshControl refreshing={refreshing} onRefresh={refresh} />
           }
           renderItem={({ item }) => (
-            <PlatformPressable
+            <Pressable
               style={styles.itemContainer}
               onPress={() => handleDeckPress(item)}
             >
@@ -175,7 +175,7 @@ export default function Flashcards() {
                   {item.description}
                 </ThemedText>
               ) : null}
-            </PlatformPressable>
+            </Pressable>
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

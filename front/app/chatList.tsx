@@ -4,6 +4,7 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
+  Pressable,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
@@ -17,7 +18,6 @@ import * as Sentry from "@sentry/react-native";
 
 import { fetchChats, Chat } from "@/api/chats";
 import { UnauthorizedError } from "@/api/apiClient";
-import { PlatformPressable } from "@react-navigation/elements";
 import { clearUser } from "@/api/tokens";
 
 type ChatsByDay = {
@@ -153,9 +153,9 @@ export default function ChatList() {
 
   return (
     <ThemedView style={styles.container}>
-      <PlatformPressable style={styles.addButton} onPress={handleNewChatPress}>
+      <Pressable style={styles.addButton} onPress={handleNewChatPress}>
         <IconSymbol name="text.bubble" color="black"></IconSymbol>
-      </PlatformPressable>
+      </Pressable>
 
       <FlatList
         style={styles.list}
@@ -168,7 +168,7 @@ export default function ChatList() {
           <View>
             <ThemedText style={styles.header}>{item[0]}</ThemedText>
             {item[1].map((record: Chat) => (
-              <PlatformPressable
+              <Pressable
                 key={record.id}
                 style={styles.itemContainer}
                 onPress={() => handleChatPress(record)}
@@ -188,7 +188,7 @@ export default function ChatList() {
                 >
                   {record.bot?.name}
                 </ThemedText>
-              </PlatformPressable>
+              </Pressable>
             ))}
           </View>
         )}

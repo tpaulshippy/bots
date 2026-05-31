@@ -1,10 +1,9 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, Pressable } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { getAccount, updateAccount } from "@/api/account";
 import { useLayoutEffect, useState, useCallback } from "react";
 import { useNavigation, useRouter } from "expo-router";
-import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { setCachedPin } from "@/api/pinStorage";
@@ -37,14 +36,14 @@ export default function SetPin() {
     if (pin.length > 0) {
       navigation.setOptions({
         headerRight: () => (
-          <PlatformPressable onPress={savePin}>
+          <Pressable onPress={savePin}>
             <IconSymbol
               name="checkmark"
               color={iconColor}
               size={40}
               style={styles.saveIcon}
             ></IconSymbol>
-          </PlatformPressable>
+          </Pressable>
         ),
       });
     } else {

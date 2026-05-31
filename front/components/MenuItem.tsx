@@ -1,6 +1,5 @@
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { PlatformPressable } from "@react-navigation/elements";
-import { StyleSheet } from "react-native";
+import { StyleSheet, Pressable } from "react-native";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
 import { IconSymbol, IconSymbolName } from "./ui/IconSymbol";
@@ -34,7 +33,7 @@ export function MenuItem({
   );
   const iconColor = useThemeColor({}, "icon");
   return (
-    <PlatformPressable
+    <Pressable
       style={[{ backgroundColor }, styles.container, style]}
       onPress={onPress}
       {...otherProps}
@@ -56,7 +55,7 @@ export function MenuItem({
           />
         )}
       </ThemedView>
-    </PlatformPressable>
+    </Pressable>
   );
 }
 

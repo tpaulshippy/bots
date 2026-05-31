@@ -1,7 +1,6 @@
-import { FlatList, StyleSheet } from "react-native";
+import { FlatList, StyleSheet, Pressable } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { PlatformPressable } from "@react-navigation/elements";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { fetchProfiles, Profile } from "@/api/profiles";
@@ -78,14 +77,14 @@ export default function ProfilesList() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <PlatformPressable onPress={newProfile}>
+        <Pressable onPress={newProfile}>
           <IconSymbol
             name="plus.circle.fill"
             color={tintColor}
             size={40}
             style={styles.newIcon}
           ></IconSymbol>
-        </PlatformPressable>
+        </Pressable>
       ),
     });
   }, [navigation, newProfile, tintColor]);
@@ -120,7 +119,7 @@ export default function ProfilesList() {
         numColumns={2}
         data={profiles}
         renderItem={({ item }) => (
-          <PlatformPressable
+          <Pressable
           key={item.profile_id}
           style={[
             profiles.length > 1 ? { width: "46%" } : { width: "65%" },
@@ -138,7 +137,7 @@ export default function ProfilesList() {
             style={styles.profileIcon}
           ></IconSymbol>
           <ThemedText style={styles.profileText}>{item.name}</ThemedText>
-        </PlatformPressable>
+        </Pressable>
         )}
       >
         

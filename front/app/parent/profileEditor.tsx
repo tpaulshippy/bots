@@ -3,6 +3,7 @@ import {
   Platform,
   StyleSheet,
   KeyboardAvoidingView,
+  Pressable,
 } from "react-native";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
@@ -12,7 +13,6 @@ import alert from "@/components/Alert";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { PlatformPressable } from "@react-navigation/elements";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { ThemedButton } from "@/components/ThemedButton";
@@ -27,25 +27,26 @@ export default function ProfileEditor() {
   const iconColor = useThemeColor({}, "tint");
   const buttonIconColor = useThemeColor({}, "text");
 
-  const loadSelectedProfile = useCallback(async () => {
-    const profileId = local.profileId as string;
-    if (profileId) {
-      const profile = await fetchProfile(profileId);
-      setProfile(profile);
-    } else {
-      const newProfile = {
-        id: -1,
-        profile_id: "",
-        name: "",
-        deleted_at: null,
-      };
-      setProfile(newProfile);
-    }
-  }, [local.profileId]);
-
   useEffect(() => {
-    void loadSelectedProfile();
-  }, [loadSelectedProfile]);
+    let cancelled = false;
+    const loadSelectedProfile = async () => {
+      const profileId = local.profileId as string;
+      if (profileId) {
+        const profile = await fetchProfile(profileId);
+        if (!cancelled) setProfile(profile);
+      } else {
+        const newProfile = {
+          id: -1,
+          profile_id: "",
+          name: "",
+          deleted_at: null,
+        };
+        if (!cancelled) setProfile(newProfile);
+      }
+    };
+    loadSelectedProfile();
+    return () => { cancelled = true; };
+  }, [local.profileId]);
 
   const validateProfile = useCallback(async () => {
     setNameMissing(!profile?.name.trim());
@@ -67,14 +68,14 @@ export default function ProfileEditor() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <PlatformPressable onPress={saveProfile}>
+        <Pressable onPress={saveProfile}>
           <IconSymbol
             name="checkmark"
             color={iconColor}
             size={40}
             style={styles.saveIcon}
           ></IconSymbol>
-        </PlatformPressable>
+        </Pressable>
       ),
     });
   }, [iconColor, navigation, saveProfile]);

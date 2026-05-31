@@ -6,12 +6,12 @@ import { useColorScheme as useRNColorScheme } from 'react-native';
  */
 export function useColorScheme() {
   const [hasHydrated, setHasHydrated] = useState(false);
+  const colorScheme = useRNColorScheme();
 
   useEffect(() => {
-    setHasHydrated(true);
+    const timeout = setTimeout(() => setHasHydrated(true), 0);
+    return () => clearTimeout(timeout);
   }, []);
-
-  const colorScheme = useRNColorScheme();
 
   if (hasHydrated) {
     return colorScheme;

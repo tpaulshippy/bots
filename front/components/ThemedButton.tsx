@@ -1,5 +1,5 @@
+import { Pressable } from "react-native";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { PlatformPressable } from "@react-navigation/elements";
 
 export type ThemedButtonProps = {
   lightColor?: string;
@@ -22,12 +22,12 @@ export function ThemedButton({
     "tint"
   );
   return (
-    <PlatformPressable
+    <Pressable
       style={[{ backgroundColor }, style]}
       onPress={onPress}
       {...otherProps}
     >
       {children}
-    </PlatformPressable>
+    </Pressable>
   );
 }

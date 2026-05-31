@@ -1,4 +1,4 @@
-import React, { useState, PropsWithChildren, useEffect } from "react";
+import React, { useState, PropsWithChildren } from "react";
 import { StyleSheet, View } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
@@ -11,34 +11,17 @@ type Props = PropsWithChildren<{
 
 export default function PinWrapper({ children, correctPin, onPinVerified }: Props) {
   const [pinCorrect, setPinCorrect] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(true);
   const [enteredPin, setEnteredPin] = useState("");
 
-  // Check if we need to verify the PIN (always verify for settings access)
-  useEffect(() => {
-    setIsVerifying(false);
-  }, []);
-
-  useEffect(() => {
-    if (enteredPin === correctPin && enteredPin.length > 0) {
-      try {
-        setPinCorrect(true);
-        onPinVerified?.();
-      } catch (error) {
-        console.error("Error handling PIN verification:", error);
-      }
+  const handlePinChange = (pin: string) => {
+    setEnteredPin(pin);
+    if (pin === correctPin && pin.length > 0) {
+      setPinCorrect(true);
+      onPinVerified?.();
     }
-  }, [enteredPin, correctPin, onPinVerified]);
+  };
 
 
-
-  if (isVerifying) {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText>Verifying...</ThemedText>
-      </ThemedView>
-    );
-  }
 
   if (pinCorrect || correctPin === "") {
     return (
@@ -58,7 +41,7 @@ export default function PinWrapper({ children, correctPin, onPinVerified }: Prop
           keyboardType="numeric"
           secureTextEntry={true}
           value={enteredPin}
-          onChangeText={setEnteredPin}
+          onChangeText={handlePinChange}
           placeholderTextColor="#999"
 
         />
