@@ -171,6 +171,13 @@ AUTHENTICATION_BACKENDS = (
     'allauth.account.auth_backends.AuthenticationBackend',
 )
 
+# Load Apple certificate key from env or fallback to apple_cert.pem
+_apple_certificate_key = env('APPLE_CERTIFICATE_KEY', default='')
+if not _apple_certificate_key:
+    _apple_cert_path = BASE_DIR / 'apple_cert.pem'
+    if _apple_cert_path.exists():
+        _apple_certificate_key = _apple_cert_path.read_text()
+
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': ['profile', 'email'],
@@ -183,7 +190,7 @@ SOCIALACCOUNT_PROVIDERS = {
             "secret": env('APPLE_SECRET', default='test'),
             "key": env('APPLE_KEY', default='test'),
             "settings": {
-                "certificate_key": env('APPLE_CERTIFICATE_KEY', default='')
+                "certificate_key": _apple_certificate_key
             }
         }]
     }
