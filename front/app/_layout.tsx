@@ -446,6 +446,7 @@ export default function RootLayout() {
             name="login"
             options={{
               headerShown: true,
+              animation: "none",
               headerTitle() {
                 return (
                   <View style={styles.headerContainer}>

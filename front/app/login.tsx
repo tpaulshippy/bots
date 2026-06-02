@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet, Platform, Button, View, Text, Alert, ActivityIndicator } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { setTokens, TokenData } from "@/api/tokens";
+import { getTokens, setTokens, TokenData } from "@/api/tokens";
 import { useRouter } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
@@ -110,8 +110,11 @@ const LoginScreen = () => {
       } else {
         await WebBrowser.openBrowserAsync(LOGIN_URL);
       }
-      // After successful login, handle the PIN caching
-      await handleSuccessfulLogin();
+      // Only proceed if login actually completed (tokens were set via deep link)
+      const tokens = await getTokens();
+      if (tokens?.access && tokens?.refresh) {
+        await handleSuccessfulLogin();
+      }
     } catch (error) {
       console.error("Google login error:", error);
     }
@@ -120,8 +123,11 @@ const LoginScreen = () => {
   const handleAppleLogin = async () => {
     try {
       await WebBrowser.openBrowserAsync(APPLE_LOGIN_URL);
-      // After successful login, handle the PIN caching
-      await handleSuccessfulLogin();
+      // Only proceed if login actually completed (tokens were set via deep link)
+      const tokens = await getTokens();
+      if (tokens?.access && tokens?.refresh) {
+        await handleSuccessfulLogin();
+      }
     } catch (error) {
       console.error("Apple login error:", error);
     }
