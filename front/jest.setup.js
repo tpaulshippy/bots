@@ -27,4 +27,6 @@ jest.mock('@/components/ui/IconSymbol', () => ({
 // Mock Sentry
 jest.mock('@sentry/react-native', () => ({
   init: jest.fn(),
+  captureMessage: jest.fn(),
+  captureException: jest.fn(),
 })); 
