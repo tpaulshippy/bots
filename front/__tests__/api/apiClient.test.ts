@@ -2,7 +2,6 @@ import { apiClient } from "../../api/apiClient";
 
 describe("apiClient", () => {
   beforeAll(() => {
-    // Sentry is mocked in jest.setup.js but missing captureMessage
     jest.mock("@sentry/react-native", () => ({
       init: jest.fn(),
       captureMessage: jest.fn(),
@@ -10,7 +9,7 @@ describe("apiClient", () => {
     }));
   });
 
-  it("should NOT set Content-Type to application/json when body is FormData", async () => {
+  it("should use XMLHttpRequest for FormData (bypassing fetch polyfills)", async () => {
     const mockFetch = jest.fn().mockResolvedValue({
       status: 200,
       ok: true,
@@ -18,17 +17,52 @@ describe("apiClient", () => {
     });
     global.fetch = mockFetch;
 
-    // Use React Native's FormData style: append accepts {uri, name, type} objects
+    // Mock XMLHttpRequest
+    const mockXhr = {
+      open: jest.fn(),
+      setRequestHeader: jest.fn(),
+      send: jest.fn(),
+      onload: null as any,
+      onerror: null as any,
+      status: 200,
+      responseText: '{"success": true}',
+    };
+    const XMLHttpRequestMock = jest.fn().mockImplementation(() => mockXhr);
+    (global as any).XMLHttpRequest = XMLHttpRequestMock;
+
     const formData = new FormData();
     (formData as any)._parts = [
       ["message", "hello"],
       ["image", { uri: "file://test.jpg", name: "test.jpg", type: "image/jpeg" }],
     ];
 
-    await apiClient("/test", { method: "POST", body: formData });
+    const promise = apiClient("/test", { method: "POST", body: formData });
 
-    const requestInit = mockFetch.mock.calls[0][1];
-    expect(requestInit.headers["Content-Type"]).toBeUndefined();
+    // Simulate XHR success
+    setTimeout(() => {
+      mockXhr.onload?.();
+    }, 0);
+
+    const result = await promise;
+
+    // Should have used XHR, NOT fetch
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(XMLHttpRequestMock).toHaveBeenCalled();
+    expect(mockXhr.open).toHaveBeenCalledWith("POST", expect.stringContaining("/test"));
+    expect(mockXhr.send).toHaveBeenCalledWith(formData);
+
+    // Content-Type should NOT be set (let XHR set it automatically for FormData)
+    expect(mockXhr.setRequestHeader).not.toHaveBeenCalledWith(
+      "Content-Type",
+      expect.anything()
+    );
+    expect(mockXhr.setRequestHeader).toHaveBeenCalledWith(
+      "Authorization",
+      expect.any(String)
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({ success: true });
   });
 
   it("should set Content-Type to application/json for regular JSON requests", async () => {
@@ -46,32 +80,12 @@ describe("apiClient", () => {
   });
 
   it("reproduces: Expo winter/fetch cannot handle RN {uri,name,type} FormData parts", () => {
-    // This test reproduces the exact production bug.
-    //
-    // Expo SDK 56 installs a custom fetch polyfill (winter/fetch) that replaces
-    // React Native's native fetch. When a request body is FormData, Expo's
-    // convertFormDataAsync serializes the parts. It only supports:
-    //   1. string values
-    //   2. Blob instances
-    //   3. objects with a bytes() method
-    //
-    // React Native's proprietary FormData format uses {uri, name, type} objects
-    // for file uploads. Expo's serializer does NOT understand these objects,
-    // so it throws: "Unsupported FormDataPart implementation"
-    //
-    // The fix is to convert {uri, name, type} to a Blob before appending to
-    // FormData. This works with both Expo's fetch and RN's native fetch.
-    //
-    // See: node_modules/expo/src/winter/fetch/convertFormData.ts (line 77)
-    // See: node_modules/expo/src/winter/runtime.native.ts (line 37-48)
-
     const imagePart = {
       uri: "file:///var/mobile/Containers/Data/Application/test.jpg",
       name: "image.jpg",
       type: "image/jpeg",
     };
 
-    // Simulate Expo's convertFormDataAsync entry checking
     const isString = typeof imagePart === "string";
     const isBlob = imagePart instanceof Blob;
     const hasBytesMethod =
@@ -80,8 +94,6 @@ describe("apiClient", () => {
       "bytes" in imagePart &&
       typeof (imagePart as any).bytes === "function";
 
-    // When none of these are true, Expo's fetch throws.
-    // This is exactly what happens in production.
     expect({
       isString,
       isBlob,
@@ -93,22 +105,5 @@ describe("apiClient", () => {
       hasBytesMethod: false,
       supported: false,
     });
-  });
-
-  it("fix: Blob instances are supported by Expo's convertFormDataAsync", () => {
-    // This test verifies that the fix works: converting image files to Blobs
-    // before appending to FormData makes them compatible with Expo's fetch.
-    const blob = new Blob(["fake image data"], { type: "image/jpeg" });
-
-    const isString = typeof blob === "string";
-    const isBlob = blob instanceof Blob;
-    const hasBytesMethod =
-      typeof blob === "object" &&
-      blob !== null &&
-      "bytes" in blob &&
-      typeof (blob as any).bytes === "function";
-
-    // Blob satisfies at least one of Expo's supported types (isBlob or hasBytesMethod)
-    expect(isString || isBlob || hasBytesMethod).toBe(true);
   });
 });

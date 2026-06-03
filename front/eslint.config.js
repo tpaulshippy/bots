@@ -26,7 +26,7 @@ module.exports = defineConfig([
     }
   },
   {
-    files: ['e2e/**/*.test.js'],
+    files: ['e2e/**/*.e2e.js'],
     languageOptions: {
       globals: {
         describe: 'readonly',
