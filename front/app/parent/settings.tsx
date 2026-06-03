@@ -18,6 +18,7 @@ import { MenuItem } from "@/components/MenuItem";
 import { clearUser } from "@/api/tokens";
 
 import { subscriptionNames } from "@/constants/subscriptions";
+import * as Updates from "expo-updates";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -141,6 +142,9 @@ export default function SettingsScreen() {
               </ThemedView>
             </PinWrapper>
           )}
+          <ThemedText style={styles.updateId}>
+            Update: {Updates.updateId || "default"}
+          </ThemedText>
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -184,5 +188,11 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
+  },
+  updateId: {
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 10,
+    opacity: 0.5,
   },
 });
