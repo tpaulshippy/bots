@@ -7,5 +7,9 @@ export default function ChildChat() {
   const [botSelected, setBotSelected] = useState(false);
   const local = useLocalSearchParams();
 
-  return botSelected || local.chatId ? <Chat /> : <SelectBot setBotSelected={setBotSelected} />;
+  return botSelected || local.chatId ? (
+    <Chat />
+  ) : (
+    <SelectBot setBotSelected={setBotSelected} skipAutoSelect={!!local.newChat} />
+  );
 }

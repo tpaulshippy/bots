@@ -137,7 +137,7 @@ export default function ChatList() {
   };
 
   const handleNewChatPress = () => {
-    router.push(`/chat`);
+    router.push({ pathname: `/chat`, params: { newChat: "true" } });
   };
 
   const handleLoadMore = () => {

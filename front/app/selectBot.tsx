@@ -13,9 +13,10 @@ import * as Sentry from "@sentry/react-native";
 
 type Props = {
   setBotSelected?: React.Dispatch<React.SetStateAction<boolean>>;
+  skipAutoSelect?: boolean;
 }
 
-export default function SelectBot({ setBotSelected }: Props) {
+export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
   const buttonColor = useThemeColor({}, "tint");
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
@@ -43,11 +44,11 @@ export default function SelectBot({ setBotSelected }: Props) {
   }, [setBotSelected]);
 
   useEffect(() => {
-    if (setBotSelected && selectedBot) {
+    if (setBotSelected && selectedBot && !skipAutoSelect) {
       setBotSelected(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBot]);
+  }, [selectedBot, skipAutoSelect]);
 
   const handleBotPress = async (bot: Bot) => {
     if (process.env.EXPO_OS === "ios") {
