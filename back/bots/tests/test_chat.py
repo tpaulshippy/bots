@@ -98,7 +98,7 @@ def describe_chat_model():
                 assert chat.messages.last().role == "assistant"
                 assert chat.messages.last().input_tokens == 1
                 assert chat.messages.last().output_tokens == 2
-                assert chat.ai.model_id == "us.amazon.nova-lite-v1:0"
+                assert chat.ai.model_id == "us.amazon.nova-2-lite-v1:0"
         
         def it_should_use_model_from_bot(chat, ai, ai_output):
             from unittest.mock import patch
