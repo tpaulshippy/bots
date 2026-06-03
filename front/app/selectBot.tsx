@@ -30,6 +30,10 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
     });
     const loadSelectedBot = async () => {
       try {
+        if (skipAutoSelect) {
+          await AsyncStorage.removeItem("selectedBot");
+          return;
+        }
         const botData = await AsyncStorage.getItem("selectedBot");
         if (botData) {
           const bot = JSON.parse(botData);
