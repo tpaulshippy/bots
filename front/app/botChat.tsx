@@ -131,11 +131,9 @@ export default function Chat() {
     if (image) {
       const fileUri = image;
       const fileType = fileUri.split('.').pop() || 'jpeg';
-      formData.append('image', {
-        uri: fileUri,
-        name: `image.${fileType}`,
-        type: `image/${fileType}`,
-      } as any);
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+      formData.append('image', blob, `image.${fileType}`);
     }
     formData.append('profile', profileId);
     formData.append('bot', botId);
