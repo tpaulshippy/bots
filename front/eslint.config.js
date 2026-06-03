@@ -3,9 +3,12 @@ const { defineConfig } = require('eslint/config');
 const expoConfig = require("eslint-config-expo/flat");
 
 module.exports = defineConfig([
+  {
+    files: ['**/*'],
+    ignores: ["dist/**", "public/**"]
+  },
   expoConfig,
   {
-    ignores: ["dist/*"],
     settings: {
       'import/resolver': {
         typescript: {
@@ -19,6 +22,20 @@ module.exports = defineConfig([
     languageOptions: {
       globals: {
         jest: 'readonly'
+      }
+    }
+  },
+  {
+    files: ['e2e/**/*.test.js'],
+    languageOptions: {
+      globals: {
+        describe: 'readonly',
+        beforeAll: 'readonly',
+        it: 'readonly',
+        device: 'readonly',
+        waitFor: 'readonly',
+        element: 'readonly',
+        by: 'readonly',
       }
     }
   }

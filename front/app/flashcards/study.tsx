@@ -45,7 +45,7 @@ export default function Study() {
       setCards(flashcards.results || []);
     };
     loadCards();
-  }, [deckId]);
+  }, [deckId, router]);
 
   const flipCard = () => {
     if (process.env.EXPO_OS === "ios") {

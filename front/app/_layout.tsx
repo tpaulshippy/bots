@@ -170,7 +170,7 @@ export default function RootLayout() {
     const url = event?.url;
     if (!url) return;
 
-    const { path, queryParams } = Linking.parse(url);
+    const { queryParams } = Linking.parse(url);
 
     if (queryParams && queryParams.access && queryParams.refresh) {
       const access = queryParams.access as string;
