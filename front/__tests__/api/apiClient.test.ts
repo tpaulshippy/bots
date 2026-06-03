@@ -21,7 +21,7 @@ describe('apiClient', () => {
     });
 
     const formData = new FormData();
-    formData.append('image', { uri: 'file://test.jpg', name: 'test.jpg', type: 'image/jpeg' } as unknown as Blob);
+    formData.append('image', { uri: 'file://test.jpg', name: 'test.jpg', type: 'image/jpeg' } as any);
 
     await apiClient('/chats/new', {
       method: 'POST',

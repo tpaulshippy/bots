@@ -135,7 +135,7 @@ export default function Chat() {
         uri: fileUri,
         name: `image.${fileType}`,
         type: `image/${fileType}`,
-      } as unknown as Blob);
+      } as any);
     }
     formData.append('profile', profileId);
     formData.append('bot', botId);
