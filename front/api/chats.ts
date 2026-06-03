@@ -113,9 +113,6 @@ export const sendChat = async (
         const { data, ok, status } = await apiClient<ChatResponse>(`/chats/${chatId}`, {
             method: 'POST',
             body: message,
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
         });
 
         if (!ok) {

@@ -10,7 +10,7 @@ export const AppleSignInButton = ({ onPress }: AppleSignInButtonProps) => {
   const imageSource = colorScheme === "dark" ? require("../assets/images/apple-sign-in-dark.png") : require("../assets/images/apple-sign-in.png");
 
   return (
-    <Pressable onPress={onPress} 
+    <Pressable testID="apple-sign-in-button" onPress={onPress} 
     style={({ pressed }) => [
       styles.appleButton,
       pressed && styles.appleButtonPressed,

@@ -24,7 +24,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
   };
 
   return (
-    <ThemedView>
+    <ThemedView testID={`chat-message-${message.role}`}>
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -40,8 +40,8 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         </ThemedView>
       </Modal>
       {message.image_url && (
-        <TouchableOpacity onLongPress={handleLongPress}>
-          <Image source={{ uri: message.image_url }} style={styles.image} />
+        <TouchableOpacity onLongPress={handleLongPress} testID="chat-message-image">
+          <Image source={{ uri: message.image_url }} style={styles.image} testID="chat-message-image-source" />
         </TouchableOpacity>
       )}
       {message.isLoading && <ActivityIndicator />}

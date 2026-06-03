@@ -158,15 +158,18 @@ const LoginScreen = () => {
         <View style={[styles.devSection, { borderBottomColor: borderColor }]}>
           <Text style={[styles.devSectionTitle, { color: textColor }]}>Developer Options</Text>
           <ThemedTextInput
+            testID="dev-token-input"
             onChangeText={(text) => setManualTokens(text)}
             placeholder="Paste tokens here"
             style={styles.tokenInput}
           />
           <Button
+            testID="dev-submit-button"
             title="Submit"
             onPress={async () => {
               try {
-                await setTokens(JSON.parse(manualTokens));
+                const trimmed = manualTokens.trim();
+                await setTokens(JSON.parse(trimmed));
                 // After setting tokens, get account info and cache the PIN if it exists
                 const account = await getAccount();
                 if (account?.pin !== null && account?.pin !== undefined) {

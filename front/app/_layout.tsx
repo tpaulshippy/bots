@@ -168,18 +168,18 @@ export default function RootLayout() {
 
   const getJWTFromLink = useCallback(async (event?: any) => {
     const url = event?.url;
-    if (url) {
-      const { queryParams } = Linking.parse(url);
+    if (!url) return;
 
-      if (queryParams && queryParams.access && queryParams.refresh) {
-        const access = queryParams.access as string;
-        const refresh = queryParams.refresh as string;
-        await setTokens({ access, refresh });
-        WebBrowser.dismissBrowser();
+    const { path, queryParams } = Linking.parse(url);
 
-        router.replace("/");
-        await initialNavigationChecks();
-      }
+    if (queryParams && queryParams.access && queryParams.refresh) {
+      const access = queryParams.access as string;
+      const refresh = queryParams.refresh as string;
+      await setTokens({ access, refresh });
+      WebBrowser.dismissBrowser();
+
+      router.replace("/");
+      await initialNavigationChecks();
     }
   }, [initialNavigationChecks, router]);
 

@@ -8,6 +8,7 @@ export type ThemedButtonProps = {
   style?: any;
   children?: any;
   disabled?: boolean;
+  testID?: string;
 };
 export function ThemedButton({
   style,

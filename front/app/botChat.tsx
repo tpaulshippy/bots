@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { fetchChatMessages, sendChat, ChatMessage as ApiChatMessage } from "@/api/chats";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
+import { E2E_TEST_IMAGE_URI } from "@/e2e/utils";
 
 export default function Chat() {
   const local = useLocalSearchParams();
@@ -69,6 +70,14 @@ export default function Chat() {
   };
 
   const handleImagePicker = async () => {
+    if (__DEV__) {
+      const e2eMode = await AsyncStorage.getItem("e2eTestMode");
+      if (e2eMode === "true") {
+        setImage(E2E_TEST_IMAGE_URI);
+        return;
+      }
+    }
+
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (permissionResult.granted === false) {
       alert('Permission to access camera is required!');
@@ -184,6 +193,7 @@ export default function Chat() {
               />
               <ThemedView style={styles.inputContainer}>
                 <ThemedTextInput
+                  testID="chat-input"
                   autoFocus={!local.chatId}
                   multiline={true}
                   onChangeText={setInput}
@@ -191,6 +201,7 @@ export default function Chat() {
                   style={styles.input}
                 ></ThemedTextInput>
                 <ThemedButton
+                  testID="camera-button"
                   style={styles.sendButton}
                   onPress={handleImagePicker}
                 >
@@ -202,6 +213,7 @@ export default function Chat() {
                   ></IconSymbol>
                 </ThemedButton>
                 <ThemedButton
+                  testID="send-button"
                   style={styles.sendButton}
                   onPress={sendChatToServer}
                 >

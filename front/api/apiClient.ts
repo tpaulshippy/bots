@@ -30,16 +30,17 @@ export const apiClient = async <T>(
     let attempts = 0;
     while (attempts < maxRetries) {
         const tokens = await getTokens();
+        const isFormData = options.body instanceof FormData;
         const request = {
             ...options,
             headers: {
-                'Content-Type': 'application/json',
+                ...(!isFormData && { 'Content-Type': 'application/json' }),
                 'Authorization': `Bearer ${tokens?.access}`,
                 ...options.headers,
             },
         };
-        const url = `${BASE_URL}${endpoint}`;
-        const response = await fetch(url, request);
+    const url = `${BASE_URL}${endpoint}`;
+    const response = await fetch(url, request);
         if (response.status === 401) {
             attempts++;
             await refreshWithRefreshToken(tokens);
@@ -69,7 +70,6 @@ export const apiClient = async <T>(
     }
     throw new UnauthorizedError();
 };
-
 
 export const refreshWithRefreshToken = async (tokens: TokenData | null) => {
     if (!tokens || !tokens.refresh) {
