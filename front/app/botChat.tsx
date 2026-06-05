@@ -149,6 +149,7 @@ export default function Chat() {
       };
       setMessages([...messages, newUserMessage, newAssistantMessage]);
       setChatId(chatResponse.chat_id);
+      setImage(null);
       setLoadingMore(false);
     }
   };
