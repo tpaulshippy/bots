@@ -89,13 +89,13 @@ class Chat(models.Model):
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
         
         @tool
-        def create_flashcard_deck(name: str, description: str = "", flashcards: list = None) -> str:
+        def create_flashcard_deck(name: str, flashcards: list, description: str = "") -> str:
             """Create a new flashcard deck with flashcards. Use this when the user wants to create flashcards for studying.
             
             Args:
                 name: The name of the deck (e.g., "Biology Test Terms")
+                flashcards: List of flashcards, each with 'front' and 'back' keys. Must include at least one card.
                 description: Optional description of the deck
-                flashcards: Optional list of flashcards, each with 'front' and 'back' keys
             """
             logger.info(f"🃏 CREATE_FLASHCARD_DECK_TOOL_INVOKED: name='{name}'")
             try:
@@ -108,15 +108,14 @@ class Chat(models.Model):
                     )
                     deck = Deck.objects.select_for_update().get(pk=deck.pk)
                     created_cards = 0
-                    if flashcards:
-                        for i, card in enumerate(flashcards):
-                            Flashcard.objects.create(
-                                deck=deck,
-                                front=card.get('front', ''),
-                                back=card.get('back', ''),
-                                order=i
-                            )
-                            created_cards += 1
+                    for i, card in enumerate(flashcards):
+                        Flashcard.objects.create(
+                            deck=deck,
+                            front=card.get('front', ''),
+                            back=card.get('back', ''),
+                            order=i
+                        )
+                        created_cards += 1
                     logger.info(f"🃏 CREATE_FLASHCARD_DECK_SUCCESS: deck_id={deck.deck_id}, cards={created_cards}")
                     return f"Created deck '{name}' with {created_cards} flashcards. Deck ID: {deck.deck_id}"
             except Exception as e:
