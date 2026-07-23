@@ -34,7 +34,16 @@ const MAPPING = {
   'dollarsign.circle.fill': 'payments',
   'questionmark.circle.fill': 'question-mark',
   'photo.fill': 'image',
-  'camera.fill': 'camera'
+  'camera.fill': 'camera',
+  'line.3.horizontal': 'menu',
+  'chevron.backward': 'chevron-left',
+  'chevron.left': 'chevron-left',
+  'plus': 'add',
+  'pencil': 'edit',
+  'xmark': 'close',
+  'chat': 'chat',
+  'bubble.left.fill': 'chat-bubble',
+  'square.grid.2x2.fill': 'grid-view'
 } as Partial<
   Record<
     import('expo-symbols').SymbolViewProps['name'],
