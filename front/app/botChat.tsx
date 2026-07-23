@@ -12,6 +12,7 @@ import { fetchChatMessages, sendChat, ChatMessage as ApiChatMessage } from "@/ap
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
 import { E2E_TEST_IMAGE_URI } from "@/e2e/utils";
+import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function Chat() {
   const local = useLocalSearchParams();
@@ -22,6 +23,8 @@ export default function Chat() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [image, setImage] = useState<string | null>(null);
+  const inputBorderColor = useThemeColor({}, "border");
+  const placeholderColor = useThemeColor({}, "icon");
 
   const refresh = useCallback(async (nextPage: number) => {
     const chatIdQueryString = local.chatId?.toString();
@@ -197,32 +200,34 @@ export default function Chat() {
                   testID="chat-input"
                   autoFocus={!local.chatId}
                   multiline={true}
+                  placeholder="Message…"
+                  placeholderTextColor={placeholderColor}
                   onChangeText={setInput}
                   value={input}
-                  style={styles.input}
+                  style={[styles.input, { borderColor: inputBorderColor }]}
                 ></ThemedTextInput>
                 <ThemedButton
                   testID="camera-button"
+                  darkColor="#0a7ea4"
                   style={styles.sendButton}
                   onPress={handleImagePicker}
                 >
                   <IconSymbol
-                    style={styles.sendButtonIcon}
                     name="camera.fill"
-                    color="#bbb"
-                    size={45}
+                    color="#fff"
+                    size={22}
                   ></IconSymbol>
                 </ThemedButton>
                 <ThemedButton
                   testID="send-button"
+                  darkColor="#0a7ea4"
                   style={styles.sendButton}
                   onPress={sendChatToServer}
                 >
                   <IconSymbol
-                    style={styles.sendButtonIcon}
                     name="arrow.up"
-                    color="#bbb"
-                    size={45}
+                    color="#fff"
+                    size={22}
                   ></IconSymbol>
                 </ThemedButton>
               </ThemedView>
@@ -241,15 +246,17 @@ const styles = {
   },
   inputContainer: {
     flexDirection: "row" as "row",
+    alignItems: "center" as FlexAlignType,
+    paddingHorizontal: 12,
   },
   input: {
     flex: 4,
-    minHeight: 60,
-    margin: 12,
-    padding: 10,
+    minHeight: 44,
+    marginVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "#555",
-    borderRadius: 10,
+    borderRadius: 22,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -257,13 +264,11 @@ const styles = {
     elevation: 2,
   },
   sendButton: {
-    height: 60,
-    width: 60,
-    marginRight: 12,
-    marginVertical: 12,
-    borderRadius: 30,
+    height: 44,
+    width: 44,
+    marginLeft: 8,
+    borderRadius: 22,
     justifyContent: "center" as FlexAlignType,
     alignItems: "center" as FlexAlignType,
   },
-  sendButtonIcon: {}
 };

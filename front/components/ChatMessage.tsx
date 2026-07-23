@@ -6,13 +6,18 @@ import { ChatMessage as ApiChatMessage } from "@/api/chats";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import { format } from "date-fns";
 
 interface ChatMessageProps {
-  message: ApiChatMessage;
+  message: ApiChatMessage & { created_at?: string };
 }
 
 const ChatMessage = ({ message }: ChatMessageProps) => {
-  const assistantColor = useThemeColor({ light: "#bbb", dark: "#222"}, "background");
+  const assistantColor = useThemeColor({}, "cardBackground");
+  const borderColor = useThemeColor({}, "border");
+  const userColor = useThemeColor({ light: "#03465b", dark: "#0a7ea4" }, "tint");
+  const timestampColor = useThemeColor({}, "icon");
+  const isUser = message.role === "user";
   const [modalVisible, setModalVisible] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState('');
 
@@ -44,42 +49,67 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
           <Image source={{ uri: message.image_url }} style={styles.image} testID="chat-message-image-source" />
         </TouchableOpacity>
       )}
-      {message.isLoading && <ActivityIndicator />}
+      {message.isLoading && <ActivityIndicator style={styles.loading} />}
       {message.text && (
-        message.role === "user" ? (
+        isUser ? (
           <ThemedText
             selectable={true}
-            style={styles.userMessage}
+            style={styles.userMessage(userColor)}
           >
             {message.text}
           </ThemedText>
         ) : (
-          <ThemedView style={styles.assistantMessage(assistantColor)}>
+          <ThemedView style={styles.assistantMessage(assistantColor, borderColor)}>
             <MarkdownRenderer content={message.text} />
           </ThemedView>
         )
+      )}
+      {message.created_at && (
+        <ThemedText style={styles.timestamp(isUser, timestampColor)}>
+          {format(new Date(message.created_at), "p")}
+        </ThemedText>
       )}
     </ThemedView>
   );
 };
 
 const styles = {
-  userMessage: {
-    backgroundColor: "#03465b",
-    color: "#fff",
-    padding: 10,
-    margin: 10,
-    borderRadius: 10,
-    alignSelf: "flex-end" as FlexAlignType,
+  userMessage: (userColor: string) => {
+    return {
+      backgroundColor: userColor,
+      color: "#fff",
+      padding: 10,
+      margin: 10,
+      borderRadius: 10,
+      alignSelf: "flex-end" as FlexAlignType,
+      maxWidth: "85%" as const,
+    };
   },
-  assistantMessage: (assistantColor: string) => {
+  assistantMessage: (assistantColor: string, borderColor: string) => {
     return {
       backgroundColor: assistantColor,
+      borderColor: borderColor,
+      borderWidth: 1,
       padding: 10,
       margin: 10,
       borderRadius: 10,
       alignSelf: "flex-start" as FlexAlignType,
+      maxWidth: "85%" as const,
     };
+  },
+  timestamp: (isUser: boolean, color: string) => {
+    return {
+      fontSize: 11,
+      color: color,
+      alignSelf: (isUser ? "flex-end" : "flex-start") as FlexAlignType,
+      marginHorizontal: 12,
+      marginTop: -6,
+      marginBottom: 6,
+    };
+  },
+  loading: {
+    alignSelf: "flex-start" as FlexAlignType,
+    margin: 10,
   },
   image: {
     width: 200,
