@@ -322,17 +322,18 @@ export default function DeckDetail() {
         <Pressable style={styles.headerButton} onPress={handleDeleteDeck}>
           <IconSymbol name="trash" size={20} color="#d33" />
         </Pressable>
-        <Pressable
-          style={[styles.studyButton, { backgroundColor: tintColor }]}
-          onPress={handleStudyPress}
-        >
-          <ThemedText style={styles.studyButtonText}>Study</ThemedText>
-        </Pressable>
       </View>
 
       {deck?.description ? (
         <ThemedText style={[styles.description, { color: iconColor }]}>{deck.description}</ThemedText>
       ) : null}
+
+      <Pressable
+        style={[styles.studyButton, { backgroundColor: tintColor }]}
+        onPress={handleStudyPress}
+      >
+        <ThemedText style={styles.studyButtonText}>Study</ThemedText>
+      </Pressable>
 
       <Pressable style={[styles.fab, { backgroundColor: tintColor }]} onPress={() => setShowAddCard(true)}>
         <IconSymbol name="plus" color="white"></IconSymbol>
@@ -362,9 +363,18 @@ export default function DeckDetail() {
             onLongPress={() => handleDeleteCard(item)}
           >
             <ThemedText style={[styles.cardNumber, { color: iconColor }]}>#{index + 1}</ThemedText>
-            <ThemedText style={styles.cardFront} numberOfLines={2}>
-              {item.front}
-            </ThemedText>
+            <View style={styles.cardTextContainer}>
+              <ThemedText style={styles.cardFront} numberOfLines={1}>
+                {item.front}
+              </ThemedText>
+              <ThemedText
+                style={[styles.cardBack, { color: iconColor }]}
+                numberOfLines={1}
+              >
+                {item.back}
+              </ThemedText>
+            </View>
+            <IconSymbol name="pencil" size={18} color={iconColor} />
           </Pressable>
         )}
         ListEmptyComponent={
@@ -401,12 +411,15 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   studyButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
   },
   studyButtonText: {
     color: "white",
+    fontSize: 16,
     fontWeight: "600",
   },
   description: {
@@ -429,9 +442,16 @@ const styles = StyleSheet.create({
     marginRight: 12,
     width: 30,
   },
-  cardFront: {
+  cardTextContainer: {
     flex: 1,
+    marginRight: 8,
+  },
+  cardFront: {
     fontSize: 16,
+  },
+  cardBack: {
+    fontSize: 14,
+    marginTop: 2,
   },
   fab: {
     position: "absolute",
