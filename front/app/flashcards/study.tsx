@@ -12,6 +12,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useState, useEffect } from "react";
 import * as Haptics from "expo-haptics";
+import * as Progress from "react-native-progress";
 
 import { fetchFlashcards, Flashcard } from "@/api/flashcards";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -25,12 +26,14 @@ export default function Study() {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   const cardBackground = useThemeColor({}, "cardBackground");
   const studyCardBack = useThemeColor({}, "studyCardBack");
   const textColor = useThemeColor({}, "text");
   const iconColor = useThemeColor({}, "icon");
-  const disabledColor = useThemeColor({}, "disabled");
+  const tintColor = useThemeColor({}, "tint");
+  const borderColor = useThemeColor({}, "border");
   const navButtonBg = useThemeColor({}, "navButton");
   const navButtonIcon = useThemeColor({}, "navButtonIcon");
 
@@ -74,6 +77,22 @@ export default function Study() {
     }
   };
 
+  const finish = () => {
+    if (process.env.EXPO_OS === "ios") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setCompleted(true);
+  };
+
+  const restart = () => {
+    if (process.env.EXPO_OS === "ios") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setIsFlipped(false);
+    setCurrentIndex(0);
+    setCompleted(false);
+  };
+
   if (cards.length === 0) {
     return (
       <ThemedView style={styles.container}>
@@ -82,7 +101,28 @@ export default function Study() {
     );
   }
 
+  if (completed) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.completion}>
+          <ThemedText style={styles.completionTitle}>Done! 🎉</ThemedText>
+          <ThemedText style={styles.completionSubtitle}>
+            You studied all {cards.length} cards.
+          </ThemedText>
+          <Pressable
+            testID="study-restart"
+            style={[styles.restartButton, { backgroundColor: tintColor }]}
+            onPress={restart}
+          >
+            <ThemedText style={styles.restartButtonText}>Restart</ThemedText>
+          </Pressable>
+        </View>
+      </ThemedView>
+    );
+  }
+
   const currentCard = cards[currentIndex];
+  const isLastCard = currentIndex === cards.length - 1;
 
   return (
     <ThemedView style={styles.container}>
@@ -90,6 +130,16 @@ export default function Study() {
         <ThemedText style={styles.progress}>
           {currentIndex + 1} / {cards.length}
         </ThemedText>
+        <Progress.Bar
+          progress={(currentIndex + 1) / cards.length}
+          width={null}
+          height={6}
+          color={tintColor}
+          unfilledColor={borderColor}
+          borderWidth={0}
+          borderRadius={3}
+          style={styles.progressBar}
+        />
       </View>
 
       <TouchableOpacity
@@ -101,7 +151,7 @@ export default function Study() {
           <View
             style={[
               styles.card,
-              { backgroundColor: cardBackground },
+              { backgroundColor: cardBackground, borderColor: borderColor },
             ]}
           >
             <ThemedText style={[styles.cardText, { color: textColor }]}>
@@ -115,7 +165,7 @@ export default function Study() {
           <View
             style={[
               styles.card,
-              { backgroundColor: studyCardBack },
+              { backgroundColor: studyCardBack, borderColor: tintColor },
             ]}
           >
             <ThemedText style={[styles.cardText, { color: textColor }]}>
@@ -127,6 +177,7 @@ export default function Study() {
 
       <View style={styles.navigation}>
         <Pressable
+          testID="study-prev"
           style={[
             styles.navButton,
             { backgroundColor: navButtonBg },
@@ -135,25 +186,17 @@ export default function Study() {
           onPress={goToPrev}
           disabled={currentIndex === 0}
         >
-          <IconSymbol
-            name="chevron.left"
-            size={30}
-            color={currentIndex === 0 ? disabledColor : navButtonIcon}
-          />
+          <IconSymbol name="chevron.left" size={30} color={navButtonIcon} />
         </Pressable>
         <Pressable
-          style={[
-            styles.navButton,
-            { backgroundColor: navButtonBg },
-            currentIndex === cards.length - 1 && styles.navButtonDisabled,
-          ]}
-          onPress={goToNext}
-          disabled={currentIndex === cards.length - 1}
+          testID="study-next"
+          style={[styles.navButton, { backgroundColor: navButtonBg }]}
+          onPress={isLastCard ? finish : goToNext}
         >
           <IconSymbol
-            name="chevron.right"
+            name={isLastCard ? "checkmark" : "chevron.right"}
             size={30}
-            color={currentIndex === cards.length - 1 ? disabledColor : navButtonIcon}
+            color={navButtonIcon}
           />
         </Pressable>
       </View>
@@ -174,6 +217,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
   },
+  progressBar: {
+    alignSelf: "stretch",
+    marginTop: 8,
+  },
   cardContainer: {
     width: CARD_WIDTH,
     height: 300,
@@ -184,14 +231,15 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   cardText: {
     fontSize: 20,
@@ -204,16 +252,43 @@ const styles = StyleSheet.create({
   },
   navigation: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 40,
-    paddingHorizontal: 20,
+    justifyContent: "center",
+    gap: 32,
+    marginTop: 32,
   },
   navButton: {
-    padding: 20,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
   navButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.35,
+  },
+  completion: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  completionTitle: {
+    fontSize: 28,
+    fontWeight: "600",
+  },
+  completionSubtitle: {
+    fontSize: 16,
+    marginTop: 8,
+  },
+  restartButton: {
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 24,
+  },
+  restartButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   emptyText: {
     fontSize: 18,
