@@ -9,12 +9,14 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Progress from "react-native-progress";
 import * as Haptics from "expo-haptics";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
+import { IconSymbol, IconSymbolName } from "@/components/ui/IconSymbol";
 import { clearUser } from "@/api/tokens";
 
 import { subscriptionNames } from "@/constants/subscriptions";
@@ -28,6 +30,16 @@ export default function SettingsScreen() {
   const [subscriptionLevel, setSubscriptionLevel] = useState(0);
   const [subscription, setSubscription] = useState("");
   const backgroundColor = useThemeColor({}, "cardBackground");
+  const tintColor = useThemeColor({}, "tint");
+  const trackColor = useThemeColor(
+    { light: "#e6e6e6", dark: "#2c2c2e" },
+    "background"
+  );
+  const destructiveColor = useThemeColor(
+    { light: "#FF3B30", dark: "#FF453A" },
+    "text"
+  );
+  const actionColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   useEffect(() => {
     getAccount().then((account) => {
@@ -83,7 +95,10 @@ export default function SettingsScreen() {
             <Progress.Bar
               height={20}
               width={null}
-              color={useThemeColor({}, "tint")}
+              color={tintColor}
+              unfilledColor={trackColor}
+              borderColor={trackColor}
+              borderRadius={10}
               style={styles.progressBar}
               progress={percentUsedToday}
             />
@@ -129,16 +144,19 @@ export default function SettingsScreen() {
                   iconName="questionmark.circle.fill"
                   onPress={() => goTo("/parent/terms")}
                 ></MenuItem>
-                <MenuItem
+                <ActionRow
                   title="Delete Account"
                   iconName="trash.fill"
+                  color={destructiveColor}
+                  showChevron
                   onPress={() => goTo("/parent/deleteAccount")}
-                ></MenuItem>
-                <MenuItem
+                />
+                <ActionRow
                   title="Log Out"
                   iconName="arrowshape.turn.up.left.fill"
+                  color={actionColor}
                   onPress={handleLogout}
-                ></MenuItem>
+                />
               </ThemedView>
             </PinWrapper>
           )}
@@ -148,6 +166,55 @@ export default function SettingsScreen() {
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+type ActionRowProps = {
+  title: string;
+  iconName: IconSymbolName;
+  color: string;
+  onPress?: () => void;
+  showChevron?: boolean;
+};
+
+function ActionRow({
+  title,
+  iconName,
+  color,
+  onPress,
+  showChevron = false,
+}: ActionRowProps) {
+  const backgroundColor = useThemeColor({}, "cardBackground");
+  const separatorColor = useThemeColor(
+    { light: "#ddd", dark: "#444" },
+    "background"
+  );
+  return (
+    <Pressable
+      style={[{ backgroundColor }, styles.actionRowContainer]}
+      onPress={onPress}
+    >
+      <IconSymbol name={iconName} style={styles.actionRowIcon} color={color} />
+      <ThemedView
+        style={[
+          { backgroundColor, borderColor: separatorColor },
+          styles.actionRowRight,
+          showChevron ? styles.actionRowBorder : null,
+        ]}
+      >
+        <ThemedText style={[styles.actionRowTitle, { color }]}>
+          {title}
+        </ThemedText>
+        {showChevron && (
+          <IconSymbol
+            name="chevron.right"
+            size={18}
+            style={styles.actionRowIcon}
+            color={separatorColor}
+          />
+        )}
+      </ThemedView>
+    </Pressable>
   );
 }
 
@@ -182,9 +249,36 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
   },
-  progressBar: {},
+  progressBar: {
+    marginTop: 8,
+  },
+  actionRowContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingLeft: 10,
+  },
+  actionRowRight: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  actionRowBorder: {
+    borderBottomWidth: 1,
+  },
+  actionRowIcon: {
+    fontSize: 24,
+    marginRight: 10,
+  },
+  actionRowTitle: {
+    flex: 12,
+    fontSize: 16,
+  },
   usageText: {
     fontSize: 12,
+    marginTop: 8,
   },
   scrollContainer: {
     flexGrow: 1,
