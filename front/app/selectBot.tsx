@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
@@ -7,8 +7,7 @@ import { fetchBots, Bot } from "@/api/bots";
 import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import { useThemeColor } from "@/hooks/useThemeColor";
+import { IconSymbol, IconSymbolName } from "@/components/ui/IconSymbol";
 import * as Sentry from "@sentry/react-native";
 
 type Props = {
@@ -16,8 +15,44 @@ type Props = {
   skipAutoSelect?: boolean;
 }
 
+// Kid-friendly palette, dark enough for white text on light and dark themes.
+const BOT_COLORS = [
+  "#E63946",
+  "#F3722C",
+  "#43AA8B",
+  "#2A9D8F",
+  "#3A86FF",
+  "#8338EC",
+  "#FF5D8F",
+];
+
+const BOT_ICONS: IconSymbolName[] = [
+  "cpu",
+  "wand.and.sparkles",
+  "sparkles",
+  "star",
+  "mountain.2",
+  "text.bubble",
+];
+
+// Stable identity per bot: hash the name so each bot keeps its color and icon.
+function hashBotName(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 37 + name.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function botColor(name: string): string {
+  return BOT_COLORS[hashBotName(name) % BOT_COLORS.length];
+}
+
+function botIcon(name: string): IconSymbolName {
+  return BOT_ICONS[(hashBotName(name) >>> 3) % BOT_ICONS.length];
+}
+
 export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
-  const buttonColor = useThemeColor({}, "tint");
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
 
@@ -80,26 +115,32 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.titleContainer}>Select bot</ThemedText>
+      <ThemedText type="title" style={styles.title}>Select bot</ThemedText>
+      <ThemedText style={styles.subtitle}>
+        Who do you want to learn with today?
+      </ThemedText>
       <ThemedView style={styles.botContainer}>
         {bots.map((bot) => (
           <ThemedButton
             key={bot.bot_id}
             style={[
               styles.bot,
-              { backgroundColor: buttonColor },
+              { backgroundColor: botColor(bot.name) },
               selectedBot?.bot_id === bot.bot_id &&
                 styles.selectedBot,
             ]}
             onPress={() => handleBotPress(bot)}
           >
-            <IconSymbol
-              name="cpu"
-              color="#fff"
-              size={120}
-              style={styles.botIcon}
-            ></IconSymbol>
-            <ThemedText style={styles.botText}>{bot.name}</ThemedText>
+            <View style={styles.iconCircle}>
+              <IconSymbol
+                name={botIcon(bot.name)}
+                color="#fff"
+                size={40}
+              ></IconSymbol>
+            </View>
+            <ThemedText style={styles.botText} numberOfLines={1}>
+              {bot.name}
+            </ThemedText>
           </ThemedButton>
         ))}
       </ThemedView>
@@ -111,47 +152,61 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
+    paddingTop: 16,
+    paddingHorizontal: 8,
+  },
+  title: {
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    opacity: 0.7,
+    marginTop: 4,
+    marginBottom: 20,
   },
   botContainer: {
-    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-around",
+    justifyContent: "center",
     width: "100%",
   },
-  botIcon: {
-    flex: 1,
-  },
   selectedBot: {
-    backgroundColor: "#444",
-  },
-  titleContainer: {
-    flexDirection: "row",
-    fontSize: 16,
+    borderColor: "#fff",
   },
   bot: {
     width: "45%",
-    height: 180,
-    aspectRatio: 1,
-    padding: 5,
-    margin: 5,
+    height: 160,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    margin: "2%",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 16,
+    borderWidth: 4,
+    borderColor: "transparent",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 2,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255, 255, 255, 0.28)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
   },
   botText: {
-    fontSize: 24,
-    paddingTop: 10,
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "600",
     textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  botDescription: {
-    fontSize: 12,
-    textAlign: "center",
-  }
 });
