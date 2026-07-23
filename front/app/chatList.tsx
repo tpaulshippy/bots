@@ -10,6 +10,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { useThemeColor } from "@/hooks/useThemeColor";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatDistance, format } from "date-fns";
@@ -23,6 +24,23 @@ import { clearUser } from "@/api/tokens";
 type ChatsByDay = {
   [key: string]: Chat[];
 };
+
+const AVATAR_COLORS = [
+  "#5B8DEF",
+  "#8E6BC8",
+  "#4FA38A",
+  "#D07A5A",
+  "#C25E7E",
+  "#5E9C6B",
+];
+
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
 function getRelativeDate(inputDate: string): string {
   try {
@@ -45,12 +63,32 @@ function getRelativeDate(inputDate: string): string {
   }
 }
 
+function getTimestamp(inputDate: string): string {
+  try {
+    const date = new Date(inputDate);
+    const today = format(new Date(), "yyyy-MM-dd");
+    if (format(date, "yyyy-MM-dd") === today) {
+      return format(date, "p");
+    }
+    return formatDistance(date, new Date(), { addSuffix: true }).replace(
+      /^about /,
+      ""
+    );
+  } catch (error) {
+    Sentry.captureException(error);
+    return "";
+  }
+}
+
 export default function ChatList() {
   const router = useRouter();
   const [chats, setChats] = useState<ChatsByDay>({});
   const [refreshing, setRefreshing] = useState(false);
-  const [, setPage] = useState(1);
+  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const cardBackground = useThemeColor({}, "cardBackground");
+  const borderColor = useThemeColor({}, "border");
+  const secondaryColor = useThemeColor({}, "icon");
 
   const groupByDay = (data: Chat[]): ChatsByDay => {
     return data.reduce((groups: any, record: Chat) => {
@@ -73,20 +111,17 @@ export default function ChatList() {
     return null;
   }, []);
 
-  const refresh = useCallback(async (nextPage: number) => {
+  const refresh = useCallback(async (nextPage: number): Promise<boolean> => {
     setRefreshing(true);
     try {
       const profileId = await getProfileId();
       const data = await fetchChats(profileId, nextPage);
       if (!data || data.results.length === 0) {
+        setHasMore(false);
         setRefreshing(false);
-        return;
+        return false;
       }
       setChats((prevChats) => {
-        if (!data) {
-          return prevChats;
-        }
-
         const newChats = groupByDay(data.results);
         if (nextPage === 1) {
           return newChats;
@@ -103,13 +138,16 @@ export default function ChatList() {
       });
       setHasMore(data.next !== null && data.next !== undefined);
       setRefreshing(false);
+      return true;
     } catch (error) {
       console.log("Caught error in chatList")
       console.log(error);
+      setRefreshing(false);
       if (error instanceof UnauthorizedError) {
         await clearUser();
         router.replace("/login");
       }
+      return false;
     }
   }, [getProfileId, router]);
 
@@ -142,23 +180,30 @@ export default function ChatList() {
 
   const handleLoadMore = () => {
     if (!refreshing && hasMore) {
-      setRefreshing(true);
-      setPage((prevPage) => {
-        const nextPage = prevPage + 1;
-        refresh(nextPage);
-        return nextPage;
+      const nextPage = page + 1;
+      void refresh(nextPage).then((ok) => {
+        if (ok) {
+          setPage(nextPage);
+        }
       });
     }
   };
 
+  const isEmpty = Object.keys(chats).length === 0;
+
   return (
     <ThemedView style={styles.container}>
-      <Pressable style={styles.addButton} onPress={handleNewChatPress}>
+      <Pressable
+        style={styles.addButton}
+        onPress={handleNewChatPress}
+        accessibilityLabel="Start new chat"
+      >
         <IconSymbol name="text.bubble" color="black"></IconSymbol>
       </Pressable>
 
       <FlatList
         style={styles.list}
+        contentContainerStyle={isEmpty ? styles.emptyContainer : undefined}
         data={Object.entries(chats)}
         keyExtractor={(item) => item[0]}
         refreshControl={
@@ -166,32 +211,70 @@ export default function ChatList() {
         }
         renderItem={({ item }) => (
           <View>
-            <ThemedText style={styles.header}>{item[0]}</ThemedText>
-            {item[1].map((record: Chat) => (
-              <Pressable
-                key={record.id}
-                style={styles.itemContainer}
-                onPress={() => handleChatPress(record)}
-              >
-                <ThemedText
+            <ThemedText style={[styles.header, { color: secondaryColor }]}>
+              {item[0]}
+            </ThemedText>
+            {item[1].map((record: Chat) => {
+              const avatarName = record.bot?.name || record.title || "?";
+              return (
+                <Pressable
                   key={record.id}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  style={styles.item}
+                  style={[
+                    styles.card,
+                    { backgroundColor: cardBackground, borderColor },
+                  ]}
+                  onPress={() => handleChatPress(record)}
                 >
-                  {record.title}
-                </ThemedText>
-                <ThemedText
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  style={styles.botName}
-                >
-                  {record.bot?.name}
-                </ThemedText>
-              </Pressable>
-            ))}
+                  <View
+                    style={[
+                      styles.avatar,
+                      { backgroundColor: getAvatarColor(avatarName) },
+                    ]}
+                  >
+                    <ThemedText style={styles.avatarText}>
+                      {avatarName.charAt(0).toUpperCase()}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.cardBody}>
+                    <View style={styles.titleRow}>
+                      <ThemedText
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        style={styles.title}
+                      >
+                        {record.title}
+                      </ThemedText>
+                      <ThemedText
+                        numberOfLines={1}
+                        style={[styles.timestamp, { color: secondaryColor }]}
+                      >
+                        {getTimestamp(record.modified_at)}
+                      </ThemedText>
+                    </View>
+                    <ThemedText
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={[styles.subtitle, { color: secondaryColor }]}
+                    >
+                      {record.bot?.name}
+                    </ThemedText>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         )}
+        ListEmptyComponent={
+          refreshing ? null : (
+            <View style={styles.emptyState}>
+              <IconSymbol name="text.bubble" size={48} color={secondaryColor} />
+              <ThemedText style={styles.emptyTitle}>No chats yet</ThemedText>
+              <ThemedText style={[styles.emptyHint, { color: secondaryColor }]}>
+                Tap the chat button to start one
+              </ThemedText>
+            </View>
+          )
+        }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         ListFooterComponent={refreshing ? <ActivityIndicator style={styles.activityIndicator} /> : null}
@@ -206,23 +289,50 @@ const styles = StyleSheet.create({
   },
   header: {
     fontSize: 12,
-    color: "#888",
     padding: 6,
+    marginTop: 8,
   },
-  itemContainer: {
+  card: {
     flexDirection: "row",
-    padding: 6,
-    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  item: {
-    flex: 5,
-    fontSize: 16,
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  botName: {
+  avatarText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  cardBody: {
     flex: 1,
+    marginLeft: 12,
+  },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  title: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  timestamp: {
     fontSize: 12,
-    color: "#888",
-    textAlign: "right",
+  },
+  subtitle: {
+    fontSize: 13,
+    marginTop: 2,
   },
   selectedItem: {
     borderRadius: 8,
@@ -234,6 +344,24 @@ const styles = StyleSheet.create({
   },
   list: {
     marginHorizontal: 10,
+  },
+  emptyContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
+  emptyState: {
+    alignItems: "center",
+    padding: 24,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 12,
+  },
+  emptyHint: {
+    fontSize: 14,
+    marginTop: 4,
+    textAlign: "center",
   },
   addButton: {
     position: "absolute",
