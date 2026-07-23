@@ -42,15 +42,11 @@ Stack.Screen.displayName = 'MockStack.Screen';
 Stack.displayName = 'MockStack';
 
 // Mock modules before tests
-jest.mock('expo-router', () => {
-  const actual = jest.requireActual('expo-router');
-  return {
-    ...actual,
-    Stack,
-    useRouter: jest.fn(),
-    usePathname: jest.fn(),
-  };
-});
+jest.mock('expo-router', () => ({
+  Stack,
+  useRouter: jest.fn(),
+  usePathname: jest.fn(),
+}));
 
 jest.mock('expo-font', () => ({
   useFonts: () => [true],
