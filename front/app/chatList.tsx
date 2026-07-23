@@ -63,23 +63,6 @@ function getRelativeDate(inputDate: string): string {
   }
 }
 
-function getTimestamp(inputDate: string): string {
-  try {
-    const date = new Date(inputDate);
-    const today = format(new Date(), "yyyy-MM-dd");
-    if (format(date, "yyyy-MM-dd") === today) {
-      return format(date, "p");
-    }
-    return formatDistance(date, new Date(), { addSuffix: true }).replace(
-      /^about /,
-      ""
-    );
-  } catch (error) {
-    Sentry.captureException(error);
-    return "";
-  }
-}
-
 export default function ChatList() {
   const router = useRouter();
   const [chats, setChats] = useState<ChatsByDay>({});
@@ -236,21 +219,13 @@ export default function ChatList() {
                     </ThemedText>
                   </View>
                   <View style={styles.cardBody}>
-                    <View style={styles.titleRow}>
-                      <ThemedText
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                        style={styles.title}
-                      >
-                        {record.title}
-                      </ThemedText>
-                      <ThemedText
-                        numberOfLines={1}
-                        style={[styles.timestamp, { color: secondaryColor }]}
-                      >
-                        {getTimestamp(record.modified_at)}
-                      </ThemedText>
-                    </View>
+                    <ThemedText
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={styles.title}
+                    >
+                      {record.title}
+                    </ThemedText>
                     <ThemedText
                       numberOfLines={1}
                       ellipsizeMode="tail"
@@ -316,19 +291,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
   },
-  titleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
   title: {
-    flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    marginRight: 8,
-  },
-  timestamp: {
-    fontSize: 12,
   },
   subtitle: {
     fontSize: 13,
