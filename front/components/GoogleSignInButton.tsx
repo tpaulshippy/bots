@@ -22,6 +22,7 @@ export const GoogleSignInButton = ({ onPress }: GoogleSignInButtonProps) => {
       <Image
         source={imageSource}
         style={styles.googleImage}
+        contentFit="contain"
       />
     </Pressable>
   );
@@ -29,14 +30,17 @@ export const GoogleSignInButton = ({ onPress }: GoogleSignInButtonProps) => {
 
 const styles = StyleSheet.create({
   googleButton: {
+    width: "100%",
+    height: 50,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   googleButtonPressed: {
     opacity: 0.8,
   },
   googleImage: {
-    width: 300,
-    height: 71,
+    width: "100%",
+    height: "100%",
   },
 }); 
