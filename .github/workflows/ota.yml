@@ -22,6 +22,9 @@ jobs:
           cd front
           npm ci --legacy-peer-deps
 
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
       - name: Export and push OTA update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
