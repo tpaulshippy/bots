@@ -12,6 +12,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { useThemeColor } from "@/hooks/useThemeColor";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useState } from "react";
@@ -27,6 +28,10 @@ export default function Flashcards() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newDeckName, setNewDeckName] = useState("");
   const [newDeckDescription, setNewDeckDescription] = useState("");
+  const cardBackground = useThemeColor({}, "cardBackground");
+  const borderColor = useThemeColor({}, "border");
+  const iconColor = useThemeColor({}, "icon");
+  const accentColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   const getProfileId = useCallback(async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");
@@ -159,31 +164,53 @@ export default function Flashcards() {
           }
           renderItem={({ item }) => (
             <Pressable
-              style={styles.itemContainer}
+              style={[
+                styles.itemContainer,
+                { backgroundColor: cardBackground, borderColor },
+              ]}
               onPress={() => handleDeckPress(item)}
             >
+              <IconSymbol
+                name="square.grid.2x2.fill"
+                size={28}
+                color={accentColor}
+                style={styles.deckIcon}
+              />
               <View style={styles.itemContent}>
                 <ThemedText style={styles.deckName} numberOfLines={1}>
                   {item.name}
                 </ThemedText>
-                <ThemedText style={styles.cardCount}>
+                {item.description ? (
+                  <ThemedText
+                    style={[styles.description, { color: iconColor }]}
+                    numberOfLines={1}
+                  >
+                    {item.description}
+                  </ThemedText>
+                ) : null}
+              </View>
+              <View
+                style={[styles.countBadge, { backgroundColor: accentColor + "26" }]}
+              >
+                <ThemedText style={[styles.countBadgeText, { color: accentColor }]}>
                   {item.card_count} cards
                 </ThemedText>
               </View>
-              {item.description ? (
-                <ThemedText style={styles.description} numberOfLines={2}>
-                  {item.description}
-                </ThemedText>
-              ) : null}
+              <IconSymbol name="chevron.right" size={18} color={iconColor} />
             </Pressable>
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
+              <IconSymbol
+                name="square.grid.2x2.fill"
+                size={48}
+                color={iconColor}
+              />
               <ThemedText style={styles.emptyText}>
-                No flashcard decks yet
+                No decks yet
               </ThemedText>
               <ThemedText style={styles.emptySubtext}>
-                Tap + to create your first deck
+                Decks can be created from chats, or tap + to create one
               </ThemedText>
             </View>
           }
@@ -202,28 +229,41 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   itemContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
+    borderWidth: 1,
+    borderRadius: 12,
+    marginTop: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  deckIcon: {
+    marginRight: 12,
   },
   itemContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flex: 1,
+    marginRight: 8,
   },
   deckName: {
     fontSize: 16,
     fontWeight: "600",
-    flex: 1,
   },
-  cardCount: {
-    fontSize: 14,
-    color: "#888",
-    marginLeft: 10,
+  countBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginRight: 8,
+  },
+  countBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   description: {
     fontSize: 14,
-    color: "#666",
     marginTop: 4,
   },
   fab: {
@@ -249,15 +289,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingTop: 100,
+    paddingHorizontal: 40,
   },
   emptyText: {
     fontSize: 18,
+    fontWeight: "600",
     color: "#888",
+    marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#666",
+    color: "#888",
     marginTop: 8,
+    textAlign: "center",
   },
   modalContainer: {
     flex: 1,
