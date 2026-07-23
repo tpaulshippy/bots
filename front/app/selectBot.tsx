@@ -1,4 +1,4 @@
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
@@ -79,45 +79,52 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>Select bot</ThemedText>
-      <ThemedText style={styles.subtitle}>
-        Who do you want to learn with today?
-      </ThemedText>
-      <ThemedView style={styles.botContainer}>
-        {bots.map((bot) => (
-          <ThemedButton
-            key={bot.bot_id}
-            style={[
-              styles.bot,
-              { backgroundColor: botColor(bot) },
-              selectedBot?.bot_id === bot.bot_id &&
-                styles.selectedBot,
-            ]}
-            onPress={() => handleBotPress(bot)}
-          >
-            <View style={styles.iconCircle}>
-              <IconSymbol
-                name={botIcon(bot)}
-                color="#fff"
-                size={40}
-              ></IconSymbol>
-            </View>
-            <ThemedText style={styles.botText} numberOfLines={1}>
-              {bot.name}
-            </ThemedText>
-          </ThemedButton>
-        ))}
-      </ThemedView>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ThemedText type="title" style={styles.title}>Select bot</ThemedText>
+        <ThemedText style={styles.subtitle}>
+          Who do you want to learn with today?
+        </ThemedText>
+        <ThemedView style={styles.botContainer}>
+          {bots.map((bot) => (
+            <ThemedButton
+              key={bot.bot_id}
+              style={[
+                styles.bot,
+                { backgroundColor: botColor(bot) },
+                selectedBot?.bot_id === bot.bot_id &&
+                  styles.selectedBot,
+              ]}
+              onPress={() => handleBotPress(bot)}
+            >
+              <View style={styles.iconCircle}>
+                <IconSymbol
+                  name={botIcon(bot)}
+                  color="#fff"
+                  size={40}
+                ></IconSymbol>
+              </View>
+              <ThemedText style={styles.botText} numberOfLines={1}>
+                {bot.name}
+              </ThemedText>
+            </ThemedButton>
+          ))}
+        </ThemedView>
+      </ScrollView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     flexDirection: "column",
     alignItems: "center",
     paddingTop: 16,
     paddingHorizontal: 8,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    alignItems: "center",
   },
   title: {
     textAlign: "center",
