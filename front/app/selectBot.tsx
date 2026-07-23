@@ -7,49 +7,13 @@ import { fetchBots, Bot } from "@/api/bots";
 import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { IconSymbol, IconSymbolName } from "@/components/ui/IconSymbol";
+import { IconSymbol } from "@/components/ui/IconSymbol";
+import { botColor, botIcon } from "@/constants/botAppearance";
 import * as Sentry from "@sentry/react-native";
 
 type Props = {
   setBotSelected?: React.Dispatch<React.SetStateAction<boolean>>;
   skipAutoSelect?: boolean;
-}
-
-// Kid-friendly palette, dark enough for white text on light and dark themes.
-const BOT_COLORS = [
-  "#E63946",
-  "#F3722C",
-  "#43AA8B",
-  "#2A9D8F",
-  "#3A86FF",
-  "#8338EC",
-  "#FF5D8F",
-];
-
-const BOT_ICONS: IconSymbolName[] = [
-  "cpu",
-  "wand.and.sparkles",
-  "sparkles",
-  "star",
-  "mountain.2",
-  "text.bubble",
-];
-
-// Stable identity per bot: hash the name so each bot keeps its color and icon.
-function hashBotName(name: string): number {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 37 + name.charCodeAt(i)) >>> 0;
-  }
-  return hash;
-}
-
-function botColor(name: string): string {
-  return BOT_COLORS[hashBotName(name) % BOT_COLORS.length];
-}
-
-function botIcon(name: string): IconSymbolName {
-  return BOT_ICONS[(hashBotName(name) >>> 3) % BOT_ICONS.length];
 }
 
 export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
@@ -125,7 +89,7 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
             key={bot.bot_id}
             style={[
               styles.bot,
-              { backgroundColor: botColor(bot.name) },
+              { backgroundColor: botColor(bot) },
               selectedBot?.bot_id === bot.bot_id &&
                 styles.selectedBot,
             ]}
@@ -133,7 +97,7 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
           >
             <View style={styles.iconCircle}>
               <IconSymbol
-                name={botIcon(bot.name)}
+                name={botIcon(bot)}
                 color="#fff"
                 size={40}
               ></IconSymbol>

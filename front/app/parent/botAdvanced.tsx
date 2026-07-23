@@ -10,6 +10,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { Bot, upsertBot } from "@/api/bots";
 import { useNavigation, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { BotAppearancePicker } from "@/components/BotAppearancePicker";
+import { botColor, botIcon } from "@/constants/botAppearance";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { AiModel, fetchAiModels } from "@/api/aiModels";
 import * as Sentry from "@sentry/react-native";
@@ -113,6 +115,11 @@ export default function AdvancedBotEditor({
           onChangeText={(text) => setBot({ ...bot, name: text })}
         />
       </ThemedView>
+      <BotAppearancePicker
+        color={botColor(bot)}
+        icon={botIcon(bot)}
+        onSelect={(patch) => setBot({ ...bot, ...patch })}
+      />
       <ThemedView style={styles.formGroup}>
         <ThemedText style={styles.label}>Model</ThemedText>
         <ThemedButton onPress={handleModelPress}>

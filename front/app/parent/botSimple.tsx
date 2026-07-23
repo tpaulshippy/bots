@@ -10,6 +10,8 @@ import { useNavigation } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
+import { BotAppearancePicker } from "@/components/BotAppearancePicker";
+import { botColor, botIcon } from "@/constants/botAppearance";
 import { generateSystemPrompt, templates } from "@/api/botTemplates";
 
 interface SimpleBotEditorProps {
@@ -105,6 +107,11 @@ export default function SimpleBotEditor({
           <ThemedText style={styles.description}>{input.description}</ThemedText>
         </ThemedView>
       ))}
+      <BotAppearancePicker
+        color={botColor(bot)}
+        icon={botIcon(bot)}
+        onSelect={(patch) => setBotProperty(patch)}
+      />
       <ThemedView style={styles.formGroup}>
         <ThemedText style={styles.label}>Response Length (words)</ThemedText>
         <ThemedTextInput

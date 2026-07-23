@@ -25,6 +25,8 @@ jest.mock('../../api/apiClient', () => ({
                 restrict_adult_topics: true,
                 restrict_language: false,
                 enable_web_search: false,
+                color: '#3A86FF',
+                icon: 'star',
                 created_at: '2024-01-01T00:00:00Z',
                 modified_at: '2024-01-01T00:00:00Z',
                 deleted_at: null,
@@ -49,6 +51,8 @@ jest.mock('../../api/apiClient', () => ({
             restrict_adult_topics: true,
             restrict_language: false,
             enable_web_search: true,
+            color: null,
+            icon: null,
             created_at: '2024-01-03T00:00:00Z',
             modified_at: '2024-01-03T00:00:00Z',
             deleted_at: null,
@@ -73,6 +77,8 @@ jest.mock('../../api/apiClient', () => ({
             restrict_adult_topics: true,
             restrict_language: false,
             enable_web_search: false,
+            color: '#3A86FF',
+            icon: 'star',
             created_at: '2024-01-01T00:00:00Z',
             modified_at: '2024-01-01T00:00:00Z',
             deleted_at: null,
@@ -94,6 +100,8 @@ jest.mock('../../api/apiClient', () => ({
             restrict_adult_topics: true,
             restrict_language: false,
             enable_web_search: true,
+            color: '#E63946',
+            icon: 'cpu',
             created_at: '2024-01-01T00:00:00Z',
             modified_at: '2024-01-02T00:00:00Z',
             deleted_at: null,
@@ -125,6 +133,8 @@ describe('Bots API', () => {
         expect(bot).toHaveProperty('name');
         expect(bot).toHaveProperty('ai_model');
         expect(bot).toHaveProperty('enable_web_search');
+        expect(bot).toHaveProperty('color');
+        expect(bot).toHaveProperty('icon');
       }
     });
   });
@@ -143,6 +153,8 @@ describe('Bots API', () => {
         restrict_adult_topics: true,
         restrict_language: false,
         enable_web_search: true,
+        color: null,
+        icon: null,
         deleted_at: null,
       });
 
@@ -163,6 +175,8 @@ describe('Bots API', () => {
         restrict_adult_topics: true,
         restrict_language: false,
         enable_web_search: true,
+        color: '#E63946',
+        icon: 'cpu',
         deleted_at: null,
       });
 

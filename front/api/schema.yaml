@@ -1169,6 +1169,14 @@ components:
           type: boolean
         enable_web_search:
           type: boolean
+        color:
+          type: string
+          nullable: true
+          maxLength: 7
+        icon:
+          type: string
+          nullable: true
+          maxLength: 255
         created_at:
           type: string
           format: date-time
@@ -1719,6 +1727,14 @@ components:
           type: boolean
         enable_web_search:
           type: boolean
+        color:
+          type: string
+          nullable: true
+          maxLength: 7
+        icon:
+          type: string
+          nullable: true
+          maxLength: 255
         created_at:
           type: string
           format: date-time
