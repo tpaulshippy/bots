@@ -124,7 +124,7 @@ export default function SubscriptionScreen() {
           onPress={() => handleSubscribe(level)}
           disabled={loading || currentLevel === level}
         >
-          <ThemedText>
+          <ThemedText style={styles.subscribeButtonText}>
             {currentLevel === level ? "Current Plan" : level === SUBSCRIPTION_LEVELS.FREE ? "Unsubscribe" : "Subscribe"}
           </ThemedText>
         </ThemedButton>
@@ -145,7 +145,7 @@ export default function SubscriptionScreen() {
         style={styles.subscribeButton}
         onPress={handleRestorePurchases}
       >
-        <ThemedText>Restore Purchases</ThemedText>
+        <ThemedText style={styles.subscribeButtonText}>Restore Purchases</ThemedText>
       </ThemedButton>
       <ThemedText style={styles.footnote}>* Token estimates based on Nova Lite model usage</ThemedText>
     </ScrollView>
@@ -188,6 +188,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 10,
     borderRadius: 8,
+    alignItems: "center",
+  },
+  subscribeButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    textAlign: "center",
   },
   footnote: {
     fontSize: 12,
