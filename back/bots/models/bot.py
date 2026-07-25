@@ -1,9 +1,11 @@
-from django.conf import settings
-from django.db import models
 import uuid
 
+from django.conf import settings
+from django.db import models
+
 from bots.models.ai_model import AiModel
-    
+
+
 class Bot(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

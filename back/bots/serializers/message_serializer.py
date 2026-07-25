@@ -1,7 +1,10 @@
-from rest_framework import serializers
-from bots.models import Message
 import boto3
 from django.conf import settings
+from rest_framework import serializers
+
+from bots.models import Message
+
+
 class MessageSerializer(serializers.HyperlinkedModelSerializer):
     image_url = serializers.SerializerMethodField()
 

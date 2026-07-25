@@ -1,5 +1,7 @@
 from rest_framework import serializers
+
 from bots.models import Profile
+
 
 class ProfileSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:

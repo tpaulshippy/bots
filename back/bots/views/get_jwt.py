@@ -1,9 +1,9 @@
-from rest_framework.decorators import api_view, permission_classes
-from django.http import JsonResponse, HttpResponseRedirect
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.shortcuts import render
 import environ
+from django.http import HttpResponseRedirect, JsonResponse
+from django.shortcuts import render
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from bots.models import Profile
 

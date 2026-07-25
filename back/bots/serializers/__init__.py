@@ -1,21 +1,25 @@
-from .bot_serializer import BotSerializer
-from .profile_serializer import ProfileSerializer, ProfileIdSerializer
-from .device_serializer import DeviceSerializer
 from .ai_model_serializer import AiModelSerializer
-from .chat_serializer import ChatSerializer, ChatListSerializer
+from .bot_serializer import BotSerializer
+from .chat_serializer import ChatListSerializer, ChatSerializer
+from .device_serializer import DeviceSerializer
+from .flashcard_serializer import (
+    DeckListSerializer,
+    DeckSerializer,
+    FlashcardSerializer,
+)
 from .message_serializer import MessageSerializer
-from .flashcard_serializer import FlashcardSerializer, DeckSerializer, DeckListSerializer
+from .profile_serializer import ProfileIdSerializer, ProfileSerializer
 
 __all__ = [
-    'BotSerializer',
-    'ProfileSerializer',
-    'ProfileIdSerializer',
-    'DeviceSerializer',
     'AiModelSerializer',
-    'ChatSerializer',
+    'BotSerializer',
     'ChatListSerializer',
-    'MessageSerializer',
-    'FlashcardSerializer',
-    'DeckSerializer',
+    'ChatSerializer',
     'DeckListSerializer',
+    'DeckSerializer',
+    'DeviceSerializer',
+    'FlashcardSerializer',
+    'MessageSerializer',
+    'ProfileIdSerializer',
+    'ProfileSerializer',
 ] 

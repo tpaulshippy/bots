@@ -1,7 +1,9 @@
+import uuid
+
+import requests
 from django.conf import settings
 from django.db import models
-import uuid
-import requests
+
 
 class Notification:
     def __init__(self, to, sound, title, body, data):

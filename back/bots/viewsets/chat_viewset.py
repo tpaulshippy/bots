@@ -1,13 +1,12 @@
-from rest_framework import viewsets
+import uuid
+
 from django.db.models import Count
+from rest_framework import viewsets
+
 from bots.models import Chat, Message
 from bots.permissions import IsOwner
-from bots.serializers import (
-    ChatSerializer, 
-    ChatListSerializer, 
-    MessageSerializer
-)
-import uuid
+from bots.serializers import ChatListSerializer, ChatSerializer, MessageSerializer
+
 
 class MessageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Message.objects.all()

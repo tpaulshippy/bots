@@ -2,6 +2,7 @@ import pytest
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
+
 from bots.models import Deck, Flashcard, Profile
 
 
@@ -296,7 +297,7 @@ class TestChatListAPI:
 
     def test_chat_list_includes_bot_field(self, auth_client, test_profile, test_user, db):
         """Chat list should include bot field"""
-        from bots.models import Chat, Bot, AiModel
+        from bots.models import AiModel, Bot, Chat
         ai_model = AiModel.objects.create(model_id='test-model', name='Test Model')
         bot = Bot.objects.create(user=test_user, name='Test Bot', ai_model=ai_model)
         Chat.objects.create(user=test_user, profile=test_profile, title='Test Chat', bot=bot)
@@ -357,7 +358,7 @@ class TestBotListAPI:
 
     def test_bot_list_returns_paginated_response(self, auth_client, test_user, db):
         """Bot list should return {results: [], count: X} format"""
-        from bots.models import Bot, AiModel
+        from bots.models import AiModel, Bot
         ai_model = AiModel.objects.create(model_id='test-model', name='Test Model')
         Bot.objects.create(user=test_user, name='Test Bot', ai_model=ai_model)
         
@@ -371,7 +372,7 @@ class TestBotListAPI:
 
     def test_bot_list_includes_required_fields(self, auth_client, test_user, db):
         """Bot list should include required fields"""
-        from bots.models import Bot, AiModel
+        from bots.models import AiModel, Bot
         ai_model = AiModel.objects.create(model_id='test-model', name='Test Model')
         Bot.objects.create(user=test_user, name='Test Bot', ai_model=ai_model)
         

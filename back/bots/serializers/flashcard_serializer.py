@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from bots.models import Deck, Flashcard, Profile, Chat
+
+from bots.models import Chat, Deck, Flashcard, Profile
 
 
 class FlashcardSerializer(serializers.ModelSerializer):

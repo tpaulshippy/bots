@@ -1,8 +1,9 @@
-from django.conf import settings
-from django.shortcuts import render
-from django.http import HttpResponse
-from django.core.mail import send_mail
 from django import forms
+from django.conf import settings
+from django.core.mail import send_mail
+from django.http import HttpResponse
+from django.shortcuts import render
+
 
 class ContactForm(forms.Form):
     name = forms.CharField(label='Name', max_length=100)

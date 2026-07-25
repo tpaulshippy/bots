@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from bots.models import Bot, AiModel
+
+from bots.models import AiModel, Bot
+
 
 class BotSerializer(serializers.HyperlinkedModelSerializer):
     ai_model = serializers.SlugRelatedField(
