@@ -7,21 +7,19 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as Notifications from "expo-notifications";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { StyleSheet, View, Pressable, ActivityIndicator } from "react-native";
 import {
   useRouter,
   Stack,
-  usePathname,
   useNavigationContainerRef,
 } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { Image } from "expo-image";
 import * as Sentry from "@sentry/react-native";
-import { fetchChat } from "@/api/chats";
 import { fetchBots } from "@/api/bots";
 import { UnauthorizedError } from "@/api/apiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -31,6 +29,7 @@ import { isRunningInExpoGo } from "expo";
 import * as WebBrowser from "expo-web-browser";
 import { fetchProfiles } from "@/api/profiles";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
+import { useNotificationChatNavigation } from "@/hooks/useNotificationChatNavigation";
 
 // Initialize Sentry
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -64,7 +63,6 @@ Notifications.setNotificationHandler({
 });
 
 export default function RootLayout() {
-  const pathname = usePathname();
   const colorScheme = useColorScheme();
   const textColor = useThemeColor({}, "text");
   const iconColor = useThemeColor({}, "tint");
@@ -76,60 +74,13 @@ export default function RootLayout() {
 
   const router = useRouter();
 
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
-
-  const navigateToChat = useCallback((chatId: string, title: string) => {
-    if (pathname === "/chat") {
-      router.replace({
-        pathname: "/chat",
-        params: { chatId, title },
-      });
-    } else {
-      router.push({
-        pathname: "/chat",
-        params: { chatId, title },
-      });
-    }
-  }, [pathname, router]);
+  useNotificationChatNavigation();
 
   useEffect(() => {
     if (ref?.current) {
       navigationIntegration.registerNavigationContainer(ref);
     }
   }, [ref]);
-
-  useEffect(() => {
-    notificationListener.current =
-      Notifications.addNotificationReceivedListener(async () => {});
-
-    responseListener.current =
-      Notifications.addNotificationResponseReceivedListener(
-        async (response) => {
-          const data = response.notification.request.content.data as { chat_id?: string };
-          if (!data?.chat_id) {
-            return;
-          }
-          const chat = await fetchChat(data.chat_id);
-          if (!chat) {
-            return;
-          }
-          if (chat.profile.profile_id) {
-            await AsyncStorage.setItem(
-              "selectedProfile",
-              JSON.stringify(chat.profile)
-            );
-          }
-
-          navigateToChat(chat.chat_id, chat.bot?.name || chat.title);
-        }
-      );
-
-    return () => {
-      notificationListener.current?.remove();
-      responseListener.current?.remove();
-    };
-  }, [navigateToChat]);
 
   const setProfile = useCallback(async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");

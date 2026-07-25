@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
+import * as Notifications from "expo-notifications";
 import { getTokens } from "@/api/tokens";
 
 export default function ChildHome() {
@@ -10,6 +11,15 @@ export default function ChildHome() {
       const tokens = await getTokens();
       if (!tokens || !tokens.access) {
         router.replace("/login");
+        return;
+      }
+      // If the app was launched by tapping a notification, the root layout
+      // navigates to that chat instead; don't clobber it with a redirect.
+      const response = Notifications.getLastNotificationResponse();
+      const data = response?.notification.request.content.data as
+        | { chat_id?: string }
+        | undefined;
+      if (data?.chat_id) {
         return;
       }
       // Redirect immediately without blocking on network calls.

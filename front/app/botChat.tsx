@@ -16,7 +16,8 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function Chat() {
   const local = useLocalSearchParams();
-  const [chatId, setChatId] = useState<string | undefined>(() => local.chatId?.toString());
+  const chatIdParam = local.chatId?.toString();
+  const [chatId, setChatId] = useState<string | undefined>(chatIdParam);
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<ApiChatMessage[]>([]);
   const [, setPage] = useState(1);
@@ -40,6 +41,15 @@ export default function Chat() {
       });
     }
   }, [local.chatId]);
+
+  // Sync chatId with params when they change (a notification can open a
+  // different chat while already on this screen) so messages are sent to
+  // the chat being viewed. Adjusting state during render is the pattern
+  // recommended over setState in an effect.
+  if (chatIdParam && chatIdParam !== chatId) {
+    setChatId(chatIdParam);
+    setPage(1);
+  }
 
   useEffect(() => {
     const chatIdQueryString = local.chatId?.toString();
