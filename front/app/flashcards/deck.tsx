@@ -4,18 +4,15 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
-  TextInput,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   Pressable,
 } from "react-native";
 import { useFocusEffect, useRouter, useLocalSearchParams, useNavigation } from "expo-router";
 import { useLayoutEffect, useCallback, useState } from "react";
-import type { StackNavigationProp } from "expo-router/js-stack";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { FAB } from "@/components/FAB";
+import { FormModal } from "@/components/FormModal";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import * as Sentry from "@sentry/react-native";
 
@@ -44,17 +41,10 @@ export default function DeckDetail() {
   const [newCardFront, setNewCardFront] = useState("");
   const [newCardBack, setNewCardBack] = useState("");
   const borderColor = useThemeColor({}, "border");
-  const textColor = useThemeColor({}, "text");
   const iconColor = useThemeColor({}, "icon");
   const tintColor = useThemeColor({}, "tint");
-  const cardBackground = useThemeColor({}, "cardBackground");
 
-  type FlashcardsParamList = {
-    "flashcards/deck": { deckId: string };
-    "flashcards/study": { deckId: string; title?: string };
-    "flashcards/cardEdit": { deckId: string; flashcardId: string; front: string; back: string };
-  };
-  const navigation = useNavigation<StackNavigationProp<FlashcardsParamList, "flashcards/deck">>();
+  const navigation = useNavigation();
 
   const refresh = useCallback(async (isPullToRefresh = false) => {
     if (!deckId) {
@@ -216,100 +206,59 @@ export default function DeckDetail() {
 
   if (showAddCard) {
     return (
-      <ThemedView style={styles.container}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.modalContainer}>
-              <TextInput
-                style={[styles.input, styles.cardInput, { borderColor, color: textColor }]}
-                placeholder="Front (question)"
-                placeholderTextColor={iconColor}
-                value={newCardFront}
-                onChangeText={setNewCardFront}
-                multiline
-              />
-              <TextInput
-                style={[styles.input, styles.cardInput, { borderColor, color: textColor }]}
-                placeholder="Back (answer)"
-                placeholderTextColor={iconColor}
-                value={newCardBack}
-                onChangeText={setNewCardBack}
-                multiline
-              />
-              <View style={styles.modalButtons}>
-                <Pressable
-                  style={[styles.cancelButton, { backgroundColor: cardBackground }]}
-                  onPress={() => {
-                    setShowAddCard(false);
-                    setNewCardFront("");
-                    setNewCardBack("");
-                  }}
-                >
-                  <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-                </Pressable>
-                <Pressable style={[styles.saveButton, { backgroundColor: tintColor }]} onPress={handleAddCard}>
-                  <ThemedText style={styles.saveButtonText}>Add</ThemedText>
-                </Pressable>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </ThemedView>
+      <FormModal
+        fields={[
+          {
+            placeholder: "Front (question)",
+            value: newCardFront,
+            onChangeText: setNewCardFront,
+            multiline: true,
+            height: 100,
+          },
+          {
+            placeholder: "Back (answer)",
+            value: newCardBack,
+            onChangeText: setNewCardBack,
+            multiline: true,
+            height: 100,
+          },
+        ]}
+        submitLabel="Add"
+        onSubmit={handleAddCard}
+        onCancel={() => {
+          setShowAddCard(false);
+          setNewCardFront("");
+          setNewCardBack("");
+        }}
+      />
     );
   }
 
   if (isEditing) {
     return (
-      <ThemedView style={styles.container}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.modalContainer}>
-              <TextInput
-                style={[styles.input, { borderColor, color: textColor }]}
-                placeholder="Deck name"
-                placeholderTextColor={iconColor}
-                value={editName}
-                onChangeText={setEditName}
-              />
-              <TextInput
-                style={[styles.input, styles.descriptionInput, { borderColor, color: textColor }]}
-                placeholder="Description"
-                placeholderTextColor={iconColor}
-                value={editDescription}
-                onChangeText={setEditDescription}
-                multiline
-              />
-              <View style={styles.modalButtons}>
-                <Pressable
-                  style={[styles.cancelButton, { backgroundColor: cardBackground }]}
-                  onPress={() => {
-                    setIsEditing(false);
-                    setEditName(deck?.name || "");
-                    setEditDescription(deck?.description || "");
-                  }}
-                >
-                  <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-                </Pressable>
-                <Pressable style={[styles.saveButton, { backgroundColor: tintColor }]} onPress={handleSaveDeck}>
-                  <ThemedText style={styles.saveButtonText}>Save</ThemedText>
-                </Pressable>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </ThemedView>
+      <FormModal
+        fields={[
+          {
+            placeholder: "Deck name",
+            value: editName,
+            onChangeText: setEditName,
+          },
+          {
+            placeholder: "Description",
+            value: editDescription,
+            onChangeText: setEditDescription,
+            multiline: true,
+            height: 80,
+          },
+        ]}
+        submitLabel="Save"
+        onSubmit={handleSaveDeck}
+        onCancel={() => {
+          setIsEditing(false);
+          setEditName(deck?.name || "");
+          setEditDescription(deck?.description || "");
+        }}
+      />
     );
   }
 
@@ -335,9 +284,7 @@ export default function DeckDetail() {
         <ThemedText style={styles.studyButtonText}>Study</ThemedText>
       </Pressable>
 
-      <Pressable style={[styles.fab, { backgroundColor: tintColor }]} onPress={() => setShowAddCard(true)}>
-        <IconSymbol name="plus" color="white"></IconSymbol>
-      </Pressable>
+      <FAB icon="plus" onPress={() => setShowAddCard(true)} />
 
       <FlatList
         style={styles.list}
@@ -394,12 +341,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -453,18 +394,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 2,
   },
-  fab: {
-    position: "absolute",
-    bottom: 30,
-    right: 30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 5,
-    zIndex: 15,
-  },
   activityIndicator: {
     flex: 1,
     justifyContent: "center",
@@ -482,53 +411,5 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     marginTop: 8,
-  },
-  modalContainer: {
-    flex: 1,
-    padding: 20,
-    justifyContent: "center",
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  cardInput: {
-    height: 100,
-    textAlignVertical: "top",
-  },
-  descriptionInput: {
-    height: 80,
-    textAlignVertical: "top",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
-  },
-  cancelButton: {
-    flex: 1,
-    padding: 12,
-    marginRight: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  saveButton: {
-    flex: 1,
-    padding: 12,
-    marginLeft: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "white",
   },
 });

@@ -4,13 +4,14 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
-  TextInput,
   Alert,
   Pressable,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { FAB } from "@/components/FAB";
+import { FormModal } from "@/components/FormModal";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import * as Haptics from "expo-haptics";
@@ -105,52 +106,36 @@ export default function Flashcards() {
 
   if (showCreateModal) {
     return (
-      <ThemedView style={styles.container}>
-        <View style={styles.modalContainer}>
-          <ThemedText style={styles.modalTitle}>Create New Deck</ThemedText>
-          <TextInput
-            style={styles.input}
-            placeholder="Deck name"
-            placeholderTextColor="#888"
-            value={newDeckName}
-            onChangeText={setNewDeckName}
-          />
-          <TextInput
-            style={[styles.input, styles.descriptionInput]}
-            placeholder="Description (optional)"
-            placeholderTextColor="#888"
-            value={newDeckDescription}
-            onChangeText={setNewDeckDescription}
-            multiline
-          />
-          <View style={styles.modalButtons}>
-            <Pressable
-              style={styles.cancelButton}
-              onPress={() => {
-                setShowCreateModal(false);
-                setNewDeckName("");
-                setNewDeckDescription("");
-              }}
-            >
-              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-            </Pressable>
-            <Pressable
-              style={styles.saveButton}
-              onPress={handleCreateDeck}
-            >
-              <ThemedText style={styles.saveButtonText}>Create</ThemedText>
-            </Pressable>
-          </View>
-        </View>
-      </ThemedView>
+      <FormModal
+        title="Create New Deck"
+        fields={[
+          {
+            placeholder: "Deck name",
+            value: newDeckName,
+            onChangeText: setNewDeckName,
+          },
+          {
+            placeholder: "Description (optional)",
+            value: newDeckDescription,
+            onChangeText: setNewDeckDescription,
+            multiline: true,
+            height: 80,
+          },
+        ]}
+        submitLabel="Create"
+        onSubmit={handleCreateDeck}
+        onCancel={() => {
+          setShowCreateModal(false);
+          setNewDeckName("");
+          setNewDeckDescription("");
+        }}
+      />
     );
   }
 
   return (
     <ThemedView style={styles.container}>
-      <Pressable style={styles.fab} onPress={() => setShowCreateModal(true)}>
-        <IconSymbol name="plus" color="white"></IconSymbol>
-      </Pressable>
+      <FAB icon="plus" onPress={() => setShowCreateModal(true)} />
 
       {loading ? (
         <ActivityIndicator style={styles.activityIndicator} />
@@ -266,19 +251,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-  fab: {
-    position: "absolute",
-    bottom: 30,
-    right: 30,
-    backgroundColor: "#03465b",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 5,
-    zIndex: 15,
-  },
   activityIndicator: {
     flex: 1,
     justifyContent: "center",
@@ -302,58 +274,5 @@ const styles = StyleSheet.create({
     color: "#888",
     marginTop: 8,
     textAlign: "center",
-  },
-  modalContainer: {
-    flex: 1,
-    padding: 20,
-    justifyContent: "center",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  descriptionInput: {
-    height: 80,
-    textAlignVertical: "top",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
-  },
-  cancelButton: {
-    flex: 1,
-    padding: 12,
-    marginRight: 10,
-    borderRadius: 8,
-    backgroundColor: "#ccc",
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  saveButton: {
-    flex: 1,
-    padding: 12,
-    marginLeft: 10,
-    borderRadius: 8,
-    backgroundColor: "#03465b",
-    alignItems: "center",
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "white",
   },
 });
