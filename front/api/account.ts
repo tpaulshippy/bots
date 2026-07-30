@@ -1,5 +1,4 @@
-import * as Sentry from "@sentry/react-native";
-import { apiClient, UnauthorizedError } from './apiClient';
+import { request } from './request';
 
 export interface Account {
     userId: number;
@@ -12,59 +11,19 @@ export interface Account {
 export type PartialAccount = Partial<Account> & { pin: number };
 
 export const getAccount = async (): Promise<Account | null> => {
-    try {
-        const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const { data, status } = await apiClient<Account>(`/user?timezone=${deviceTimeZone}`);
-
-        if (status !== 200) {
-            throw new Error(`Failed to fetch account with status ${status}`);
-        }
-        return data;
-    }
-    catch (error: any) {
-        if (error instanceof UnauthorizedError) {
-            throw error;
-        }
-
-        Sentry.captureException(error);
-        return null;
-    }
+    const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return request<Account | null>(`/user?timezone=${deviceTimeZone}`, {}, null);
 };
 
 export const updateAccount = async (account: PartialAccount): Promise<void> => {
-    try {
-        const { ok, status } = await apiClient<void>('/user', {
-            method: 'POST',
-            body: JSON.stringify(account),
-        });
-
-        if (!ok) {
-            throw new Error(`Failed to update account with status ${status}`);
-        }
-    }
-    catch (error: any) {
-        if (error instanceof UnauthorizedError) {
-            throw error;
-        }
-
-        Sentry.captureException(error);
-    }
+    await request<void>('/user', {
+        method: 'POST',
+        body: JSON.stringify(account),
+    }, undefined);
 };
 
 export const deleteAccount = async (): Promise<void> => {
-    try {
-        const { status } = await apiClient<void>('/user/delete', {
-            method: 'DELETE',
-        });
-
-        if (status !== 204) {
-            throw new Error(`Failed to delete account with status ${status}`);
-        }
-    } catch (error: any) {
-        if (error instanceof UnauthorizedError) {
-            throw error;
-        }
-
-        Sentry.captureException(error);
-    }
+    await request<void>('/user/delete', {
+        method: 'DELETE',
+    }, undefined);
 };
