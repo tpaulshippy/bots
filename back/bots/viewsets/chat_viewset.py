@@ -28,7 +28,7 @@ class ChatViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         profile_id = self.request.query_params.get('profileId')
-        queryset = Chat.objects.filter(user=user)
+        queryset = Chat.objects.filter(user=user).select_related('profile', 'bot', 'bot__ai_model')
         if profile_id:
             queryset = queryset.filter(profile__profile_id=profile_id)
 

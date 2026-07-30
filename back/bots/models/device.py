@@ -39,6 +39,9 @@ class Device(models.Model):
     def __str__(self):
         return self.user.email + ' - ' + self.notification_token
     
+    class Meta:
+        ordering = ['id']
+    
     def notify_chat(self, chat):
         if self.notify_on_new_chat and not self.notify_on_new_message:
             NotificationClient().notify(Notification(
