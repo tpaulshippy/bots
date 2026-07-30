@@ -29,7 +29,7 @@ export default function SubscriptionScreen() {
           if (!account) return;
 
           Purchases.configure({
-            apiKey: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY,
+            apiKey: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY!,
             appUserID: account.userId.toString(),
           });
 
