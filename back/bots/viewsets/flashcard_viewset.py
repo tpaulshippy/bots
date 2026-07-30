@@ -2,11 +2,11 @@ import uuid
 
 from django.db.models import Count, Max
 from rest_framework import viewsets
-from rest_framework.exceptions import NotFound
 
 from bots.models import Deck, Flashcard, Profile
 from bots.permissions import IsOwner
 from bots.serializers import DeckListSerializer, DeckSerializer, FlashcardSerializer
+from bots.viewsets.mixins import get_object_by_uuid_or_id
 
 
 class FlashcardViewSet(viewsets.ModelViewSet):
@@ -19,14 +19,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         deck_id = self.kwargs['deck_pk']
 
-        try:
-            deck_uuid = uuid.UUID(deck_id)
-            deck = Deck.objects.get(deck_id=deck_uuid)
-        except (ValueError, Deck.DoesNotExist):
-            try:
-                deck = Deck.objects.get(id=deck_id)
-            except (ValueError, Deck.DoesNotExist):
-                raise NotFound("Deck not found")
+        deck = get_object_by_uuid_or_id(Deck.objects.all(), 'deck_id', deck_id)
 
         self.check_object_permissions(self.request, deck)
 
@@ -36,23 +29,10 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         lookup_field_value = self.kwargs[self.lookup_url_kwarg]
         deck_pk = self.kwargs['deck_pk']
 
-        try:
-            deck_uuid = uuid.UUID(deck_pk)
-            deck = Deck.objects.get(deck_id=deck_uuid)
-        except (ValueError, Deck.DoesNotExist):
-            try:
-                deck = Deck.objects.get(id=deck_pk)
-            except (ValueError, Deck.DoesNotExist):
-                raise NotFound("Deck not found")
-
-        try:
-            flashcard_uuid = uuid.UUID(lookup_field_value)
-            flashcard = Flashcard.objects.get(flashcard_id=flashcard_uuid, deck=deck)
-        except (ValueError, Flashcard.DoesNotExist):
-            try:
-                flashcard = Flashcard.objects.get(id=lookup_field_value, deck=deck)
-            except (ValueError, Flashcard.DoesNotExist):
-                raise NotFound("Flashcard not found")
+        deck = get_object_by_uuid_or_id(Deck.objects.all(), 'deck_id', deck_pk)
+        flashcard = get_object_by_uuid_or_id(
+            Flashcard.objects.filter(deck=deck), 'flashcard_id', lookup_field_value
+        )
 
         self.check_object_permissions(self.request, flashcard)
         return flashcard
@@ -60,14 +40,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         deck_id = self.kwargs['deck_pk']
 
-        try:
-            deck_uuid = uuid.UUID(deck_id)
-            deck = Deck.objects.get(deck_id=deck_uuid)
-        except (ValueError, Deck.DoesNotExist):
-            try:
-                deck = Deck.objects.get(id=deck_id)
-            except (ValueError, Deck.DoesNotExist):
-                raise NotFound("Deck not found")
+        deck = get_object_by_uuid_or_id(Deck.objects.all(), 'deck_id', deck_id)
 
         self.check_object_permissions(self.request, deck)
 
@@ -103,14 +76,7 @@ class DeckViewSet(viewsets.ModelViewSet):
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]
 
-        try:
-            deck_uuid = uuid.UUID(lookup_field_value)
-            deck = self.get_queryset().get(deck_id=deck_uuid)
-        except (ValueError, Deck.DoesNotExist):
-            try:
-                deck = self.get_queryset().get(id=lookup_field_value)
-            except (ValueError, Deck.DoesNotExist):
-                raise NotFound("Deck not found")
+        deck = get_object_by_uuid_or_id(self.get_queryset(), 'deck_id', lookup_field_value)
 
         self.check_object_permissions(self.request, deck)
         return deck

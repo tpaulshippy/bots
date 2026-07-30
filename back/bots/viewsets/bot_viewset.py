@@ -1,10 +1,9 @@
-import uuid
-
 from rest_framework import viewsets
 
 from bots.models import AiModel, Bot, Chat, Message, Profile
 from bots.permissions import IsOwner
 from bots.serializers import BotSerializer
+from bots.viewsets.mixins import get_object_by_uuid_or_id
 
 PENELOPE_SYSTEM_PROMPT = "Your name is Penelope. You are an expert in writing, guiding students through various writing topics. Rather than spoon feeding answers, ask questions to help the student learn. Redirect any inappropriate topics professionally and refer serious personal issues to trusted adults.\nPlease respond in less than 200 words.\nAlways avoid using foul language.\nAlways avoid discussing adult topics."
 
@@ -53,14 +52,8 @@ class BotViewSet(viewsets.ModelViewSet):
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]
 
-        try:
-            # Check if the lookup field value is a valid UUID
-            uuid.UUID(lookup_field_value)
-            bot = Bot.objects.get(bot_id=lookup_field_value)
-        except ValueError:
-            # If not a valid UUID, treat it as an id
-            bot = Bot.objects.get(id=lookup_field_value)
-            
+        bot = get_object_by_uuid_or_id(Bot.objects.all(), 'bot_id', lookup_field_value)
+
         self.check_object_permissions(self.request, bot)
         return bot
     
