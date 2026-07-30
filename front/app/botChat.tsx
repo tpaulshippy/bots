@@ -13,6 +13,7 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
 import { E2E_TEST_IMAGE_URI } from "@/e2e/utils";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { getSelectedBotId, getSelectedProfileId } from "@/hooks/useSelectedProfile";
 
 export default function Chat() {
   const local = useLocalSearchParams();
@@ -64,24 +65,6 @@ export default function Chat() {
     }
   }, [local.chatId]);
 
-  const getProfileId = async () => {
-    const profileData = await AsyncStorage.getItem("selectedProfile");
-    if (profileData) {
-      const profile = JSON.parse(profileData);
-      return profile.profile_id;
-    }
-    return null;
-  };
-
-  const getBotId = async () => {
-    const botData = await AsyncStorage.getItem("selectedBot");
-    if (botData) {
-      const bot = JSON.parse(botData);
-      return bot.bot_id;
-    }
-    return null;
-  };
-
   const handleImagePicker = async () => {
     if (__DEV__) {
       const e2eMode = await AsyncStorage.getItem("e2eTestMode");
@@ -113,8 +96,8 @@ export default function Chat() {
     }
     setInput("");
     Keyboard.dismiss();
-    const profileId = await getProfileId();
-    const botId = await getBotId();
+    const profileId = await getSelectedProfileId();
+    const botId = await getSelectedBotId();
     if (!profileId) {
       const newAssistantMessage: ApiChatMessage = {
         role: "assistant",

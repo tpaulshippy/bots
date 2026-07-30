@@ -5,7 +5,6 @@ import { ThemedView } from "@/components/ThemedView";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { fetchProfiles, Profile } from "@/api/profiles";
 import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import {
   useFocusEffect,
@@ -13,6 +12,10 @@ import {
   useRouter,
 } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import {
+  getSelectedProfile,
+  setSelectedProfile as storeSelectedProfile,
+} from "@/hooks/useSelectedProfile";
 import * as Sentry from "@sentry/react-native";
 
 export default function ProfilesList() {
@@ -33,9 +36,8 @@ export default function ProfilesList() {
     });
     const loadSelectedProfile = async () => {
       try {
-        const profileData = await AsyncStorage.getItem("selectedProfile");
-        if (profileData) {
-          const profile = JSON.parse(profileData);
+        const profile = await getSelectedProfile();
+        if (profile) {
           setSelectedProfile(profile);
         }
       } catch (error) {
@@ -100,11 +102,11 @@ export default function ProfilesList() {
         selectedProfile.profile_id === profile.profile_id
       ) {
         setSelectedProfile(null);
-        await AsyncStorage.removeItem("selectedProfile");
+        await storeSelectedProfile(null);
         return;
       } else {
         setSelectedProfile(profile);
-        await AsyncStorage.setItem("selectedProfile", JSON.stringify(profile));
+        await storeSelectedProfile(profile);
         router.back();
         router.back();
       }

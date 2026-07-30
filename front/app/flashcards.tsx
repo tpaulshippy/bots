@@ -14,11 +14,11 @@ import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import { fetchDecks, createDeck, DeckListItem } from "@/api/flashcards";
+import { getSelectedProfileId } from "@/hooks/useSelectedProfile";
 
 export default function Flashcards() {
   const router = useRouter();
@@ -33,19 +33,10 @@ export default function Flashcards() {
   const iconColor = useThemeColor({}, "icon");
   const accentColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
-  const getProfileId = useCallback(async () => {
-    const profileData = await AsyncStorage.getItem("selectedProfile");
-    if (profileData) {
-      const profile = JSON.parse(profileData);
-      return profile.profile_id;
-    }
-    return null;
-  }, []);
-
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const profileId = await getProfileId();
+      const profileId = await getSelectedProfileId();
       if (!profileId) {
         setRefreshing(false);
         return;
@@ -58,7 +49,7 @@ export default function Flashcards() {
       setRefreshing(false);
       setLoading(false);
     }
-  }, [getProfileId]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -72,7 +63,7 @@ export default function Flashcards() {
       return;
     }
     try {
-      const profileId = await getProfileId();
+      const profileId = await getSelectedProfileId();
       if (!profileId) {
         Alert.alert("Error", "No profile found");
         return;

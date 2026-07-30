@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { usePathname, useRouter } from "expo-router";
 import * as Sentry from "@sentry/react-native";
 import { fetchChat } from "@/api/chats";
-import { UnauthorizedError } from "@/api/apiClient";
-import { clearUser } from "@/api/tokens";
+import { handleUnauthorized, setSelectedProfile } from "@/hooks/useSelectedProfile";
 
 /**
  * Navigates to the chat a notification is about and switches to the
@@ -44,10 +42,7 @@ export function useNotificationChatNavigation() {
         // Switch profile before navigating so the chat screen and any
         // subsequent new chat use the kid's profile.
         if (chat.profile?.profile_id) {
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(chat.profile)
-          );
+          await setSelectedProfile(chat.profile);
         }
         const route = {
           pathname: "/chat" as const,
@@ -59,10 +54,7 @@ export function useNotificationChatNavigation() {
           router.push(route);
         }
       } catch (error) {
-        if (error instanceof UnauthorizedError) {
-          await clearUser();
-          router.replace("/login");
-        } else {
+        if (!(await handleUnauthorized(error, router))) {
           Sentry.captureException(error);
         }
       }
