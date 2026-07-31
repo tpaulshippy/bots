@@ -22,6 +22,7 @@ class AiModel(models.Model):
     def __str__(self):
         return self.name
     class Meta:
+        ordering = ['name']
         constraints = [
             models.UniqueConstraint(
                 fields=['is_default'],
