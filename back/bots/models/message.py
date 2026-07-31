@@ -1,7 +1,10 @@
-from django.db import models
 import uuid
+
+from django.db import models
+
 from .chat import Chat
-    
+
+
 class Message(models.Model):
     chat = models.ForeignKey(Chat, related_name='messages', on_delete=models.CASCADE)
     message_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)

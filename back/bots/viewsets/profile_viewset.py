@@ -1,8 +1,11 @@
+import uuid
+
 from rest_framework import viewsets
+
 from bots.models import Profile
 from bots.permissions import IsOwner
 from bots.serializers import ProfileSerializer
-import uuid
+
 
 class ProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [IsOwner]

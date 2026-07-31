@@ -1,9 +1,12 @@
+import uuid
+
 from rest_framework import viewsets
 from rest_framework.exceptions import NotFound
+
 from bots.models import Device
 from bots.permissions import IsOwner
 from bots.serializers import DeviceSerializer
-import uuid
+
 
 class DeviceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsOwner]

@@ -1,8 +1,11 @@
 from rest_framework import serializers
+
 from bots.models import Chat
+
+from .bot_serializer import BotSerializer
 from .message_serializer import MessageSerializer
 from .profile_serializer import ProfileIdSerializer
-from .bot_serializer import BotSerializer
+
 
 class ChatListSerializer(serializers.HyperlinkedModelSerializer):
     message_count = serializers.IntegerField(read_only=True)

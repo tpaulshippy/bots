@@ -1,13 +1,15 @@
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from bots.models import Chat, Profile, Bot
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-import boto3
-from django.conf import settings
-from PIL import Image
 import io
 import uuid
+
+import boto3
+from django.conf import settings
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from PIL import Image
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from bots.models import Bot, Chat, Profile
 
 # Allowed image extensions
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -35,11 +37,11 @@ def compress_and_upload_image(file):
         compressed_image_data = buffered.getvalue()
 
         # Upload to S3
-        filename = f"{str(uuid.uuid4())}.jpg"
+        filename = f"{uuid.uuid4()!s}.jpg"
         S3_CLIENT.upload_fileobj(io.BytesIO(compressed_image_data), S3_BUCKET, Key=filename)
         return filename
     except Exception as e:
-        raise ValueError(f'Unable to upload image: {str(e)}')
+        raise ValueError(f'Unable to upload image: {e!s}')
 
 @api_view(['GET', 'POST'])
 def get_chat_response(request, chat_id):

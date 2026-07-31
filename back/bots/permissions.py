@@ -1,5 +1,6 @@
 from rest_framework.permissions import BasePermission
 
+
 class IsOwner(BasePermission):
     """
     Check if the user is the owner of the object.

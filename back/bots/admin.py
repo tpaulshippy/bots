@@ -1,7 +1,21 @@
 from django.contrib import admin
-from .models import Chat, Message, Profile, Bot, UserAccount, UsageLimitHit, AiModel, Device, RevenueCatWebhookEvent, Deck, Flashcard
-from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
+
+from .models import (
+    AiModel,
+    Bot,
+    Chat,
+    Deck,
+    Device,
+    Flashcard,
+    Message,
+    Profile,
+    RevenueCatWebhookEvent,
+    UsageLimitHit,
+    UserAccount,
+)
+
 
 class UsageLimitHitAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):

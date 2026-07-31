@@ -3,9 +3,10 @@ import uuid
 from django.db.models import Count, Max
 from rest_framework import viewsets
 from rest_framework.exceptions import NotFound
+
 from bots.models import Deck, Flashcard, Profile
 from bots.permissions import IsOwner
-from bots.serializers import FlashcardSerializer, DeckSerializer, DeckListSerializer
+from bots.serializers import DeckListSerializer, DeckSerializer, FlashcardSerializer
 
 
 class FlashcardViewSet(viewsets.ModelViewSet):

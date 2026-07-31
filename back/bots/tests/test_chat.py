@@ -1,17 +1,18 @@
-import pytest
-from django.utils import timezone
-from django.core.management import call_command
-from mockito import when, unstub, mock, ANY
-from django.contrib.auth.models import User
-from bots.models.chat import Chat
-from bots.models.bot import Bot
-from bots.models.ai_model import AiModel
-from bots.models.deck import Deck
-from bots.models.profile import Profile
-from bots.models.flashcard import Flashcard
-from langchain_core.messages import AIMessage
 import uuid
 
+import pytest
+from django.contrib.auth.models import User
+from django.core.management import call_command
+from django.utils import timezone
+from langchain_core.messages import AIMessage
+from mockito import ANY, mock, unstub, when
+
+from bots.models.ai_model import AiModel
+from bots.models.bot import Bot
+from bots.models.chat import Chat
+from bots.models.deck import Deck
+from bots.models.flashcard import Flashcard
+from bots.models.profile import Profile
 
 
 @pytest.mark.django_db

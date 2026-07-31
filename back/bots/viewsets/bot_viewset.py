@@ -1,8 +1,10 @@
+import uuid
+
 from rest_framework import viewsets
-from bots.models import Bot, Chat, Profile, AiModel, Message
+
+from bots.models import AiModel, Bot, Chat, Message, Profile
 from bots.permissions import IsOwner
 from bots.serializers import BotSerializer
-import uuid
 
 PENELOPE_SYSTEM_PROMPT = "Your name is Penelope. You are an expert in writing, guiding students through various writing topics. Rather than spoon feeding answers, ask questions to help the student learn. Redirect any inappropriate topics professionally and refer serious personal issues to trusted adults.\nPlease respond in less than 200 words.\nAlways avoid using foul language.\nAlways avoid discussing adult topics."
 

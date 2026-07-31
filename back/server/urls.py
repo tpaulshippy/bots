@@ -15,27 +15,29 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include, re_path
+from django.urls import include, path, re_path
 from django.views.generic.base import RedirectView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework import routers
 from rest_framework_nested.routers import NestedDefaultRouter
-from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
-from bots.viewsets.profile_viewset import ProfileViewSet
-from bots.viewsets.bot_viewset import BotViewSet
-from bots.viewsets.ai_model_viewset import AiModelViewSet
-from bots.viewsets.device_viewset import DeviceViewSet
-from bots.viewsets.flashcard_viewset import DeckViewSet, FlashcardViewSet
-from bots.views.get_chat_response import get_chat_response
-from bots.views.get_jwt import get_jwt, start_web_login
-from bots.views.user_account_view import DeleteUserAccountView, user_account_view
-from bots.views.support import support_view
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from bots.views.auto_login import auto_google_login, auto_apple_login
+
+from bots.views.auto_login import auto_apple_login, auto_google_login
+from bots.views.get_chat_response import get_chat_response
+from bots.views.get_jwt import get_jwt, start_web_login
 from bots.views.revenuecat_webhook import revenuecat_webhook
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from bots.views.support import support_view
+from bots.views.user_account_view import DeleteUserAccountView, user_account_view
+from bots.viewsets.ai_model_viewset import AiModelViewSet
+from bots.viewsets.bot_viewset import BotViewSet
+from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
+from bots.viewsets.device_viewset import DeviceViewSet
+from bots.viewsets.flashcard_viewset import DeckViewSet, FlashcardViewSet
+from bots.viewsets.profile_viewset import ProfileViewSet
+
 from .views import MarketingPageView, TutorialView
 
 router = routers.DefaultRouter()

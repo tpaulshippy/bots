@@ -1,10 +1,12 @@
 from datetime import datetime, time
+
+import pytz
 from django.contrib.auth.models import User
 from django.db import models
-from .chat import Chat
-from .ai_model import AiModel
 from django.utils import timezone
-import pytz
+
+from .ai_model import AiModel
+from .chat import Chat
 
 MAX_COST_DAILY = {
     0: 0.01 / 31,

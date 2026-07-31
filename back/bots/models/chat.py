@@ -1,20 +1,21 @@
+import base64
+import logging
+import uuid
+
+import boto3
 from django.conf import settings
 from django.db import models, transaction
-import uuid
 from langchain_aws import ChatBedrock
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
-from langchain_core.tools import tool
 from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.tools import tool
 from tavily import TavilyClient
-import logging
-import base64
-import boto3
 
-from .profile import Profile
-from .bot import Bot
 from .ai_model import AiModel
+from .bot import Bot
 from .deck import Deck
 from .flashcard import Flashcard
+from .profile import Profile
 
 logger = logging.getLogger(__name__)
 
@@ -119,8 +120,8 @@ class Chat(models.Model):
                     logger.info(f"🃏 CREATE_FLASHCARD_DECK_SUCCESS: deck_id={deck.deck_id}, cards={created_cards}")
                     return f"Created deck '{name}' with {created_cards} flashcards. Deck ID: {deck.deck_id}"
             except Exception as e:
-                logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {str(e)}")
-                return f"Error creating deck: {str(e)}"
+                logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {e!s}")
+                return f"Error creating deck: {e!s}"
         
         @tool
         def create_flashcard(deck_name: str, front: str, back: str) -> str:
@@ -153,8 +154,8 @@ class Chat(models.Model):
                     logger.info(f"🃏 CREATE_FLASHCARD_SUCCESS: deck={deck.name}")
                     return f"Added flashcard to deck '{deck_name}'. Deck ID: {deck.deck_id}"
             except Exception as e:
-                logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {str(e)}")
-                return f"Error creating flashcard: {str(e)}"
+                logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {e!s}")
+                return f"Error creating flashcard: {e!s}"
         
         tools = [create_flashcard_deck, create_flashcard]
         
@@ -186,8 +187,8 @@ class Chat(models.Model):
                         logger.info("🔍 WEB_SEARCH_NO_RESULTS: empty result set")
                         return "No results found."
                 except Exception as e:
-                    logger.error(f"🔍 WEB_SEARCH_ERROR: {str(e)}")
-                    return f"Error during search: {str(e)}"
+                    logger.error(f"🔍 WEB_SEARCH_ERROR: {e!s}")
+                    return f"Error during search: {e!s}"
             
             tools.append(web_search)
             model_with_tools = chat_model.bind_tools(tools)
@@ -388,4 +389,4 @@ class Chat(models.Model):
             image_data = response['Body'].read()
             return base64.b64encode(image_data).decode('utf-8')
         except Exception as e:
-            raise ValueError(f'Unable to retrieve image from S3: {str(e)}')
+            raise ValueError(f'Unable to retrieve image from S3: {e!s}')
