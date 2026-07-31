@@ -12,14 +12,12 @@ import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatDistance, format } from "date-fns";
 import { useCallback, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import { fetchChats, Chat } from "@/api/chats";
-import { UnauthorizedError } from "@/api/apiClient";
-import { clearUser } from "@/api/tokens";
+import { getSelectedProfileId, handleUnauthorized } from "@/hooks/useSelectedProfile";
 
 type ChatsByDay = {
   [key: string]: Chat[];
@@ -85,19 +83,10 @@ export default function ChatList() {
     }, {});
   };
 
-  const getProfileId = useCallback(async () => {
-    const profileData = await AsyncStorage.getItem("selectedProfile");
-    if (profileData) {
-      const profile = JSON.parse(profileData);
-      return profile.profile_id;
-    }
-    return null;
-  }, []);
-
   const refresh = useCallback(async (nextPage: number): Promise<boolean> => {
     setRefreshing(true);
     try {
-      const profileId = await getProfileId();
+      const profileId = await getSelectedProfileId();
       const data = await fetchChats(profileId, nextPage);
       if (!data || data.results.length === 0) {
         setHasMore(false);
@@ -126,13 +115,10 @@ export default function ChatList() {
       console.log("Caught error in chatList")
       console.log(error);
       setRefreshing(false);
-      if (error instanceof UnauthorizedError) {
-        await clearUser();
-        router.replace("/login");
-      }
+      await handleUnauthorized(error, router);
       return false;
     }
-  }, [getProfileId, router]);
+  }, [router]);
 
   const resetRefresh = useCallback(() => {
     setPage(1);
