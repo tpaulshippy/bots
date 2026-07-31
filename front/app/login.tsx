@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Platform, Button, View, Text, Alert, ActivityIndicator } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
+import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { getTokens, setTokens, TokenData } from "@/api/tokens";
 import { useRouter } from "expo-router";
@@ -27,6 +28,7 @@ const LoginScreen = () => {
   const router = useRouter();
   const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
+  const mutedTextColor = useThemeColor({}, "icon");
 
   useEffect(() => {
     const checkForCachedPin = async () => {
@@ -185,11 +187,13 @@ const LoginScreen = () => {
         </View>
       )}
 
+      <ThemedText style={[styles.tagline, { color: mutedTextColor }]}>
+        Safe AI tutors for your kids
+      </ThemedText>
+
       <ThemedView style={styles.mainContent}>
         <GoogleSignInButton onPress={handleGoogleLogin} />
-        <View style={styles.appleButton}>
-          <AppleSignInButton onPress={handleAppleLogin} />
-        </View>
+        <AppleSignInButton onPress={handleAppleLogin} />
       </ThemedView>
     </ThemedView>
   );
@@ -202,8 +206,13 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  tagline: {
+    marginTop: 16,
+    textAlign: "center",
+    paddingHorizontal: 24,
   },
   devSection: {
     display: "flex",
@@ -217,9 +226,6 @@ const styles = StyleSheet.create({
   },
   tokenInput: {
     marginBottom: 10,
-  },
-  appleButton: {
-    marginTop: 30,
   },
 });
 
