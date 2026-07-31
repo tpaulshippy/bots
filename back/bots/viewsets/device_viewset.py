@@ -20,7 +20,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
         if user.is_anonymous:
             return Device.objects.none()
         if notification_token:
-            return Device.objects.filter(notification_token=notification_token)
+            return Device.objects.filter(user=user, notification_token=notification_token)
         return Device.objects.filter(user=user, deleted_at=None)
 
     def get_object(self):

@@ -4,6 +4,7 @@ import uuid
 import boto3
 from django.conf import settings
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from PIL import Image
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -51,11 +52,11 @@ def get_chat_response(request, chat_id):
 
     if chat_id == 'new':
         if profile_id:
-            profile = Profile.objects.get(profile_id=profile_id)
+            profile = get_object_or_404(Profile, profile_id=profile_id, user=user)
         else:
             profile = None
         if bot_id:
-            bot = Bot.objects.get(bot_id=bot_id)
+            bot = get_object_or_404(Bot, bot_id=bot_id, user=user)
         else:
             bot = None
         chat = Chat.objects.create(title=user_input, profile=profile, bot=bot, user=user)
@@ -65,12 +66,14 @@ def get_chat_response(request, chat_id):
         chat.messages.create(text=system_prompt, role='system', order=0)
 
     else:
-        chat = Chat.objects.get(chat_id=chat_id)
+        chat = get_object_or_404(Chat, chat_id=chat_id, user=user)
     
     # Handle image uploads if present
     filename = None
     if request.method == 'POST' and request.FILES:
         file = request.FILES.get('image')  # Only allow one image
+        if file is None:
+            return JsonResponse({'error': 'No image file provided'}, status=400)
         if file.size > 20 * 1024 * 1024:
             return JsonResponse({'error': 'File size exceeds 20MB limit'}, status=400)
         if not allowed_file(file.name):

@@ -15,15 +15,20 @@ def revenuecat_webhook(request):
     auth_header = request.headers.get('Authorization')
     expected_auth = settings.REVENUECAT_WEBHOOK_AUTH_HEADER
     
-    if not auth_header or auth_header != expected_auth:
+    if not expected_auth or not auth_header or auth_header != expected_auth:
         return Response({'error': 'Unauthorized'}, status=401)
 
     # Save the raw event data
     raw_body = request.body
-    parsed_body = json.loads(raw_body)
+    try:
+        parsed_body = json.loads(raw_body)
+    except json.JSONDecodeError:
+        return Response({'error': 'Invalid JSON'}, status=400)
     RevenueCatWebhookEvent.objects.create(raw_event=parsed_body)
-    
+
     event = parsed_body.get('event')
+    if not event:
+        return Response({'error': 'Missing event'}, status=400)
     event_type = event.get('type')
     
     if event_type not in ['INITIAL_PURCHASE', 'PRODUCT_CHANGE', 'RENEWAL', 'CANCELLATION', 'EXPIRATION', 'TEST']:

@@ -13,7 +13,7 @@ def user_account_view(request):
         timezone = request.query_params.get('timezone')
         if timezone and timezone != user.user_account.timezone:
             user.user_account.timezone = timezone
-            user.save()
+            user.user_account.save()
 
         accountInfo = {
                 'userId': user.id,
@@ -28,7 +28,7 @@ def user_account_view(request):
     
     
     user.user_account.pin = pin
-    user.save()
+    user.user_account.save()
     
     return Response({'response': 'ok'})
 
