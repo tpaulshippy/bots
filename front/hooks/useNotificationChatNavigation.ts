@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import { usePathname, useRouter } from "expo-router";
 import * as Sentry from "@sentry/react-native";
@@ -66,7 +67,9 @@ export function useNotificationChatNavigation() {
     const subscription =
       Notifications.addNotificationResponseReceivedListener(handleResponse);
     // Cold start: the app was launched by tapping a notification.
-    handleResponse(Notifications.getLastNotificationResponse());
+    if (Platform.OS !== "web") {
+      handleResponse(Notifications.getLastNotificationResponse());
+    }
     return () => subscription.remove();
   }, [handleResponse]);
 }

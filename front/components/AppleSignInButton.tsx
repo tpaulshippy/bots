@@ -15,6 +15,7 @@ export const AppleSignInButton = ({ onPress }: AppleSignInButtonProps) => {
       <Image
         source={require("../assets/images/apple-sign-in.png")}
         style={styles.logo}
+        resizeMode="contain"
       />
     </Pressable>
   );
@@ -22,13 +23,17 @@ export const AppleSignInButton = ({ onPress }: AppleSignInButtonProps) => {
 
 const styles = StyleSheet.create({
   appleButton: {
+    height: 50,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   appleButtonPressed: {
     opacity: 0.8,
   },
   logo: {
+    height: 50,
+    width: 300,
   },
 });
 
