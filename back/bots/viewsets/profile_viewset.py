@@ -1,10 +1,9 @@
-import uuid
-
 from rest_framework import viewsets
 
 from bots.models import Profile
 from bots.permissions import IsOwner
 from bots.serializers import ProfileSerializer
+from bots.viewsets.mixins import get_object_by_uuid_or_id
 
 
 class ProfileViewSet(viewsets.ModelViewSet):
@@ -21,13 +20,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]
 
-        try:
-            # Check if the lookup field value is a valid UUID
-            uuid.UUID(lookup_field_value)
-            profile = Profile.objects.get(profile_id=lookup_field_value)
-        except ValueError:
-            # If not a valid UUID, treat it as an id
-            profile = Profile.objects.get(id=lookup_field_value)
+        profile = get_object_by_uuid_or_id(Profile.objects.all(), 'profile_id', lookup_field_value)
         self.check_object_permissions(self.request, profile)
         return profile
 

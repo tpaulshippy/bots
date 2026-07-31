@@ -1,11 +1,9 @@
-import uuid
-
 from rest_framework import viewsets
-from rest_framework.exceptions import NotFound
 
 from bots.models import Device
 from bots.permissions import IsOwner
 from bots.serializers import DeviceSerializer
+from bots.viewsets.mixins import get_object_by_uuid_or_id
 
 
 class DeviceViewSet(viewsets.ModelViewSet):
@@ -26,16 +24,8 @@ class DeviceViewSet(viewsets.ModelViewSet):
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]
 
-        try:
-            # Check if the lookup field value is a valid UUID
-            uuid.UUID(lookup_field_value)
-            device = Device.objects.get(device_id=lookup_field_value)
-        except ValueError:
-            # If not a valid UUID, treat it as an id
-            device = Device.objects.get(id=lookup_field_value)
-        except Device.DoesNotExist:
-            raise NotFound(f"Device with {self.lookup_field}={lookup_field_value} does not exist")
-            
+        device = get_object_by_uuid_or_id(Device.objects.all(), 'device_id', lookup_field_value)
+
         self.check_object_permissions(self.request, device)
         return device
 
