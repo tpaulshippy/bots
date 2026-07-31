@@ -7,8 +7,8 @@ import {
   Platform,
   Pressable,
 } from "react-native";
-import { useRouter, usePathname } from "expo-router";
-import { IconSymbol } from "@/components/ui/IconSymbol";
+import { useRouter, usePathname, Href } from "expo-router";
+import { IconSymbol, IconSymbolName } from "@/components/ui/IconSymbol";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -20,8 +20,8 @@ interface NavigationDrawerProps {
 
 interface MenuItem {
   label: string;
-  icon: string;
-  path: string;
+  icon: IconSymbolName;
+  path: Extract<Href, string>;
 }
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
@@ -52,7 +52,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     { label: "Settings", icon: "gear", path: "/parent/settings" },
   ];
 
-  const handleMenuPress = (path: string) => {
+  const handleMenuPress = (path: MenuItem["path"]) => {
     router.push(path);
     onClose();
   };
@@ -133,7 +133,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   drawer: {
@@ -182,7 +182,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 122, 255, 0.1)",
     borderLeftWidth: 4,
     borderLeftColor: "#007AFF",
-    paddingLeftHorizontal: 12,
   },
   menuItemIcon: {
     marginRight: 12,
