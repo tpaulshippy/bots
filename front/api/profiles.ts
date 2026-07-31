@@ -1,6 +1,4 @@
-import * as Sentry from "@sentry/react-native";
-import { apiClient, UnauthorizedError } from './apiClient';
-import { PaginatedResponse } from './chats';
+import { request, PaginatedResponse } from './request';
 
 export interface Profile {
     id: number;
@@ -9,72 +7,21 @@ export interface Profile {
     deleted_at: Date | null;
 }
 
-export const fetchProfiles = async (): Promise<PaginatedResponse<Profile> | null> => {
-    try {
-        const { data, ok, status } = await apiClient<PaginatedResponse<Profile>>('/profiles.json');
+export const fetchProfiles = async (): Promise<PaginatedResponse<Profile> | null> =>
+    request<PaginatedResponse<Profile> | null>('/profiles.json', {}, { results: [], count: 0 });
 
-        if (!ok) {
-            throw new Error(`Failed to fetch profiles with status ${status}`);
-        }
-        return data;
-    }
-    catch (error: any) {
-        if (error instanceof UnauthorizedError) {
-            throw error;
-        }
-
-        Sentry.captureException(error);
-        return { results: [], count: 0 };
-    }
-};
-
-export const fetchProfile = async (id: string): Promise<Profile | null> => {
-    try {
-        const { data, ok, status } = await apiClient<Profile>(`/profiles/${id}.json`);
-
-        if (!ok) {
-            throw new Error(`Failed to fetch profile with status ${status}`);
-        }
-        return data;
-    }
-    catch (error: any) {
-        if (error instanceof UnauthorizedError) {
-            throw error;
-        }
-
-        Sentry.captureException(error);
-        return null;
-    }
-}
+export const fetchProfile = async (id: string): Promise<Profile | null> =>
+    request<Profile | null>(`/profiles/${id}.json`, {}, null);
 
 export const upsertProfile = async (profile: Profile): Promise<Profile | null> => {
-    try {
-        if (profile.id === -1) {
-            const { data, ok, status } = await apiClient<Profile>('/profiles.json', {
-                method: 'POST',
-                body: JSON.stringify(profile),
-            });
-
-            if (!ok) {
-                throw new Error(`Failed to create profile with status ${status}`);
-            }
-            return data;
-        }
-        const { data, ok, status } = await apiClient<Profile>(`/profiles/${profile.id}.json`, {
-            method: 'PUT',
+    if (profile.id === -1) {
+        return request<Profile | null>('/profiles.json', {
+            method: 'POST',
             body: JSON.stringify(profile),
-        });
-
-        if (!ok) {
-            throw new Error(`Failed to update profile with status ${status}`);
-        }
-        return data;
-    } catch (error: any) {
-        if (error instanceof UnauthorizedError) {
-            throw error;
-        }
-
-        Sentry.captureException(error);
-        return null;
+        }, null);
     }
+    return request<Profile | null>(`/profiles/${profile.id}.json`, {
+        method: 'PUT',
+        body: JSON.stringify(profile),
+    }, null);
 };

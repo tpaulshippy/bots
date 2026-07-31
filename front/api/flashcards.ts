@@ -1,5 +1,4 @@
-import { apiClient } from "./apiClient";
-import { PaginatedResponse } from "./chats";
+import { request, requestRaw, PaginatedResponse } from "./request";
 
 export interface Flashcard {
   id: number;
@@ -35,32 +34,23 @@ export interface DeckListItem {
   updated_at: string;
 }
 
-export const fetchDecks = async (profileId: string): Promise<PaginatedResponse<DeckListItem>> => {
-  const response = await apiClient<PaginatedResponse<DeckListItem>>(
+export const fetchDecks = async (profileId: string): Promise<PaginatedResponse<DeckListItem>> =>
+  request<PaginatedResponse<DeckListItem>>(
     `/decks.json?profileId=${profileId}`,
-    { method: "GET" }
+    { method: "GET" },
+    { results: [], count: 0 }
   );
-  if (!response.ok || !response.data) {
-    return { results: [], count: 0 };
-  }
-  return response.data;
-};
 
-export const fetchDeck = async (deckId: string): Promise<Deck | null> => {
-  const response = await apiClient<Deck>(`/decks/${deckId}.json`, { method: "GET" });
-  if (!response.ok || !response.data) {
-    return null;
-  }
-  return response.data;
-};
+export const fetchDeck = async (deckId: string): Promise<Deck | null> =>
+  request<Deck | null>(`/decks/${deckId}.json`, { method: "GET" }, null);
 
 export const createDeck = async (
   name: string,
   description: string,
   profileId: string,
   chatId?: string
-): Promise<Deck | null> => {
-  const response = await apiClient<Deck>("/decks.json", {
+): Promise<Deck | null> =>
+  request<Deck | null>("/decks.json", {
     method: "POST",
     body: JSON.stringify({
       name,
@@ -68,73 +58,55 @@ export const createDeck = async (
       profile: profileId,
       chat: chatId || null,
     }),
-  });
-  if (!response.ok || !response.data) {
-    return null;
-  }
-  return response.data;
-};
+  }, null);
 
 export const updateDeck = async (
   deckId: string,
   name: string,
   description: string
-): Promise<Deck | null> => {
-  const response = await apiClient<Deck>(`/decks/${deckId}.json`, {
+): Promise<Deck | null> =>
+  request<Deck | null>(`/decks/${deckId}.json`, {
     method: "PATCH",
     body: JSON.stringify({
       name,
       description,
     }),
-  });
-  if (!response.ok || !response.data) {
-    return null;
-  }
-  return response.data;
-};
+  }, null);
 
 export const deleteDeck = async (deckId: string): Promise<boolean> => {
-  const response = await apiClient<void>(`/decks/${deckId}.json`, {
+  const response = await requestRaw<void>(`/decks/${deckId}.json`, {
     method: "DELETE",
   });
-  return response.ok;
+  return response?.ok ?? false;
 };
 
-export const fetchFlashcards = async (deckId: string): Promise<PaginatedResponse<Flashcard>> => {
-  const response = await apiClient<PaginatedResponse<Flashcard>>(`/decks/${deckId}/flashcards.json`, {
-    method: "GET",
-  });
-  if (!response.ok || !response.data) {
-    return { results: [], count: 0 };
-  }
-  return response.data;
-};
+export const fetchFlashcards = async (deckId: string): Promise<PaginatedResponse<Flashcard>> =>
+  request<PaginatedResponse<Flashcard>>(
+    `/decks/${deckId}/flashcards.json`,
+    { method: "GET" },
+    { results: [], count: 0 }
+  );
 
 export const createFlashcard = async (
   deckId: string,
   front: string,
   back: string
-): Promise<Flashcard | null> => {
-  const response = await apiClient<Flashcard>(`/decks/${deckId}/flashcards.json`, {
+): Promise<Flashcard | null> =>
+  request<Flashcard | null>(`/decks/${deckId}/flashcards.json`, {
     method: "POST",
     body: JSON.stringify({
       front,
       back,
     }),
-  });
-  if (!response.ok || !response.data) {
-    return null;
-  }
-  return response.data;
-};
+  }, null);
 
 export const updateFlashcard = async (
   deckId: string,
   flashcardId: string,
   front: string,
   back: string
-): Promise<Flashcard | null> => {
-  const response = await apiClient<Flashcard>(
+): Promise<Flashcard | null> =>
+  request<Flashcard | null>(
     `/decks/${deckId}/flashcards/${flashcardId}.json`,
     {
       method: "PATCH",
@@ -142,23 +114,19 @@ export const updateFlashcard = async (
         front,
         back,
       }),
-    }
+    },
+    null
   );
-  if (!response.ok || !response.data) {
-    return null;
-  }
-  return response.data;
-};
 
 export const deleteFlashcard = async (
   deckId: string,
   flashcardId: string
 ): Promise<boolean> => {
-  const response = await apiClient<void>(
+  const response = await requestRaw<void>(
     `/decks/${deckId}/flashcards/${flashcardId}.json`,
     {
       method: "DELETE",
     }
   );
-  return response.ok;
+  return response?.ok ?? false;
 };
