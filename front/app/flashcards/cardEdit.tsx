@@ -1,16 +1,6 @@
-import {
-  StyleSheet,
-  View,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Pressable,
-} from "react-native";
+import { Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { ThemedTextInput } from "@/components/ThemedTextInput";
+import { FormModal } from "@/components/FormModal";
 import { useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
@@ -85,109 +75,31 @@ export default function CardEdit() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.content}>
-            <ThemedText style={styles.label}>Front (question)</ThemedText>
-            <ThemedTextInput
-              style={[styles.input, styles.cardInput]}
-              placeholder="Enter the question or term"
-              value={cardFront}
-              onChangeText={setCardFront}
-              multiline
-            />
-
-            <ThemedText style={styles.label}>Back (answer)</ThemedText>
-            <ThemedTextInput
-              style={[styles.input, styles.cardInput]}
-              placeholder="Enter the answer or definition"
-              value={cardBack}
-              onChangeText={setCardBack}
-              multiline
-            />
-
-            <View style={styles.buttons}>
-              <Pressable style={styles.deleteButton} onPress={handleDelete}>
-                <ThemedText style={styles.deleteButtonText}>Delete</ThemedText>
-              </Pressable>
-              <Pressable style={styles.saveButton} onPress={handleSave}>
-                <ThemedText style={styles.saveButtonText}>Save</ThemedText>
-              </Pressable>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </ThemedView>
+    <FormModal
+      style={{ justifyContent: "flex-start" }}
+      fields={[
+        {
+          label: "Front (question)",
+          placeholder: "Enter the question or term",
+          value: cardFront,
+          onChangeText: setCardFront,
+          multiline: true,
+          height: 120,
+        },
+        {
+          label: "Back (answer)",
+          placeholder: "Enter the answer or definition",
+          value: cardBack,
+          onChangeText: setCardBack,
+          multiline: true,
+          height: 120,
+        },
+      ]}
+      submitLabel="Save"
+      onSubmit={handleSave}
+      cancelLabel="Delete"
+      onCancel={handleDelete}
+      cancelDestructive
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  cardInput: {
-    height: 120,
-    textAlignVertical: "top",
-  },
-  buttons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 30,
-  },
-  deleteButton: {
-    flex: 1,
-    padding: 14,
-    marginRight: 10,
-    borderRadius: 8,
-    backgroundColor: "#d33",
-    alignItems: "center",
-  },
-  deleteButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "white",
-  },
-  saveButton: {
-    flex: 1,
-    padding: 14,
-    marginLeft: 10,
-    borderRadius: 8,
-    backgroundColor: "#03465b",
-    alignItems: "center",
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "white",
-  },
-});
