@@ -1,23 +1,21 @@
 import React from 'react';
-import { Pressable, StyleSheet, Image, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, Image } from 'react-native';
 
 type AppleSignInButtonProps = {
   onPress: () => void;
 }
 
 export const AppleSignInButton = ({ onPress }: AppleSignInButtonProps) => {
-  const colorScheme = useColorScheme();
-  const imageSource = colorScheme === "dark" ? require("../assets/images/apple-sign-in-dark.png") : require("../assets/images/apple-sign-in.png");
-
   return (
-    <Pressable testID="apple-sign-in-button" onPress={onPress} 
+    <Pressable testID="apple-sign-in-button" onPress={onPress}
     style={({ pressed }) => [
       styles.appleButton,
       pressed && styles.appleButtonPressed,
     ]}>
       <Image
-        source={imageSource}
+        source={require("../assets/images/apple-sign-in.png")}
         style={styles.logo}
+        resizeMode="contain"
       />
     </Pressable>
   );
@@ -25,13 +23,17 @@ export const AppleSignInButton = ({ onPress }: AppleSignInButtonProps) => {
 
 const styles = StyleSheet.create({
   appleButton: {
+    height: 50,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   appleButtonPressed: {
     opacity: 0.8,
   },
   logo: {
+    height: 50,
+    width: 300,
   },
 });
 
