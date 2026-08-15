@@ -54,9 +54,9 @@ export function useAuthBootstrap(loaded: boolean) {
     }
   }, [router, setProfile]);
 
-  const getJWTFromLink = useCallback(async (event?: any) => {
+  const getJWTFromLink = useCallback(async (event?: any): Promise<boolean> => {
     const url = event?.url;
-    if (!url) return;
+    if (!url) return false;
 
     const { queryParams } = Linking.parse(url);
 
@@ -68,7 +68,10 @@ export function useAuthBootstrap(loaded: boolean) {
 
       router.replace("/");
       await initialNavigationChecks();
+      return true;
     }
+
+    return false;
   }, [initialNavigationChecks, router]);
 
   useEffect(() => {
@@ -78,8 +81,16 @@ export function useAuthBootstrap(loaded: boolean) {
       // Hide splash screen immediately so the UI is never blocked
       SplashScreen.hideAsync().catch(() => {});
 
+      const initialize = async () => {
+        const initialUrl = await Linking.getInitialURL();
+        const handledInitialUrl = await getJWTFromLink({ url: initialUrl });
+        if (!handledInitialUrl) {
+          await initialNavigationChecks();
+        }
+      };
+
       // Run auth checks in the background without blocking rendering
-      void initialNavigationChecks();
+      void initialize();
 
       return () => {
         subscription.remove();

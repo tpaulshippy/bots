@@ -38,7 +38,7 @@ from bots.viewsets.device_viewset import DeviceViewSet
 from bots.viewsets.flashcard_viewset import DeckViewSet, FlashcardViewSet
 from bots.viewsets.profile_viewset import ProfileViewSet
 
-from .views import MarketingPageView, TutorialView
+from .views import MarketingPageView, TutorialView, web_app
 
 router = routers.DefaultRouter()
 router.register(r'chats', ChatViewSet)
@@ -61,6 +61,8 @@ urlpatterns = [
     path('', MarketingPageView.as_view(), name='marketing'),
     path('support/', support_view, name='support'),
     path('tutorial/', TutorialView.as_view(), name='tutorial'),
+    re_path(r'^app/?$', web_app, name='web_app_root'),
+    re_path(r'^app/(?P<path>.*)$', web_app, name='web_app'),
     re_path(r'^favicon\.ico$', favicon_view),
     path('admin/', admin.site.urls),
     path('api/', include([

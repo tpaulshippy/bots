@@ -15,7 +15,8 @@ import { UnauthorizedError } from "@/api/apiClient";
 import PinWrapper from "@/components/PinWrapper";
 
 
-const LOCAL_DEV_WEB_LOGIN_URL = "http://localhost:8000/api/login/web";
+const WEB_LOGIN_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL + "/login/web";
 const LOGIN_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL + "/accounts/google/auto-login/";
 const APPLE_LOGIN_URL =
@@ -83,6 +84,11 @@ const LoginScreen = () => {
     }
   };
 
+  const startWebLogin = (provider?: "apple") => {
+    const url = provider ? `${WEB_LOGIN_URL}?provider=${provider}` : WEB_LOGIN_URL;
+    window.location.assign(url);
+  };
+
   const attemptReauthWithPin = async (pin: string): Promise<TokenData | null> => {
     try {
       // Replace this with your actual re-authentication endpoint
@@ -108,7 +114,8 @@ const LoginScreen = () => {
   const handleGoogleLogin = async () => {
     try {
       if (Platform.OS === "web") {
-        await WebBrowser.openBrowserAsync(LOCAL_DEV_WEB_LOGIN_URL);
+        startWebLogin();
+        return;
       } else {
         await WebBrowser.openBrowserAsync(LOGIN_URL);
       }
@@ -124,6 +131,10 @@ const LoginScreen = () => {
 
   const handleAppleLogin = async () => {
     try {
+      if (Platform.OS === "web") {
+        startWebLogin("apple");
+        return;
+      }
       await WebBrowser.openBrowserAsync(APPLE_LOGIN_URL);
       // Only proceed if login actually completed (tokens were set via deep link)
       const tokens = await getTokens();

@@ -1,4 +1,7 @@
+from urllib.parse import urlencode
+
 import environ
+from django.conf import settings
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
@@ -26,9 +29,18 @@ def get_delegated_tokens(user, teen_profile):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-def start_web_login(self):
-    response = HttpResponseRedirect('/api/accounts/google/auto-login/')
-    response.set_cookie('from-web', 'true')
+def start_web_login(request):
+    provider = request.query_params.get('provider')
+    login_path = '/api/accounts/apple/auto-login/' if provider == 'apple' else '/api/accounts/google/auto-login/'
+    response = HttpResponseRedirect(login_path)
+    response.set_cookie(
+        'from-web',
+        'true',
+        max_age=600,
+        httponly=True,
+        samesite='Lax',
+        secure=not settings.DEBUG,
+    )
     return response
 
 @api_view(['GET'])
@@ -49,5 +61,12 @@ def get_jwt(request):
         
     if 'json' in request.query_params:
         return JsonResponse(response_data)
+
+    if request.COOKIES.get('from-web') == 'true':
+        response = HttpResponseRedirect(
+            f"/app/login?{urlencode({'access': response_data['access'], 'refresh': response_data['refresh']})}"
+        )
+        response.delete_cookie('from-web')
+        return response
 
     return render(request, 'jwt_template.html', {'app_deep_url': env('APP_DEEP_URL'), 'access': response_data['access'], 'refresh': response_data['refresh']})
