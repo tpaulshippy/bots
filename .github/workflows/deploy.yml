@@ -36,7 +36,7 @@ jobs:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
-          printf '%s' "$SSH_KEY" > /tmp/deploy_key
+          printf '%s\n' "$SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
           ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key root@$SERVER_HOST << 'EOF'
             set -e
