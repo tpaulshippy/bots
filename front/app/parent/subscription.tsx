@@ -11,6 +11,8 @@ import * as Sentry from "@sentry/react-native";
 
 import { SUBSCRIPTION_LEVELS, SUBSCRIPTION_INFO } from "@/constants/subscriptions";
 
+const APP_STORE_URL = "https://apps.apple.com/us/app/syft-learning/id6742674793";
+
 export default function SubscriptionScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -139,6 +141,19 @@ export default function SubscriptionScreen() {
           title: "Upgrade Your Plan",
         }}
       />
+      {Platform.OS === 'web' ? (
+        <ThemedView style={styles.webContainer}>
+          <ThemedText style={styles.webMessage}>
+            Upgrades are only available in the Syft Learning app. Download it from the App Store to subscribe.
+          </ThemedText>
+          <ThemedButton
+            style={styles.subscribeButton}
+            onPress={() => Linking.openURL(APP_STORE_URL)}
+          >
+            <ThemedText style={styles.subscribeButtonText}>Get the App on the App Store</ThemedText>
+          </ThemedButton>
+        </ThemedView>
+      ) : (
       <ScrollView contentContainerStyle={styles.container}>
       {Object.values(SUBSCRIPTION_LEVELS).map(renderSubscriptionOption)}
       <ThemedButton
@@ -149,6 +164,7 @@ export default function SubscriptionScreen() {
       </ThemedButton>
       <ThemedText style={styles.footnote}>* Token estimates based on Nova Lite model usage</ThemedText>
     </ScrollView>
+    )}
     </>
   );
 }
@@ -158,6 +174,19 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 20,
     paddingBottom: 40,
+  },
+
+  webContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    gap: 20,
+  },
+
+  webMessage: {
+    fontSize: 16,
+    textAlign: "center",
   },
 
   subscriptionCard: {
