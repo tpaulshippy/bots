@@ -17,6 +17,7 @@ export default function SubscriptionScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const backgroundColor = useThemeColor({}, "cardBackground");
+  const buttonColor = useThemeColor({}, "tint");
   const [currentLevel, setCurrentLevel] = useState(SUBSCRIPTION_LEVELS.FREE || 0);
 
   useEffect(() => {
@@ -146,12 +147,24 @@ export default function SubscriptionScreen() {
           <ThemedText style={styles.webMessage}>
             Upgrades are only available in the Syft Learning app. Download it from the App Store to subscribe.
           </ThemedText>
-          <ThemedButton
-            style={styles.subscribeButton}
-            onPress={() => Linking.openURL(APP_STORE_URL)}
+          <a
+            href={APP_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              backgroundColor: buttonColor,
+              marginTop: 10,
+              padding: 10,
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              textDecoration: "none",
+            }}
           >
             <ThemedText style={styles.subscribeButtonText}>Get the App on the App Store</ThemedText>
-          </ThemedButton>
+          </a>
         </ThemedView>
       ) : (
       <ScrollView contentContainerStyle={styles.container}>
