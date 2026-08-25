@@ -15,7 +15,6 @@ import {
   useRouter,
   Stack,
   useNavigationContainerRef,
-  usePathname,
   type Href,
 } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -25,7 +24,7 @@ import { isRunningInExpoGo } from "expo";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { useNotificationChatNavigation } from "@/hooks/useNotificationChatNavigation";
 import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
-import { useSessionMode } from "@/hooks/useSessionMode";
+import { useDelegatedRouteGuard } from "@/hooks/useDelegatedRouteGuard";
 import {
   BackButton,
   DrawerMenuButton,
@@ -74,19 +73,13 @@ export default function RootLayout() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const router = useRouter();
-  const pathname = usePathname();
 
   useNotificationChatNavigation();
   useAuthBootstrap(loaded);
 
   // Teen-delegated devices have no parent surfaces: deep links (or stale
   // state) pointing into /parent/* bounce to the chat screen instead.
-  const { isTeenDelegated } = useSessionMode();
-  useEffect(() => {
-    if (isTeenDelegated && pathname?.startsWith("/parent")) {
-      router.replace("/chat");
-    }
-  }, [isTeenDelegated, pathname, router]);
+  useDelegatedRouteGuard();
 
   useEffect(() => {
     if (ref?.current) {
