@@ -15,7 +15,7 @@ describe("apiClient", () => {
       ok: true,
       text: jest.fn().mockResolvedValue('{"success": true}'),
     });
-    global.fetch = mockFetch;
+    (globalThis as any).fetch = mockFetch;
 
     // Mock XMLHttpRequest
     const mockXhr = {
@@ -28,7 +28,7 @@ describe("apiClient", () => {
       responseText: '{"success": true}',
     };
     const XMLHttpRequestMock = jest.fn().mockImplementation(() => mockXhr);
-    (global as any).XMLHttpRequest = XMLHttpRequestMock;
+    (globalThis as any).XMLHttpRequest = XMLHttpRequestMock;
 
     const formData = new FormData();
     (formData as any)._parts = [
@@ -71,7 +71,7 @@ describe("apiClient", () => {
       ok: true,
       text: jest.fn().mockResolvedValue('{"success": true}'),
     });
-    global.fetch = mockFetch;
+    (globalThis as any).fetch = mockFetch;
 
     await apiClient("/test", { method: "POST", body: JSON.stringify({ message: "hello" }) });
 
