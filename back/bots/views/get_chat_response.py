@@ -9,7 +9,7 @@ from PIL import Image
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from bots.models import Bot, Chat, Profile
+from bots.models import Bot, Chat, Profile, ProfileSchedule
 
 # Allowed image extensions
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -43,6 +43,34 @@ def compress_and_upload_image(file):
     except Exception as e:
         raise ValueError(f'Unable to upload image: {e!s}')
 
+
+def _check_profile_access(profile, bot):
+    """Check bot allowlist for *profile*; return error Response or None."""
+    if profile is not None and bot is not None and not profile.bot_is_allowed(bot):
+        return Response(
+            {"error": "This bot is not available for this profile.", "code": "bot_not_allowed"},
+            status=403,
+        )
+    return None
+
+
+def _check_schedule(profile):
+    """Check schedule window for *profile*; return error Response or None."""
+    if profile is None:
+        return None
+    try:
+        schedule = profile.schedule
+    except ProfileSchedule.DoesNotExist:
+        return None
+    allowed, block_msg = schedule.allows()
+    if not allowed:
+        return Response(
+            {"response": block_msg, "code": "outside_schedule"},
+            status=200,
+        )
+    return None
+
+
 @api_view(['GET', 'POST'])
 def get_chat_response(request, chat_id):
     user_input = request.data.get('message')
@@ -59,6 +87,16 @@ def get_chat_response(request, chat_id):
             bot = get_object_or_404(Bot, bot_id=bot_id, user=user)
         else:
             bot = None
+
+        # --- roadmap-09: server-side enforcement ---
+        access_err = _check_profile_access(profile, bot)
+        if access_err is not None:
+            return access_err
+
+        schedule_err = _check_schedule(profile)
+        if schedule_err is not None:
+            return schedule_err
+
         chat = Chat.objects.create(title=user_input, profile=profile, bot=bot, user=user)
         system_prompt = chat.get_system_message()
         if bot and bot.system_prompt:
@@ -67,6 +105,15 @@ def get_chat_response(request, chat_id):
 
     else:
         chat = get_object_or_404(Chat, chat_id=chat_id, user=user)
+
+        # --- roadmap-09: enforce on existing chat too ---
+        access_err = _check_profile_access(chat.profile, chat.bot)
+        if access_err is not None:
+            return access_err
+
+        schedule_err = _check_schedule(chat.profile)
+        if schedule_err is not None:
+            return schedule_err
     
     # Handle image uploads if present
     filename = None
