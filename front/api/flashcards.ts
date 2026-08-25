@@ -20,6 +20,8 @@ export interface Deck {
   description: string;
   flashcards: Flashcard[];
   card_count: number;
+  due_count?: number;
+  last_studied_at?: string | null;
   created_at: string;
   updated_at: string;
 }
