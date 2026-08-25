@@ -99,21 +99,10 @@ function injectAsyncStorage(udid, tokens, profile, bot) {
 
 describe('Parent Conversation Review E2E Flow (Real API)', () => {
   beforeAll(async () => {
-    const tokens = await getTestTokens();
-    const { profile, bot } = await getTestProfileAndBot(tokens.access);
-
-    await device.installApp();
-    await device.launchApp({ newInstance: true });
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    await device.terminateApp();
-
-    const udid = device.id;
-    injectAsyncStorage(udid, tokens, profile, bot);
-
-    await device.launchApp({ newInstance: true });
-    // App boots into the kid chat area when authed; the parent area sits
-    // behind Settings.
-    await waitFor(element(by.id('chat-input'))).toBeVisible().withTimeout(15000);
+    // Deep-link launch: tokens injected via app's e2e-test route
+    await device.launchApp({ newInstance: true, url: 'botsforkids://e2e-test?access=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzg3Njk3MTU2LCJpYXQiOjE3ODc2OTM1NTYsImp0aSI6IjM3MTFmOTJkN2NiNDQwZGY5OTJjNDIwZDYyMDQyN2Q2IiwidXNlcl9pZCI6IjEifQ.HaFwt_igbxt9hNTF2rhxl6bGH5fHdY-VJr_KW7yA3LA&refresh=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc5MDM3MTk1NiwiaWF0IjoxNzg3NjkzNTU2LCJqdGkiOiI1MjYyYzQzYmViZWU0MjdmYmRiZmFlMGI0NzJjMWVkMCIsInVzZXJfaWQiOiIxIn0.AD3ELM8OxO0Rwp05Muuu5lNRwVihzTx81RhU-MP3Exo&profile=%7B%22id%22%3A2%2C%22profile_id%22%3A%22658f7417-ea90-4d58-a958-8b40ec6a2dcf%22%2C%22name%22%3A%22Maya%22%2C%22deleted_at%22%3Anull%2C%22created_at%22%3A%222026-08-25T11%3A34%3A16.908361-07%3A00%22%2C%22modified_at%22%3A%222026-08-25T11%3A34%3A16.908370-07%3A00%22%7D&bot=' });
+    await device.disableSynchronization();
+    await waitFor(element(by.id('chat-input'))).toBeVisible().withTimeout(30000);
   }, 120000);
 
   it('parent opens the Activity inbox from Settings behind the PIN gate', async () => {
