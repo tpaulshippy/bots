@@ -37,6 +37,7 @@ export default function PinWrapper({ children, correctPin, onPinVerified }: Prop
         <ThemedText style={styles.title}>Enter PIN</ThemedText>
         <ThemedTextInput
           autoFocus={true}
+          testID="pin-input"
           style={styles.pinTextInput}
           keyboardType="numeric"
           secureTextEntry={true}

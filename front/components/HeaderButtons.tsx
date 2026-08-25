@@ -5,12 +5,13 @@ import { IconSymbol } from "./ui/IconSymbol";
 
 export type DrawerMenuButtonProps = {
   onOpen: () => void;
+  testID?: string;
 };
 
-export function DrawerMenuButton({ onOpen }: DrawerMenuButtonProps) {
+export function DrawerMenuButton({ onOpen, testID = "menu-button" }: DrawerMenuButtonProps) {
   const iconColor = useThemeColor({}, "tint");
   return (
-    <Pressable onPress={onOpen}>
+    <Pressable onPress={onOpen} testID={testID}>
       <IconSymbol
         name="line.3.horizontal"
         color={iconColor}
@@ -23,12 +24,13 @@ export function DrawerMenuButton({ onOpen }: DrawerMenuButtonProps) {
 
 export type BackButtonProps = {
   onPress: () => void;
+  testID?: string;
 };
 
 export function BackButton({ onPress }: BackButtonProps) {
   const iconColor = useThemeColor({}, "tint");
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} testID="back-button">
       <IconSymbol
         name="chevron.backward"
         color={iconColor}
