@@ -157,6 +157,10 @@ export default function AdvancedBotEditor({
           onChangeText={(text) => setBot({ ...bot, system_prompt: text })}
           multiline
         />
+        <ThemedText testID="baseline-safety-note" style={styles.safetyNote}>
+          Syft always applies baseline safety on its servers. Your custom prompt
+          cannot remove it.
+        </ThemedText>
       </ThemedView>
 
       <ThemedView
@@ -219,6 +223,11 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     marginBottom: 5,
+  },
+  safetyNote: {
+    fontSize: 13,
+    opacity: 0.7,
+    marginTop: 5,
   },
   input: {
     height: 40,
