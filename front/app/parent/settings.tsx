@@ -117,6 +117,7 @@ export default function SettingsScreen() {
                 <MenuItem
                   title="Profiles"
                   iconName="person.fill"
+                  testID="menu-profiles"
                   onPress={() => goTo("/parent/profilesList")}
                 ></MenuItem>
                 <MenuItem

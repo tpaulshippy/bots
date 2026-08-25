@@ -26,7 +26,6 @@ export default function ProfilesList() {
   const tintColor = useThemeColor({}, "tint");
   const bgColor = useThemeColor({}, "cardBackground");
   const bgColorSelected = useThemeColor({}, "cardBackgroundSelected");
-
   const refresh = async () => {
     fetchProfiles().then((data) => {
       if (!data) {
@@ -123,6 +122,7 @@ export default function ProfilesList() {
         renderItem={({ item }) => (
           <Pressable
           key={item.profile_id}
+          testID={`profile-card-${item.name}`}
           style={[
             profiles.length > 1 ? { width: "46%" } : { width: "65%" },
             styles.profileCard,
