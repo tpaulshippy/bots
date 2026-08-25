@@ -99,10 +99,8 @@ def describe_system_prompt_layering():
         assert "less than 120 words" in system
 
     def it_sends_layered_system_message_to_the_model(chat):
-        ai = make_ai()
         chat.bot = Bot(system_prompt="You are a math tutor.")
         chat.messages.create(text="Hello", role="user")
-        from langchain_core.messages import HumanMessage
 
         message_list, _ = chat.get_input()
         assert isinstance(message_list[0], SystemMessage)
