@@ -36,6 +36,17 @@ def auth_client(api_client, test_user):
     return api_client
 
 
+def with_parent_reauth(client, user):
+    """Attach a valid parent reauth session header (roadmap doc 02)."""
+    from rest_framework_simplejwt.tokens import AccessToken
+
+    token = AccessToken.for_user(user)
+    token['parent_reauth'] = True
+    client.credentials(HTTP_AUTHORIZATION=client._credentials['HTTP_AUTHORIZATION'],
+                       HTTP_X_PARENT_REAUTH=str(token))
+    return client
+
+
 @pytest.mark.django_db
 class TestDeckListAPI:
     """Tests for /api/decks.json endpoint - verify pagination format"""
@@ -396,7 +407,8 @@ class TestBotCreateAPI:
         """Should be able to create bot with ai_model field"""
         from bots.models import AiModel
         AiModel.objects.create(model_id='test-model', name='Test Model')
-        
+        with_parent_reauth(auth_client, test_user)
+
         response = auth_client.post('/api/bots.json', {
             'name': 'New Bot',
             'ai_model': 'test-model',
@@ -411,7 +423,8 @@ class TestBotCreateAPI:
         """Should be able to create bot with enable_web_search field"""
         from bots.models import AiModel
         AiModel.objects.create(model_id='test-model', name='Test Model')
-        
+        with_parent_reauth(auth_client, test_user)
+
         response = auth_client.post('/api/bots.json', {
             'name': 'Search Bot',
             'ai_model': 'test-model',

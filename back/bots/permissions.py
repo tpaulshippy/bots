@@ -1,5 +1,11 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
+from bots.services.parent_reauth import (
+    PARENT_REAUTH_HEADER,
+    has_valid_parent_reauth,
+    is_teen_delegated,
+)
+
 
 class IsOwner(BasePermission):
     """
@@ -48,3 +54,21 @@ class IsParentSessionForWrites(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return not _is_teen_delegated(request)
+
+
+class ParentReauthRequired(BasePermission):
+    """Gate unsafe methods behind a recent parent reauthentication.
+
+    Reads stay open (kid paths list/read bots and profiles for chat), but any
+    create/update/delete requires the `X-Parent-Reauth` header issued by
+    `POST /api/auth/reauthenticate` within the reauth TTL. Teen-delegated
+    sessions are always denied.
+    """
+    message = f'Parent reauthentication required. Send a valid {PARENT_REAUTH_HEADER} header.'
+
+    def has_permission(self, request, view):
+        if request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return True
+        if is_teen_delegated(request):
+            return False
+        return has_valid_parent_reauth(request)
