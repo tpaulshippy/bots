@@ -6,9 +6,9 @@ import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { fetchBots } from "@/api/bots";
-import { fetchProfiles } from "@/api/profiles";
+import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
 import { UnauthorizedError } from "@/api/apiClient";
-import { clearUser, setTokens } from "@/api/tokens";
+import { clearUser, getSessionMode, sessionFromQueryParams, setTokens } from "@/api/tokens";
 
 /**
  * Bootstraps the session once the app has loaded: runs the initial auth
@@ -39,10 +39,33 @@ export function useAuthBootstrap(loaded: boolean) {
     }
   }, []);
 
+  /**
+   * Teen-delegated sessions never see the profile picker: fetch only their
+   * own redacted profile (the parent list endpoint denies them) and force
+   * it as the selection.
+   */
+  const setDelegatedProfile = useCallback(async () => {
+    const mode = await getSessionMode();
+    if (!mode.isTeenDelegated || !mode.activeProfileId) return;
+
+    const existing = await AsyncStorage.getItem("selectedProfile");
+    if (existing && JSON.parse(existing).profile_id === mode.activeProfileId) {
+      return;
+    }
+    const ownProfile =
+      (await fetchOwnProfile()) ?? { profile_id: mode.activeProfileId };
+    await AsyncStorage.setItem("selectedProfile", JSON.stringify(ownProfile));
+  }, []);
+
   const initialNavigationChecks = useCallback(async () => {
     try {
       await fetchBots();
-      await setProfile();
+      const mode = await getSessionMode();
+      if (mode.isTeenDelegated) {
+        await setDelegatedProfile();
+      } else {
+        await setProfile();
+      }
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         await clearUser();
@@ -52,19 +75,31 @@ export function useAuthBootstrap(loaded: boolean) {
         Sentry.captureException?.(error);
       }
     }
-  }, [router, setProfile]);
+  }, [router, setDelegatedProfile, setProfile]);
 
   const getJWTFromLink = useCallback(async (event?: any): Promise<boolean> => {
     const url = event?.url;
     if (!url) return false;
 
     const { queryParams } = Linking.parse(url);
+    const session = sessionFromQueryParams(queryParams);
 
-    if (queryParams && queryParams.access && queryParams.refresh) {
-      const access = queryParams.access as string;
-      const refresh = queryParams.refresh as string;
-      await setTokens({ access, refresh });
+    if (session) {
+      await setTokens(session);
       WebBrowser.dismissBrowser();
+
+      // Lock teen-delegated devices to their claimed profile immediately:
+      // no profile picker, ever.
+      if (session.isTeenDelegated && session.activeProfileId) {
+        const ownProfile =
+          (await fetchOwnProfile()) ?? {
+            profile_id: session.activeProfileId,
+          };
+        await AsyncStorage.setItem(
+          "selectedProfile",
+          JSON.stringify(ownProfile)
+        );
+      }
 
       router.replace("/");
       await initialNavigationChecks();
