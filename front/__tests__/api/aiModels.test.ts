@@ -55,8 +55,8 @@ describe('AI Models API', () => {
       const response = await fetchAiModels();
 
       expect(response).toBeDefined();
-      expect(response.results.length).toBeGreaterThan(0);
-      const model = response.results[0];
+      expect(response?.results?.length).toBeGreaterThan(0);
+      const model = response?.results?.[0];
       expect(model).toHaveProperty('model_id');
       expect(model).toHaveProperty('name');
       expect(model).toHaveProperty('input_token_cost');
