@@ -101,6 +101,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               return (
                 <Pressable
                   key={item.path}
+                  testID={`drawer-item-${item.label.toLowerCase()}`}
                   onPress={() => handleMenuPress(item.path)}
                   style={[
                     styles.menuItem,
