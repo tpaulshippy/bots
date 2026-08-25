@@ -1,13 +1,14 @@
 from rest_framework import viewsets
 
 from bots.models import Profile
-from bots.permissions import IsOwner
+from bots.permissions import IsOwner, ParentReauthRequired
 from bots.serializers import ProfileSerializer
 from bots.viewsets.mixins import get_object_by_uuid_or_id
 
 
 class ProfileViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsOwner]
+    # Reads stay open (profile picker / bootstrap); writes are parent-only.
+    permission_classes = [IsOwner, ParentReauthRequired]
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
     

@@ -1,13 +1,14 @@
 from rest_framework import viewsets
 
 from bots.models import Bot
-from bots.permissions import IsOwner
+from bots.permissions import IsOwner, ParentReauthRequired
 from bots.serializers import BotSerializer
 from bots.viewsets.mixins import get_object_by_uuid_or_id
 
 
 class BotViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsOwner]
+    # Reads stay open for kid paths; writes need a parent reauth session.
+    permission_classes = [IsOwner, ParentReauthRequired]
     queryset = Bot.objects.all()
     serializer_class = BotSerializer
     
