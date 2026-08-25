@@ -203,6 +203,20 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="parent/profileAccess"
+              options={{
+                headerShown: true,
+                headerTintColor: textColor,
+              }}
+            />
+            <Stack.Screen
+              name="parent/profileSchedule"
+              options={{
+                headerShown: true,
+                headerTintColor: textColor,
+              }}
+            />
+            <Stack.Screen
               name="parent/botsList"
               options={{
                 headerShown: true,
