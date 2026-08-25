@@ -31,7 +31,7 @@ export const handlers = [
 
   http.get('/api/decks/:id.json', async ({ params }) => {
     await delay(200);
-    const id = params.id;
+    const id = params.id as string;
     return HttpResponse.json({
       id: typeof id === 'string' && !id.match(/^\d+$/) ? 1 : parseInt(String(id), 10),
       deck_id: id,
@@ -96,7 +96,7 @@ export const handlers = [
 
   http.get('/api/decks/:deck_pk/flashcards/:id.json', async ({ params }) => {
     await delay(200);
-    const id = params.id;
+    const id = params.id as string;
     return HttpResponse.json({
       id: typeof id === 'string' && !id.match(/^\d+$/) ? 1 : parseInt(String(id), 10),
       flashcard_id: id,

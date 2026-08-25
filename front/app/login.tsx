@@ -4,17 +4,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { getTokens, getSessionMode, setTokens, TokenData } from "@/api/tokens";
+import { getTokens, setTokens } from "@/api/tokens";
 import { useRouter } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { AppleSignInButton } from "@/components/AppleSignInButton";
 import * as WebBrowser from 'expo-web-browser';
-import { setCachedPin, getCachedPin } from "@/api/pinStorage";
+import { clearCachedPin, setCachedHasPin } from "@/api/pinStorage";
 import { getAccount } from "@/api/account";
-import { UnauthorizedError } from "@/api/apiClient";
 import { fetchOwnProfile } from "@/api/profiles";
-import PinWrapper from "@/components/PinWrapper";
 
 
 const WEB_LOGIN_URL =
@@ -26,39 +24,16 @@ const APPLE_LOGIN_URL =
 
 const LoginScreen = () => {
   const [manualTokens, setManualTokens] = React.useState("");
-  const [isCheckingPin, setIsCheckingPin] = useState(true);
-  const [cachedPin, setCachedPinState] = useState<string | null>(null);
   const router = useRouter();
   const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
-  const mutedTextColor = useThemeColor({}, "icon");
 
   useEffect(() => {
-    const checkForCachedPin = async () => {
-      try {
-        // Teen-delegated sessions skip the PIN gate entirely: there is no
-        // parent on this device and the backend never sends them the PIN.
-        const mode = await getSessionMode();
-        if (mode.isTeenDelegated) {
-          return;
-        }
-        const pin = await getCachedPin();
-        setCachedPinState(pin);
-      } catch (error) {
-        console.error("Error checking for cached PIN:", error);
-      } finally {
-        setIsCheckingPin(false);
-      }
-    };
-
-    checkForCachedPin();
+    // Roadmap doc 02: the plaintext PIN cache is never read again — scrub it.
+    clearCachedPin();
   }, []);
 
-  const handlePinVerified = () => {
-    setCachedPinState(null);
-  };
-
-  const handleSuccessfulLogin = async (skipPinCache = false) => {
+  const handleSuccessfulLogin = async () => {
     try {
       // Teen-delegated sessions: never cache a parent PIN, never show a
       // profile picker — lock straight to the claimed profile.
@@ -76,34 +51,15 @@ const LoginScreen = () => {
         return;
       }
 
-      // Get the account info which contains the PIN
+      // Refresh the hasPin flag used by the parent-area gate. The PIN itself
+      // stays server-side only; unlocking requires POST /auth/reauthenticate.
       const account = await getAccount();
       if (account) {
-        // Cache the PIN for future use if it exists and we're not skipping the cache
-        if (!skipPinCache && account.pin !== null) {
-          await setCachedPin(account.pin.toString());
-        }
+        await setCachedHasPin(!!account.hasPin);
       }
       router.replace("/");
     } catch (error) {
       console.error("Error during login:", error);
-      // If we get an unauthorized error, try with the cached PIN if available
-      if (error instanceof UnauthorizedError) {
-        try {
-          const cachedPin = await getCachedPin();
-          if (cachedPin) {
-            // Try to re-authenticate with the cached PIN
-            const tokens = await attemptReauthWithPin(cachedPin);
-            if (tokens) {
-              await setTokens(tokens);
-              // Skip caching the PIN again since we just used it
-              return handleSuccessfulLogin(true);
-            }
-          }
-        } catch (reauthError) {
-          console.error("Re-authentication failed:", reauthError);
-        }
-      }
       Alert.alert("Error", "Failed to complete login. Please log in again.");
     }
   };
@@ -111,28 +67,6 @@ const LoginScreen = () => {
   const startWebLogin = (provider?: "apple") => {
     const url = provider ? `${WEB_LOGIN_URL}?provider=${provider}` : WEB_LOGIN_URL;
     window.location.assign(url);
-  };
-
-  const attemptReauthWithPin = async (pin: string): Promise<TokenData | null> => {
-    try {
-      // Replace this with your actual re-authentication endpoint
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_BASE_URL}/auth/reauthenticate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ pin }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Re-authentication failed');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Re-authentication error:', error);
-      return null;
-    }
   };
 
   const handleGoogleLogin = async () => {
@@ -170,25 +104,6 @@ const LoginScreen = () => {
     }
   };
 
-  if (isCheckingPin) {
-    return (
-      <ThemedView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" />
-      </ThemedView>
-    );
-  }
-
-  if (cachedPin) {
-    return (
-      <ThemedView style={styles.container}>
-          <PinWrapper 
-            correctPin={cachedPin} 
-            onPinVerified={handlePinVerified}
-          />
-      </ThemedView>
-    );
-  }
-
   return (
     <ThemedView style={styles.container}>
       {__DEV__ && (
@@ -207,10 +122,10 @@ const LoginScreen = () => {
               try {
                 const trimmed = manualTokens.trim();
                 await setTokens(JSON.parse(trimmed));
-                // After setting tokens, get account info and cache the PIN if it exists
+                // Refresh the hasPin flag; the PIN itself stays server-side.
                 const account = await getAccount();
-                if (account?.pin !== null && account?.pin !== undefined) {
-                  await setCachedPin(account.pin.toString());
+                if (account) {
+                  await setCachedHasPin(!!account.hasPin);
                 }
                 router.replace("/");
               } catch (error) {
@@ -222,7 +137,7 @@ const LoginScreen = () => {
         </View>
       )}
 
-      <ThemedText style={[styles.tagline, { color: mutedTextColor }]}>
+      <ThemedText style={[styles.tagline, { color: textColor }]}>
         Safe AI tutors for your kids
       </ThemedText>
 

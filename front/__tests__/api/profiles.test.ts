@@ -39,6 +39,7 @@ describe('Profiles API', () => {
 
     it('should include required fields in profile items', async () => {
       const response = await fetchProfiles();
+      expect(response).not.toBeNull();
 
       expect(response).toBeDefined();
       expect(response!.results.length).toBeGreaterThan(0);
