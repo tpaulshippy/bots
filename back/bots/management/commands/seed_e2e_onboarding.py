@@ -38,12 +38,24 @@ class Command(BaseCommand):
             Profile.objects.create(user=user, name=FIRST_NAME)
             profiles = list(user.profile_set.filter(deleted_at=None).order_by('id'))
 
-        if len(profiles) < 2:
+        # Canonical names every run, even after earlier runs renamed them.
+        first = profiles[0]
+        if first.name != FIRST_NAME:
+            first.name = FIRST_NAME
+            first.save()
+        second = (
+            user.profile_set.filter(deleted_at=None)
+            .exclude(id=first.id)
+            .first()
+        )
+        if second is None:
             from bots.models import Profile
             Profile.objects.create(user=user, name=SECOND_PROFILE_NAME)
-            profiles = list(user.profile_set.filter(deleted_at=None).order_by('id'))
+        elif second.name != SECOND_PROFILE_NAME:
+            second.name = SECOND_PROFILE_NAME
+            second.save()
 
-        self.stdout.write(f'Profiles: {[p.name for p in profiles]}')
+        self.stdout.write(f'Profiles: [{FIRST_NAME}, {SECOND_PROFILE_NAME}]')
 
         # Fresh onboarding state on every run.
         account = user.user_account

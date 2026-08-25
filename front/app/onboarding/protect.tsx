@@ -57,7 +57,7 @@ export default function OnboardingProtect() {
     }
     setSaving(true);
     try {
-      await bootstrapOnboarding({
+      const result = await bootstrapOnboarding({
         profileName: local.profileName ?? "",
         botName: local.botName || undefined,
         templateName: local.templateName || undefined,
@@ -67,18 +67,25 @@ export default function OnboardingProtect() {
         pin,
       });
 
-      // Select the renamed default profile and first bot so the very first
-      // chat needs no further setup (fixes "Please select a profile first").
+      // Select exactly the renamed default profile and first bot so the very
+      // first chat needs no further setup (fixes "Please select a profile
+      // first"). Listings are name-ordered, so match by id when we have one.
       const profiles = await fetchProfiles();
-      if (profiles?.results?.length) {
-        await setSelectedProfile(profiles.results[0]);
+      const profilesList = profiles?.results ?? [];
+      const profile =
+        (result?.profileId &&
+          profilesList.find((p) => p.profile_id === result.profileId)) ||
+        profilesList[0];
+      if (profile) {
+        await setSelectedProfile(profile);
       }
       const bots = await fetchBots();
-      if (bots?.results?.length) {
-        await AsyncStorage.setItem(
-          "selectedBot",
-          JSON.stringify(bots.results[0])
-        );
+      const botsList = bots?.results ?? [];
+      const bot =
+        (result?.botId && botsList.find((b) => b.bot_id === result.botId)) ||
+        botsList[0];
+      if (bot) {
+        await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
       }
 
       await completeOnboarding();

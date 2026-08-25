@@ -118,7 +118,8 @@ class TestOnboardingBootstrap:
         # The signal-created "Jordan" profile was renamed, not duplicated.
         profiles = Profile.objects.filter(user=user, deleted_at=None)
         assert profiles.count() == 1
-        assert profiles.get().name == 'Maya'
+        profile = profiles.get()
+        assert profile.name == 'Maya'
 
         bots = Bot.objects.filter(user=user, deleted_at=None)
         assert bots.count() == 1
@@ -126,6 +127,10 @@ class TestOnboardingBootstrap:
         assert bot.bot_id == original_bot_id
         assert bot.name == 'Penelope'
         assert bot.template_name == 'Blank'
+
+        # Clients can select exactly what the wizard configured.
+        assert response.json()['profileId'] == str(profile.profile_id)
+        assert response.json()['botId'] == str(bot.bot_id)
 
         user.user_account.refresh_from_db()
         assert user.user_account.pin == 1234

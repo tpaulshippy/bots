@@ -24,6 +24,16 @@ export interface OnboardingBootstrapPayload {
     color?: string;
     icon?: string;
 }
+
+export interface OnboardingBootstrapResult {
+    response?: string;
+    onboardingCompleted?: boolean;
+    // Identifies exactly which profile/bot the wizard configured, since
+    // profile listings are name-ordered and the default may not be first.
+    profileId?: string;
+    botId?: string;
+}
+
 export const getAccount = async (): Promise<Account | null> => {
     const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return request<Account | null>(`/user?timezone=${deviceTimeZone}`, {}, null);
@@ -60,11 +70,11 @@ export const completeOnboarding = async (): Promise<void> => {
 // Atomic wizard save: profile name, first bot, PIN and completion flag.
 export const bootstrapOnboarding = async (
     payload: OnboardingBootstrapPayload
-): Promise<void> => {
-    await request<void>('/onboarding/bootstrap', {
+): Promise<OnboardingBootstrapResult | null> => {
+    return request<OnboardingBootstrapResult | null>('/onboarding/bootstrap', {
         method: 'POST',
         body: JSON.stringify(payload),
-    }, undefined);
+    }, null);
 };
 
 export const deleteAccount = async (): Promise<void> => {

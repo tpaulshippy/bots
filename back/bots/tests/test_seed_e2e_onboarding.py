@@ -28,12 +28,16 @@ def describe_seed_e2e_onboarding():
         user = User.objects.get(username='e2e-test-user')
         maya = user.profile_set.get(name='Maya')
         maya.delete()
+        jordan = user.profile_set.get(name='Jordan')
+        jordan.name = 'Alex'  # a previous e2e run renamed it via the wizard
+        jordan.save()
         user.user_account.pin = 9999
         user.user_account.save()
 
         call_command('seed_e2e_onboarding')
         user = User.objects.get(username='e2e-test-user')
 
-        assert user.profile_set.filter(deleted_at=None).count() == 2
+        names = set(user.profile_set.filter(deleted_at=None).values_list('name', flat=True))
+        assert names == {'Jordan', 'Maya'}
         assert user.user_account.pin is None
         assert user.user_account.onboarding_completed_at is None

@@ -112,7 +112,7 @@ def onboarding_bootstrap_view(request):
         return Response({'detail': TEEN_DELEGATED_DETAIL}, status=403)
 
     data = request.data
-    bootstrap_onboarding(
+    result = bootstrap_onboarding(
         request.user,
         profile_name=data.get('profileName'),
         bot_name=data.get('botName'),
@@ -122,7 +122,13 @@ def onboarding_bootstrap_view(request):
         color=data.get('color'),
         icon=data.get('icon'),
     )
-    return Response({'response': 'ok', 'onboardingCompleted': True})
+    return Response({
+        'response': 'ok',
+        'onboardingCompleted': True,
+        # Let clients select exactly what the wizard configured.
+        'profileId': str(result['profile'].profile_id),
+        'botId': str(result['bot'].bot_id),
+    })
 
 
 class DeleteUserAccountView(APIView):

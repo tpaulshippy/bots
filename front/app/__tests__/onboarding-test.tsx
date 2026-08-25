@@ -217,5 +217,37 @@ describe('Onboarding wizard', () => {
       expect(completeOnboarding).toHaveBeenCalled();
       expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
+
+    it('selects the configured profile even when it is not listed first', async () => {
+      // Listings are name-ordered; "Zoe" sorts after "Maya".
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [
+          { profile_id: 'p2', name: 'Maya' },
+          { profile_id: 'p1', name: 'Zoe' },
+        ],
+        count: 2,
+      });
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        profileId: 'p1',
+        botId: 'b1',
+      });
+
+      render(<OnboardingProtect />);
+      await act(async () => {});
+
+      fireEvent.changeText(screen.getByTestId('onboarding-pin-input'), '1234');
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-pin-confirm'),
+        '1234'
+      );
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'selectedProfile',
+        JSON.stringify({ profile_id: 'p1', name: 'Zoe' })
+      );
+    });
   });
 });
