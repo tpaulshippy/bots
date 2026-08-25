@@ -8,6 +8,7 @@ from django.db import models
 from langchain_aws import ChatBedrock
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
+from bots.services import fake_ai
 from bots.services.chat_agent import ChatAgentService
 
 from .ai_model import AiModel
@@ -24,6 +25,9 @@ class AiClientWrapper:
         self.model_id = model_id
         if client:
             self.client = client
+        elif model_id.startswith(fake_ai.FAKE_MODEL_PREFIX):
+            # Deterministic fake streaming client for e2e/demo — no AWS creds.
+            self.client = fake_ai.FakeStreamingClient()
         else:
             self.client = ChatBedrock(model_id=model_id)
 
@@ -48,6 +52,7 @@ class Chat(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ai = None
+        self.last_client_events = []
 
     def __str__(self):
         return self.title if self.user is None else self.user.email + ' - ' + self.title
@@ -60,30 +65,24 @@ class Chat(models.Model):
         
         self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
 
-    def get_response(self, ai=None):
+    def resolve_ai_client(self, ai=None, contains_image=False):
         if self.bot and self.bot.ai_model:
             self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
             self.use_default_model(ai)
-        
-        message_list, contains_image = self.get_input()
 
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
-        
-        if self.user.user_account.over_limit():
-            return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
-        
-        response_text, usage_metadata = ChatAgentService(self, self.ai.client).respond(message_list)
-        
+
+    def _persist_assistant_message(self, text, usage_metadata):
         message_order = self.messages.count()
-        
+
         input_tokens = usage_metadata.get('input_tokens', 0)
         output_tokens = usage_metadata.get('output_tokens', 0)
-        
+
         self.messages.create(
-            text=response_text, 
-            role='assistant', 
+            text=text,
+            role='assistant',
             order=message_order,
             input_tokens=input_tokens,
             output_tokens=output_tokens
@@ -91,7 +90,63 @@ class Chat(models.Model):
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
         self.save()
+
+    def get_response(self, ai=None):
+        message_list, contains_image = self.get_input()
+        self.resolve_ai_client(ai=ai, contains_image=contains_image)
+
+        if self.user.user_account.over_limit():
+            return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
+
+        service = ChatAgentService(self, self.ai.client)
+        response_text, usage_metadata = service.respond(message_list)
+        # Structured tool results for the legacy `events[]` payload (doc 06 §3).
+        self.last_client_events = service.client_events
+
+        self._persist_assistant_message(response_text, usage_metadata)
         return response_text
+
+    def stream_response(self, ai=None, message_id=None):
+        """Yield agent events for SSE while persisting the assistant message.
+
+        The assistant row is persisted on `done` with token totals. On early
+        exit (client disconnect / abort mid-stream) the partial text is saved
+        so history matches what the kid saw (roadmap doc 06 §2 "prefer save
+        partial"). Partial saves carry the usage accumulated so far.
+        """
+        message_list, contains_image = self.get_input()
+        self.resolve_ai_client(ai=ai, contains_image=contains_image)
+
+        if self.user.user_account.over_limit():
+            yield {"type": "error", "code": "over_limit",
+                   "message": "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."}
+            return
+
+        service = ChatAgentService(self, self.ai.client)
+        self.last_client_events = service.client_events
+
+        streamed_text = []
+        usage_totals = {"input_tokens": 0, "output_tokens": 0}
+
+        def persist(text):
+            self._persist_assistant_message(text, usage_totals)
+
+        try:
+            for event in service.respond_events(message_list):
+                event_type = event.get("type")
+                if event_type == "token":
+                    streamed_text.append(event.get("text", ""))
+                elif event_type == "done":
+                    usage_totals["input_tokens"] += event.get("input_tokens", 0) or 0
+                    usage_totals["output_tokens"] += event.get("output_tokens", 0) or 0
+                yield event
+        finally:
+            # Runs both after normal completion and on GeneratorExit when the
+            # client disconnects mid-stream: whatever the kid saw gets saved.
+            text = "".join(streamed_text)
+            if text.strip():
+                persist(text)
+
 
     def setup_human_message_content(self, message):
         if self.has_image(message):
