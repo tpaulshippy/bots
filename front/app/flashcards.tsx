@@ -21,6 +21,7 @@ import * as Sentry from "@sentry/react-native";
 import { fetchDecks, createDeck, DeckListItem } from "@/api/flashcards";
 import { getSelectedProfileId } from "@/hooks/useSelectedProfile";
 import { ThemedButton } from "@/components/ThemedButton";
+import { formatDistanceToNowStrict } from "date-fns";
 
 export default function Flashcards() {
   const router = useRouter();
@@ -141,6 +142,7 @@ export default function Flashcards() {
           }
           renderItem={({ item }) => (
             <Pressable
+              testID={`deck-row-${item.deck_id}`}
               style={[
                 styles.itemContainer,
                 { backgroundColor: cardBackground, borderColor },
@@ -165,7 +167,27 @@ export default function Flashcards() {
                     {item.description}
                   </ThemedText>
                 ) : null}
+                {item.last_studied_at ? (
+                  <ThemedText
+                    style={[styles.lastStudied, { color: iconColor }]}
+                    numberOfLines={1}
+                  >
+                    Last studied{" "}
+                    {formatDistanceToNowStrict(new Date(item.last_studied_at))}{" "}
+                    ago
+                  </ThemedText>
+                ) : null}
               </View>
+              {(item.due_count ?? 0) > 0 ? (
+                <View
+                  testID={`deck-due-badge-${item.deck_id}`}
+                  style={[styles.countBadge, { backgroundColor: "#e0525226" }]}
+                >
+                  <ThemedText style={[styles.dueBadgeText, { color: "#d9534f" }]}>
+                    {item.due_count} due
+                  </ThemedText>
+                </View>
+              ) : null}
               <View
                 style={[styles.countBadge, { backgroundColor: accentColor + "26" }]}
               >
@@ -249,6 +271,14 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  dueBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  lastStudied: {
+    fontSize: 12,
+    marginTop: 4,
   },
   description: {
     fontSize: 14,

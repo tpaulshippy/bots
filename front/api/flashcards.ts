@@ -1,5 +1,7 @@
 import { request, requestRaw, PaginatedResponse } from "./request";
 
+export type FlashcardRating = "again" | "hard" | "good" | "easy";
+
 export interface Flashcard {
   id: number;
   flashcard_id: string;
@@ -7,6 +9,13 @@ export interface Flashcard {
   front: string;
   back: string;
   order: number;
+  // Spaced repetition scheduling fields
+  due_at?: string | null;
+  interval_days?: number;
+  ease?: number;
+  reps?: number;
+  lapses?: number;
+  last_reviewed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,9 +41,13 @@ export interface DeckListItem {
   name: string;
   description: string;
   card_count: number;
+  due_count?: number;
+  last_studied_at?: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type StudyQueueMode = "due" | "all";
 
 export const fetchDecks = async (profileId: string): Promise<PaginatedResponse<DeckListItem>> =>
   request<PaginatedResponse<DeckListItem>>(
@@ -132,3 +145,30 @@ export const deleteFlashcard = async (
   );
   return response?.ok ?? false;
 };
+
+// Cards to study for this deck, ordered by due_at ascending.
+export const fetchStudyQueue = async (
+  deckId: string,
+  mode: StudyQueueMode = "due",
+  limit = 50
+): Promise<Flashcard[]> =>
+  request<Flashcard[]>(
+    `/decks/${deckId}/study_queue/.json?mode=${mode}&limit=${limit}`,
+    { method: "GET" },
+    []
+  );
+
+// Rate a card during study; returns the rescheduled flashcard.
+export const reviewFlashcard = async (
+  deckId: string,
+  flashcardId: string,
+  rating: FlashcardRating
+): Promise<Flashcard | null> =>
+  request<Flashcard | null>(
+    `/decks/${deckId}/flashcards/${flashcardId}/review/.json`,
+    {
+      method: "POST",
+      body: JSON.stringify({ rating }),
+    },
+    null
+  );
