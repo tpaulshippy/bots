@@ -1,22 +1,53 @@
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Platform, KeyboardAvoidingView, FlatList, ActivityIndicator, Dimensions, Keyboard, FlexAlignType } from "react-native";
+import { ThemedText } from "@/components/ThemedText";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Platform,
+  KeyboardAvoidingView,
+  FlatList,
+  ActivityIndicator,
+  Dimensions,
+  Keyboard,
+  FlexAlignType,
+  AccessibilityInfo,
+} from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedButton } from "@/components/ThemedButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 
-import { fetchChatMessages, sendChat, ChatMessage as ApiChatMessage } from "@/api/chats";
+import {
+  fetchChatMessages,
+  streamChatMessage,
+  ChatMessage as ApiChatMessage,
+  ChatStreamEvent,
+} from "@/api/chats";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
 import { E2E_TEST_IMAGE_URI } from "@/e2e/utils";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { getSelectedBotId, getSelectedProfileId } from "@/hooks/useSelectedProfile";
 
+// idle -> sending -> streaming -> complete | error | aborted (roadmap doc 06 §2)
+type ChatPhase = "idle" | "sending" | "streaming" | "error";
+
+interface PendingPayload {
+  text: string;
+  image: string | null;
+}
+
+interface DeckToast {
+  deckId: string;
+  name: string;
+  cardCount: number;
+}
+
 export default function Chat() {
   const local = useLocalSearchParams();
+  const router = useRouter();
   const chatIdParam = local.chatId?.toString();
   const [chatId, setChatId] = useState<string | undefined>(chatIdParam);
   const [input, setInput] = useState<string>("");
@@ -25,8 +56,19 @@ export default function Chat() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [image, setImage] = useState<string | null>(null);
+  const [phase, setPhase] = useState<ChatPhase>("idle");
+  const [deckToast, setDeckToast] = useState<DeckToast | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const lastPayloadRef = useRef<PendingPayload | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputBorderColor = useThemeColor({}, "border");
   const placeholderColor = useThemeColor({}, "icon");
+  const busy = phase === "sending" || phase === "streaming";
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    abortRef.current?.abort();
+  }, []);
 
   const refresh = useCallback(async (nextPage: number) => {
     const chatIdQueryString = local.chatId?.toString();
@@ -89,7 +131,142 @@ export default function Chat() {
     }
   };
 
+  /** Update the assistant bubble currently being streamed. */
+  const patchStreamingAssistant = (
+    updater: (message: ApiChatMessage) => ApiChatMessage
+  ) => {
+    setMessages(prev => {
+      const index = prev.map(m => m.role).lastIndexOf("assistant");
+      if (index === -1) return prev;
+      return [...prev.slice(0, index), updater(prev[index]), ...prev.slice(index + 1)];
+    });
+  };
+
+  const handleStreamEvent = (event: ChatStreamEvent) => {
+    switch (event.type) {
+      case "meta":
+        if (event.chatId) setChatId(event.chatId);
+        break;
+      case "token":
+        setPhase("streaming");
+        patchStreamingAssistant(message => ({
+          ...message,
+          isLoading: false,
+          text: message.text + (event.text ?? ""),
+        }));
+        break;
+      case "tool_start":
+        patchStreamingAssistant(message => ({
+          ...message,
+          isLoading: true,
+          agentEvents: [
+            ...(message.agentEvents ?? []),
+            { kind: "tool_start", label: event.tool === "web_search" ? "🔍 Searching…" : `🛠 ${event.tool}…` },
+          ],
+        }));
+        break;
+      case "tool_end":
+        if (event.tool === "create_flashcard_deck" && event.deckId) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => null);
+          patchStreamingAssistant(message => ({
+            ...message,
+            agentEvents: [
+              ...(message.agentEvents ?? []),
+              {
+                kind: "deck",
+                deckId: event.deckId!,
+                name: event.name ?? "deck",
+                cardCount: event.cardCount ?? 0,
+              },
+            ],
+          }));
+          // Chat → deck toast hook (roadmap README #5 / doc 06 §2).
+          setDeckToast({
+            deckId: event.deckId,
+            name: event.name ?? "deck",
+            cardCount: event.cardCount ?? 0,
+          });
+          if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = setTimeout(() => setDeckToast(null), 8000);
+        } else if (event.tool === "web_search") {
+          patchStreamingAssistant(message => ({
+            ...message,
+            agentEvents: [
+              ...(message.agentEvents ?? []),
+              { kind: "sources", label: event.resultPreview ? `🌐 ${event.resultPreview}` : "🌐 Sources used" },
+            ],
+          }));
+        } else if (event.tool === "create_flashcard") {
+          patchStreamingAssistant(message => ({
+            ...message,
+            agentEvents: [
+              ...(message.agentEvents ?? []),
+              { kind: "sources", label: "📇 Card added" },
+            ],
+          }));
+        }
+        break;
+      case "done":
+        patchStreamingAssistant(message => ({ ...message, isLoading: false }));
+        break;
+      case "error":
+        patchStreamingAssistant(message => ({
+          ...message,
+          isLoading: false,
+          text: message.text || event.message || "Something went wrong.",
+          failed: true,
+        }));
+        setPhase("error");
+        break;
+    }
+  };
+
+  const runStream = async ({ text, image: pendingImage }: PendingPayload) => {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    lastPayloadRef.current = { text, image: pendingImage };
+    setPhase("sending");
+    AccessibilityInfo.announceForAccessibility("Bot is typing");
+
+    try {
+      await streamChatMessage({
+        chatId: chatId || "new",
+        message: text,
+        image: pendingImage,
+        profileId: await getSelectedProfileId(),
+        botId: await getSelectedBotId(),
+        signal: controller.signal,
+        onEvent: handleStreamEvent,
+      });
+      setPhase("idle");
+      setImage(null);
+    } catch {
+      if (controller.signal.aborted) {
+        // Stop pressed: keep whatever partial text already streamed in.
+        patchStreamingAssistant(message => ({
+          ...message,
+          isLoading: false,
+          text: message.text || "_Cancelled._",
+          failed: !message.text,
+        }));
+        setPhase("idle");
+        setImage(null);
+      } else {
+        patchStreamingAssistant(message => ({
+          ...message,
+          isLoading: false,
+          text: message.text || "Could not reach the tutor. Please try again.",
+          failed: true,
+        }));
+        setPhase("error");
+      }
+    } finally {
+      abortRef.current = null;
+    }
+  };
+
   const sendChatToServer = async () => {
+    if (busy) return;
     const inputText = input.trim();
     if (!inputText && !image) {
       return;
@@ -97,7 +274,6 @@ export default function Chat() {
     setInput("");
     Keyboard.dismiss();
     const profileId = await getSelectedProfileId();
-    const botId = await getSelectedBotId();
     if (!profileId) {
       const newAssistantMessage: ApiChatMessage = {
         role: "assistant",
@@ -108,10 +284,10 @@ export default function Chat() {
       return;
     }
 
-    const newUserMessage: ApiChatMessage = { 
-      role: "user", 
+    const newUserMessage: ApiChatMessage = {
+      role: "user",
       image_url: image,
-      text: inputText 
+      text: inputText
     };
     const loadingMessage: ApiChatMessage = {
       role: "assistant",
@@ -121,33 +297,29 @@ export default function Chat() {
     };
 
     setMessages([...messages, newUserMessage, loadingMessage]);
+    await runStream({ text: inputText, image });
+  };
 
-    const formData = new FormData();
-    formData.append('message', inputText);
-    if (image) {
-      const fileUri = image;
-      const fileType = fileUri.split('.').pop() || 'jpeg';
-      formData.append('image', {
-        uri: fileUri,
-        name: `image.${fileType}`,
-        type: `image/${fileType}`,
-      } as any);
-    }
-    formData.append('profile', profileId);
-    formData.append('bot', botId);
+  const retryLastSend = async () => {
+    if (busy || !lastPayloadRef.current) return;
+    const payload = lastPayloadRef.current;
+    const loadingMessage: ApiChatMessage = {
+      role: "assistant",
+      image_url: null,
+      isLoading: true,
+      text: "",
+    };
+    setMessages([...messages, loadingMessage]);
+    await runStream(payload);
+  };
 
-    const chatResponse = await sendChat(chatId, formData);
-    if (chatResponse) {
-      const newAssistantMessage: ApiChatMessage = {
-        role: "assistant",
-        image_url: null,
-        text: chatResponse.response,
-      };
-      setMessages([...messages, newUserMessage, newAssistantMessage]);
-      setChatId(chatResponse.chat_id);
-      setImage(null);
-      setLoadingMore(false);
-    }
+  const handleStop = () => {
+    abortRef.current?.abort();
+  };
+
+  const openDeckFromToast = (toast: DeckToast) => {
+    setDeckToast(null);
+    router.push({ pathname: "/flashcards/deck", params: { deckId: toast.deckId, title: toast.name } });
   };
 
   const handleLoadMore = () => {
@@ -183,11 +355,28 @@ export default function Chat() {
             style={styles.list}
             data={[...messages].reverse()}
             keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => <ChatMessage message={item} />}
+            renderItem={({ item }) => (
+              <ChatMessage message={item} onRetry={item.failed ? retryLastSend : undefined} />
+            )}
                 onStartReached={handleLoadMore}
                 onStartReachedThreshold={0.5}
                 ListHeaderComponent={loadingMore ? <ActivityIndicator /> : null}
               />
+              {deckToast && (
+                <ThemedView testID="deck-toast" style={styles.deckToast}>
+                  <ThemedText style={styles.deckToastText}>
+                    📇 {deckToast.cardCount} cards in “{deckToast.name}”
+                  </ThemedText>
+                  <ThemedButton
+                    testID="deck-toast-study"
+                    darkColor="#0a7ea4"
+                    style={styles.deckToastButton}
+                    onPress={() => openDeckFromToast(deckToast)}
+                  >
+                    <ThemedText style={styles.deckToastButtonText}>Study now</ThemedText>
+                  </ThemedButton>
+                </ThemedView>
+              )}
               <ThemedView style={styles.inputContainer}>
                 <ThemedTextInput
                   testID="chat-input"
@@ -211,18 +400,33 @@ export default function Chat() {
                     size={22}
                   ></IconSymbol>
                 </ThemedButton>
-                <ThemedButton
-                  testID="send-button"
-                  darkColor="#0a7ea4"
-                  style={styles.sendButton}
-                  onPress={sendChatToServer}
-                >
-                  <IconSymbol
-                    name="arrow.up"
-                    color="#fff"
-                    size={22}
-                  ></IconSymbol>
-                </ThemedButton>
+                {busy ? (
+                  <ThemedButton
+                    testID="stop-button"
+                    darkColor="#d9534f"
+                    style={styles.sendButton}
+                    onPress={handleStop}
+                  >
+                    <IconSymbol
+                      name="stop.fill"
+                      color="#fff"
+                      size={20}
+                    ></IconSymbol>
+                  </ThemedButton>
+                ) : (
+                  <ThemedButton
+                    testID="send-button"
+                    darkColor="#0a7ea4"
+                    style={styles.sendButton}
+                    onPress={sendChatToServer}
+                  >
+                    <IconSymbol
+                      name="arrow.up"
+                      color="#fff"
+                      size={22}
+                    ></IconSymbol>
+                  </ThemedButton>
+                )}
               </ThemedView>
           </ThemedView>
         </KeyboardAvoidingView>
@@ -263,5 +467,36 @@ const styles = {
     borderRadius: 22,
     justifyContent: "center" as FlexAlignType,
     alignItems: "center" as FlexAlignType,
+  },
+  deckToast: {
+    position: "absolute" as const,
+    bottom: 80,
+    left: 20,
+    right: 20,
+    flexDirection: "row" as "row",
+    alignItems: "center" as FlexAlignType,
+    justifyContent: "space-between" as const,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#0a7ea4",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  deckToastText: {
+    flexShrink: 1,
+    marginRight: 8,
+  },
+  deckToastButton: {
+    paddingHorizontal: 12,
+    height: 36,
+    justifyContent: "center" as FlexAlignType,
+  },
+  deckToastButtonText: {
+    color: "#fff",
+    fontSize: 14,
   },
 };

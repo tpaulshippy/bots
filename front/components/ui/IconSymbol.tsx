@@ -35,6 +35,7 @@ const MAPPING = {
   'questionmark.circle.fill': 'question-mark',
   'photo.fill': 'image',
   'camera.fill': 'camera',
+  'stop.fill': 'stop',
   'line.3.horizontal': 'menu',
   'chevron.backward': 'chevron-left',
   'chevron.left': 'chevron-left',
