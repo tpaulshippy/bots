@@ -10,8 +10,8 @@ from bots.signals import PENELOPE_SYSTEM_PROMPT, provision_default_content
 class SignalsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='12345')
-        self.profile = Profile.objects.create(user=self.user)
-        self.bot = Bot.objects.create(user=self.user)
+        self.profile = Profile.objects.create(user=self.user, name='Maya')
+        self.bot = Bot.objects.create(user=self.user, name='Penelope')
         self.device = Device.objects.create(user=self.user)
     
     @patch.object(Device, 'notify_chat')
@@ -61,6 +61,86 @@ class SignalsTests(TestCase):
         # Assert
         mock_notify_chat.assert_not_called()
         mock_notify_message.assert_not_called()
+
+
+class NotificationFlagTests(TestCase):
+    """The notify flags are independent (roadmap 04 fixes the mutual-exclusion bug)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.profile = Profile.objects.create(user=self.user, name='Maya')
+        self.bot = Bot.objects.create(user=self.user, name='Penelope')
+
+    def _device(self, **flags):
+        return Device.objects.create(user=self.user, notification_token=f'token-{flags}', **flags)
+
+    @patch('bots.models.device.NotificationClient')
+    def test_both_flags_true_both_event_types_fire(self, mock_client):
+        self._device(notify_on_new_chat=True, notify_on_new_message=True)
+
+        chat = Chat.objects.create(user=self.user, profile=self.profile, bot=self.bot, title='New chat')
+        Message.objects.create(chat=chat, text='Hello there', role='user')
+
+        notifications = [
+            (call.args[0] if call.args else call.kwargs)
+            for call in mock_client.return_value.notify.call_args_list
+        ]
+        bodies = [n.body for n in notifications]
+        titles = [n.title for n in notifications]
+
+        assert chat.title in bodies
+        assert 'Hello there' in bodies
+        assert any('started a conversation' in title for title in titles)
+        assert any('sent' in title and 'a message' in title for title in titles)
+
+    @patch('bots.models.device.NotificationClient')
+    def test_new_chat_flag_fires_alongside_message_flag(self, mock_client):
+        """Regression: previously notify_on_new_chat only fired when the message flag was off."""
+        device = self._device(notify_on_new_chat=True, notify_on_new_message=True)
+        Chat.objects.create(user=self.user, profile=self.profile, bot=self.bot, title='Chat')
+
+        sent = mock_client.return_value.notify.call_args
+        assert sent is not None
+        notification = sent.args[0] if sent.args else sent.kwargs
+        assert notification.to == device.notification_token
+
+    @patch('bots.models.device.NotificationClient')
+    def test_notify_chat_without_message_flag(self, mock_client):
+        self._device(notify_on_new_chat=True, notify_on_new_message=False)
+        Chat.objects.create(user=self.user, profile=self.profile, bot=self.bot, title='Chat')
+
+        assert mock_client.return_value.notify.called
+
+    @patch('bots.models.device.NotificationClient')
+    def test_digest_only_suppresses_immediate_pushes(self, mock_client):
+        """Digest-only devices never get per-chat/per-message pushes."""
+        self._device(
+            notify_on_new_chat=True,
+            notify_on_new_message=True,
+            notify_digest_only=True,
+        )
+
+        chat = Chat.objects.create(user=self.user, profile=self.profile, bot=self.bot, title='Chat')
+        Message.objects.create(chat=chat, text='Hi', role='user')
+
+        mock_client.return_value.notify.assert_not_called()
+
+    @patch('bots.models.device.NotificationClient')
+    def test_assistant_messages_do_not_push(self, mock_client):
+        self._device(notify_on_new_message=True)
+        chat = Chat.objects.create(user=self.user, profile=self.profile, bot=self.bot)
+        Message.objects.create(chat=chat, text='Bot reply', role='assistant')
+
+        mock_client.return_value.notify.assert_not_called()
+
+    @patch('bots.models.device.NotificationClient')
+    def test_push_payload_carries_parent_activity_target_for_digest(self, mock_client):
+        device = self._device(notify_digest_only=True)
+        device.notify_digest("Maya: 3 chats")
+
+        notification = mock_client.return_value.notify.call_args.args[0]
+        assert notification.data == {'target': 'parent_activity'}
+        assert notification.title == "Syft daily summary"
 
 
 class ProvisionDefaultContentTests(TestCase):
