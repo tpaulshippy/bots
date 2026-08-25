@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ActivityIndicator, FlexAlignType, Image, Modal, TouchableOpacity } from "react-native";
-import { ChatMessage as ApiChatMessage } from "@/api/chats";
+import { AgentActivity, ChatMessage as ApiChatMessage } from "@/api/chats";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
@@ -10,9 +10,19 @@ import { format } from "date-fns";
 
 interface ChatMessageProps {
   message: ApiChatMessage & { created_at?: string };
+  onRetry?: () => void;
 }
 
-const ChatMessage = ({ message }: ChatMessageProps) => {
+const chipLabel = (event: AgentActivity): string => {
+  switch (event.kind) {
+    case "deck":
+      return `📇 Created “${event.name}” · ${event.cardCount} cards`;
+    default:
+      return event.label;
+  }
+};
+
+const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
   const assistantColor = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const userColor = useThemeColor({ light: "#03465b", dark: "#0a7ea4" }, "tint");
@@ -50,6 +60,19 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         </TouchableOpacity>
       )}
       {message.isLoading && <ActivityIndicator style={styles.loading} />}
+      {!isUser && (message.agentEvents?.length ?? 0) > 0 && (
+        <ThemedView style={styles.agentChips}>
+          {message.agentEvents!.map((event, index) => (
+            <ThemedView
+              key={`${event.kind}-${index}`}
+              testID={`agent-chip-${event.kind === "deck" ? "deck" : event.kind === "sources" ? "search" : "tool"}`}
+              style={styles.agentChip}
+            >
+              <ThemedText style={styles.agentChipText}>{chipLabel(event)}</ThemedText>
+            </ThemedView>
+          ))}
+        </ThemedView>
+      )}
       {message.text && (
         isUser ? (
           <ThemedText
@@ -63,6 +86,11 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
             <MarkdownRenderer content={message.text} />
           </ThemedView>
         )
+      )}
+      {message.failed && onRetry && (
+        <TouchableOpacity testID="retry-button" style={styles.retryButton} onPress={onRetry}>
+          <ThemedText style={styles.retryText}>↻ Retry</ThemedText>
+        </TouchableOpacity>
       )}
       {message.created_at && (
         <ThemedText style={styles.timestamp(isUser, timestampColor)}>
@@ -110,6 +138,40 @@ const styles = {
   loading: {
     alignSelf: "flex-start" as FlexAlignType,
     margin: 10,
+  },
+  agentChips: {
+    flexDirection: "row" as "row",
+    flexWrap: "wrap" as "wrap",
+    marginHorizontal: 10,
+    marginTop: 4,
+    gap: 6,
+  },
+  agentChip: {
+    borderWidth: 1,
+    borderColor: "#0a7ea4",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 4,
+    maxWidth: "85%" as const,
+  },
+  agentChipText: {
+    fontSize: 13,
+    color: "#0a7ea4",
+  },
+  retryButton: {
+    alignSelf: "flex-start" as FlexAlignType,
+    marginHorizontal: 10,
+    marginBottom: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#d9534f",
+    borderRadius: 14,
+  },
+  retryText: {
+    color: "#d9534f",
+    fontSize: 14,
   },
   image: {
     width: 200,
