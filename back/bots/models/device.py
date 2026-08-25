@@ -31,6 +31,9 @@ class Device(models.Model):
     notification_token = models.CharField(max_length=255, unique=True)
     notify_on_new_chat = models.BooleanField(default=False)
     notify_on_new_message = models.BooleanField(default=True)
+    # When True the per-event flags are ignored at send time and the digest
+    # job (send_activity_digests) is the only push source for this device.
+    notify_digest_only = models.BooleanField(default=False)
 
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -43,18 +46,21 @@ class Device(models.Model):
         ordering = ['id']
     
     def notify_chat(self, chat):
-        if self.notify_on_new_chat and not self.notify_on_new_message:
+        if self.notify_digest_only:
+            return
+        if self.notify_on_new_chat and chat.user == self.user:
             NotificationClient().notify(Notification(
                 to=self.notification_token,
                 sound='default',
                 title=f"{chat.profile.name} started a conversation with {chat.bot.name}",
                 body=chat.title,
-                data={'chat_id': str(chat.chat_id)}
+                data={'chat_id': str(chat.chat_id), 'target': 'chat'}
             ))
-            
+
     def notify_message(self, message):
+        if self.notify_digest_only:
+            return
         if self.notify_on_new_message and \
-            not self.notify_on_new_chat and \
             message.chat.user == self.user and \
             message.role == 'user':
             if message.chat.profile:
@@ -70,5 +76,15 @@ class Device(models.Model):
                 sound='default',
                 title=f"{from_name} sent {to_name} a message",
                 body=message.text,
-                data={'chat_id': str(message.chat.chat_id)}
+                data={'chat_id': str(message.chat.chat_id), 'target': 'chat'}
             ))
+
+    def notify_digest(self, body):
+        """Push the daily activity summary. The parent inbox (Activity) is the tap target."""
+        NotificationClient().notify(Notification(
+            to=self.notification_token,
+            sound='default',
+            title="Syft daily summary",
+            body=body,
+            data={'target': 'parent_activity'}
+        ))
