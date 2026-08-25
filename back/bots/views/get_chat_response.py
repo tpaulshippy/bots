@@ -10,6 +10,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from bots.models import Bot, Chat, Profile
+from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 
 # Allowed image extensions
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -50,8 +51,16 @@ def get_chat_response(request, chat_id):
     bot_id = request.data.get('bot')
     user = request.user
 
+    # Teen-delegated sessions are locked to their claimed profile: a
+    # client-sent profile id is ignored and the claim is enforced instead.
+    delegated_profile = delegated_profile_from_auth(request.auth)
+    if is_teen_delegated(request.auth) and delegated_profile is None:
+        return JsonResponse({'error': 'No active profile for this session'}, status=403)
+
     if chat_id == 'new':
-        if profile_id:
+        if delegated_profile is not None:
+            profile = delegated_profile
+        elif profile_id:
             profile = get_object_or_404(Profile, profile_id=profile_id, user=user)
         else:
             profile = None
@@ -67,6 +76,9 @@ def get_chat_response(request, chat_id):
 
     else:
         chat = get_object_or_404(Chat, chat_id=chat_id, user=user)
+        # Teens may only post to chats belonging to their own profile.
+        if delegated_profile is not None and chat.profile != delegated_profile:
+            return JsonResponse({'error': 'Chat not found'}, status=404)
     
     # Handle image uploads if present
     filename = None
