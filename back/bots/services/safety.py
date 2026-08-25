@@ -22,6 +22,7 @@ import logging
 import re
 from dataclasses import dataclass
 
+import boto3
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -355,8 +356,6 @@ def guardrail_check(text: str, source: str = "INPUT") -> SafetyVerdict | None:
         return None
 
     try:
-        import boto3
-
         client = boto3.client("bedrock-runtime")
         response = client.apply_guardrail(
             guardrailIdentifier=guardrail_id,
