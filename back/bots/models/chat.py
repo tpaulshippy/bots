@@ -66,13 +66,17 @@ class Chat(models.Model):
         else:
             self.use_default_model(ai)
         
-        message_list, contains_image = self.get_input()
+        message_list, contains_image, last_intent = self.get_input()
 
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
-            self.use_default_model(ai)
+            self._upgrade_to_vision_model(ai)
         
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
+        
+        # Inject homework mode prompt if needed
+        if last_intent in ('homework', 'check_work'):
+            self._inject_homework_prompt(message_list, last_intent)
         
         response_text, usage_metadata = ChatAgentService(self, self.ai.client).respond(message_list)
         
@@ -93,6 +97,45 @@ class Chat(models.Model):
         self.save()
         return response_text
 
+    def _upgrade_to_vision_model(self, ai=None):
+        """Upgrade to a vision-capable model when bot model lacks image support."""
+        vision_model = AiModel.objects.filter(
+            supported_input_modalities__contains=['image']
+        ).exclude(
+            model_id=self.bot.ai_model.model_id if self.bot and self.bot.ai_model else ''
+        ).first()
+        
+        if vision_model:
+            self.ai = AiClientWrapper(model_id=vision_model.model_id, client=ai)
+            logger.info(f"Vision model override: {vision_model.model_id} (reason: vision_required)")
+        else:
+            logger.warning("No vision-capable model available for image message")
+
+    def _inject_homework_prompt(self, message_list, intent):
+        """Inject homework mode system prompt after the bot's persona prompt."""
+        homework_block = (
+            "HOMEWORK MODE:\n"
+            "- Describe what you see on the page briefly.\n"
+            "- Identify the question(s) the student must answer.\n"
+            "- Do NOT give the final numeric/closed answer unless the student has tried and asks to check.\n"
+            "- Ask guiding questions; offer one hint at a time.\n"
+            "- If multiple problems, ask which number to start with.\n"
+            "- For check_work: compare student writing to correct approach; point out first error; celebrate partial credit.\n"
+            "- Format math expressions using KaTeX syntax: inline math with $...$ and display math with $$...$$\n"
+        )
+        if intent == 'check_work':
+            homework_block += (
+                "- The student is asking you to check their work. Compare their approach to the correct solution.\n"
+                "- Point out the first error, if any.\n"
+                "- Celebrate partial credit and correct steps.\n"
+            )
+        
+        # Append homework block after the system message
+        if message_list and hasattr(message_list[0], 'content'):
+            system_msg = message_list[0]
+            if isinstance(system_msg.content, str):
+                system_msg.content += "\n\n" + homework_block
+
     def setup_human_message_content(self, message):
         if self.has_image(message):
             return [
@@ -111,6 +154,7 @@ class Chat(models.Model):
 
     def get_input(self):
         contains_image = False
+        last_intent = 'chat'
         messages = self.messages.exclude(role='system').order_by('-id')[:10]
         messages = sorted(messages, key=lambda message: message.id)
         message_list = []
@@ -121,6 +165,8 @@ class Chat(models.Model):
             if message.role == "user":
                 human_message_content = self.setup_human_message_content(message)
                 message_list.append(HumanMessage(content=human_message_content))
+                # Track the last user message intent
+                last_intent = getattr(message, 'intent', 'chat') or 'chat'
             elif message.role == "assistant":
                 if len(message_list) > 0: # need to start with a user message
                     message_list.append(AIMessage(content=message.text))
@@ -128,7 +174,7 @@ class Chat(models.Model):
         system_message = SystemMessage(content=self.get_system_message())
         message_list.insert(0, system_message)
 
-        return message_list, contains_image
+        return message_list, contains_image, last_intent
     
     def get_system_message(self):
         if self.bot and self.bot.system_prompt:
