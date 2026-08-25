@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Platform, StyleSheet, Switch } from "react-native";
+import { Platform, StyleSheet, Switch, View } from "react-native";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
@@ -77,7 +77,11 @@ export async function registerForPushNotificationsAsync() {
 
 export default function NotificationsScreen() {
   const bgColor = useThemeColor({}, "cardBackground");
-  const [enableNotifications, setEnableNotifications] = useState(false);
+  const [notifyOnNewChat, setNotifyOnNewChat] = useState(false);
+  const [notifyOnNewMessage, setNotifyOnNewMessage] = useState(false);
+  // Digest-only suppresses the two immediate flags at send time on the
+  // backend; in the UI it disables them so the parent sees what wins.
+  const [notifyDigestOnly, setNotifyDigestOnly] = useState(false);
   const deviceRef = useRef<DeviceData | null>(null);
 
   const updateDeviceState = (nextDevice: DeviceData | null) => {
@@ -85,80 +89,127 @@ export default function NotificationsScreen() {
   };
 
   useEffect(() => {
-    const handleNotifications = async () => {
-      if (enableNotifications) {
-        const token = await registerForPushNotificationsAsync();
-
-        if (token) {
-          const existingDevice = await fetchDeviceByToken(token);
-
-          if (existingDevice) {
-            // Update existing device
-            existingDevice.notify_on_new_chat = false;
-            existingDevice.notify_on_new_message = true;
-            await upsertDevice(existingDevice);
-            setDeviceIdInStorage(existingDevice.device_id);
-            updateDeviceState(existingDevice);
-          } else {
-            // Create new device
-            let newDevice: DeviceData = {
-              id: -1,
-              device_id: "",
-              notification_token: token,
-              notify_on_new_chat: false,
-              notify_on_new_message: true,
-              deleted_at: null,
-            };
-            const createdDevice = await upsertDevice(newDevice);
-            if (createdDevice) {
-              setDeviceIdInStorage(createdDevice.device_id);
-              updateDeviceState(createdDevice);
-            }
-          }
-        }
-      } else if (deviceRef.current) {
-        const updatedDevice = {
-          ...deviceRef.current,
-          notify_on_new_chat: false,
-          notify_on_new_message: false,
-        };
-        await upsertDevice(updatedDevice);
-        updateDeviceState(updatedDevice);
-      }
-    };
-
-    void handleNotifications();
-  }, [enableNotifications]);
-
-  useEffect(() => {
     const setupDevice = async () => {
       const deviceId = await getDeviceIdFromStorage();
       if (!deviceId) {
         return;
       }
-      let currentDevice = await fetchDevice(deviceId);
+      const currentDevice = await fetchDevice(deviceId);
       if (currentDevice) {
-        if (currentDevice.notify_on_new_message) {
-          setEnableNotifications(true);
-        }
+        setNotifyOnNewChat(currentDevice.notify_on_new_chat);
+        setNotifyOnNewMessage(currentDevice.notify_on_new_message);
+        setNotifyDigestOnly(currentDevice.notify_digest_only);
         updateDeviceState(currentDevice);
       }
     };
     void setupDevice();
-
   }, []);
+
+  const persistFlags = async (
+    next: Pick<
+      DeviceData,
+      "notify_on_new_chat" | "notify_on_new_message" | "notify_digest_only"
+    >
+  ) => {
+    let current = deviceRef.current;
+    if (!current) {
+      const token = await registerForPushNotificationsAsync();
+      if (!token) {
+        return;
+      }
+      const existingDevice = await fetchDeviceByToken(token);
+      current =
+        existingDevice ??
+        ({
+          id: -1,
+          device_id: "",
+          notification_token: token,
+          notify_on_new_chat: false,
+          notify_on_new_message: false,
+          notify_digest_only: false,
+          deleted_at: null,
+        } as DeviceData);
+    }
+
+    const updatedDevice: DeviceData = {
+      ...current,
+      notify_on_new_chat: next.notify_on_new_chat,
+      notify_on_new_message: next.notify_on_new_message,
+      notify_digest_only: next.notify_digest_only,
+    };
+    const saved = await upsertDevice(updatedDevice);
+    if (saved) {
+      setDeviceIdInStorage(saved.device_id);
+      updateDeviceState(saved);
+    }
+  };
+
+  const toggleNewChat = (value: boolean) => {
+    setNotifyOnNewChat(value);
+    void persistFlags({
+      notify_on_new_chat: value,
+      notify_on_new_message: notifyOnNewMessage,
+      notify_digest_only: notifyDigestOnly,
+    });
+  };
+
+  const toggleNewMessage = (value: boolean) => {
+    setNotifyOnNewMessage(value);
+    void persistFlags({
+      notify_on_new_chat: notifyOnNewChat,
+      notify_on_new_message: value,
+      notify_digest_only: notifyDigestOnly,
+    });
+  };
+
+  const toggleDigestOnly = (value: boolean) => {
+    setNotifyDigestOnly(value);
+    void persistFlags({
+      notify_on_new_chat: notifyOnNewChat,
+      notify_on_new_message: notifyOnNewMessage,
+      notify_digest_only: value,
+    });
+  };
 
   return (
     <ThemedView style={styles.container}>
       <ThemedView
         style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
       >
+        <ThemedText style={styles.checkboxLabel}>Notify on new chat</ThemedText>
+        <Switch
+          testID="notify-new-chat-switch"
+          value={notifyOnNewChat}
+          disabled={notifyDigestOnly}
+          onValueChange={toggleNewChat}
+        />
+      </ThemedView>
+      <ThemedView
+        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+      >
         <ThemedText style={styles.checkboxLabel}>
-          Enable Notifications
+          Notify on each message
         </ThemedText>
         <Switch
-          value={enableNotifications}
-          onValueChange={setEnableNotifications}
+          testID="notify-new-message-switch"
+          value={notifyOnNewMessage}
+          disabled={notifyDigestOnly}
+          onValueChange={toggleNewMessage}
+        />
+      </ThemedView>
+      <ThemedView
+        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+      >
+        <View style={styles.labelContainer}>
+          <ThemedText style={styles.checkboxLabel}>Daily digest only</ThemedText>
+          <ThemedText style={styles.hintLabel}>
+            One summary a day instead of instant pushes
+          </ThemedText>
+        </View>
+        <Switch
+          testID="notify-digest-only-switch"
+          value={notifyDigestOnly}
+          onValueChange={toggleDigestOnly}
         />
       </ThemedView>
     </ThemedView>
@@ -176,9 +227,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     borderRadius: 10,
     padding: 5,
+    marginBottom: 8,
   },
   checkboxLabel: {
     fontSize: 16,
     marginLeft: 10,
+    flexShrink: 1,
+  },
+  labelContainer: {
+    flexShrink: 1,
+    flexDirection: "column",
+  },
+  hintLabel: {
+    fontSize: 12,
+    marginLeft: 10,
+    opacity: 0.6,
   },
 });
