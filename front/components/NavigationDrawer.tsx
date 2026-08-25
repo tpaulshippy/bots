@@ -102,6 +102,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 <Pressable
                   key={item.path}
                   onPress={() => handleMenuPress(item.path)}
+                  testID={`drawer-item-${item.label.toLowerCase()}`}
                   style={[
                     styles.menuItem,
                     isActive && styles.menuItemActive,
