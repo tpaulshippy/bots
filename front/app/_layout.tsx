@@ -247,6 +247,22 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="parent/activity"
+              options={{
+                headerShown: true,
+                title: "Activity",
+                headerTintColor: textColor,
+              }}
+            />
+            <Stack.Screen
+              name="parent/activityChat"
+              options={{
+                headerShown: true,
+                headerTintColor: textColor,
+                headerLeft: () => <BackButton onPress={() => router.back()} />,
+              }}
+            />
+            <Stack.Screen
               name="parent/subscription"
               options={{
                 headerShown: true,

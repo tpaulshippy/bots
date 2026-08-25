@@ -24,9 +24,9 @@ export function useNotificationChatNavigation() {
   const handleResponse = useCallback(
     async (response: Notifications.NotificationResponse | null) => {
       const data = response?.notification.request.content.data as
-        | { chat_id?: string }
+        | { chat_id?: string; target?: string }
         | undefined;
-      if (!response || !data?.chat_id) {
+      if (!response || (!data?.chat_id && !data?.target)) {
         return;
       }
       const responseId = response.notification.request.identifier;
@@ -35,8 +35,22 @@ export function useNotificationChatNavigation() {
       }
       handledResponseId.current = responseId;
 
+      // Digest / parent-review pushes open the parent Activity area instead
+      // of the kid chat; kid message pushes keep opening the kid chat so a
+      // parent on the shared device can jump straight in.
+      if (data.target === "parent_activity") {
+        const route = data.chat_id
+          ? ({
+              pathname: "/parent/activityChat" as const,
+              params: { chatId: data.chat_id },
+            } as const)
+          : ({ pathname: "/parent/activity" } as const);
+        router.push(route);
+        return;
+      }
+
       try {
-        const chat = await fetchChat(data.chat_id);
+        const chat = await fetchChat(data.chat_id!);
         if (!chat) {
           return;
         }
