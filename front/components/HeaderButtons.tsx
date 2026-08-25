@@ -10,7 +10,7 @@ export type DrawerMenuButtonProps = {
 export function DrawerMenuButton({ onOpen }: DrawerMenuButtonProps) {
   const iconColor = useThemeColor({}, "tint");
   return (
-    <Pressable onPress={onOpen}>
+    <Pressable onPress={onOpen} testID="drawer-menu-button">
       <IconSymbol
         name="line.3.horizontal"
         color={iconColor}
