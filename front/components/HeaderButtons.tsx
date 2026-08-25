@@ -28,7 +28,7 @@ export type BackButtonProps = {
 export function BackButton({ onPress }: BackButtonProps) {
   const iconColor = useThemeColor({}, "tint");
   return (
-    <Pressable onPress={onPress}>
+    <Pressable testID="back-button" onPress={onPress}>
       <IconSymbol
         name="chevron.backward"
         color={iconColor}
