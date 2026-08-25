@@ -10,8 +10,20 @@ export interface Account {
     maxDailyCost?: number;
     subscriptionLevel?: number;
     timezone?: string;
+    onboardingCompleted?: boolean;
 }
 
+export type PartialAccount = Partial<Account> & { pin: number };
+
+export interface OnboardingBootstrapPayload {
+    profileName: string;
+    botName?: string;
+    templateName?: string;
+    pin?: string;
+    systemPrompt?: string;
+    color?: string;
+    icon?: string;
+}
 export const getAccount = async (): Promise<Account | null> => {
     const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return request<Account | null>(`/user?timezone=${deviceTimeZone}`, {}, null);
@@ -35,6 +47,24 @@ export const setPin = async (
             currentPin !== undefined ? { pin, currentPin } : { pin }
         ),
     });
+};
+
+// Marks first-run onboarding complete; idempotent on the server.
+export const completeOnboarding = async (): Promise<void> => {
+    await request<void>('/user/onboarding/complete', {
+        method: 'POST',
+        body: JSON.stringify({}),
+    }, undefined);
+};
+
+// Atomic wizard save: profile name, first bot, PIN and completion flag.
+export const bootstrapOnboarding = async (
+    payload: OnboardingBootstrapPayload
+): Promise<void> => {
+    await request<void>('/onboarding/bootstrap', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    }, undefined);
 };
 
 export const deleteAccount = async (): Promise<void> => {

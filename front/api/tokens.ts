@@ -110,3 +110,37 @@ export const clearUser = async () => {
     });
   }
 };
+
+const decodeJwtPayload = (jwt: string): Record<string, unknown> | null => {
+  try {
+    const normalized = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    if (typeof atob !== "function") {
+      return null;
+    }
+    const binary = atob(padded);
+    const json = decodeURIComponent(
+      binary
+        .split("")
+        .map((char) => "%" + ("00" + char.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Teen delegated sessions (parent tokens minted for a teen profile) skip
+ * onboarding and see a display-only profile switcher. The flag rides in the
+ * JWT claims set by the backend's delegated login.
+ */
+export const isTeenDelegatedSession = async (): Promise<boolean> => {
+  const tokens = await getTokens();
+  if (!tokens?.access) {
+    return false;
+  }
+  const payload = decodeJwtPayload(tokens.access);
+  return payload?.is_teen_delegated === true;
+};

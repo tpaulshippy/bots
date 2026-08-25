@@ -20,6 +20,7 @@ import * as Sentry from "@sentry/react-native";
 
 import { fetchDecks, createDeck, DeckListItem } from "@/api/flashcards";
 import { getSelectedProfileId } from "@/hooks/useSelectedProfile";
+import { ThemedButton } from "@/components/ThemedButton";
 
 export default function Flashcards() {
   const router = useRouter();
@@ -188,6 +189,17 @@ export default function Flashcards() {
               <ThemedText style={styles.emptySubtext}>
                 Decks can be created from chats, or tap + to create one
               </ThemedText>
+              {!loading && (
+                <ThemedButton
+                  testID="flashcards-empty-chat-link"
+                  style={styles.emptyChatLink}
+                  lightColor="#00000008"
+                  darkColor="#ffffff14"
+                  onPress={() => router.push("/chatHistory")}
+                >
+                  <ThemedText type="defaultSemiBold">Go to chats</ThemedText>
+                </ThemedButton>
+              )}
             </View>
           }
         />
@@ -265,5 +277,11 @@ const styles = StyleSheet.create({
     color: "#888",
     marginTop: 8,
     textAlign: "center",
+  },
+  emptyChatLink: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
 });

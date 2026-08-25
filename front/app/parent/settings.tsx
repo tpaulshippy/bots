@@ -202,9 +202,11 @@ export default function SettingsScreen() {
               </ThemedView>
             </PinWrapper>
           )}
-          <ThemedText style={styles.updateId}>
-            Update: {Updates.updateId || "default"}
-          </ThemedText>
+          {__DEV__ && (
+            <ThemedText style={styles.updateId}>
+              Update: {Updates.updateId || "default"}
+            </ThemedText>
+          )}
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>

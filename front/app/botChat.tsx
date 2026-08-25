@@ -5,18 +5,24 @@ import { Platform, KeyboardAvoidingView, FlatList, ActivityIndicator, Dimensions
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedButton } from "@/components/ThemedButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
 
 import { fetchChatMessages, sendChat, ChatMessage as ApiChatMessage } from "@/api/chats";
+import { fetchProfiles } from "@/api/profiles";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
 import { E2E_TEST_IMAGE_URI } from "@/e2e/utils";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { getSelectedBotId, getSelectedProfileId } from "@/hooks/useSelectedProfile";
+import {
+  getSelectedBotId,
+  getSelectedProfileId,
+  setSelectedProfile,
+} from "@/hooks/useSelectedProfile";
 
 export default function Chat() {
   const local = useLocalSearchParams();
+  const router = useRouter();
   const chatIdParam = local.chatId?.toString();
   const [chatId, setChatId] = useState<string | undefined>(chatIdParam);
   const [input, setInput] = useState<string>("");
@@ -96,16 +102,27 @@ export default function Chat() {
     }
     setInput("");
     Keyboard.dismiss();
-    const profileId = await getSelectedProfileId();
+    let profileId = await getSelectedProfileId();
     const botId = await getSelectedBotId();
     if (!profileId) {
-      const newAssistantMessage: ApiChatMessage = {
-        role: "assistant",
-        image_url: null,
-        text: "Please select a profile first.",
-      };
-      setMessages([newAssistantMessage]);
-      return;
+      // Empty state: auto-select the first profile instead of a dead end;
+      // with no profiles at all, point the user at onboarding.
+      const data = await fetchProfiles();
+      const first = data?.results?.[0];
+      if (first) {
+        await setSelectedProfile(first);
+        profileId = first.profile_id;
+      } else {
+        setMessages([
+          {
+            role: "assistant",
+            image_url: null,
+            text: "Let's set up a profile first — one moment!",
+          },
+        ]);
+        router.replace("/onboarding/profile");
+        return;
+      }
     }
 
     const newUserMessage: ApiChatMessage = { 

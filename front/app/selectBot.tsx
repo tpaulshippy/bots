@@ -3,6 +3,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "expo-router";
 import { fetchBots, Bot } from "@/api/bots";
 import { ThemedButton } from "@/components/ThemedButton";
 import * as Haptics from "expo-haptics";
@@ -17,15 +18,19 @@ type Props = {
 }
 
 export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
+  const router = useRouter();
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetchBots().then((data) => {
       if (!data) {
+        setLoaded(true);
         return;
       }
       setBots(data.results);
+      setLoaded(true);
     });
     const loadSelectedBot = async () => {
       try {
@@ -84,8 +89,23 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
         <ThemedText style={styles.subtitle}>
           Who do you want to learn with today?
         </ThemedText>
-        <ThemedView style={styles.botContainer}>
-          {bots.map((bot) => (
+        {loaded && bots.length === 0 ? (
+          <ThemedView style={styles.emptyContainer}>
+            <ThemedText style={styles.emptyText}>No tutors yet</ThemedText>
+            <ThemedButton
+              testID="create-first-tutor"
+              darkColor="#0a7ea4"
+              style={styles.emptyCta}
+              onPress={() => router.push("/parent/botEditor")}
+            >
+              <ThemedText lightColor="#fff" darkColor="#fff" style={styles.emptyCtaText}>
+                Create a tutor
+              </ThemedText>
+            </ThemedButton>
+          </ThemedView>
+        ) : (
+          <ThemedView style={styles.botContainer}>
+            {bots.map((bot) => (
             <ThemedButton
               key={bot.bot_id}
               style={[
@@ -108,7 +128,8 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
               </ThemedText>
             </ThemedButton>
           ))}
-        </ThemedView>
+          </ThemedView>
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -141,6 +162,24 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
     width: "100%",
+  },
+  emptyContainer: {
+    alignItems: "center",
+    marginTop: 24,
+  },
+  emptyText: {
+    fontSize: 16,
+    opacity: 0.7,
+    marginBottom: 16,
+  },
+  emptyCta: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+  },
+  emptyCtaText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
   selectedBot: {
     borderColor: "#fff",
