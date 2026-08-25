@@ -60,9 +60,9 @@ def get_chat_response(request, chat_id):
         else:
             bot = None
         chat = Chat.objects.create(title=user_input, profile=profile, bot=bot, user=user)
+        # Server-owned layered prompt (preamble + bot customization + policy
+        # suffix); never store the un-layered client-built prompt here.
         system_prompt = chat.get_system_message()
-        if bot and bot.system_prompt:
-            system_prompt = bot.system_prompt
         chat.messages.create(text=system_prompt, role='system', order=0)
 
     else:
