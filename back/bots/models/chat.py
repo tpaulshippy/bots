@@ -9,6 +9,13 @@ from langchain_aws import ChatBedrock
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from bots.services.chat_agent import ChatAgentService
+from bots.services.safety import (
+    SafetyPolicy,
+    build_system_prompt,
+    evaluate_text,
+    record_safety_event,
+    refusal_for_verdict,
+)
 
 from .ai_model import AiModel
 from .bot import Bot
@@ -73,9 +80,37 @@ class Chat(models.Model):
         
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
-        
-        response_text, usage_metadata = ChatAgentService(self, self.ai.client).respond(message_list)
-        
+
+        policy = SafetyPolicy.for_bot(self.bot)
+
+        # Pre-model input filter: never call the model or tools on a blocked
+        # message; persist the fixed refusal and log a SafetyEvent instead.
+        latest_user_message = self.messages.filter(role='user').order_by('-id').first()
+        if latest_user_message is not None:
+            verdict = evaluate_text(latest_user_message.text, policy, source='INPUT')
+            if verdict.blocked:
+                refusal = refusal_for_verdict(verdict)
+                self.messages.create(
+                    text=refusal,
+                    role='assistant',
+                    order=self.messages.count(),
+                )
+                record_safety_event(
+                    stage='input',
+                    verdict=verdict,
+                    chat=self,
+                    snippet=latest_user_message.text,
+                )
+                return refusal
+
+        response_text, usage_metadata = ChatAgentService(self, self.ai.client, policy=policy).respond(message_list)
+
+        # Post-model output filter: replace flagged completions before save.
+        output_verdict = evaluate_text(response_text, policy, source='OUTPUT')
+        if output_verdict.blocked:
+            response_text = refusal_for_verdict(output_verdict)
+            record_safety_event(stage='output', verdict=output_verdict, chat=self, snippet=response_text)
+
         message_order = self.messages.count()
         
         input_tokens = usage_metadata.get('input_tokens', 0)
@@ -131,9 +166,16 @@ class Chat(models.Model):
         return message_list, contains_image
     
     def get_system_message(self):
-        if self.bot and self.bot.system_prompt:
-            return self.bot.system_prompt
-        return "You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."
+        """Server-owned layered prompt: preamble + parent customization + policy suffix.
+
+        The flags are restated here every turn so a custom (advanced-editor)
+        system_prompt cannot strip the safety layers, and the client is never
+        the control plane for policy text.
+        """
+        policy = SafetyPolicy.for_bot(self.bot)
+        bot_prompt = self.bot.system_prompt if self.bot else None
+        response_length = self.bot.response_length if self.bot else None
+        return build_system_prompt(bot_prompt, policy, response_length)
 
     def get_image_data(self, filename):
         try:

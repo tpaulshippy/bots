@@ -6,6 +6,7 @@ from .device import Device
 from .flashcard import Flashcard
 from .message import Message
 from .profile import Profile
+from .safety_event import SafetyEvent
 from .usage_limit_hit import UsageLimitHit
 from .user_account import RevenueCatWebhookEvent, UserAccount
 
@@ -19,6 +20,7 @@ __all__ = [
     'Message',
     'Profile',
     'RevenueCatWebhookEvent',
+    'SafetyEvent',
     'UsageLimitHit',
     'UserAccount',
 ]
