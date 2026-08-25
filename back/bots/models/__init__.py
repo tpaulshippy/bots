@@ -5,7 +5,7 @@ from .deck import Deck
 from .device import Device
 from .flashcard import Flashcard
 from .message import Message
-from .profile import Profile
+from .profile import Profile, ProfileSchedule
 from .usage_limit_hit import UsageLimitHit
 from .user_account import RevenueCatWebhookEvent, UserAccount
 
@@ -18,6 +18,7 @@ __all__ = [
     'Flashcard',
     'Message',
     'Profile',
+    'ProfileSchedule',
     'RevenueCatWebhookEvent',
     'UsageLimitHit',
     'UserAccount',
