@@ -6,6 +6,12 @@ from .chat import Chat
 
 
 class Message(models.Model):
+    INTENT_CHOICES = [
+        ('chat', 'Chat'),
+        ('homework', 'Homework'),
+        ('check_work', 'Check Work'),
+    ]
+
     chat = models.ForeignKey(Chat, related_name='messages', on_delete=models.CASCADE)
     message_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     text = models.TextField()
@@ -20,6 +26,8 @@ class Message(models.Model):
     # content is still visible in the chat history but must never re-enter
     # the model context on later turns (see Chat.get_input()).
     safety_blocked = models.BooleanField(default=False)
+    intent = models.CharField(max_length=16, choices=INTENT_CHOICES, default='chat', blank=True)
+    meta = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         user_str = getattr(self.chat.user, 'email', 'unknown')
