@@ -12,6 +12,7 @@ import { IconSymbol, IconSymbolName } from "@/components/ui/IconSymbol";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { useSessionMode } from "@/hooks/useSessionMode";
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -33,6 +34,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   const textColor = useThemeColor({}, "text");
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
+  // Teen-delegated devices only get Chats + Flashcards: no parent surfaces.
+  const { isTeenDelegated } = useSessionMode();
 
   const drawerWidth = 250;
 
@@ -49,7 +52,15 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   const menuItems: MenuItem[] = [
     { label: "Chats", icon: "bubble.left.fill", path: "/chatHistory" },
     { label: "Flashcards", icon: "square.grid.2x2.fill", path: "/flashcards" },
-    { label: "Settings", icon: "gear", path: "/parent/settings" },
+    ...(!isTeenDelegated
+      ? [
+          {
+            label: "Settings",
+            icon: "gear" as IconSymbolName,
+            path: "/parent/settings" as Extract<Href, string>,
+          },
+        ]
+      : []),
   ];
 
   const handleMenuPress = (path: MenuItem["path"]) => {
@@ -101,6 +112,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               return (
                 <Pressable
                   key={item.path}
+                  testID={`drawer-item-${item.label.toLowerCase()}`}
                   onPress={() => handleMenuPress(item.path)}
                   style={[
                     styles.menuItem,

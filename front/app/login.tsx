@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Platform, Button, View, Text, Alert, ActivityIndicator } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { getTokens, setTokens, TokenData } from "@/api/tokens";
+import { getTokens, getSessionMode, setTokens, TokenData } from "@/api/tokens";
 import { useRouter } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
@@ -12,6 +13,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { setCachedPin, getCachedPin } from "@/api/pinStorage";
 import { getAccount } from "@/api/account";
 import { UnauthorizedError } from "@/api/apiClient";
+import { fetchOwnProfile } from "@/api/profiles";
 import PinWrapper from "@/components/PinWrapper";
 
 
@@ -34,6 +36,12 @@ const LoginScreen = () => {
   useEffect(() => {
     const checkForCachedPin = async () => {
       try {
+        // Teen-delegated sessions skip the PIN gate entirely: there is no
+        // parent on this device and the backend never sends them the PIN.
+        const mode = await getSessionMode();
+        if (mode.isTeenDelegated) {
+          return;
+        }
         const pin = await getCachedPin();
         setCachedPinState(pin);
       } catch (error) {
@@ -52,6 +60,22 @@ const LoginScreen = () => {
 
   const handleSuccessfulLogin = async (skipPinCache = false) => {
     try {
+      // Teen-delegated sessions: never cache a parent PIN, never show a
+      // profile picker — lock straight to the claimed profile.
+      const tokens = await getTokens();
+      if (tokens?.isTeenDelegated) {
+        if (tokens.activeProfileId) {
+          const ownProfile =
+            (await fetchOwnProfile()) ?? { profile_id: tokens.activeProfileId };
+          await AsyncStorage.setItem(
+            "selectedProfile",
+            JSON.stringify(ownProfile)
+          );
+        }
+        router.replace("/");
+        return;
+      }
+
       // Get the account info which contains the PIN
       const account = await getAccount();
       if (account) {
