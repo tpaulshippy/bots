@@ -10,7 +10,6 @@ from rest_framework.response import Response
 
 from bots.models import Bot, Profile, ProfileSchedule
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------

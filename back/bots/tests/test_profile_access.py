@@ -1,25 +1,25 @@
 """Tests for roadmap-09: per-profile bot allowlists and schedule enforcement."""
+import secrets
 import uuid
-from unittest.mock import patch
 from datetime import datetime
+from unittest.mock import patch
 
 import pytest
+import pytz
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
-import pytz
 
 from bots.models import Bot, Chat, Profile, ProfileSchedule
-
 
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
 
 def _make_user(username="testuser"):
-    return User.objects.create_user(username=username, password="pass123")
+    return User.objects.create_user(username=username, password=secrets.token_urlsafe())
 
 
 def _auth_client(user):
@@ -362,7 +362,7 @@ class TestBotViewSetProfileFilter:
         user = _make_user()
         profile = _make_profile(user)
         bot_a = _make_bot(user, name="Allowed")
-        bot_b = _make_bot(user, name="Blocked")
+        _make_bot(user, name="Blocked")
         profile.access_mode = "allowlist"
         profile.allowed_bots.add(bot_a)
         profile.save()

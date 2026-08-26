@@ -89,7 +89,6 @@ class ProfileSchedule(models.Model):
             now_utc = timezone.now()
 
         import pytz
-        from django.utils import timezone as tz
 
         # Resolve profile's timezone from UserAccount
         try:
