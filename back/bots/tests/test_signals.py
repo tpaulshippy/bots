@@ -1,3 +1,4 @@
+import secrets
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -9,7 +10,7 @@ from bots.signals import PENELOPE_SYSTEM_PROMPT, provision_default_content
 
 class SignalsTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.user = User.objects.create_user(username='testuser', password=secrets.token_urlsafe())
         self.profile = Profile.objects.create(user=self.user, name='Maya')
         self.bot = Bot.objects.create(user=self.user, name='Penelope')
         self.device = Device.objects.create(user=self.user)
@@ -67,7 +68,7 @@ class NotificationFlagTests(TestCase):
     """The notify flags are independent (roadmap 04 fixes the mutual-exclusion bug)."""
 
     def setUp(self):
-        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.user = User.objects.create_user(username='testuser', password=secrets.token_urlsafe())
         self.profile = Profile.objects.create(user=self.user, name='Maya')
         self.bot = Bot.objects.create(user=self.user, name='Penelope')
 
@@ -147,7 +148,7 @@ class ProvisionDefaultContentTests(TestCase):
     fixtures = ['ai_models.json']
 
     def test_new_user_is_provisioned_with_default_content(self):
-        user = User.objects.create_user(username='newuser', password='12345', first_name='New')
+        user = User.objects.create_user(username='newuser', password=secrets.token_urlsafe(), first_name='New')
 
         profile = Profile.objects.get(user=user)
         self.assertEqual(profile.name, 'New')
@@ -169,7 +170,7 @@ class ProvisionDefaultContentTests(TestCase):
         self.assertEqual(messages[1].role, 'assistant')
 
     def test_provisioning_is_idempotent(self):
-        user = User.objects.create_user(username='newuser', password='12345')
+        user = User.objects.create_user(username='newuser', password=secrets.token_urlsafe())
 
         provision_default_content(user)
         user.save()
@@ -182,7 +183,7 @@ class ProvisionDefaultContentTests(TestCase):
     def test_provisioning_skips_bot_and_chat_without_default_model(self):
         AiModel.objects.all().delete()
 
-        user = User.objects.create_user(username='newuser', password='12345')
+        user = User.objects.create_user(username='newuser', password=secrets.token_urlsafe())
 
         self.assertEqual(Profile.objects.filter(user=user).count(), 1)
         self.assertFalse(Bot.objects.filter(user=user).exists())

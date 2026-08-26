@@ -1,3 +1,4 @@
+import secrets
 from datetime import timedelta
 
 import pytest
@@ -11,12 +12,12 @@ from bots.models import Bot, Chat, Device, Message, Profile
 
 @pytest.fixture
 def parent(db):
-    return User.objects.create_user(username='parent', email='parent@example.com', password='pass')
+    return User.objects.create_user(username='parent', email='parent@example.com', password=secrets.token_urlsafe())
 
 
 @pytest.fixture
 def other_parent(db):
-    return User.objects.create_user(username='other', email='other@example.com', password='pass')
+    return User.objects.create_user(username='other', email='other@example.com', password=secrets.token_urlsafe())
 
 
 def auth_client_for(user, teen=False):

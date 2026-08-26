@@ -1,3 +1,4 @@
+import secrets
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -11,7 +12,7 @@ from bots.models import Bot, Chat, Device, Profile
 
 @pytest.fixture
 def parent(db):
-    return User.objects.create_user(username='parent', email='p@example.com', password='pass')
+    return User.objects.create_user(username='parent', email='p@example.com', password=secrets.token_urlsafe())
 
 
 def _chat(user, profile, bot, when):
