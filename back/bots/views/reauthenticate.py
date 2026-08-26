@@ -3,7 +3,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from bots.services.parent_reauth import (
-    PIN_LOCKOUT_MINUTES,
     is_pin_locked,
     is_teen_delegated,
     issue_parent_session_token,
