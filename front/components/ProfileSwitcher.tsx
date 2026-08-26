@@ -49,8 +49,21 @@ export function ProfileSwitcher() {
   }, []);
 
   useEffect(() => {
-    refreshSelected();
-    isTeenDelegatedSession().then(setReadOnly).catch(() => setReadOnly(false));
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      void refreshSelected();
+      isTeenDelegatedSession()
+        .then((delegated) => {
+          if (active) setReadOnly(delegated);
+        })
+        .catch(() => {
+          if (active) setReadOnly(false);
+        });
+    });
+    return () => {
+      active = false;
+    };
   }, [refreshSelected, visible]);
 
   const openSwitcher = async () => {
@@ -128,7 +141,7 @@ export function ProfileSwitcher() {
             ) : (
               <>
                 <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>
-                  Who's chatting?
+                   Who&apos;s chatting?
                 </ThemedText>
                 <ProfileOptionsList
                   selectedId={selected.profile_id}
