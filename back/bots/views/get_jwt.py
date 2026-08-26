@@ -6,11 +6,10 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from bots.models import Profile
 from bots.tokens import SyftRefreshToken
-
-from rest_framework_simplejwt.tokens import RefreshToken
 
 env = environ.Env(
     DEBUG=(bool, False)

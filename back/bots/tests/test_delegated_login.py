@@ -11,7 +11,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from bots.models import AiModel, Bot, Chat, Deck, Profile
 from bots.tokens import SyftRefreshToken
 
-
 PARENT_EMAIL = 'parent@example.com'
 TEEN_EMAIL = 'maya@school.edu'
 
@@ -333,6 +332,7 @@ class TestWebRedirectForwardsClaims:
         assert response.status_code == 302
         assert "is_teen_delegated=false" in response['Location']
 
+    @patch.dict('os.environ', {'APP_DEEP_URL': 'botsforkids://login'})
     def test_jwt_template_receives_claim_context(self, parent, teen_profile):
         teen_user = User.objects.create_user(username='tempy', email=TEEN_EMAIL, password='pass')
         client = APIClient()
