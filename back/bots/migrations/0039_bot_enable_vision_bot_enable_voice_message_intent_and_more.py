@@ -16,11 +16,6 @@ class Migration(migrations.Migration):
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='bot',
-            name='enable_voice',
-            field=models.BooleanField(default=False),
-        ),
-        migrations.AddField(
             model_name='message',
             name='intent',
             field=models.CharField(blank=True, choices=[('chat', 'Chat'), ('homework', 'Homework'), ('check_work', 'Check Work')], default='chat', max_length=16),
@@ -29,10 +24,5 @@ class Migration(migrations.Migration):
             model_name='message',
             name='meta',
             field=models.JSONField(blank=True, default=dict),
-        ),
-        migrations.AddField(
-            model_name='profile',
-            name='voice_enabled',
-            field=models.BooleanField(default=False),
         ),
     ]

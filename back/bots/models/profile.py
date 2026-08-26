@@ -18,7 +18,6 @@ class Profile(models.Model):
     profile_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     name = models.CharField(max_length=255)
     oauth_email = models.EmailField(max_length=254, null=True, blank=True)
-    voice_enabled = models.BooleanField(default=False)
 
     # Per-profile bot access control (roadmap-09)
     access_mode = models.CharField(
