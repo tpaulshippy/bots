@@ -26,6 +26,7 @@ class Bot(models.Model):
     restrict_language = models.BooleanField(default=True)
     restrict_adult_topics = models.BooleanField(default=True)
     enable_web_search = models.BooleanField(default=False)
+    enable_voice = models.BooleanField(default=False)
     color = models.CharField(max_length=7, null=True, blank=True)
     icon = models.CharField(max_length=255, null=True, blank=True)
 

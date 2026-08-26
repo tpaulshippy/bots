@@ -31,6 +31,7 @@ from bots.views.get_jwt import get_jwt, start_web_login
 from bots.views.revenuecat_webhook import revenuecat_webhook
 from bots.views.support import support_view
 from bots.views.user_account_view import DeleteUserAccountView, user_account_view
+from bots.views.voice_chat import voice_chat
 from bots.viewsets.ai_model_viewset import AiModelViewSet
 from bots.viewsets.bot_viewset import BotViewSet
 from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
@@ -73,6 +74,7 @@ urlpatterns = [
         path('schema', SpectacularAPIView.as_view(), name='schema'),
         path('docs', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
         path('chats/<str:chat_id>', get_chat_response, name='get_chat_response'),
+        path('chats/<str:chat_id>/voice', voice_chat, name='voice_chat'),
         path('login', get_jwt, name='get_jwt'),
         path('login/web', start_web_login, name='start_web_login'),
         path('accounts/', include('allauth.urls')),

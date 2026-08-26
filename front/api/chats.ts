@@ -60,3 +60,18 @@ export const sendChat = async (
         method: 'POST',
         body: message,
     }, null);
+
+export interface VoiceChatResponse extends ChatResponse {
+    user_message?: string;
+    blocked?: boolean;
+    audio_base64?: string | null;
+}
+
+export const sendVoice = async (
+    chatId: string = "new",
+    formData: FormData,
+): Promise<VoiceChatResponse | null> =>
+    request<VoiceChatResponse | null>(`/chats/${chatId}/voice`, {
+        method: 'POST',
+        body: formData,
+    }, null);

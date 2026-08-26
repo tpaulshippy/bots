@@ -4,6 +4,7 @@ export interface Profile {
     id: number;
     profile_id: string;
     name: string;
+    voice_enabled?: boolean;
     deleted_at: Date | null;
 }
 

@@ -250,6 +250,27 @@ AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='test-bucket')
 
 TAVILY_API_KEY = env('TAVILY_API_KEY', default='')
 
+NOVA_SONIC_MODEL_ID = env('NOVA_SONIC_MODEL_ID', default='amazon.nova-sonic-v1:0')
+NOVA_SONIC_REGION = env('NOVA_SONIC_REGION', default='us-east-1')
+NOVA_SONIC_VOICE_ID = env('NOVA_SONIC_VOICE_ID', default='matthew')
+
+VOICE_STT_COST_PER_MINUTE = env('VOICE_STT_COST_PER_MINUTE', default=0.05)
+VOICE_TTS_COST_PER_MINUTE = env('VOICE_TTS_COST_PER_MINUTE', default=0.15)
+
+SAFETY_BLOCKED_PATTERNS = env.list(
+    'SAFETY_BLOCKED_PATTERNS',
+    default=[
+        r'\b(suicid\w*|self[- ]?harm)\b',
+        r'\b(kill (myself|himself|herself))\b',
+        r'\b(porn\w*)\b',
+        r'\b(nude\w*|naked)\b',
+        r'\b(sex\w*)\b',
+        r'\b(drug deal\w*|buy drugs|cocaine|heroin|methamphetamine)\b',
+        r'\b(bomb|explosive)s?\b',
+        r'\b(gun|rifle|pistol) (shop|dealer|sale)\b',
+    ],
+)
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Bots API',
     'DESCRIPTION': 'API for the Bots application',

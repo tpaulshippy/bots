@@ -4,6 +4,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Pressable,
+  Switch,
 } from "react-native";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
@@ -39,6 +40,7 @@ export default function ProfileEditor() {
           id: -1,
           profile_id: "",
           name: "",
+          voice_enabled: false,
           deleted_at: null,
         };
         if (!cancelled) setProfile(newProfile);
@@ -117,6 +119,18 @@ export default function ProfileEditor() {
               onChangeText={(text) => setProfile({ ...profile, name: text })}
             />
           </ThemedView>
+          {profile.id > 0 ? (
+            <ThemedView style={styles.formGroupCheckbox}>
+              <ThemedText style={styles.checkboxLabel}>Allow Voice</ThemedText>
+              <Switch
+                testID="allow-voice-switch"
+                value={profile.voice_enabled ?? false}
+                onValueChange={(value) =>
+                  setProfile({ ...profile, voice_enabled: value })
+                }
+              />
+            </ThemedView>
+          ) : null}
           {profile.id > 0 ? (
             <ThemedButton onPress={() => deleteProfile()} style={styles.button}>
               <IconSymbol

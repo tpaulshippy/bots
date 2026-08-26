@@ -29,4 +29,29 @@ jest.mock('@sentry/react-native', () => ({
   init: jest.fn(),
   captureMessage: jest.fn(),
   captureException: jest.fn(),
+}));
+
+// Mock expo-audio
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: jest.fn(() => ({ play: jest.fn(), pause: jest.fn(), release: jest.fn() })),
+  setAudioModeAsync: jest.fn(() => Promise.resolve()),
+  requestRecordingPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  requestRecordingPermissions: jest.fn(),
+  useAudioRecorder: jest.fn(() => ({
+    prepareToRecordAsync: jest.fn(() => Promise.resolve()),
+    record: jest.fn(),
+    stop: jest.fn(() => Promise.resolve()),
+    uri: 'file:///cache/recording.wav',
+  })),
+  useAudioPlayer: jest.fn(() => ({ play: jest.fn(), pause: jest.fn(), release: jest.fn() })),
+  AudioQuality: { MIN: 0, LOW: 32, MEDIUM: 64, HIGH: 96, MAX: 127 },
+  IOSOutputFormat: { LINEARPCM: 'lpcm', MPEG4AAC: 'aac ' },
+}));
+
+// Mock expo-file-system (legacy API used for TTS playback cache files)
+jest.mock('expo-file-system/legacy', () => ({
+  cacheDirectory: '/cache/',
+  EncodingType: { Base64: 'base64' },
+  writeAsStringAsync: jest.fn(() => Promise.resolve()),
+  deleteAsync: jest.fn(() => Promise.resolve()),
 })); 

@@ -1,4 +1,5 @@
 from datetime import datetime, time
+from decimal import Decimal
 
 import pytz
 from django.contrib.auth.models import User
@@ -7,12 +8,27 @@ from django.utils import timezone
 
 from .ai_model import AiModel
 from .chat import Chat
+from .message import Message
 
 MAX_COST_DAILY = {
     0: 0.01 / 31,
     1: 1.0 / 31,
     2: 5.0 / 31,
 }
+
+
+def voice_rates():
+    from django.conf import settings
+
+    return {
+        'stt': settings.VOICE_STT_COST_PER_MINUTE / 60,
+        'tts': settings.VOICE_TTS_COST_PER_MINUTE / 60,
+    }
+
+
+def voice_cost_estimate(kind, seconds):
+    """Estimated dollar cost for STT ('stt') or TTS ('tts') audio of the given duration."""
+    return Decimal(str(voice_rates()[kind])) * Decimal(str(seconds))
 
 class UserAccount(models.Model):
     user = models.OneToOneField(User, 
@@ -47,7 +63,7 @@ class UserAccount(models.Model):
             total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
             total_input_tokens += input_tokens
             total_output_tokens += output_tokens
-            
+
             if model.is_default:
                 # Add costs for chats with no specified bot (using the default model)
                 input_tokens = self.input_tokens_today(None)
@@ -56,7 +72,21 @@ class UserAccount(models.Model):
                 total_input_tokens += input_tokens
                 total_output_tokens += output_tokens
 
+        # Voice usage (STT/TTS) is metered alongside text/vision cost.
+        total += float(self.voice_cost_today())
+
         return total, total_input_tokens, total_output_tokens
+
+    def voice_cost_today(self):
+        user_timezone = pytz.timezone(self.timezone)
+        today = timezone.now().astimezone(user_timezone).date()
+        start_of_day = user_timezone.localize(datetime.combine(today, time.min))
+        start_of_day_utc = start_of_day.astimezone(pytz.UTC)
+        result = Message.objects.filter(
+            chat__user=self.user,
+            chat__modified_at__gte=start_of_day_utc,
+        ).aggregate(models.Sum('voice_cost'))['voice_cost__sum']
+        return result or Decimal(0)
     
     def input_tokens_today(self, model_id):
         chats = self.chats_today(model_id)

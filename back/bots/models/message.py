@@ -16,6 +16,8 @@ class Message(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     image_filename = models.CharField(max_length=255, blank=True, null=True)
+    meta = models.JSONField(default=dict, blank=True)
+    voice_cost = models.DecimalField(max_digits=10, decimal_places=6, default=0)
 
     def __str__(self):
         user_str = getattr(self.chat.user, 'email', 'unknown')

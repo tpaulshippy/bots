@@ -60,20 +60,20 @@ class Chat(models.Model):
         
         self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
 
-    def get_response(self, ai=None):
+    def get_response(self, ai=None, voice_mode=False):
         if self.bot and self.bot.ai_model:
             self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
             self.use_default_model(ai)
-        
-        message_list, contains_image = self.get_input()
+
+        message_list, contains_image = self.get_input(voice_mode=voice_mode)
 
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
-        
+
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
-        
+
         response_text, usage_metadata = ChatAgentService(self, self.ai.client).respond(message_list)
         
         message_order = self.messages.count()
@@ -109,7 +109,7 @@ class Chat(models.Model):
     def has_image(self, message: HumanMessage):
         return hasattr(message, 'image_filename') and message.image_filename
 
-    def get_input(self):
+    def get_input(self, voice_mode=False):
         contains_image = False
         messages = self.messages.exclude(role='system').order_by('-id')[:10]
         messages = sorted(messages, key=lambda message: message.id)
@@ -125,15 +125,20 @@ class Chat(models.Model):
                 if len(message_list) > 0: # need to start with a user message
                     message_list.append(AIMessage(content=message.text))
 
-        system_message = SystemMessage(content=self.get_system_message())
+        system_message = SystemMessage(content=self.get_system_message(voice_mode))
         message_list.insert(0, system_message)
 
         return message_list, contains_image
-    
-    def get_system_message(self):
+
+    def get_system_message(self, voice_mode=False):
+        system_prompt = ''
         if self.bot and self.bot.system_prompt:
-            return self.bot.system_prompt
-        return "You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."
+            system_prompt = self.bot.system_prompt
+        else:
+            system_prompt = "You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."
+        if voice_mode:
+            system_prompt += "\nKeep spoken answers under 80 words unless asked for more."
+        return system_prompt
 
     def get_image_data(self, filename):
         try:
