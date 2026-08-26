@@ -84,8 +84,13 @@ export default function ActivityScreen() {
   }, []);
 
   useEffect(() => {
-    void load(false);
-    // Reload whenever a filter changes.
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) void load(false);
+    });
+    return () => {
+      active = false;
+    };
   }, [load]);
 
   const toggleProfileFilter = (profileId: string) => {

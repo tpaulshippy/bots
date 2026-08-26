@@ -19,17 +19,10 @@
  *   API_BASE_URL  base of the Django API (default http://localhost:8000/api)
  *   Start the backend with: python manage.py runserver
  *
- * Auth mirrors chatImageUpload.e2e.js: JWT pair is fetched from
- * ${API_BASE}/token/ and injected via AsyncStorage manifest; the PIN is
- * typed through the real PinWrapper UI (seeded server-side), exercising the
- * roadmap-02 gate on the roadmap-04 inbox.
+ * Auth tokens are fetched at runtime and passed through the e2e deep link;
+ * no credentials or bearer tokens are committed to this test.
  */
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-
 const API_BASE = process.env.API_BASE_URL || 'http://localhost:8000/api';
-const BUNDLE_ID = 'com.tpaulshippy.botsforkids';
 const PARENT_PIN = '1234';
 
 async function getTestTokens() {
@@ -62,45 +55,18 @@ async function getTestProfileAndBot(accessToken) {
   };
 }
 
-function injectAsyncStorage(udid, tokens, profile, bot) {
-  const containerPath = execSync(
-    `xcrun simctl get_app_container ${udid} ${BUNDLE_ID} data`,
-    { encoding: 'utf8' }
-  ).trim();
-
-  const asDir = path.join(
-    containerPath,
-    'Library',
-    'Application Support',
-    BUNDLE_ID,
-    'RCTAsyncLocalStorage_V1'
-  );
-
-  if (!fs.existsSync(asDir)) {
-    fs.mkdirSync(asDir, { recursive: true });
-  }
-
-  const tokensWrapper = {
-    [API_BASE]: tokens,
-  };
-
-  const manifest = {
-    tokens: JSON.stringify(tokensWrapper),
-    selectedProfile: profile,
-    selectedBot: bot,
-    e2eTestMode: 'true',
-  };
-
-  const manifestPath = path.join(asDir, 'manifest.json');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
-
-  console.log(`Injected AsyncStorage data at: ${manifestPath}`);
-}
-
 describe('Parent Conversation Review E2E Flow (Real API)', () => {
   beforeAll(async () => {
-    // Deep-link launch: tokens injected via app's e2e-test route
-    await device.launchApp({ newInstance: true, url: 'botsforkids://e2e-test?access=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzg3Njk3MTU2LCJpYXQiOjE3ODc2OTM1NTYsImp0aSI6IjM3MTFmOTJkN2NiNDQwZGY5OTJjNDIwZDYyMDQyN2Q2IiwidXNlcl9pZCI6IjEifQ.HaFwt_igbxt9hNTF2rhxl6bGH5fHdY-VJr_KW7yA3LA&refresh=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc5MDM3MTk1NiwiaWF0IjoxNzg3NjkzNTU2LCJqdGkiOiI1MjYyYzQzYmViZWU0MjdmYmRiZmFlMGI0NzJjMWVkMCIsInVzZXJfaWQiOiIxIn0.AD3ELM8OxO0Rwp05Muuu5lNRwVihzTx81RhU-MP3Exo&profile=%7B%22id%22%3A2%2C%22profile_id%22%3A%22658f7417-ea90-4d58-a958-8b40ec6a2dcf%22%2C%22name%22%3A%22Maya%22%2C%22deleted_at%22%3Anull%2C%22created_at%22%3A%222026-08-25T11%3A34%3A16.908361-07%3A00%22%2C%22modified_at%22%3A%222026-08-25T11%3A34%3A16.908370-07%3A00%22%7D&bot=' });
+    const tokens = await getTestTokens();
+    const { profile, bot } = await getTestProfileAndBot(tokens.access);
+    const url = [
+      `botsforkids://e2e-test?access=${encodeURIComponent(tokens.access)}`,
+      `refresh=${encodeURIComponent(tokens.refresh)}`,
+      `profile=${encodeURIComponent(profile)}`,
+      `bot=${encodeURIComponent(bot)}`,
+    ].join('&');
+
+    await device.launchApp({ newInstance: true, url });
     await device.disableSynchronization();
     await waitFor(element(by.id('chat-input'))).toBeVisible().withTimeout(30000);
   }, 120000);
