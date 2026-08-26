@@ -6,6 +6,7 @@ export interface Profile {
     profile_id: string;
     name: string;
     oauth_email?: string | null;
+    voice_enabled?: boolean;
     deleted_at: Date | null;
 }
 

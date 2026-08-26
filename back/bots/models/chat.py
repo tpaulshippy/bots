@@ -150,7 +150,7 @@ class Chat(models.Model):
         self.output_tokens += output_tokens
         self.save()
 
-    def get_response(self, ai=None, user_message=None):
+    def get_response(self, ai=None, user_message=None, voice_mode=False):
         # Input safety is evaluated BEFORE any model setup or quota check so
         # a misconfigured model or an over-limit account cannot swallow the
         # fixed crisis refusal or leave the unsafe message unmarked.
@@ -167,7 +167,7 @@ class Chat(models.Model):
         # Context is built AFTER the blocked check so any safety-blocked
         # message (including this turn's) is excluded from model history.
         # This work is done outside any DB transaction.
-        message_list, contains_image = self.get_input()
+        message_list, contains_image = self.get_input(voice_mode=voice_mode)
         self.resolve_ai_client(ai=ai, contains_image=contains_image)
 
         service = ChatAgentService(self, self.ai.client, policy=policy)
@@ -269,7 +269,7 @@ class Chat(models.Model):
     def has_image(self, message: HumanMessage):
         return hasattr(message, 'image_filename') and message.image_filename
 
-    def get_input(self):
+    def get_input(self, voice_mode=False):
         contains_image = False
         # Safety-blocked messages are excluded: denied content never becomes
         # later model context even after the turn ends.
@@ -291,12 +291,12 @@ class Chat(models.Model):
                 if len(message_list) > 0: # need to start with a user message
                     message_list.append(AIMessage(content=message.text))
 
-        system_message = SystemMessage(content=self.get_system_message())
+        system_message = SystemMessage(content=self.get_system_message(voice_mode))
         message_list.insert(0, system_message)
 
         return message_list, contains_image
     
-    def get_system_message(self):
+    def get_system_message(self, voice_mode=False):
         """Server-owned layered prompt: preamble + parent customization + policy suffix.
 
         The flags are restated here every turn so a custom (advanced-editor)
@@ -306,7 +306,10 @@ class Chat(models.Model):
         policy = SafetyPolicy.for_bot(self.bot)
         bot_prompt = self.bot.system_prompt if self.bot else None
         response_length = self.bot.response_length if self.bot else None
-        return build_system_prompt(bot_prompt, policy, response_length)
+        prompt = build_system_prompt(bot_prompt, policy, response_length)
+        if voice_mode:
+            prompt += "\nKeep spoken answers under 80 words unless asked for more."
+        return prompt
 
     def get_image_data(self, filename):
         try:

@@ -66,6 +66,12 @@
             "deploymentTarget": "16.4"
           }
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "The app uses your microphone so you can talk with your bots."
+        }
       ]
     ],
     "experiments": {
