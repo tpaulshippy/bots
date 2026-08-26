@@ -269,7 +269,7 @@ class TestStudyQueue:
 @pytest.mark.django_db
 class TestDeckAnnotations:
     def test_deck_list_includes_due_count_and_last_studied(self, auth_client, test_profile, deck):
-        studied = make_card(
+        make_card(
             deck, order=0,
             due_at=timezone.now() + timedelta(days=2),
             last_reviewed_at=timezone.now() - timedelta(hours=2),

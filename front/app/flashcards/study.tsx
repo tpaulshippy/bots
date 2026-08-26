@@ -11,7 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import * as Haptics from "expo-haptics";
 import * as Progress from "react-native-progress";
 import * as Sentry from "@sentry/react-native";
@@ -48,8 +48,9 @@ export default function Study() {
   const [againCount, setAgainCount] = useState(0);
   const [reviewedDues, setReviewedDues] = useState<string[]>([]);
   const [ratingInProgress, setRatingInProgress] = useState(false);
+  const [now] = useState(() => Date.now());
 
-  const flipAnim = useRef(new Animated.Value(0)).current;
+  const [flipAnim] = useState(() => new Animated.Value(0));
 
   const cardBackground = useThemeColor({}, "cardBackground");
   const studyCardBack = useThemeColor({}, "studyCardBack");
@@ -170,7 +171,7 @@ export default function Study() {
       .filter((t) => !Number.isNaN(t));
     if (times.length === 0) return null;
     const earliest = new Date(Math.min(...times));
-    const diffMs = earliest.getTime() - Date.now();
+    const diffMs = earliest.getTime() - now;
     if (diffMs <= 0) return "now";
     const minutes = Math.round(diffMs / 60000);
     if (minutes < 60) return `${minutes} min`;
