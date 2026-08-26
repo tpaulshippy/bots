@@ -7,7 +7,7 @@ from .flashcard import Flashcard
 from .flashcard_review import FlashcardReview
 from .memory import ChatSummary, MemoryEvent, ProfileMemory
 from .message import Message
-from .profile import Profile
+from .profile import Profile, ProfileSchedule
 from .safety_event import SafetyEvent
 from .usage_limit_hit import UsageLimitHit
 from .user_account import RevenueCatWebhookEvent, UserAccount
@@ -25,6 +25,7 @@ __all__ = [
     'Message',
     'Profile',
     'ProfileMemory',
+    'ProfileSchedule',
     'RevenueCatWebhookEvent',
     'SafetyEvent',
     'UsageLimitHit',

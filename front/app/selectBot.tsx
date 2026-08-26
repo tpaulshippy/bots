@@ -11,6 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { botColor, botIcon } from "@/constants/botAppearance";
 import * as Sentry from "@sentry/react-native";
+import { getSelectedProfileId } from "@/hooks/useSelectedProfile";
 
 type Props = {
   setBotSelected?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -22,16 +23,33 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
   const [bots, setBots] = useState<Bot[]>([]);
   const [selectedBot, setSelectedBot] = useState<Bot | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [empty, setEmpty] = useState(false);
 
   useEffect(() => {
-    fetchBots().then((data) => {
-      if (!data) {
+    // roadmap-09: pass profileId so server filters by allowlist
+    (async () => {
+      try {
+        const profileId = await getSelectedProfileId();
+        let url = "/bots.json";
+        if (profileId) {
+          url += `?profileId=${profileId}`;
+        }
+        // Reuse the existing fetchBots helper by calling it directly
+        // (it ignores params, so we fetch via the raw request instead)
+        const { request } = await import("@/api/request");
+        type PaginatedBots = { results: Bot[]; count: number };
+        const data = await request<PaginatedBots | null>(url, {}, null);
+        if (data) {
+          setBots(data.results);
+          setEmpty(data.results.length === 0);
+        }
+      } catch (error) {
+        Sentry.captureException(error);
+      } finally {
         setLoaded(true);
-        return;
       }
-      setBots(data.results);
-      setLoaded(true);
-    });
+    })();
+
     const loadSelectedBot = async () => {
       try {
         if (skipAutoSelect) {
@@ -49,7 +67,7 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
     };
 
     loadSelectedBot();
-  }, [setBotSelected]);
+  }, [setBotSelected, skipAutoSelect]);
 
   useEffect(() => {
     if (setBotSelected && selectedBot && !skipAutoSelect) {
@@ -90,24 +108,31 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
           Who do you want to learn with today?
         </ThemedText>
         {loaded && bots.length === 0 ? (
-          <ThemedView style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyText}>No tutors yet</ThemedText>
-            <ThemedButton
-              testID="create-first-tutor"
-              darkColor="#0a7ea4"
-              style={styles.emptyCta}
-              onPress={() => router.push("/parent/botEditor")}
-            >
-              <ThemedText lightColor="#fff" darkColor="#fff" style={styles.emptyCtaText}>
-                Create a tutor
-              </ThemedText>
-            </ThemedButton>
-          </ThemedView>
+          empty ? (
+            <ThemedText style={styles.emptyText}>
+              Ask a parent to assign a tutor.
+            </ThemedText>
+          ) : (
+            <ThemedView style={styles.emptyContainer}>
+              <ThemedText style={styles.emptyText}>No tutors yet</ThemedText>
+              <ThemedButton
+                testID="create-first-tutor"
+                darkColor="#0a7ea4"
+                style={styles.emptyCta}
+                onPress={() => router.push("/parent/botEditor")}
+              >
+                <ThemedText lightColor="#fff" darkColor="#fff" style={styles.emptyCtaText}>
+                  Create a tutor
+                </ThemedText>
+              </ThemedButton>
+            </ThemedView>
+          )
         ) : (
           <ThemedView style={styles.botContainer}>
             {bots.map((bot) => (
             <ThemedButton
               key={bot.bot_id}
+              testID={`bot-card-${bot.bot_id}`}
               style={[
                 styles.bot,
                 { backgroundColor: botColor(bot) },
@@ -156,6 +181,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: 4,
     marginBottom: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    opacity: 0.7,
+    marginTop: 20,
   },
   botContainer: {
     flexDirection: "row",

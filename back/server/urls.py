@@ -28,6 +28,7 @@ from rest_framework_simplejwt.views import (
 from bots.views.auto_login import auto_apple_login, auto_google_login
 from bots.views.get_chat_response import get_chat_response
 from bots.views.get_jwt import get_jwt, start_web_login
+from bots.views.profile_access import profile_access_view, profile_schedule_view
 from bots.views.reauthenticate import reauthenticate
 from bots.views.revenuecat_webhook import revenuecat_webhook
 from bots.views.stream_chat_response import stream_chat_response
@@ -96,6 +97,9 @@ urlpatterns = [
         path('user/delete', DeleteUserAccountView.as_view(), name='delete_user_account'),
         path('accounts/google/auto-login/', auto_google_login, name='google-auto-login'),
         path('accounts/apple/auto-login/', auto_apple_login, name='apple-auto-login'),
-        path('revenuecat/webhook', revenuecat_webhook, name='revenuecat-webhook')
+        path('revenuecat/webhook', revenuecat_webhook, name='revenuecat-webhook'),
+        # roadmap-09: per-profile access & schedule
+        path('profiles/<str:profile_id>/access/', profile_access_view, name='profile-access'),
+        path('profiles/<str:profile_id>/schedule/', profile_schedule_view, name='profile-schedule'),
     ])),
 ]
