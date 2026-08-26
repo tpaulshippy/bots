@@ -36,6 +36,7 @@ module.exports = defineConfig([
         waitFor: 'readonly',
         element: 'readonly',
         by: 'readonly',
+        expect: 'readonly',
       }
     }
   }

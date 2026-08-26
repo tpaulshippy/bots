@@ -6,8 +6,8 @@ from rest_framework.views import APIView
 from bots.models.user_account import MAX_COST_DAILY
 from bots.permissions import ParentReauthRequired
 from bots.services.parent_reauth import (
-    hash_pin,
     has_valid_parent_reauth,
+    hash_pin,
     is_teen_delegated,
     reset_pin_failures,
     validate_pin,
