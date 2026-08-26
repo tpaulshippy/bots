@@ -1,13 +1,14 @@
 import base64
 import io
 import wave
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.urls import reverse
+from langchain_core.messages import AIMessage
 
 from bots.models.bot import Bot
 from bots.models.chat import Chat
@@ -68,6 +69,19 @@ def mock_sonic():
         yield service
 
 
+@pytest.fixture
+def mock_agent(monkeypatch):
+    client = MagicMock()
+    client.bind_tools.return_value.invoke.return_value = AIMessage(
+        content="Photosynthesis is how plants make food from sunlight.",
+        usage_metadata={"input_tokens": 1, "output_tokens": 2, "total_tokens": 3},
+    )
+    monkeypatch.setattr(
+        "bots.models.chat.ChatBedrock", lambda *args, **kwargs: client
+    )
+    return client
+
+
 def post_audio(client, chat, profile=None, bot=None, filename='speech.wav'):
     audio = SimpleUploadedFile(filename, make_wav_bytes(), content_type='audio/wav')
     data = {'audio': audio}
@@ -96,7 +110,7 @@ def describe_voice_chat():
         response = post_audio(auth_client, chat)
         assert response.status_code == 403
 
-    def it_transcribes_and_creates_user_message(auth_client, voice_setup, mock_sonic):
+    def it_transcribes_and_creates_user_message(auth_client, voice_setup, mock_sonic, mock_agent):
         _, _, chat = voice_setup
         response = post_audio(auth_client, chat)
         assert response.status_code == 200
@@ -107,7 +121,7 @@ def describe_voice_chat():
         assert user_message.text == 'What is photosynthesis?'
         assert user_message.meta['voice_input'] is True
 
-    def it_returns_audio_from_tts(auth_client, voice_setup, mock_sonic):
+    def it_returns_audio_from_tts(auth_client, voice_setup, mock_sonic, mock_agent):
         _, _, chat = voice_setup
         response = post_audio(auth_client, chat)
         payload = response.json()
@@ -137,7 +151,7 @@ def describe_voice_chat():
         blocked_message = chat.messages.filter(role='assistant').first()
         assert blocked_message is None
 
-    def it_records_voice_cost_for_metering(auth_client, voice_setup, mock_sonic):
+    def it_records_voice_cost_for_metering(auth_client, voice_setup, mock_sonic, mock_agent):
         _, _, chat = voice_setup
         post_audio(auth_client, chat)
         total = sum(message.voice_cost for message in chat.messages.all())
@@ -156,7 +170,7 @@ def describe_voice_chat():
         response = auth_client.post(url, {'audio': upload}, format='multipart')
         assert response.status_code == 400
 
-    def it_creates_new_chat_via_new_endpoint(auth_client, user, voice_setup, mock_sonic):
+    def it_creates_new_chat_via_new_endpoint(auth_client, user, voice_setup, mock_sonic, mock_agent):
         profile, bot, _ = voice_setup
         chats_before = Chat.objects.filter(user=user).count()
         response = post_audio(auth_client, 'new', profile=profile, bot=bot)
