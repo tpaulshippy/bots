@@ -93,6 +93,7 @@ describe('Devices API', () => {
         notification_token: 'test-token-123',
         notify_on_new_chat: false,
         notify_on_new_message: true,
+        notify_digest_only: false,
         deleted_at: null,
       });
 

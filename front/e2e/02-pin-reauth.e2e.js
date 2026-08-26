@@ -105,7 +105,7 @@ async function launchToChat() {
 }
 
 async function openSettingsKeypad() {
-  await element(by.id('header-back-button')).tap();
+  await element(by.id('back-button')).tap();
   await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(5000);
   await element(by.id('drawer-menu-button')).tap();
   await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(5000);
