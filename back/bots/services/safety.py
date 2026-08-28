@@ -12,17 +12,18 @@ chat completion path applies:
    tool filters all live here so the mobile client is never the control plane.
 
 Fail-open vs fail-closed: the denylists below are local code, so they cannot
-"go down". The optional Bedrock Guardrails check (``guardrail_check``) is an
-external classifier; per design principle 4 it FAILS CLOSED — if the vendor
-errors while the guardrail is configured we block, because the global floor
-must not depend on a best-effort remote call succeeding.
+"go down". The optional OpenAI moderation check (``guardrail_check``) is an
+external classifier (free, omni-moderation-latest); per design principle 4 it
+FAILS CLOSED — if the vendor errors while the guardrail is configured we
+block, because the global floor must not depend on a best-effort remote call
+succeeding.
 """
 
 import logging
 import re
 from dataclasses import dataclass
 
-import boto3
+import requests
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -339,32 +340,38 @@ def record_safety_event(*, stage: str, verdict: SafetyVerdict, chat=None, snippe
 
 
 # ---------------------------------------------------------------------------
-# Optional Bedrock Guardrails check (feature-flagged via settings)
+# Optional OpenAI moderation check (feature-flagged via settings, free)
 # ---------------------------------------------------------------------------
 
 def guardrail_check(text: str, source: str = "INPUT") -> SafetyVerdict | None:
-    """Optional cheap classifier pass when BEDROCK_GUARDRAIL_ID is configured.
+    """Optional cheap classifier pass when OPENAI_API_KEY is configured.
 
-    Returns None when the guardrail is not configured (denylist-only mode).
-    Fails CLOSED on vendor errors: with a guardrail configured, a failed check
+    Uses the free OpenAI moderation endpoint (omni-moderation-latest).
+    Returns None when not configured (denylist-only mode).
+    Fails CLOSED on vendor errors: with a key configured, a failed check
     blocks the content because the global floor must not silently disappear
-    during an outage. Tests inject fakes via patching; pytest never calls AWS.
+    during an outage. Tests inject fakes via patching; pytest never calls OpenAI.
     """
-    guardrail_id = getattr(settings, "BEDROCK_GUARDRAIL_ID", "")
-    if not guardrail_id or not text:
+    api_key = getattr(settings, "OPENAI_API_KEY", "")
+    if not api_key or not text:
         return None
 
     try:
-        client = boto3.client("bedrock-runtime")
-        response = client.apply_guardrail(
-            guardrailIdentifier=guardrail_id,
-            guardrailVersion=getattr(settings, "BEDROCK_GUARDRAIL_VERSION", "DRAFT"),
-            source=source,
-            content=[{"text": {"text": text}}],
+        resp = requests.post(
+            "https://api.openai.com/v1/moderations",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={"model": "omni-moderation-latest", "input": text},
+            timeout=5,
         )
-        if response.get("action") == "GUARDRAIL_INTERVENED":
+        resp.raise_for_status()
+        data = resp.json()
+        results = data.get("results", [])
+        if results and results[0].get("flagged"):
             return SafetyVerdict(True, REASON_GLOBAL_FLOOR)
         return None
     except Exception:
-        logger.exception("Bedrock guardrail check failed; failing closed")
+        logger.exception("OpenAI moderation check failed; failing closed")
         return SafetyVerdict(True, REASON_GLOBAL_FLOOR)

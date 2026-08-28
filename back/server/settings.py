@@ -250,6 +250,8 @@ AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='test-bucket')
 
 TAVILY_API_KEY = env('TAVILY_API_KEY', default='')
 
+OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Bots API',
     'DESCRIPTION': 'API for the Bots application',

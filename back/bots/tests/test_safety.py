@@ -322,34 +322,37 @@ def describe_denylist_evaluation():
 
 
 @pytest.mark.django_db
-def describe_bedrock_guardrail_flag():
+def describe_openai_guardrail_flag():
     def not_used_when_unconfigured(settings):
-        settings.BEDROCK_GUARDRAIL_ID = ""
-        with patch("bots.services.safety.boto3") as boto_mock:
+        settings.OPENAI_API_KEY = ""
+        with patch("bots.services.safety.requests") as req_mock:
             assert safety.guardrail_check("anything") is None
-            boto_mock.client.assert_not_called()
+            req_mock.post.assert_not_called()
 
     def flags_interventions_as_global_floor(settings):
-        settings.BEDROCK_GUARDRAIL_ID = "guardrail-1"
-        with patch("bots.services.safety.boto3") as boto_mock:
-            boto_mock.client.return_value.apply_guardrail.return_value = {
-                "action": "GUARDRAIL_INTERVENED"
-            }
+        settings.OPENAI_API_KEY = "sk-test"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"results": [{"flagged": True}]}
+        mock_resp.raise_for_status = MagicMock()
+        with patch("bots.services.safety.requests") as req_mock:
+            req_mock.post.return_value = mock_resp
             verdict = safety.guardrail_check("something bad")
         assert verdict is not None
         assert verdict.blocked is True
         assert verdict.reason_code == REASON_GLOBAL_FLOOR
+        req_mock.post.assert_called_once()
+        assert "moderations" in req_mock.post.call_args[0][0]
 
     def fails_closed_on_vendor_errors(settings):
-        settings.BEDROCK_GUARDRAIL_ID = "guardrail-1"
-        with patch("bots.services.safety.boto3") as boto_mock:
-            boto_mock.client.return_value.apply_guardrail.side_effect = RuntimeError("outage")
+        settings.OPENAI_API_KEY = "sk-test"
+        with patch("bots.services.safety.requests") as req_mock:
+            req_mock.post.side_effect = RuntimeError("outage")
             verdict = safety.guardrail_check("totally fine text")
         assert verdict is not None
         assert verdict.blocked is True
 
     def input_filter_consults_guardrail_after_denylist(settings):
-        settings.BEDROCK_GUARDRAIL_ID = "guardrail-1"
+        settings.OPENAI_API_KEY = "sk-test"
         blocked = SafetyVerdict(blocked=True, reason_code=REASON_GLOBAL_FLOOR)
         with patch("bots.services.safety.guardrail_check", return_value=blocked):
             verdict = evaluate_text("perfectly innocent homework question", SafetyPolicy(True, True, False))
