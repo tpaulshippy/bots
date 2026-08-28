@@ -10,7 +10,8 @@ interface MarkdownRendererProps {
 
 /**
  * Extract the hostname to show in the outbound-link confirm sheet, e.g.
- * "https://docs.example.com/page" -> "example.com". Falls back to the raw
+ * "https://docs.example.com/page" -> "docs.example.com" (and
+ * "https://www.example.com/page" -> "example.com"). Falls back to the raw
  * URL when it cannot be parsed.
  */
 export function linkDomain(url: string): string {

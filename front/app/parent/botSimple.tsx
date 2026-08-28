@@ -123,6 +123,11 @@ export default function SimpleBotEditor({
           }
         />
       </ThemedView>
+      <ThemedView style={styles.formGroup}>
+        <ThemedText testID="baseline-safety-note" style={styles.safetyNote}>
+          Syft always applies baseline safety. These toggles add extra limits.
+        </ThemedText>
+      </ThemedView>
       <ThemedView
         style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
       >
@@ -136,11 +141,6 @@ export default function SimpleBotEditor({
             setBotProperty({ restrict_language: value })
           }
         />
-      </ThemedView>
-      <ThemedView style={styles.formGroup}>
-        <ThemedText testID="baseline-safety-note" style={styles.safetyNote}>
-          Syft always applies baseline safety. These toggles add extra limits.
-        </ThemedText>
       </ThemedView>
       <ThemedView
         style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
