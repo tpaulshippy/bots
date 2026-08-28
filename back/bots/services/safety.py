@@ -163,8 +163,7 @@ class SafetyVerdict:
             _contains_term(term, "myself") or
             _contains_term(term, "my life") or
             "suicid" in term or
-            "self harm" in term or
-            "self-harm" in term
+            "self harm" in term.replace("-", " ")
             for term in self.matched_terms
         )
 

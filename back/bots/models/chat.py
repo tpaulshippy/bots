@@ -108,8 +108,9 @@ class Chat(models.Model):
         # Post-model output filter: replace flagged completions before save.
         output_verdict = evaluate_text(response_text, policy, source='OUTPUT')
         if output_verdict.blocked:
+            flagged_output = response_text
             response_text = refusal_for_verdict(output_verdict)
-            record_safety_event(stage='output', verdict=output_verdict, chat=self, snippet=response_text)
+            record_safety_event(stage='output', verdict=output_verdict, chat=self, snippet=flagged_output)
 
         message_order = self.messages.count()
         

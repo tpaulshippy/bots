@@ -322,7 +322,7 @@ def describe_denylist_evaluation():
 
 
 @pytest.mark.django_db
-def describe_bedrock_guardrail_flag(settings):
+def describe_bedrock_guardrail_flag():
     def not_used_when_unconfigured(settings):
         settings.BEDROCK_GUARDRAIL_ID = ""
         with patch("bots.services.safety.boto3") as boto_mock:

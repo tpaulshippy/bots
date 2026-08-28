@@ -1,8 +1,6 @@
 import { getTokens, setTokens, TokenData } from "./tokens";
-import { getParentSession } from "./pinStorage";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
-const PARENT_REAUTH_HEADER = "X-Parent-Reauth";
 
 export interface ApiResponse<T> {
     data: T | null;
@@ -68,26 +66,14 @@ export const apiClient = async <T>(
     while (attempts < maxRetries) {
         const tokens = await getTokens();
         const isFormData = options.body instanceof FormData;
-        const request: RequestInit & { headers: Record<string, string> } = {
+        const request = {
             ...options,
             headers: {
                 ...(!isFormData && { 'Content-Type': 'application/json' }),
                 'Authorization': `Bearer ${tokens?.access}`,
+                ...options.headers,
             },
         };
-        // Unsafe calls require a recent parent reauthentication (roadmap 02).
-        // The in-memory session is absent/expired when the parent last
-        // reauthenticated more than the server TTL ago.
-        const method = (request.method || 'GET').toUpperCase();
-        if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
-            const session = getParentSession();
-            if (session) {
-                request.headers[PARENT_REAUTH_HEADER] = session.token;
-            }
-        }
-        if (options.headers) {
-            Object.assign(request.headers, options.headers);
-        }
         const url = `${BASE_URL}${endpoint}`;
 
         // Use XMLHttpRequest for FormData to bypass any fetch polyfill

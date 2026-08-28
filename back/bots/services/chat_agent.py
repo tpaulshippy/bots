@@ -147,8 +147,17 @@ class ChatAgentService:
             """
             logger.info(f"🃏 CREATE_FLASHCARD_DECK_TOOL_INVOKED: name='{name}'")
 
-            # Tool filter: reject unsafe cards before anything is stored so
-            # the model can apologize instead of persisting junk.
+            # Tool filter: reject unsafe deck name/description or cards before
+            # anything is stored so the model can apologize instead of persisting junk.
+            deck_verdict = evaluate_text(f"{name} {description}", self.policy, source="OUTPUT")
+            if deck_verdict.blocked:
+                record_safety_event(
+                    stage="tool_flashcard",
+                    verdict=deck_verdict,
+                    chat=self.chat,
+                    snippet=f"{name} {description}",
+                )
+                return FLASHCARD_BLOCKED
             for card in flashcards:
                 card_verdict = evaluate_text(
                     f"{card.get('front', '')} {card.get('back', '')}",
@@ -204,7 +213,16 @@ class ChatAgentService:
             """
             logger.info(f"🃏 CREATE_FLASHCARD_TOOL_INVOKED: deck_name='{deck_name}'")
 
-            # Tool filter: reject unsafe front/back before saving.
+            # Tool filter: reject unsafe deck name or front/back before saving.
+            deck_name_verdict = evaluate_text(deck_name, self.policy, source="OUTPUT")
+            if deck_name_verdict.blocked:
+                record_safety_event(
+                    stage="tool_flashcard",
+                    verdict=deck_name_verdict,
+                    chat=self.chat,
+                    snippet=deck_name,
+                )
+                return FLASHCARD_BLOCKED
             card_verdict = evaluate_text(f"{front} {back}", self.policy, source="OUTPUT")
             if card_verdict.blocked:
                 record_safety_event(
@@ -275,14 +293,15 @@ class ChatAgentService:
                 for r in results.get('results', [])[:3]:
                     title = r.get('title', 'No title')
                     content = r.get('content', '')[:200]
-                    result_verdict = evaluate_web_result(f"{title} {content}", self.policy)
+                    title_and_snippet = f"{title} {content}"
+                    result_verdict = evaluate_web_result(title_and_snippet, self.policy)
                     if result_verdict.blocked:
                         # Post-results filter: drop unsafe results.
                         record_safety_event(
                             stage="web_result",
                             verdict=result_verdict,
                             chat=self.chat,
-                            snippet=title,
+                            snippet=title_and_snippet,
                         )
                         continue
                     formatted_results.append(f"- {title}: {content}")
