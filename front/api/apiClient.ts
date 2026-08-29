@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import { getTokens, setTokens, TokenData } from "./tokens";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -61,6 +62,10 @@ export const apiClient = async <T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
+    if (BASE_URL === undefined) {
+        Sentry.captureMessage("BASE_URL is undefined");
+        throw new Error("EXPO_PUBLIC_API_BASE_URL is not configured");
+    }
     const maxRetries = 2;
     let attempts = 0;
     while (attempts < maxRetries) {
@@ -123,6 +128,10 @@ export const apiClient = async <T>(
 };
 
 export const refreshWithRefreshToken = async (tokens: TokenData | null) => {
+    if (BASE_URL === undefined) {
+        Sentry.captureMessage("BASE_URL is undefined");
+        throw new Error("EXPO_PUBLIC_API_BASE_URL is not configured");
+    }
     if (!tokens || !tokens.refresh) {
         throw new UnauthorizedError();
     }
