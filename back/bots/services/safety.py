@@ -93,6 +93,15 @@ GLOBAL_FLOOR_TERMS = (
     "build a bomb",
     "bomb making",
     "pipe bomb",
+    # Violent instructions: the global floor must hold even in denylist-only
+    # mode (OPENAI_API_KEY unset), so common local phrasings are covered
+    # here instead of relying solely on the remote classifier.
+    "how to kill",
+    "how to murder",
+    "how to stab",
+    "kill someone",
+    "murder someone",
+    "stab someone",
 )
 
 ADULT_TOPIC_TERMS = (

@@ -68,55 +68,51 @@ class Chat(models.Model):
         self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
 
     def get_response(self, ai=None, user_message=None):
-        # Serialize turns for the same chat: concurrent POSTs must not
-        # interleave message creation with safety evaluation, or an unsafe
-        # message could slip into the context of another in-flight turn.
-        # Backends without row locks (SQLite) still serialize on their
-        # database-level write lock.
-        with transaction.atomic():
-            Chat.objects.select_for_update().get(pk=self.pk)
-            return self._get_response_locked(ai, user_message)
+        # Input safety is evaluated BEFORE any model setup or quota check so
+        # a misconfigured model or an over-limit account cannot swallow the
+        # fixed crisis refusal or leave the unsafe message unmarked.
+        policy = SafetyPolicy.for_bot(self.bot)
+        subject = user_message or self.messages.filter(role='user').order_by('-id').first()
+        if subject is not None:
+            verdict = evaluate_text(subject.text, policy, source='INPUT')
+            if verdict.blocked:
+                # Short transaction only for the state change; external calls
+                # (moderation, Bedrock, Tavily) are never made while a row
+                # lock is held, so the DB connection is not held for tens of
+                # seconds. The message is marked so later turns exclude it via
+                # get_input().
+                with transaction.atomic():
+                    Chat.objects.select_for_update().get(pk=self.pk)
+                    if not subject.safety_blocked:
+                        subject.safety_blocked = True
+                        subject.save(update_fields=['safety_blocked', 'modified_at'])
+                    refusal = refusal_for_verdict(verdict)
+                    self.messages.create(
+                        text=refusal,
+                        role='assistant',
+                        order=self.messages.count(),
+                    )
+                    record_safety_event(
+                        stage='input',
+                        verdict=verdict,
+                        chat=self,
+                        snippet=subject.text,
+                    )
+                return refusal
 
-    def _get_response_locked(self, ai=None, user_message=None):
+        if self.user.user_account.over_limit():
+            return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
+
+        # AI client is instantiated only after input has passed the global
+        # floor, so a missing default model never blocks the crisis path.
         if self.bot and self.bot.ai_model:
             self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
             self.use_default_model(ai)
 
-        if self.user.user_account.over_limit():
-            return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
-
-        policy = SafetyPolicy.for_bot(self.bot)
-
-        # Pre-model input filter: never call the model or tools on a blocked
-        # message; persist the fixed refusal and log a SafetyEvent instead.
-        # The message created by this request is evaluated directly so a
-        # concurrent request cannot race the "latest" lookup past it.
-        subject = user_message or self.messages.filter(role='user').order_by('-id').first()
-        if subject is not None:
-            verdict = evaluate_text(subject.text, policy, source='INPUT')
-            if verdict.blocked:
-                # Mark the message so it is excluded from model context on
-                # later turns (get_input) and denied content never re-enters
-                # model history.
-                subject.safety_blocked = True
-                subject.save(update_fields=['safety_blocked', 'modified_at'])
-                refusal = refusal_for_verdict(verdict)
-                self.messages.create(
-                    text=refusal,
-                    role='assistant',
-                    order=self.messages.count(),
-                )
-                record_safety_event(
-                    stage='input',
-                    verdict=verdict,
-                    chat=self,
-                    snippet=subject.text,
-                )
-                return refusal
-
         # Context is built AFTER the blocked check so any safety-blocked
         # message (including this turn's) is excluded from model history.
+        # This work is done outside any DB transaction.
         message_list, contains_image = self.get_input()
 
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
@@ -126,26 +122,30 @@ class Chat(models.Model):
 
         # Post-model output filter: replace flagged completions before save.
         output_verdict = evaluate_text(response_text, policy, source='OUTPUT')
+        flagged_output = None
         if output_verdict.blocked:
             flagged_output = response_text
             response_text = refusal_for_verdict(output_verdict)
-            record_safety_event(stage='output', verdict=output_verdict, chat=self, snippet=flagged_output)
 
-        message_order = self.messages.count()
-        
-        input_tokens = usage_metadata.get('input_tokens', 0)
-        output_tokens = usage_metadata.get('output_tokens', 0)
-        
-        self.messages.create(
-            text=response_text, 
-            role='assistant', 
-            order=message_order,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens
-        )
-        self.input_tokens += input_tokens
-        self.output_tokens += output_tokens
-        self.save()
+        # Short transaction only for the final persist; the row lock is held
+        # briefly to claim the message order, not across the model call.
+        with transaction.atomic():
+            Chat.objects.select_for_update().get(pk=self.pk)
+            message_order = self.messages.count()
+            input_tokens = usage_metadata.get('input_tokens', 0)
+            output_tokens = usage_metadata.get('output_tokens', 0)
+            self.messages.create(
+                text=response_text,
+                role='assistant',
+                order=message_order,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            )
+            self.input_tokens += input_tokens
+            self.output_tokens += output_tokens
+            self.save()
+            if output_verdict.blocked:
+                record_safety_event(stage='output', verdict=output_verdict, chat=self, snippet=flagged_output)
         return response_text
 
     def setup_human_message_content(self, message):

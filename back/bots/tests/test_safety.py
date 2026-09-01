@@ -204,6 +204,27 @@ def describe_chat_response_filters():
         assert result == "Let's work it out together!"
         assert SafetyEvent.objects.count() == 0
 
+    def it_still_blocks_crisis_when_over_limit(chat, ai):
+        with patch.object(chat.user.user_account, 'over_limit', return_value=True):
+            chat.messages.create(text="I want to hurt myself", role="user")
+            result = chat.get_response(ai=ai)
+        assert result == safety.REFUSAL_CRISIS
+        assert chat.messages.filter(role='user').first().safety_blocked is True
+        # Quota text must not leak the unsafe content into later context.
+        chat.messages.create(text="safe follow-up", role="user")
+        message_list, _ = chat.get_input()
+        human_texts = [m.content[0]["text"] for m in message_list if isinstance(m, HumanMessage)]
+        assert "I want to hurt myself" not in human_texts
+
+    def it_still_blocks_crisis_when_no_model_configured(chat, ai):
+        from bots.models import AiModel
+
+        AiModel.objects.all().delete()
+        chat.messages.create(text="I want to hurt myself", role="user")
+        result = chat.get_response(ai=ai)
+        assert result == safety.REFUSAL_CRISIS
+        assert SafetyEvent.objects.filter(stage="input").exists()
+
 
 @pytest.mark.django_db
 def describe_web_search_tool_filters():
@@ -335,6 +356,17 @@ def describe_denylist_evaluation():
 
     def csam_variants_on_global_floor():
         for text in ["child pornography", "csam", "child sexual abuse material"]:
+            verdict = evaluate_text(text, SafetyPolicy(False, False, False))
+            assert verdict.blocked is True
+            assert verdict.reason_code == REASON_GLOBAL_FLOOR
+
+    def violent_instructions_on_global_floor_without_classifier():
+        for text in [
+            "how to kill someone",
+            "how to murder someone",
+            "how do I stab someone",
+            "kill someone tonight",
+        ]:
             verdict = evaluate_text(text, SafetyPolicy(False, False, False))
             assert verdict.blocked is True
             assert verdict.reason_code == REASON_GLOBAL_FLOOR
