@@ -403,6 +403,26 @@ def describe_openai_guardrail_flag():
         assert verdict.is_crisis is True
         assert refusal_for_verdict(verdict) == safety.REFUSAL_CRISIS
 
+    def remote_self_harm_intent_gets_crisis_and_violence_graphic_is_floor(settings):
+        settings.OPENAI_API_KEY = "sk-test"
+        for category, expect_crisis in [
+            ("self-harm/intent", True),
+            ("violence/graphic", False),
+        ]:
+            mock_resp = MagicMock()
+            mock_resp.json.return_value = {
+                "results": [moderation_response(categories={category: True})]
+            }
+            mock_resp.raise_for_status = MagicMock()
+            with patch("bots.services.safety.requests") as req_mock:
+                req_mock.post.return_value = mock_resp
+                verdict = safety.guardrail_check("text", SafetyPolicy(False, False, False))
+            assert verdict.blocked is True
+            assert verdict.reason_code == REASON_GLOBAL_FLOOR
+            assert verdict.is_crisis is expect_crisis
+            if expect_crisis:
+                assert refusal_for_verdict(verdict) == safety.REFUSAL_CRISIS
+
     def policy_categories_respect_parent_flags(settings):
         settings.OPENAI_API_KEY = "sk-test"
         mock_resp = MagicMock()
@@ -434,6 +454,33 @@ def describe_openai_guardrail_flag():
             verdict = safety.guardrail_check("text", SafetyPolicy(True, False, False))
         assert verdict.blocked is True
         assert verdict.reason_code == REASON_LANGUAGE
+
+    def unknown_categories_fail_closed_to_floor(settings):
+        settings.OPENAI_API_KEY = "sk-test"
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        # A future provider category (not in any mapping) must not slip
+        # through as "allowed" just because the policy flags are off.
+        mock_resp.json.return_value = {
+            "results": [moderation_response(categories={"new-future-category": True})]
+        }
+        with patch("bots.services.safety.requests") as req_mock:
+            req_mock.post.return_value = mock_resp
+            verdict = safety.guardrail_check("text", SafetyPolicy(False, False, False))
+        assert verdict.blocked is True
+        assert verdict.reason_code == REASON_GLOBAL_FLOOR
+        # Unknown still wins even alongside a policy-controlled hit whose
+        # flag is off: fail-closed takes precedence.
+        mock_resp.json.return_value = {
+            "results": [
+                moderation_response(categories={"sexual": True, "new-future-category": True})
+            ]
+        }
+        with patch("bots.services.safety.requests") as req_mock:
+            req_mock.post.return_value = mock_resp
+            verdict = safety.guardrail_check("text", SafetyPolicy(False, False, False))
+        assert verdict.blocked is True
+        assert verdict.reason_code == REASON_GLOBAL_FLOOR
 
     def fails_closed_on_malformed_payloads(settings):
         settings.OPENAI_API_KEY = "sk-test"
@@ -470,6 +517,16 @@ def describe_redaction():
         snippet = "text the classifier flagged but did not attribute"
         redacted = safety.redact_snippet(
             snippet, SafetyVerdict(blocked=True, reason_code=REASON_GLOBAL_FLOOR)
+        )
+        assert redacted == "[redacted]"
+
+    def fully_redacts_when_terms_never_occur_in_snippet():
+        # Remote verdicts use category labels as matched_terms; if none of
+        # those labels appears literally in the snippet every substitution is
+        # a no-op and the unsafe text would otherwise be stored verbatim.
+        redacted = safety.redact_snippet(
+            "innocuous text that was flagged by the classifier",
+            SafetyVerdict(blocked=True, reason_code=REASON_GLOBAL_FLOOR, matched_terms=("sexual",)),
         )
         assert redacted == "[redacted]"
 

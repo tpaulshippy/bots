@@ -4,7 +4,7 @@ import uuid
 
 import boto3
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from langchain_aws import ChatBedrock
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -67,17 +67,22 @@ class Chat(models.Model):
         
         self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
 
-    def get_response(self, ai=None):
+    def get_response(self, ai=None, user_message=None):
+        # Serialize turns for the same chat: concurrent POSTs must not
+        # interleave message creation with safety evaluation, or an unsafe
+        # message could slip into the context of another in-flight turn.
+        # Backends without row locks (SQLite) still serialize on their
+        # database-level write lock.
+        with transaction.atomic():
+            Chat.objects.select_for_update().get(pk=self.pk)
+            return self._get_response_locked(ai, user_message)
+
+    def _get_response_locked(self, ai=None, user_message=None):
         if self.bot and self.bot.ai_model:
             self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
             self.use_default_model(ai)
-        
-        message_list, contains_image = self.get_input()
 
-        if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
-            self.use_default_model(ai)
-        
         if self.user.user_account.over_limit():
             return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
 
@@ -85,15 +90,17 @@ class Chat(models.Model):
 
         # Pre-model input filter: never call the model or tools on a blocked
         # message; persist the fixed refusal and log a SafetyEvent instead.
-        latest_user_message = self.messages.filter(role='user').order_by('-id').first()
-        if latest_user_message is not None:
-            verdict = evaluate_text(latest_user_message.text, policy, source='INPUT')
+        # The message created by this request is evaluated directly so a
+        # concurrent request cannot race the "latest" lookup past it.
+        subject = user_message or self.messages.filter(role='user').order_by('-id').first()
+        if subject is not None:
+            verdict = evaluate_text(subject.text, policy, source='INPUT')
             if verdict.blocked:
                 # Mark the message so it is excluded from model context on
                 # later turns (get_input) and denied content never re-enters
                 # model history.
-                latest_user_message.safety_blocked = True
-                latest_user_message.save(update_fields=['safety_blocked', 'modified_at'])
+                subject.safety_blocked = True
+                subject.save(update_fields=['safety_blocked', 'modified_at'])
                 refusal = refusal_for_verdict(verdict)
                 self.messages.create(
                     text=refusal,
@@ -104,9 +111,16 @@ class Chat(models.Model):
                     stage='input',
                     verdict=verdict,
                     chat=self,
-                    snippet=latest_user_message.text,
+                    snippet=subject.text,
                 )
                 return refusal
+
+        # Context is built AFTER the blocked check so any safety-blocked
+        # message (including this turn's) is excluded from model history.
+        message_list, contains_image = self.get_input()
+
+        if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
+            self.use_default_model(ai)
 
         response_text, usage_metadata = ChatAgentService(self, self.ai.client, policy=policy).respond(message_list)
 

@@ -317,18 +317,22 @@ def redact_snippet(snippet: str, verdict: SafetyVerdict | None = None, limit: in
 
     A blocked verdict without matched_terms (e.g. flagged only by the remote
     moderation classifier, which returns no term-level detail) has no safe
-    term-level redaction information, so the snippet is fully redacted.
+    term-level redaction information, so the snippet is fully redacted. The
+    same applies when the alleged terms never occur literally in the snippet
+    (remote verdicts use category labels as terms): if no substitution
+    actually replaced anything, the snippet is fully redacted.
     """
     redacted = normalize_text(snippet)
     if verdict:
-        if verdict.matched_terms:
-            for term in verdict.matched_terms:
-                redacted = re.sub(
-                    r"(?<!\w)" + re.escape(term) + r"(?!\w)",
-                    "[redacted]",
-                    redacted,
-                )
-        else:
+        replaced = False
+        for term in verdict.matched_terms:
+            redacted, count = re.subn(
+                r"(?<!\w)" + re.escape(term) + r"(?!\w)",
+                "[redacted]",
+                redacted,
+            )
+            replaced = replaced or count > 0
+        if not replaced:
             redacted = "[redacted]"
     return redacted[:limit]
 
@@ -362,8 +366,10 @@ def record_safety_event(*, stage: str, verdict: SafetyVerdict, chat=None, snippe
 GUARDRAIL_FLOOR_CATEGORIES = {
     "sexual/minors": ("sexual/minors",),
     "self-harm": ("self-harm",),
+    "self-harm/intent": ("self-harm",),
     "self-harm/instructions": ("self-harm",),
     "violence": ("violence",),
+    "violence/graphic": ("violence/graphic",),
     "violence/instructions": ("violence/instructions",),
     "illicit/violent": ("illicit/violent",),
 }
@@ -384,10 +390,12 @@ GUARDRAIL_POLICY_CATEGORIES = {
 def verdict_from_moderation(result: dict, policy: SafetyPolicy) -> SafetyVerdict | None:
     """Map a flagged moderation result to a verdict honoring the policy.
 
-    Floor categories always block; policy categories block only when the
-    matching flag is on. When every flag is policy-controlled and switched
-    off, the parent's choice wins. A flag with no category detail cannot be
-    attributed to any policy, so it fails closed to the floor.
+    Floor categories always block. Known policy categories block only when
+    the matching flag is on, so configuring the guardrail cannot override a
+    parent's explicit choice to relax a restriction — and ``None`` is only
+    ever returned when EVERY hit is such a known, policy-controlled category.
+    Anything else (a newly added provider category, a mapping omission, or a
+    flag with no category detail) fails closed to the global floor.
     """
     categories = [
         category
@@ -397,15 +405,26 @@ def verdict_from_moderation(result: dict, policy: SafetyPolicy) -> SafetyVerdict
     for category in categories:
         if category in GUARDRAIL_FLOOR_CATEGORIES:
             return SafetyVerdict(True, REASON_GLOBAL_FLOOR, GUARDRAIL_FLOOR_CATEGORIES[category])
+    unknown = [
+        category
+        for category in categories
+        if category not in GUARDRAIL_POLICY_CATEGORIES
+    ]
+    if unknown:
+        # Unknown categories cannot be attributed to any parent policy:
+        # fail closed to the floor.
+        return SafetyVerdict(True, REASON_GLOBAL_FLOOR, (unknown[0],))
     if policy.restrict_adult_topics:
         for category in categories:
-            if GUARDRAIL_POLICY_CATEGORIES.get(category) == REASON_ADULT_TOPIC:
+            if GUARDRAIL_POLICY_CATEGORIES[category] == REASON_ADULT_TOPIC:
                 return SafetyVerdict(True, REASON_ADULT_TOPIC, (category,))
     if policy.restrict_language:
         for category in categories:
-            if GUARDRAIL_POLICY_CATEGORIES.get(category) == REASON_LANGUAGE:
+            if GUARDRAIL_POLICY_CATEGORIES[category] == REASON_LANGUAGE:
                 return SafetyVerdict(True, REASON_LANGUAGE, (category,))
     if categories:
+        # Every hit is a known policy-controlled category and the matching
+        # parent flag is off: the parent's choice wins.
         return None
     return SafetyVerdict(True, REASON_GLOBAL_FLOOR)
 

@@ -3,6 +3,7 @@ import uuid
 
 import boto3
 from django.conf import settings
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from PIL import Image
@@ -81,10 +82,14 @@ def get_chat_response(request, chat_id):
         filename = compress_and_upload_image(file)
 
 
-    # Save the message with the uploaded image filename
-    chat.messages.create(text=user_input, role='user', order=chat.messages.count(), image_filename=filename)
-
-    response = chat.get_response()
+    # Save the message and get the response atomically so concurrent turns
+    # on the same chat serialize on the row lock held by get_response()
+    # (see bots.models.chat.Chat.get_response).
+    with transaction.atomic():
+        user_message = chat.messages.create(
+            text=user_input, role='user', order=chat.messages.count(), image_filename=filename
+        )
+        response = chat.get_response(user_message=user_message)
     return Response({'response': response, 'chat_id': chat.chat_id})
 
 def allowed_file(filename):
