@@ -89,6 +89,11 @@ class Chat(models.Model):
         if latest_user_message is not None:
             verdict = evaluate_text(latest_user_message.text, policy, source='INPUT')
             if verdict.blocked:
+                # Mark the message so it is excluded from model context on
+                # later turns (get_input) and denied content never re-enters
+                # model history.
+                latest_user_message.safety_blocked = True
+                latest_user_message.save(update_fields=['safety_blocked', 'modified_at'])
                 refusal = refusal_for_verdict(verdict)
                 self.messages.create(
                     text=refusal,
@@ -147,7 +152,13 @@ class Chat(models.Model):
 
     def get_input(self):
         contains_image = False
-        messages = self.messages.exclude(role='system').order_by('-id')[:10]
+        # Safety-blocked messages are excluded: denied content never becomes
+        # later model context even after the turn ends.
+        messages = (
+            self.messages.exclude(role='system')
+            .exclude(safety_blocked=True)
+            .order_by('-id')[:10]
+        )
         messages = sorted(messages, key=lambda message: message.id)
         message_list = []
 

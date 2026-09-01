@@ -22,6 +22,20 @@ export function linkDomain(url: string): string {
   }
 }
 
+/**
+ * Assistant links may only be standard web pages. `Linking.openURL` dispatches
+ * any registered scheme (tel:, sms:, custom app deep links), so non-HTTP(S)
+ * URLs supplied by assistant Markdown are never offered an Open action.
+ */
+export function isSafeHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function createMarkdownStyles(
   textColor: string,
   codeBg: string,
@@ -150,6 +164,14 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
 
   const handleLinkPress = (url: string) => {
     // Never open assistant links directly: confirm the destination first.
+    if (!isSafeHttpUrl(url)) {
+      alert(
+        'Blocked link',
+        'Only standard web links can be opened here.',
+        [{ text: 'OK', style: 'cancel', onPress: () => {} }],
+      );
+      return;
+    }
     alert(`Open ${linkDomain(url)}?`, url, [
       { text: 'Cancel', style: 'cancel', onPress: () => {} },
       {

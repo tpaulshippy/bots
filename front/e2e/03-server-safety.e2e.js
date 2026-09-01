@@ -9,7 +9,7 @@
  * - A normal homework message still gets a real assistant reply.
  *
  * SEEDING (run before this suite, from back/):
- *   python manage.py migrate && python manage.py seed_e2e_server_safety
+ *   E2E_SEEDING=1 python manage.py migrate && E2E_SEEDING=1 python manage.py seed_e2e_server_safety
  * which creates idempotently:
  *   - user  'e2e-test-user' / password 'testpassword123'
  *   - profile 'E2E Kid'
@@ -47,7 +47,7 @@ async function getTestTokens() {
   if (!response.ok) {
     throw new Error(
       `Backend not available at ${API_BASE} (status ${response.status}). ` +
-      `Start it and run: python manage.py seed_e2e_server_safety`
+      `Start it and run: E2E_SEEDING=1 python manage.py seed_e2e_server_safety`
     );
   }
   const data = await response.json();
@@ -65,8 +65,7 @@ async function getTestProfileAndSafetyBot(accessToken) {
   ]);
   const profiles = await profileRes.json();
   const bots = await botRes.json();
-  const safetyBot =
-    bots.results.find((b) => b.name === SAFETY_BOT_NAME) || bots.results[0];
+  const safetyBot = bots.results.find((b) => b.name === SAFETY_BOT_NAME);
   if (!safetyBot) {
     throw new Error(`No seeded "${SAFETY_BOT_NAME}" bot found. Re-run seed_e2e_server_safety.`);
   }

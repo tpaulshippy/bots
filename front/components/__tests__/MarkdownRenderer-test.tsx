@@ -32,7 +32,7 @@ jest.mock('react-native-markdown-display', () => {
   };
 });
 
-import MarkdownRenderer, { linkDomain } from '@/components/MarkdownRenderer';
+import MarkdownRenderer, { isSafeHttpUrl, linkDomain } from '@/components/MarkdownRenderer';
 
 describe('MarkdownRenderer link handling', () => {
   beforeEach(() => {
@@ -75,8 +75,41 @@ describe('MarkdownRenderer link handling', () => {
     expect(Linking.openURL).not.toHaveBeenCalled();
   });
 
+  it.each(['tel:+15551234567', 'sms:+15551234567', 'javascript:alert(1)', 'file:///etc/passwd'])(
+    'blocks non-HTTP(S) scheme %s without an Open action',
+    (url) => {
+      render(<MarkdownRenderer content={`[x](${url})`} />);
+      capturedOnLinkPress!(url);
+
+      expect(mockAlert).toHaveBeenCalledTimes(1);
+      const [title, , options] = mockAlert.mock.calls[0];
+      expect(title).toBe('Blocked link');
+      expect(options.find((option: { text: string }) => option.text === 'Open')).toBeUndefined();
+      expect(Linking.openURL).not.toHaveBeenCalled();
+    }
+  );
+
+  it('still confirms plain web links', () => {
+    render(<MarkdownRenderer content={'[x](http://example.com/page)'} />);
+    capturedOnLinkPress!('http://example.com/page');
+
+    expect(mockAlert.mock.calls[0][0]).toBe('Open example.com?');
+    expect(
+      mockAlert.mock.calls[0][2].find((option: { text: string }) => option.text === 'Open')
+    ).toBeDefined();
+  });
+
   it('falls back to the raw url for unparseable links', () => {
     expect(linkDomain('not-a-url')).toBe('not-a-url');
     expect(linkDomain('https://www.example.com/x')).toBe('example.com');
+  });
+
+  it('only offers Open for valid HTTP(S) urls', () => {
+    expect(isSafeHttpUrl('https://example.com/page')).toBe(true);
+    expect(isSafeHttpUrl('http://example.com/page')).toBe(true);
+    expect(isSafeHttpUrl('tel:+15551234567')).toBe(false);
+    expect(isSafeHttpUrl('javascript:alert(1)')).toBe(false);
+    expect(isSafeHttpUrl('custom-scheme://deep/link')).toBe(false);
+    expect(isSafeHttpUrl('not-a-url')).toBe(false);
   });
 });

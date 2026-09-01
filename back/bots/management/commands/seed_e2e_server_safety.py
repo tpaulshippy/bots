@@ -9,11 +9,18 @@ Creates the shared Detox login ('e2e-test-user' / 'testpassword123') plus:
 - "Open Flags Bot": restrict flags OFF — proves the global floor still
   applies (crisis terms still blocked).
 
-Usage: python manage.py seed_e2e_server_safety
+The command resets a password that is published in this repository, so it
+refuses to run unless an E2E environment is explicitly enabled. Accidentally
+running it against staging or production would otherwise leave a trivially
+accessible user.
+
+Usage: E2E_SEEDING=1 python manage.py seed_e2e_server_safety
 """
 
+import os
+
 from django.contrib.auth.models import User
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from bots.models import Bot, Profile
 
@@ -28,6 +35,11 @@ class Command(BaseCommand):
     help = 'Seed idempotent e2e data for the server-side safety demos.'
 
     def handle(self, *args, **options):
+        if os.environ.get('E2E_SEEDING') != '1':
+            raise CommandError(
+                'Refusing to create a known-password e2e user outside an E2E '
+                'environment. Re-run with E2E_SEEDING=1 to enable e2e seeding.'
+            )
         user, created = User.objects.get_or_create(username=E2E_USERNAME)
         if created or not user.check_password(E2E_PASSWORD):
             user.set_password(E2E_PASSWORD)

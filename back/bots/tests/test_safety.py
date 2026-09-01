@@ -1,7 +1,9 @@
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.auth.models import User
+from django.core.management.base import CommandError
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from bots.models.bot import Bot
@@ -170,6 +172,21 @@ def describe_chat_response_filters():
         assert event.stage == "output"
         assert event.reason_code == REASON_ADULT_TOPIC
 
+    def it_marks_blocked_input_and_excludes_it_from_later_model_context(chat, ai):
+        chat.messages.create(text="I want to hurt myself", role="user")
+        result = chat.get_response(ai=ai)
+        assert result == safety.REFUSAL_CRISIS
+        blocked = chat.messages.filter(role="user").first()
+        assert blocked.safety_blocked is True
+
+        chat.messages.create(text="Can we try a math problem?", role="user")
+        message_list, _ = chat.get_input()
+        human_texts = [
+            m.content[0]["text"] for m in message_list if isinstance(m, HumanMessage)
+        ]
+        assert "I want to hurt myself" not in human_texts
+        assert "Can we try a math problem?" in human_texts
+
     def it_applies_global_floor_even_when_all_flags_off(chat, ai):
         chat.bot.restrict_language = False
         chat.bot.restrict_adult_topics = False
@@ -316,38 +333,126 @@ def describe_denylist_evaluation():
         assert verdict.is_crisis is True
         assert refusal_for_verdict(verdict) == safety.REFUSAL_CRISIS
 
+    def csam_variants_on_global_floor():
+        for text in ["child pornography", "csam", "child sexual abuse material"]:
+            verdict = evaluate_text(text, SafetyPolicy(False, False, False))
+            assert verdict.blocked is True
+            assert verdict.reason_code == REASON_GLOBAL_FLOOR
+
     def avoids_false_positives_on_word_boundaries():
         assert evaluate_text("Study your Essex history lesson", SafetyPolicy(True, True, False)).blocked is False
         assert evaluate_text("Let's discuss the plot of Sussex", SafetyPolicy(True, True, False)).blocked is False
 
 
+def moderation_response(flagged=True, categories=None):
+    """Well-formed omni-moderation-latest payload."""
+    return {"flagged": flagged, "categories": categories or {}}
+
+
 @pytest.mark.django_db
 def describe_openai_guardrail_flag():
+    POLICY = SafetyPolicy(True, True, False)
+
     def not_used_when_unconfigured(settings):
         settings.OPENAI_API_KEY = ""
         with patch("bots.services.safety.requests") as req_mock:
-            assert safety.guardrail_check("anything") is None
+            assert safety.guardrail_check("anything", POLICY) is None
             req_mock.post.assert_not_called()
 
     def flags_interventions_as_global_floor(settings):
         settings.OPENAI_API_KEY = "sk-test"
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {"results": [{"flagged": True}]}
+        mock_resp.json.return_value = {"results": [moderation_response()]}
         mock_resp.raise_for_status = MagicMock()
         with patch("bots.services.safety.requests") as req_mock:
             req_mock.post.return_value = mock_resp
-            verdict = safety.guardrail_check("something bad")
+            verdict = safety.guardrail_check("something bad", POLICY)
         assert verdict is not None
         assert verdict.blocked is True
         assert verdict.reason_code == REASON_GLOBAL_FLOOR
         req_mock.post.assert_called_once()
         assert "moderations" in req_mock.post.call_args[0][0]
 
+    def minor_sexual_content_is_always_the_floor(settings):
+        settings.OPENAI_API_KEY = "sk-test"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "results": [
+                moderation_response(categories={"sexual/minors": True})
+            ]
+        }
+        mock_resp.raise_for_status = MagicMock()
+        with patch("bots.services.safety.requests") as req_mock:
+            req_mock.post.return_value = mock_resp
+            # Even with every parent flag off, CSAM stays blocked.
+            verdict = safety.guardrail_check("text", SafetyPolicy(False, False, False))
+        assert verdict.blocked is True
+        assert verdict.reason_code == REASON_GLOBAL_FLOOR
+
+    def remote_self_harm_gets_the_crisis_response(settings):
+        settings.OPENAI_API_KEY = "sk-test"
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "results": [moderation_response(categories={"self-harm": True})]
+        }
+        mock_resp.raise_for_status = MagicMock()
+        with patch("bots.services.safety.requests") as req_mock:
+            req_mock.post.return_value = mock_resp
+            verdict = safety.guardrail_check("text", SafetyPolicy(False, False, False))
+        assert verdict.blocked is True
+        assert verdict.is_crisis is True
+        assert refusal_for_verdict(verdict) == safety.REFUSAL_CRISIS
+
+    def policy_categories_respect_parent_flags(settings):
+        settings.OPENAI_API_KEY = "sk-test"
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {
+            "results": [moderation_response(categories={"sexual": True})]
+        }
+        with patch("bots.services.safety.requests") as req_mock:
+            req_mock.post.return_value = mock_resp
+            # Flag off -> the parent's choice wins, nothing blocked.
+            assert safety.guardrail_check("text", SafetyPolicy(False, False, False)) is None
+            # Flag on -> adult-topic block.
+            verdict = safety.guardrail_check("text", SafetyPolicy(False, True, False))
+        assert verdict.blocked is True
+        assert verdict.reason_code == REASON_ADULT_TOPIC
+
+    def harassment_maps_to_language_flag(settings):
+        settings.OPENAI_API_KEY = "sk-test"
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {
+            "results": [
+                moderation_response(categories={"harassment": True, "hate": True})
+            ]
+        }
+        with patch("bots.services.safety.requests") as req_mock:
+            req_mock.post.return_value = mock_resp
+            assert safety.guardrail_check("text", SafetyPolicy(False, False, False)) is None
+            verdict = safety.guardrail_check("text", SafetyPolicy(True, False, False))
+        assert verdict.blocked is True
+        assert verdict.reason_code == REASON_LANGUAGE
+
+    def fails_closed_on_malformed_payloads(settings):
+        settings.OPENAI_API_KEY = "sk-test"
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        for payload in [{"results": []}, {"results": [{}]}, {"unexpected": True}]:
+            mock_resp.json.return_value = payload
+            with patch("bots.services.safety.requests") as req_mock:
+                req_mock.post.return_value = mock_resp
+                verdict = safety.guardrail_check("text", POLICY)
+            assert verdict is not None
+            assert verdict.blocked is True
+            assert verdict.reason_code == REASON_GLOBAL_FLOOR
+
     def fails_closed_on_vendor_errors(settings):
         settings.OPENAI_API_KEY = "sk-test"
         with patch("bots.services.safety.requests") as req_mock:
             req_mock.post.side_effect = RuntimeError("outage")
-            verdict = safety.guardrail_check("totally fine text")
+            verdict = safety.guardrail_check("totally fine text", POLICY)
         assert verdict is not None
         assert verdict.blocked is True
 
@@ -357,3 +462,39 @@ def describe_openai_guardrail_flag():
         with patch("bots.services.safety.guardrail_check", return_value=blocked):
             verdict = evaluate_text("perfectly innocent homework question", SafetyPolicy(True, True, False))
         assert verdict.blocked is True
+
+
+@pytest.mark.django_db
+def describe_redaction():
+    def fully_redacts_when_no_term_detail():
+        snippet = "text the classifier flagged but did not attribute"
+        redacted = safety.redact_snippet(
+            snippet, SafetyVerdict(blocked=True, reason_code=REASON_GLOBAL_FLOOR)
+        )
+        assert redacted == "[redacted]"
+
+    def term_redaction_still_applies_when_terms_known():
+        redacted = safety.redact_snippet(
+            "i want to hurt myself",
+            SafetyVerdict(blocked=True, reason_code=REASON_GLOBAL_FLOOR, matched_terms=("hurt myself",)),
+        )
+        assert redacted == "i want to [redacted]"
+
+    def leaves_safe_snippets_alone():
+        assert safety.redact_snippet("homework help", None) == "homework help"
+
+
+@pytest.mark.django_db
+def describe_e2e_seed_guard():
+    def refuses_without_explicit_e2e_environ():
+        from django.core.management import call_command
+
+        with patch.dict(os.environ, {"E2E_SEEDING": ""}), pytest.raises(CommandError):
+            call_command("seed_e2e_server_safety")
+
+    def runs_when_e2e_environ_is_set():
+        from django.core.management import call_command
+
+        with patch.dict(os.environ, {"E2E_SEEDING": "1"}):
+            call_command("seed_e2e_server_safety")
+        assert User.objects.filter(username="e2e-test-user").exists()

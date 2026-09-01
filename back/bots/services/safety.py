@@ -84,7 +84,11 @@ GLOBAL_FLOOR_TERMS = (
     "self harm",
     "self-harm",
     "child porn",
+    "child pornography",
     "child sexual",
+    "child sexual abuse",
+    "child sexual abuse material",
+    "csam",
     "make a bomb",
     "build a bomb",
     "bomb making",
@@ -293,7 +297,7 @@ def evaluate_text(text: str, policy: SafetyPolicy, source: str = "INPUT") -> Saf
         if language_hits:
             return SafetyVerdict(True, REASON_LANGUAGE, tuple(language_hits))
 
-    verdict = guardrail_check(text, source=source)
+    verdict = guardrail_check(text, policy, source=source)
     if verdict:
         return verdict
 
@@ -309,15 +313,23 @@ def evaluate_web_result(title_and_snippet: str, policy: SafetyPolicy) -> SafetyV
 
 
 def redact_snippet(snippet: str, verdict: SafetyVerdict | None = None, limit: int = 200) -> str:
-    """Never store full raw text when it matched a sexual/violent term."""
+    """Never store full raw text when it matched a sexual/violent term.
+
+    A blocked verdict without matched_terms (e.g. flagged only by the remote
+    moderation classifier, which returns no term-level detail) has no safe
+    term-level redaction information, so the snippet is fully redacted.
+    """
     redacted = normalize_text(snippet)
     if verdict:
-        for term in verdict.matched_terms:
-            redacted = re.sub(
-                r"(?<!\w)" + re.escape(term) + r"(?!\w)",
-                "[redacted]",
-                redacted,
-            )
+        if verdict.matched_terms:
+            for term in verdict.matched_terms:
+                redacted = re.sub(
+                    r"(?<!\w)" + re.escape(term) + r"(?!\w)",
+                    "[redacted]",
+                    redacted,
+                )
+        else:
+            redacted = "[redacted]"
     return redacted[:limit]
 
 
@@ -343,14 +355,70 @@ def record_safety_event(*, stage: str, verdict: SafetyVerdict, chat=None, snippe
 # Optional OpenAI moderation check (feature-flagged via settings, free)
 # ---------------------------------------------------------------------------
 
-def guardrail_check(text: str, source: str = "INPUT") -> SafetyVerdict | None:
+# Moderation categories that violate the global floor: always blocked, no
+# matter which parent flags are set (CSAM, crisis/self-harm, violence).
+# The value becomes verdict.matched_terms so is_crisis()/redact_snippet() keep
+# working even though the remote classifier returns no term-level detail.
+GUARDRAIL_FLOOR_CATEGORIES = {
+    "sexual/minors": ("sexual/minors",),
+    "self-harm": ("self-harm",),
+    "self-harm/instructions": ("self-harm",),
+    "violence": ("violence",),
+    "violence/instructions": ("violence/instructions",),
+    "illicit/violent": ("illicit/violent",),
+}
+
+# Moderation categories the parent policy governs: only blocked when the
+# matching flag is on, so configuring the guardrail cannot override a parent's
+# explicit choice to relax a restriction.
+GUARDRAIL_POLICY_CATEGORIES = {
+    "sexual": REASON_ADULT_TOPIC,
+    "illicit": REASON_ADULT_TOPIC,
+    "harassment": REASON_LANGUAGE,
+    "harassment/threatening": REASON_LANGUAGE,
+    "hate": REASON_LANGUAGE,
+    "hate/threatening": REASON_LANGUAGE,
+}
+
+
+def verdict_from_moderation(result: dict, policy: SafetyPolicy) -> SafetyVerdict | None:
+    """Map a flagged moderation result to a verdict honoring the policy.
+
+    Floor categories always block; policy categories block only when the
+    matching flag is on. When every flag is policy-controlled and switched
+    off, the parent's choice wins. A flag with no category detail cannot be
+    attributed to any policy, so it fails closed to the floor.
+    """
+    categories = [
+        category
+        for category, hit in (result.get("categories") or {}).items()
+        if hit
+    ]
+    for category in categories:
+        if category in GUARDRAIL_FLOOR_CATEGORIES:
+            return SafetyVerdict(True, REASON_GLOBAL_FLOOR, GUARDRAIL_FLOOR_CATEGORIES[category])
+    if policy.restrict_adult_topics:
+        for category in categories:
+            if GUARDRAIL_POLICY_CATEGORIES.get(category) == REASON_ADULT_TOPIC:
+                return SafetyVerdict(True, REASON_ADULT_TOPIC, (category,))
+    if policy.restrict_language:
+        for category in categories:
+            if GUARDRAIL_POLICY_CATEGORIES.get(category) == REASON_LANGUAGE:
+                return SafetyVerdict(True, REASON_LANGUAGE, (category,))
+    if categories:
+        return None
+    return SafetyVerdict(True, REASON_GLOBAL_FLOOR)
+
+
+def guardrail_check(text: str, policy: SafetyPolicy, source: str = "INPUT") -> SafetyVerdict | None:
     """Optional cheap classifier pass when OPENAI_API_KEY is configured.
 
     Uses the free OpenAI moderation endpoint (omni-moderation-latest).
     Returns None when not configured (denylist-only mode).
-    Fails CLOSED on vendor errors: with a key configured, a failed check
-    blocks the content because the global floor must not silently disappear
-    during an outage. Tests inject fakes via patching; pytest never calls OpenAI.
+    Fails CLOSED on vendor errors or malformed payloads: with a key
+    configured, a failed check blocks the content because the global floor
+    must not silently disappear during an outage. Tests inject fakes via
+    patching; pytest never calls OpenAI.
     """
     api_key = getattr(settings, "OPENAI_API_KEY", "")
     if not api_key or not text:
@@ -367,10 +435,13 @@ def guardrail_check(text: str, source: str = "INPUT") -> SafetyVerdict | None:
             timeout=5,
         )
         resp.raise_for_status()
-        data = resp.json()
-        results = data.get("results", [])
-        if results and results[0].get("flagged"):
-            return SafetyVerdict(True, REASON_GLOBAL_FLOOR)
+        results = resp.json().get("results") or []
+        first = results[0] if results else None
+        flagged = first.get("flagged") if isinstance(first, dict) else None
+        if not isinstance(flagged, bool):
+            raise ValueError("OpenAI moderation returned an unexpected payload shape")
+        if flagged:
+            return verdict_from_moderation(first, policy)
         return None
     except Exception:
         logger.exception("OpenAI moderation check failed; failing closed")

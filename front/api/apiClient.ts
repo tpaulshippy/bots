@@ -62,8 +62,8 @@ export const apiClient = async <T>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
-    if (BASE_URL === undefined) {
-        Sentry.captureMessage("BASE_URL is undefined");
+    if (!BASE_URL) {
+        Sentry.captureMessage("BASE_URL is not configured");
         throw new Error("EXPO_PUBLIC_API_BASE_URL is not configured");
     }
     const maxRetries = 2;
@@ -128,8 +128,8 @@ export const apiClient = async <T>(
 };
 
 export const refreshWithRefreshToken = async (tokens: TokenData | null) => {
-    if (BASE_URL === undefined) {
-        Sentry.captureMessage("BASE_URL is undefined");
+    if (!BASE_URL) {
+        Sentry.captureMessage("BASE_URL is not configured");
         throw new Error("EXPO_PUBLIC_API_BASE_URL is not configured");
     }
     if (!tokens || !tokens.refresh) {
