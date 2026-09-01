@@ -60,9 +60,9 @@ def get_chat_response(request, chat_id):
         else:
             bot = None
         chat = Chat.objects.create(title=user_input, profile=profile, bot=bot, user=user)
+        # Server-owned layered prompt (preamble + bot customization + policy
+        # suffix); never store the un-layered client-built prompt here.
         system_prompt = chat.get_system_message()
-        if bot and bot.system_prompt:
-            system_prompt = bot.system_prompt
         chat.messages.create(text=system_prompt, role='system', order=0)
 
     else:
@@ -81,10 +81,13 @@ def get_chat_response(request, chat_id):
         filename = compress_and_upload_image(file)
 
 
-    # Save the message with the uploaded image filename
-    chat.messages.create(text=user_input, role='user', order=chat.messages.count(), image_filename=filename)
-
-    response = chat.get_response()
+    # get_response() owns the safety transactions (short row locks for
+    # marking and persisting) so no DB transaction is held across the
+    # model/external calls.
+    user_message = chat.messages.create(
+        text=user_input, role='user', order=chat.messages.count(), image_filename=filename
+    )
+    response = chat.get_response(user_message=user_message)
     return Response({'response': response, 'chat_id': chat.chat_id})
 
 def allowed_file(filename):

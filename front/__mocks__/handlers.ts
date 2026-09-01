@@ -14,7 +14,7 @@ export const handlers = [
 
   http.post('/api/decks.json', async ({ request }) => {
     await delay(200);
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, any>;
     return HttpResponse.json({
       id: 1,
       deck_id: '550e8400-e29b-41d4-a716-446655440000',
@@ -33,7 +33,7 @@ export const handlers = [
     await delay(200);
     const id = params.id;
     return HttpResponse.json({
-      id: typeof id === 'string' && !id.match(/^\d+$/) ? 1 : parseInt(id, 10),
+      id: typeof id === 'string' && !id.match(/^\d+$/) ? 1 : parseInt(String(id), 10),
       deck_id: id,
       profile: '550e8400-e29b-41d4-a716-446655440000',
       chat: null,
@@ -48,7 +48,7 @@ export const handlers = [
 
   http.patch('/api/decks/:id.json', async ({ request }) => {
     await delay(200);
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, any>;
     return HttpResponse.json({
       id: 1,
       deck_id: '550e8400-e29b-41d4-a716-446655440000',
@@ -81,7 +81,7 @@ export const handlers = [
 
   http.post('/api/decks/:deck_pk/flashcards.json', async ({ request }) => {
     await delay(200);
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, any>;
     return HttpResponse.json({
       id: 1,
       flashcard_id: '550e8400-e29b-41d4-a716-446655440001',
@@ -98,7 +98,7 @@ export const handlers = [
     await delay(200);
     const id = params.id;
     return HttpResponse.json({
-      id: typeof id === 'string' && !id.match(/^\d+$/) ? 1 : parseInt(id, 10),
+      id: typeof id === 'string' && !id.match(/^\d+$/) ? 1 : parseInt(String(id), 10),
       flashcard_id: id,
       deck: '550e8400-e29b-41d4-a716-446655440000',
       front: 'Front text',
@@ -111,7 +111,7 @@ export const handlers = [
 
   http.patch('/api/decks/:deck_pk/flashcards/:id.json', async ({ request }) => {
     await delay(200);
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, any>;
     return HttpResponse.json({
       id: 1,
       flashcard_id: '550e8400-e29b-41d4-a716-446655440001',

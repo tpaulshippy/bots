@@ -7,7 +7,7 @@ export interface Bot {
   ai_model: string;
   system_prompt: string;
   simple_editor: boolean;
-  template_name: string;
+  template_name: string | null;
   response_length: number;
   restrict_language: boolean;
   restrict_adult_topics: boolean;

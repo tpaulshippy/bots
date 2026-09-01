@@ -44,6 +44,15 @@ export const templates: BotTemplate[] = [
     }
 ];
 
+/**
+ * Builds the system prompt shown to parents and saved on the bot record.
+ *
+ * NOTE (server-side safety, roadmap 03): this is preview-only — the actual
+ * control plane lives on the server. Every chat turn gets
+ * GLOBAL_SAFETY_PREAMBLE + this bot prompt + a freshly generated policy
+ * suffix from `back/bots/services/safety.py`, so the safety lines appended
+ * here cannot be stripped by editing the prompt in the advanced editor.
+ */
 export const generateSystemPrompt = (bot: Bot, inputs: Record<string, string>) => {
     let prompt: string;
     const template = templates.find(

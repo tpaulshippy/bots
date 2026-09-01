@@ -250,6 +250,11 @@ AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='test-bucket')
 
 TAVILY_API_KEY = env('TAVILY_API_KEY', default='')
 
+# Optional guardrail provider for the safety layer (bots/services/safety.py):
+# free OpenAI moderation (omni-moderation-latest). Empty string = denylist-only
+# mode. With a key configured, failed checks fail closed.
+OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Bots API',
     'DESCRIPTION': 'API for the Bots application',

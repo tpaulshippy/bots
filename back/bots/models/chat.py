@@ -4,11 +4,18 @@ import uuid
 
 import boto3
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from langchain_aws import ChatBedrock
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from bots.services.chat_agent import ChatAgentService
+from bots.services.safety import (
+    SafetyPolicy,
+    build_system_prompt,
+    evaluate_text,
+    record_safety_event,
+    refusal_for_verdict,
+)
 
 from .ai_model import AiModel
 from .bot import Bot
@@ -60,37 +67,85 @@ class Chat(models.Model):
         
         self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
 
-    def get_response(self, ai=None):
+    def get_response(self, ai=None, user_message=None):
+        # Input safety is evaluated BEFORE any model setup or quota check so
+        # a misconfigured model or an over-limit account cannot swallow the
+        # fixed crisis refusal or leave the unsafe message unmarked.
+        policy = SafetyPolicy.for_bot(self.bot)
+        subject = user_message or self.messages.filter(role='user').order_by('-id').first()
+        if subject is not None:
+            verdict = evaluate_text(subject.text, policy, source='INPUT')
+            if verdict.blocked:
+                # Short transaction only for the state change; external calls
+                # (moderation, Bedrock, Tavily) are never made while a row
+                # lock is held, so the DB connection is not held for tens of
+                # seconds. The message is marked so later turns exclude it via
+                # get_input().
+                with transaction.atomic():
+                    Chat.objects.select_for_update().get(pk=self.pk)
+                    if not subject.safety_blocked:
+                        subject.safety_blocked = True
+                        subject.save(update_fields=['safety_blocked', 'modified_at'])
+                    refusal = refusal_for_verdict(verdict)
+                    self.messages.create(
+                        text=refusal,
+                        role='assistant',
+                        order=self.messages.count(),
+                    )
+                    record_safety_event(
+                        stage='input',
+                        verdict=verdict,
+                        chat=self,
+                        snippet=subject.text,
+                    )
+                return refusal
+
+        if self.user.user_account.over_limit():
+            return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
+
+        # AI client is instantiated only after input has passed the global
+        # floor, so a missing default model never blocks the crisis path.
         if self.bot and self.bot.ai_model:
             self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
             self.use_default_model(ai)
-        
+
+        # Context is built AFTER the blocked check so any safety-blocked
+        # message (including this turn's) is excluded from model history.
+        # This work is done outside any DB transaction.
         message_list, contains_image = self.get_input()
 
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
-        
-        if self.user.user_account.over_limit():
-            return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
-        
-        response_text, usage_metadata = ChatAgentService(self, self.ai.client).respond(message_list)
-        
-        message_order = self.messages.count()
-        
-        input_tokens = usage_metadata.get('input_tokens', 0)
-        output_tokens = usage_metadata.get('output_tokens', 0)
-        
-        self.messages.create(
-            text=response_text, 
-            role='assistant', 
-            order=message_order,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens
-        )
-        self.input_tokens += input_tokens
-        self.output_tokens += output_tokens
-        self.save()
+
+        response_text, usage_metadata = ChatAgentService(self, self.ai.client, policy=policy).respond(message_list)
+
+        # Post-model output filter: replace flagged completions before save.
+        output_verdict = evaluate_text(response_text, policy, source='OUTPUT')
+        flagged_output = None
+        if output_verdict.blocked:
+            flagged_output = response_text
+            response_text = refusal_for_verdict(output_verdict)
+
+        # Short transaction only for the final persist; the row lock is held
+        # briefly to claim the message order, not across the model call.
+        with transaction.atomic():
+            Chat.objects.select_for_update().get(pk=self.pk)
+            message_order = self.messages.count()
+            input_tokens = usage_metadata.get('input_tokens', 0)
+            output_tokens = usage_metadata.get('output_tokens', 0)
+            self.messages.create(
+                text=response_text,
+                role='assistant',
+                order=message_order,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            )
+            self.input_tokens += input_tokens
+            self.output_tokens += output_tokens
+            self.save()
+            if output_verdict.blocked:
+                record_safety_event(stage='output', verdict=output_verdict, chat=self, snippet=flagged_output)
         return response_text
 
     def setup_human_message_content(self, message):
@@ -111,7 +166,13 @@ class Chat(models.Model):
 
     def get_input(self):
         contains_image = False
-        messages = self.messages.exclude(role='system').order_by('-id')[:10]
+        # Safety-blocked messages are excluded: denied content never becomes
+        # later model context even after the turn ends.
+        messages = (
+            self.messages.exclude(role='system')
+            .exclude(safety_blocked=True)
+            .order_by('-id')[:10]
+        )
         messages = sorted(messages, key=lambda message: message.id)
         message_list = []
 
@@ -131,9 +192,16 @@ class Chat(models.Model):
         return message_list, contains_image
     
     def get_system_message(self):
-        if self.bot and self.bot.system_prompt:
-            return self.bot.system_prompt
-        return "You are chatting with a teen. Please keep the conversation appropriate and respectful. Your responses should be 200 words or less."
+        """Server-owned layered prompt: preamble + parent customization + policy suffix.
+
+        The flags are restated here every turn so a custom (advanced-editor)
+        system_prompt cannot strip the safety layers, and the client is never
+        the control plane for policy text.
+        """
+        policy = SafetyPolicy.for_bot(self.bot)
+        bot_prompt = self.bot.system_prompt if self.bot else None
+        response_length = self.bot.response_length if self.bot else None
+        return build_system_prompt(bot_prompt, policy, response_length)
 
     def get_image_data(self, filename):
         try:

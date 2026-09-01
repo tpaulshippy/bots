@@ -12,6 +12,7 @@ from .models import (
     Message,
     Profile,
     RevenueCatWebhookEvent,
+    SafetyEvent,
     UsageLimitHit,
     UserAccount,
 )
@@ -89,6 +90,14 @@ class FlashcardAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         return ['flashcard_id', 'deck', 'front', 'order', 'created_at', 'updated_at'] + list(super().get_list_display(request))
 
+class SafetyEventAdmin(admin.ModelAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        return ['created_at', 'event_id']
+
+    def get_list_display(self, request):
+        return ['created_at', 'stage', 'reason_code', 'user', 'chat', 'snippet_redacted'] + list(super().get_list_display(request))
+
+
 class UserAccountAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         return ['user_id', 'pin', 'subscription_level', 'timezone'] + list(super().get_list_display(request))
@@ -108,5 +117,6 @@ admin.site.register(UsageLimitHit, UsageLimitHitAdmin)
 admin.site.register(RevenueCatWebhookEvent, RevenueCatWebhookEventAdmin)
 admin.site.register(Deck, DeckAdmin)
 admin.site.register(Flashcard, FlashcardAdmin)
+admin.site.register(SafetyEvent, SafetyEventAdmin)
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)

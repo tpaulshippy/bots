@@ -8,14 +8,33 @@ from tavily import TavilyClient
 
 from bots.models.deck import Deck
 from bots.models.flashcard import Flashcard
+from bots.services.safety import (
+    REASON_GLOBAL_FLOOR,
+    SafetyPolicy,
+    SafetyVerdict,
+    evaluate_text,
+    evaluate_web_query,
+    evaluate_web_result,
+    record_safety_event,
+)
 
 logger = logging.getLogger(__name__)
 
+WEB_SEARCH_UNAVAILABLE = "Web search is not available."
+WEB_QUERY_BLOCKED = "This search query was blocked by the safety policy. Please try a different question."
+NO_SAFE_RESULTS = "No safe results found."
+FLASHCARD_BLOCKED = (
+    "I can't save that flashcard because it didn't pass the safety check. "
+    "Please adjust the wording and try again."
+)
+
 
 class ChatAgentService:
-    def __init__(self, chat, ai_client):
+    def __init__(self, chat, ai_client, policy=None):
         self.chat = chat
         self.ai_client = ai_client
+        # Server-owned policy; falls back to the bot's flags when not passed.
+        self.policy = policy or SafetyPolicy.for_bot(chat.bot)
 
     def respond(self, message_list):
         tools = {
@@ -66,7 +85,7 @@ class ChatAgentService:
                 )
 
                 if tool_name == "web_search" and not has_web_search:
-                    tool_result = "Web search is not available."
+                    tool_result = WEB_SEARCH_UNAVAILABLE
                 elif tool_name in tools:
                     tool_result = tools[tool_name].invoke(tool_args)
                 else:
@@ -127,6 +146,33 @@ class ChatAgentService:
                 description: Optional description of the deck
             """
             logger.info(f"🃏 CREATE_FLASHCARD_DECK_TOOL_INVOKED: name='{name}'")
+
+            # Tool filter: reject unsafe deck name/description or cards before
+            # anything is stored so the model can apologize instead of persisting junk.
+            deck_verdict = evaluate_text(f"{name} {description}", self.policy, source="OUTPUT")
+            if deck_verdict.blocked:
+                record_safety_event(
+                    stage="tool_flashcard",
+                    verdict=deck_verdict,
+                    chat=self.chat,
+                    snippet=f"{name} {description}",
+                )
+                return FLASHCARD_BLOCKED
+            for card in flashcards:
+                card_verdict = evaluate_text(
+                    f"{card.get('front', '')} {card.get('back', '')}",
+                    self.policy,
+                    source="OUTPUT",
+                )
+                if card_verdict.blocked:
+                    record_safety_event(
+                        stage="tool_flashcard",
+                        verdict=card_verdict,
+                        chat=self.chat,
+                        snippet=f"{card.get('front', '')} {card.get('back', '')}",
+                    )
+                    return FLASHCARD_BLOCKED
+
             try:
                 with transaction.atomic():
                     deck = Deck.objects.create(
@@ -166,6 +212,27 @@ class ChatAgentService:
                 back: The back of the flashcard (answer/definition)
             """
             logger.info(f"🃏 CREATE_FLASHCARD_TOOL_INVOKED: deck_name='{deck_name}'")
+
+            # Tool filter: reject unsafe deck name or front/back before saving.
+            deck_name_verdict = evaluate_text(deck_name, self.policy, source="OUTPUT")
+            if deck_name_verdict.blocked:
+                record_safety_event(
+                    stage="tool_flashcard",
+                    verdict=deck_name_verdict,
+                    chat=self.chat,
+                    snippet=deck_name,
+                )
+                return FLASHCARD_BLOCKED
+            card_verdict = evaluate_text(f"{front} {back}", self.policy, source="OUTPUT")
+            if card_verdict.blocked:
+                record_safety_event(
+                    stage="tool_flashcard",
+                    verdict=card_verdict,
+                    chat=self.chat,
+                    snippet=f"{front} {back}",
+                )
+                return FLASHCARD_BLOCKED
+
             try:
                 with transaction.atomic():
                     deck = Deck.objects.filter(profile=chat.profile, name=deck_name).first()
@@ -201,22 +268,51 @@ class ChatAgentService:
 
         @tool
         def web_search(query: str) -> str:
-            """Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data."""
+            """Search the web for current information. Use this when you need up-to-date information or facts that may not be in your training data. Queries and results are filtered for teen-safe content."""
             logger.info(f"🔍 WEB_SEARCH_TOOL_INVOKED: query='{query}'")
+
+            # Pre-query filter: block high-risk queries before hitting Tavily.
+            query_verdict = evaluate_web_query(query, self.policy)
+            if query_verdict.blocked:
+                # Keep global_floor attribution for floor hits; other web
+                # blocks roll up under `web_blocked` for parent reporting.
+                event_verdict = query_verdict
+                if query_verdict.reason_code != REASON_GLOBAL_FLOOR:
+                    event_verdict = SafetyVerdict(True, "web_blocked", query_verdict.matched_terms)
+                record_safety_event(
+                    stage="web_query",
+                    verdict=event_verdict,
+                    chat=self.chat,
+                    snippet=query,
+                )
+                return WEB_QUERY_BLOCKED
+
             try:
                 results = tavily_client.search(query=query)
-                num_results = len(results.get('results', []))
-                logger.info(f"🔍 WEB_SEARCH_SUCCESS: returned {num_results} results")
-                if results.get('results'):
-                    formatted = "\n".join([
-                        f"- {r.get('title', 'No title')}: {r.get('content', '')[:200]}"
-                        for r in results['results'][:3]
-                    ])
-                    logger.debug(f"🔍 WEB_SEARCH_FORMATTED_RESULTS:\n{formatted}")
-                    return formatted
-                else:
-                    logger.info("🔍 WEB_SEARCH_NO_RESULTS: empty result set")
-                    return "No results found."
+                formatted_results = []
+                for r in results.get('results', [])[:3]:
+                    title = r.get('title', 'No title')
+                    content = r.get('content', '')[:200]
+                    title_and_snippet = f"{title} {content}"
+                    result_verdict = evaluate_web_result(title_and_snippet, self.policy)
+                    if result_verdict.blocked:
+                        # Post-results filter: drop unsafe results.
+                        record_safety_event(
+                            stage="web_result",
+                            verdict=result_verdict,
+                            chat=self.chat,
+                            snippet=title_and_snippet,
+                        )
+                        continue
+                    formatted_results.append(f"- {title}: {content}")
+
+                if not formatted_results:
+                    logger.info("🔍 WEB_SEARCH_ALL_RESULTS_FILTERED")
+                    return NO_SAFE_RESULTS
+
+                formatted = "\n".join(formatted_results)
+                logger.debug("🔍 WEB_SEARCH_FORMATTED_RESULTS:\n%s", formatted)
+                return formatted
             except Exception as e:
                 logger.error(f"🔍 WEB_SEARCH_ERROR: {e!s}")
                 return f"Error during search: {e!s}"

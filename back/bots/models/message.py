@@ -16,6 +16,10 @@ class Message(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     image_filename = models.CharField(max_length=255, blank=True, null=True)
+    # True when the server-side safety filter denied this message. Denied
+    # content is still visible in the chat history but must never re-enter
+    # the model context on later turns (see Chat.get_input()).
+    safety_blocked = models.BooleanField(default=False)
 
     def __str__(self):
         user_str = getattr(self.chat.user, 'email', 'unknown')
