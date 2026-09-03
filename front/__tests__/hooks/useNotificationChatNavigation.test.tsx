@@ -38,13 +38,19 @@ const CHAT = {
 
 const makeResponse = (
   chatId: string | undefined,
-  identifier = 'response-1'
+  identifier = 'response-1',
+  target?: string
 ): Notifications.NotificationResponse =>
   ({
     notification: {
       request: {
         identifier,
-        content: { data: chatId ? { chat_id: chatId } : {} },
+        content: {
+          data: {
+            ...(chatId ? { chat_id: chatId } : {}),
+            ...(target ? { target } : {}),
+          },
+        },
       },
     },
   }) as unknown as Notifications.NotificationResponse;
@@ -144,6 +150,34 @@ describe('useNotificationChatNavigation', () => {
     expect(fetchChat).not.toHaveBeenCalled();
     expect(mockRouter.push).not.toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it('opens the parent transcript when the push targets parent_activity with a chat_id', async () => {
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(makeResponse('chat-1', 'response-1', 'parent_activity'));
+    });
+
+    expect(fetchChat).not.toHaveBeenCalled();
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/parent/activityChat',
+      params: { chatId: 'chat-1' },
+    });
+  });
+
+  it('opens the parent activity inbox for digest pushes without a chat_id', async () => {
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(makeResponse(undefined, 'response-1', 'parent_activity'));
+    });
+
+    expect(fetchChat).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/parent/activity',
+    });
   });
 
   it('does not navigate when the chat cannot be fetched', async () => {

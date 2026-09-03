@@ -72,3 +72,4 @@ class ParentReauthRequired(BasePermission):
         if is_teen_delegated(request):
             return False
         return has_valid_parent_reauth(request)
+

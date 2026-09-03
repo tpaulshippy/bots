@@ -67,6 +67,7 @@ export default function SettingsScreen() {
       | "/parent/botsList"
       | "/parent/setPin"
       | "/parent/notifications"
+      | "/parent/activity"
       | "/parent/subscription"
       | "/parent/terms"
       | "/parent/deleteAccount"
@@ -158,6 +159,12 @@ export default function SettingsScreen() {
                   iconName="bell.fill"
                   testID="menu-item-notifications"
                   onPress={() => goTo("/parent/notifications")}
+                ></MenuItem>
+                <MenuItem
+                  title="Activity"
+                  iconName="list.bullet"
+                  testID="settings-activity-item"
+                  onPress={() => goTo("/parent/activity")}
                 ></MenuItem>
                 <MenuItem
                   title="Subscription"

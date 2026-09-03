@@ -43,7 +43,8 @@ const MAPPING = {
   'xmark': 'close',
   'chat': 'chat',
   'bubble.left.fill': 'chat-bubble',
-  'square.grid.2x2.fill': 'grid-view'
+  'square.grid.2x2.fill': 'grid-view',
+  'shield.fill': 'security'
 } as Partial<
   Record<
     Extract<import('expo-symbols').SymbolViewProps['name'], string>,
