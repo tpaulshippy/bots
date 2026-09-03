@@ -24,6 +24,7 @@ import { isRunningInExpoGo } from "expo";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { useNotificationChatNavigation } from "@/hooks/useNotificationChatNavigation";
 import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
+import { useDelegatedRouteGuard } from "@/hooks/useDelegatedRouteGuard";
 import {
   BackButton,
   DrawerMenuButton,
@@ -75,6 +76,10 @@ export default function RootLayout() {
 
   useNotificationChatNavigation();
   useAuthBootstrap(loaded);
+
+  // Teen-delegated devices have no parent surfaces: deep links (or stale
+  // state) pointing into /parent/* bounce to the chat screen instead.
+  useDelegatedRouteGuard();
 
   useEffect(() => {
     if (ref?.current) {

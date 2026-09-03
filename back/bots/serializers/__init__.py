@@ -8,7 +8,11 @@ from .flashcard_serializer import (
     FlashcardSerializer,
 )
 from .message_serializer import MessageSerializer
-from .profile_serializer import ProfileIdSerializer, ProfileSerializer
+from .profile_serializer import (
+    OwnProfileSerializer,
+    ProfileIdSerializer,
+    ProfileSerializer,
+)
 
 __all__ = [
     'AiModelSerializer',
@@ -20,6 +24,7 @@ __all__ = [
     'DeviceSerializer',
     'FlashcardSerializer',
     'MessageSerializer',
+    'OwnProfileSerializer',
     'ProfileIdSerializer',
     'ProfileSerializer',
 ] 

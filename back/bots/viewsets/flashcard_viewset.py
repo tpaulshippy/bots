@@ -6,6 +6,7 @@ from rest_framework import viewsets
 from bots.models import Deck, Flashcard, Profile
 from bots.permissions import IsOwner
 from bots.serializers import DeckListSerializer, DeckSerializer, FlashcardSerializer
+from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 from bots.viewsets.mixins import get_object_by_uuid_or_id
 
 
@@ -16,10 +17,21 @@ class FlashcardViewSet(viewsets.ModelViewSet):
     lookup_field = "flashcard_id"
     lookup_url_kwarg = "flashcardId"
 
+    def _deck_queryset(self):
+        """Decks visible to this request: scoped to the claimed profile for
+        teen-delegated sessions so they cannot reach a sibling's decks."""
+        queryset = Deck.objects.all()
+        delegated_profile = delegated_profile_from_auth(self.request.auth)
+        if delegated_profile is not None:
+            queryset = queryset.filter(profile=delegated_profile)
+        elif is_teen_delegated(self.request.auth):
+            return Deck.objects.none()
+        return queryset
+
     def get_queryset(self):
         deck_id = self.kwargs['deck_pk']
 
-        deck = get_object_by_uuid_or_id(Deck.objects.all(), 'deck_id', deck_id)
+        deck = get_object_by_uuid_or_id(self._deck_queryset(), 'deck_id', deck_id)
 
         self.check_object_permissions(self.request, deck)
 
@@ -29,7 +41,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         lookup_field_value = self.kwargs[self.lookup_url_kwarg]
         deck_pk = self.kwargs['deck_pk']
 
-        deck = get_object_by_uuid_or_id(Deck.objects.all(), 'deck_id', deck_pk)
+        deck = get_object_by_uuid_or_id(self._deck_queryset(), 'deck_id', deck_pk)
         flashcard = get_object_by_uuid_or_id(
             Flashcard.objects.filter(deck=deck), 'flashcard_id', lookup_field_value
         )
@@ -40,7 +52,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         deck_id = self.kwargs['deck_pk']
 
-        deck = get_object_by_uuid_or_id(Deck.objects.all(), 'deck_id', deck_id)
+        deck = get_object_by_uuid_or_id(self._deck_queryset(), 'deck_id', deck_id)
 
         self.check_object_permissions(self.request, deck)
 
@@ -59,7 +71,14 @@ class DeckViewSet(viewsets.ModelViewSet):
 
         queryset = Deck.objects.filter(profile__user=user)
 
-        if profile_id:
+        # Teen-delegated sessions are locked to their claimed profile: any
+        # client-sent profileId is ignored and the claim is enforced instead.
+        delegated_profile = delegated_profile_from_auth(self.request.auth)
+        if delegated_profile is not None:
+            queryset = Deck.objects.filter(profile=delegated_profile)
+        elif is_teen_delegated(self.request.auth):
+            queryset = Deck.objects.none()
+        elif profile_id:
             try:
                 profile_uuid = uuid.UUID(profile_id)
                 queryset = queryset.filter(profile__profile_id=profile_uuid)
@@ -86,6 +105,15 @@ class DeckViewSet(viewsets.ModelViewSet):
         user = self.request.user
         profile_id = self.request.data.get('profile')
         chat_id = self.request.data.get('chat')
+
+        # Teen-delegated sessions always write decks for their claimed profile
+        # (client-sent profile/chat are ignored).
+        if is_teen_delegated(self.request.auth):
+            delegated_profile = delegated_profile_from_auth(self.request.auth)
+            if delegated_profile is None:
+                raise drf_serializers.ValidationError("Invalid or unauthorized profile ID")
+            serializer.save(profile=delegated_profile, chat=None)
+            return
 
         if profile_id:
             try:

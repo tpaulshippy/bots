@@ -13,6 +13,7 @@ import { UnauthorizedError } from '@/api/apiClient';
 
 jest.mock('@/api/tokens', () => ({
   clearUser: jest.fn(),
+  getSessionMode: jest.fn(),
 }));
 
 type Router = ReturnType<typeof useRouter>;
@@ -24,6 +25,12 @@ describe('useSelectedProfile', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    const { getSessionMode } =
+      require('@/api/tokens') as typeof import('@/api/tokens');
+    (getSessionMode as jest.Mock).mockResolvedValue({
+      isTeenDelegated: false,
+      activeProfileId: null,
+    });
   });
 
   it('returns the stored profile id', async () => {
@@ -69,6 +76,49 @@ describe('useSelectedProfile', () => {
 
     expect(AsyncStorage.removeItem).toHaveBeenCalledWith('selectedProfile');
     expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('ignores profile changes for teen-delegated sessions', async () => {
+    const { getSessionMode } =
+      require('@/api/tokens') as typeof import('@/api/tokens');
+    (getSessionMode as jest.Mock).mockResolvedValue({
+      isTeenDelegated: true,
+      activeProfileId: 'locked-profile',
+    });
+
+    await setSelectedProfile({ profile_id: 'sibling-profile', name: 'Other' });
+
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it('allows teen-delegated sessions to select their locked profile', async () => {
+    const { getSessionMode } =
+      require('@/api/tokens') as typeof import('@/api/tokens');
+    (getSessionMode as jest.Mock).mockResolvedValue({
+      isTeenDelegated: true,
+      activeProfileId: 'locked-profile',
+    });
+
+    await setSelectedProfile({ profile_id: 'locked-profile', name: 'Maya' });
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'selectedProfile',
+      JSON.stringify({ profile_id: 'locked-profile', name: 'Maya' })
+    );
+  });
+
+  it('refuses to clear the selection for teen-delegated sessions', async () => {
+    const { getSessionMode } =
+      require('@/api/tokens') as typeof import('@/api/tokens');
+    (getSessionMode as jest.Mock).mockResolvedValue({
+      isTeenDelegated: true,
+      activeProfileId: 'locked-profile',
+    });
+
+    await setSelectedProfile(null);
+
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
   });
 
   it('returns the stored bot id', async () => {
