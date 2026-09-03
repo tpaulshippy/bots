@@ -26,6 +26,12 @@ jest.mock('@/api/account', () => ({
 
 jest.mock('@/api/tokens', () => ({
   isTeenDelegatedSession: jest.fn(() => Promise.resolve(false)),
+  getSessionMode: jest.fn(() =>
+    Promise.resolve({ isTeenDelegated: false, activeProfileId: null })
+  ),
+  getTokens: jest.fn(() =>
+    Promise.resolve({ access: 'test-access', refresh: 'test-refresh' })
+  ),
 }));
 
 const profiles = [
@@ -45,7 +51,7 @@ describe('ProfileSwitcher', () => {
       count: profiles.length,
     });
     (isTeenDelegatedSession as jest.Mock).mockResolvedValue(false);
-    (getAccount as jest.Mock).mockResolvedValue({ pin: 1234 });
+    (getAccount as jest.Mock).mockResolvedValue({ hasPin: true });
     // Stateful fake so switching updates what getItem returns, like the
     // real AsyncStorage.
     storedProfile = JSON.stringify(profiles[0]);
@@ -111,6 +117,14 @@ describe('ProfileSwitcher', () => {
   });
 
   it('routes Manage profiles through the PIN gate', async () => {
+    (globalThis as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        parentSessionToken: 'parent-session-token',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      }),
+    });
     render(<ProfileSwitcher />);
     await waitFor(() =>
       expect(screen.getByTestId('profile-switcher-chip')).toBeTruthy()
@@ -122,9 +136,12 @@ describe('ProfileSwitcher', () => {
 
     // PIN gate is up instead of navigating straight to the profiles list.
     expect(mockRouter.push).not.toHaveBeenCalled();
-    expect(screen.getByText('Enter PIN')).toBeTruthy();
+    expect(screen.getByText('Enter parent PIN')).toBeTruthy();
 
-    fireEvent.changeText(screen.getByTestId('pin-input'), '1234');
+    for (const digit of ['1', '2', '3', '4']) {
+      fireEvent.press(screen.getByTestId(`pin-key-${digit}`));
+    }
+    fireEvent.press(screen.getByTestId('pin-submit'));
     await waitFor(() => {
       expect(mockRouter.push).toHaveBeenCalledWith('/parent/profilesList');
     });

@@ -37,7 +37,7 @@ export function ProfileSwitcher() {
   const [selected, setSelected] = useState<Profile | null>(null);
   const [visible, setVisible] = useState(false);
   const [readOnly, setReadOnly] = useState(false);
-  const [pinGate, setPinGate] = useState<string | null>(null);
+  const [pinGate, setPinGate] = useState(false);
 
   const refreshSelected = useCallback(async () => {
     try {
@@ -82,14 +82,13 @@ export function ProfileSwitcher() {
   const handleManagePress = async () => {
     try {
       const account = await getAccount();
-      const pin = account?.pin?.toString() ?? "";
-      if (pin === "") {
+      if (!account?.hasPin) {
         // No PIN configured yet — nothing to gate on.
         setVisible(false);
         router.push("/parent/profilesList");
         return;
       }
-      setPinGate(pin);
+      setPinGate(true);
     } catch (error) {
       setVisible(false);
       Sentry.captureException?.(error);
@@ -97,7 +96,7 @@ export function ProfileSwitcher() {
   };
 
   const handlePinVerified = () => {
-    setPinGate(null);
+    setPinGate(false);
     setVisible(false);
     router.push("/parent/profilesList");
   };
@@ -136,8 +135,8 @@ export function ProfileSwitcher() {
           <ThemedView
             style={[styles.sheet, { backgroundColor: cardBackground }]}
           >
-            {pinGate !== null ? (
-              <PinWrapper correctPin={pinGate} onPinVerified={handlePinVerified} />
+            {pinGate ? (
+              <PinWrapper onUnlocked={handlePinVerified} />
             ) : (
               <>
                 <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>

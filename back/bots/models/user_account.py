@@ -36,7 +36,7 @@ class UserAccount(models.Model):
         heuristic for older accounts that will never run the wizard."""
         if self.onboarding_completed_at is not None:
             return True
-        return (self.pin is not None
+        return (self.pin_hash is not None
                 and self.user.profile_set.filter(deleted_at=None).count() >= 1)
 
     def over_limit(self):

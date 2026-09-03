@@ -4,6 +4,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from bots.models import Bot, Profile
+from bots.services.parent_reauth import hash_pin, verify_pin
 
 
 def make_auth_client(user, delegated=False):
@@ -60,7 +61,7 @@ class TestOnboardingFlag:
     def test_heuristic_fallback_when_flag_missing(self, load_ai_models):
         """Old accounts never see the wizard: pin + a profile counts as done."""
         user = User.objects.create_user(username='heuristic', password='pass')
-        user.user_account.pin = 1234
+        user.user_account.pin_hash = hash_pin('1234')
         user.user_account.save()
         # Signup signal provisioned one profile.
 
@@ -70,7 +71,7 @@ class TestOnboardingFlag:
 
     def test_heuristic_fails_without_profile(self, load_ai_models):
         user = User.objects.create_user(username='noprofile', password='pass')
-        user.user_account.pin = 1234
+        user.user_account.pin_hash = hash_pin('1234')
         user.user_account.save()
         Profile.objects.filter(user=user).delete()
 
@@ -133,7 +134,7 @@ class TestOnboardingBootstrap:
         assert response.json()['botId'] == str(bot.bot_id)
 
         user.user_account.refresh_from_db()
-        assert user.user_account.pin == 1234
+        assert verify_pin(user.user_account, '1234')
         assert user.user_account.onboarding_completed_at is not None
 
     def test_bootstrap_is_retryable_without_duplicates(self, load_ai_models):
@@ -146,7 +147,7 @@ class TestOnboardingBootstrap:
         assert Profile.objects.filter(user=user, deleted_at=None).count() == 1
         assert Bot.objects.filter(user=user, deleted_at=None).count() == 1
         user.user_account.refresh_from_db()
-        assert user.user_account.pin == 1234
+        assert verify_pin(user.user_account, '1234')
 
     def test_creates_profile_when_parent_deleted_default(self, load_ai_models):
         user = User.objects.create_user(username='nodefault', password='pass')
@@ -200,7 +201,7 @@ class TestOnboardingBootstrap:
 
         assert response.status_code == 400
         user.user_account.refresh_from_db()
-        assert user.user_account.pin is None
+        assert user.user_account.pin_hash is None
 
     def test_teen_delegated_session_is_403(self, load_ai_models):
         user = User.objects.create_user(username='delegated', password='pass')

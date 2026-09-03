@@ -59,7 +59,9 @@ class Command(BaseCommand):
 
         # Fresh onboarding state on every run.
         account = user.user_account
-        account.pin = None
+        account.pin_hash = None
+        account.pin_failed_attempts = 0
+        account.pin_locked_until = None
         account.onboarding_completed_at = None
         account.save()
 

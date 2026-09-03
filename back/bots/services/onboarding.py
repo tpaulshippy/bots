@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from bots.models import AiModel, Bot, Profile, UserAccount
+from bots.services.parent_reauth import hash_pin, validate_pin
 
 # Defaults shown in wizard step 3; keep in sync with front/app/onboarding/bot.tsx.
 DEFAULT_TEMPLATE_NAME = 'Blank'
@@ -16,15 +17,13 @@ DEFAULT_BOT_ICON = 'sparkles'
 
 
 def _clean_pin(pin):
-    """PINs are stored as integers until feature 02 introduces hashing."""
+    """PINs are hashed at rest (roadmap 02): validate 4-8 digits, return the
+    string form for hashing, or None when no PIN was supplied."""
     if pin in (None, ''):
         return None
-    try:
-        cleaned = int(str(pin))
-    except (TypeError, ValueError):
-        raise ValidationError({'pin': 'PIN must contain only digits.'})
-    if cleaned < 0:
-        raise ValidationError({'pin': 'PIN must contain only digits.'})
+    cleaned = str(pin)
+    if not validate_pin(cleaned):
+        raise ValidationError({'pin': 'PIN must be a string of 4 to 8 digits.'})
     return cleaned
 
 
@@ -84,8 +83,8 @@ def bootstrap_onboarding(user,
     account, _ = UserAccount.objects.get_or_create(user=user)
     pin_value = _clean_pin(pin)
     if pin_value is not None:
-        # Same storage as POST /api/user; swap for hashed pins with feature 02.
-        account.pin = pin_value
+        # Same hashed storage as POST /api/user.
+        account.pin_hash = hash_pin(pin_value)
     if account.onboarding_completed_at is None:
         account.onboarding_completed_at = timezone.now()
     account.save()
