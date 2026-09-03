@@ -50,7 +50,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
         </TouchableOpacity>
       )}
       {message.isLoading && <ActivityIndicator style={styles.loading} />}
-      {message.text && (
+      {message.text ? (
         isUser ? (
           <ThemedText
             selectable={true}
@@ -63,7 +63,7 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
             <MarkdownRenderer content={message.text} />
           </ThemedView>
         )
-      )}
+      ) : null}
       {message.created_at && (
         <ThemedText style={styles.timestamp(isUser, timestampColor)}>
           {format(new Date(message.created_at), "p")}
