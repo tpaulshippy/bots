@@ -1,14 +1,19 @@
 from rest_framework import viewsets
 
 from bots.models import Bot
-from bots.permissions import IsOwner, IsParentSessionForWrites
+from bots.permissions import (
+    IsOwner,
+    IsParentSessionForWrites,
+    ParentReauthRequired,
+)
 from bots.serializers import BotSerializer
 from bots.viewsets.mixins import get_object_by_uuid_or_id
 
 
 class BotViewSet(viewsets.ModelViewSet):
     # Teens may read (and chat with) the family's bots but never edit them.
-    permission_classes = [IsOwner, IsParentSessionForWrites]
+    # Writes additionally need a parent reauth session.
+    permission_classes = [IsOwner, IsParentSessionForWrites, ParentReauthRequired]
     queryset = Bot.objects.all()
     serializer_class = BotSerializer
     
