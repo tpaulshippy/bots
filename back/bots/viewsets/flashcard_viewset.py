@@ -1,26 +1,34 @@
 import uuid
 
-from django.db.models import Count, Max
-from rest_framework import viewsets
+from django.db.models import Count, F, Max, Q
+from django.utils import timezone
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from bots.models import Deck, Flashcard, Profile
+from bots.models import Deck, Flashcard, FlashcardReview, Profile
 from bots.permissions import IsOwner
 from bots.serializers import DeckListSerializer, DeckSerializer, FlashcardSerializer
+from bots.services import srs
 from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 from bots.viewsets.mixins import get_object_by_uuid_or_id
 
 
 class FlashcardViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsOwner]
+    permission_classes = [IsAuthenticated, IsOwner]
     serializer_class = FlashcardSerializer
     queryset = Flashcard.objects.all()
     lookup_field = "flashcard_id"
     lookup_url_kwarg = "flashcardId"
 
-    def _deck_queryset(self):
-        """Decks visible to this request: scoped to the claimed profile for
-        teen-delegated sessions so they cannot reach a sibling's decks."""
-        queryset = Deck.objects.all()
+    def _owned_decks(self):
+        """Decks visible to this request: owned by the requesting user, and
+        scoped to the claimed profile for teen-delegated sessions so they
+        cannot reach a sibling's decks."""
+        if not self.request.user.is_authenticated:
+            return Deck.objects.none()
+        queryset = Deck.objects.filter(profile__user=self.request.user)
         delegated_profile = delegated_profile_from_auth(self.request.auth)
         if delegated_profile is not None:
             queryset = queryset.filter(profile=delegated_profile)
@@ -31,7 +39,9 @@ class FlashcardViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         deck_id = self.kwargs['deck_pk']
 
-        deck = get_object_by_uuid_or_id(self._deck_queryset(), 'deck_id', deck_id)
+        # Scope to decks owned by the requesting user so foreign decks 404
+        # instead of leaking existence.
+        deck = get_object_by_uuid_or_id(self._owned_decks(), 'deck_id', deck_id)
 
         self.check_object_permissions(self.request, deck)
 
@@ -41,7 +51,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         lookup_field_value = self.kwargs[self.lookup_url_kwarg]
         deck_pk = self.kwargs['deck_pk']
 
-        deck = get_object_by_uuid_or_id(self._deck_queryset(), 'deck_id', deck_pk)
+        deck = get_object_by_uuid_or_id(self._owned_decks(), 'deck_id', deck_pk)
         flashcard = get_object_by_uuid_or_id(
             Flashcard.objects.filter(deck=deck), 'flashcard_id', lookup_field_value
         )
@@ -52,12 +62,37 @@ class FlashcardViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         deck_id = self.kwargs['deck_pk']
 
-        deck = get_object_by_uuid_or_id(self._deck_queryset(), 'deck_id', deck_id)
+        deck = get_object_by_uuid_or_id(self._owned_decks(), 'deck_id', deck_id)
 
         self.check_object_permissions(self.request, deck)
 
         max_order = Flashcard.objects.filter(deck=deck).aggregate(Max('order'))['order__max'] or -1
         serializer.save(deck=deck, order=max_order + 1)
+
+    @action(detail=True, methods=['post'], url_path='review')
+    def review(self, request, deck_pk=None, flashcardId=None, format=None):
+        """Rate a card (again|hard|good|easy) and reschedule it via SM-2."""
+        flashcard = self.get_object()
+
+        rating = request.data.get('rating')
+        if rating not in srs.RATINGS:
+            return Response(
+                {'rating': f"Invalid rating. Expected one of: {', '.join(srs.RATINGS)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        updates = srs.apply_sm2(flashcard, rating)
+        for field, value in updates.items():
+            setattr(flashcard, field, value)
+        flashcard.save(update_fields=list(updates.keys()) + ['updated_at'])
+
+        FlashcardReview.objects.create(
+            flashcard=flashcard,
+            profile=flashcard.deck.profile,
+            rating=rating,
+        )
+
+        return Response(FlashcardSerializer(flashcard).data)
 
 
 class DeckViewSet(viewsets.ModelViewSet):
@@ -85,7 +120,12 @@ class DeckViewSet(viewsets.ModelViewSet):
             except ValueError:
                 queryset = queryset.none()
 
-        return queryset.annotate(flashcard_count=Count('flashcards')).order_by('-created_at')
+        now = timezone.now()
+        return queryset.annotate(
+            flashcard_count=Count('flashcards'),
+            due_count=Count('flashcards', filter=Q(flashcards__due_at__lte=now)),
+            last_studied_at=Max('flashcards__last_reviewed_at'),
+        ).order_by('-created_at')
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -145,3 +185,38 @@ class DeckViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         instance.delete()
+
+    @action(detail=True, methods=['get'], url_path='study_queue')
+    def study_queue(self, request, pk=None, format=None):
+        """Cards to study, ordered by due_at ascending (nulls last).
+
+        Query params:
+            mode: 'due' (default) only cards due now, or 'all'
+            limit: max cards returned (default 50, capped at 200)
+        """
+        deck = self.get_object()
+
+        mode = request.query_params.get('mode', 'due')
+        if mode not in ('due', 'all'):
+            return Response(
+                {'mode': "Invalid mode. Expected 'due' or 'all'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        queryset = deck.flashcards.all()
+        if mode == 'due':
+            queryset = queryset.filter(due_at__lte=timezone.now())
+
+        queryset = queryset.order_by(
+            F('due_at').asc(nulls_last=True), 'order', 'created_at'
+        )
+
+        try:
+            limit = int(request.query_params.get('limit', 50))
+        except (TypeError, ValueError):
+            return Response({'limit': 'Invalid limit'}, status=status.HTTP_400_BAD_REQUEST)
+        limit = max(1, min(limit, 200))
+        queryset = queryset[:limit]
+
+        serializer = FlashcardSerializer(queryset, many=True)
+        return Response(serializer.data)
