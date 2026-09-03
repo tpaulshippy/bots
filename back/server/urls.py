@@ -39,6 +39,7 @@ from bots.views.user_account_view import (
     onboarding_complete_view,
     user_account_view,
 )
+from bots.views.voice_chat import voice_chat
 from bots.viewsets.activity_viewset import ActivityChatViewSet, ActivitySummaryViewSet
 from bots.viewsets.ai_model_viewset import AiModelViewSet
 from bots.viewsets.bot_viewset import BotViewSet
@@ -85,6 +86,7 @@ urlpatterns = [
         path('docs', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
         path('chats/<str:chat_id>', get_chat_response, name='get_chat_response'),
         path('chats/<str:chat_id>/stream', stream_chat_response, name='stream_chat_response'),
+        path('chats/<str:chat_id>/voice', voice_chat, name='voice_chat'),
         path('login', get_jwt, name='get_jwt'),
         path('login/web', start_web_login, name='start_web_login'),
         path('accounts/', include('allauth.urls')),

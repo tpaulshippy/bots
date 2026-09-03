@@ -11,6 +11,7 @@ class ProfileSerializer(serializers.HyperlinkedModelSerializer):
             'profile_id',
             'name',
             'oauth_email',
+            'voice_enabled',
             'deleted_at',
             'created_at',
             'modified_at']

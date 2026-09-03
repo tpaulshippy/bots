@@ -28,6 +28,7 @@ class Message(models.Model):
     safety_blocked = models.BooleanField(default=False)
     intent = models.CharField(max_length=16, choices=INTENT_CHOICES, default='chat', blank=True)
     meta = models.JSONField(default=dict, blank=True)
+    voice_cost = models.DecimalField(max_digits=10, decimal_places=6, default=0)
 
     def __str__(self):
         user_str = getattr(self.chat.user, 'email', 'unknown')

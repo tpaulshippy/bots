@@ -22,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import {
   fetchChatMessages,
   sendChat,
+  sendVoice,
   streamChatMessage,
   ChatMessage as ApiChatMessage,
   ChatStreamEvent,
@@ -29,13 +30,16 @@ import {
 import { fetchProfiles } from "@/api/profiles";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
+import VoiceInput from "@/components/VoiceInput";
 import { E2E_TEST_IMAGE_URI } from "@/e2e/utils";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import {
   getSelectedBotId,
+  getSelectedProfile,
   getSelectedProfileId,
   setSelectedProfile,
 } from "@/hooks/useSelectedProfile";
+import { playBase64Wav } from "@/utils/voicePlayback";
 
 // idle -> sending -> streaming -> complete | error | aborted (roadmap doc 06 §2)
 type ChatPhase = "idle" | "sending" | "streaming" | "error";
@@ -67,6 +71,9 @@ export default function Chat() {
   const abortRef = useRef<AbortController | null>(null);
   const lastPayloadRef = useRef<PendingPayload | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [autoPlayTts, setAutoPlayTts] = useState(true);
   const inputBorderColor = useThemeColor({}, "border");
   const placeholderColor = useThemeColor({}, "icon");
   const busy = phase === "sending" || phase === "streaming";
@@ -74,6 +81,26 @@ export default function Chat() {
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     abortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    const checkVoiceAvailability = async () => {
+      const [profile, botData] = await Promise.all([
+        getSelectedProfile(),
+        AsyncStorage.getItem("selectedBot"),
+      ]);
+      let voiceEnabled = false;
+      if (Platform.OS !== "web" && profile && botData) {
+        const bot = JSON.parse(botData);
+        voiceEnabled =
+          bot.enable_voice === true && profile.voice_enabled === true;
+      }
+      setVoiceAvailable(voiceEnabled);
+      if (!voiceEnabled) {
+        setVoiceMode(false);
+      }
+    };
+    checkVoiceAvailability();
   }, []);
 
   const refresh = useCallback(async (nextPage: number) => {
@@ -340,6 +367,78 @@ export default function Chat() {
     router.push({ pathname: "/flashcards/deck", params: { deckId: toast.deckId, title: toast.name } });
   };
 
+  const sendVoiceToServer = async (audioUri: string) => {
+    const profileId = await getSelectedProfileId();
+    const botId = await getSelectedBotId();
+    if (!profileId) {
+      setMessages([
+        {
+          role: "assistant",
+          image_url: null,
+          text: "Please select a profile first.",
+        },
+      ]);
+      return;
+    }
+
+    const pendingUserMessage: ApiChatMessage = {
+      role: "user",
+      image_url: null,
+      text: "…",
+    };
+    const loadingMessage: ApiChatMessage = {
+      role: "assistant",
+      image_url: null,
+      isLoading: true,
+      text: "",
+    };
+    setMessages([...messages, pendingUserMessage, loadingMessage]);
+
+    const fileName = audioUri.split("/").pop() || "recording.wav";
+    const extension = fileName.split(".").pop() || "wav";
+    const formData = new FormData();
+    formData.append("audio", {
+      uri: audioUri,
+      name: fileName,
+      type: extension === "wav" ? "audio/wav" : "audio/mp4",
+    } as any);
+    formData.append("profile", profileId);
+    formData.append("bot", botId);
+
+    const result = await sendVoice(chatId, formData);
+    if (result && !result.blocked) {
+      const newUserMessage: ApiChatMessage = {
+        role: "user",
+        image_url: null,
+        text: result.user_message ?? "",
+      };
+      const newAssistantMessage: ApiChatMessage = {
+        role: "assistant",
+        image_url: null,
+        text: result.response,
+      };
+      setMessages([...messages, newUserMessage, newAssistantMessage]);
+      setChatId(result.chat_id);
+      if (result.audio_base64 && autoPlayTts) {
+        await playBase64Wav(result.audio_base64);
+      }
+    } else if (result?.blocked) {
+      const blockedUserMessage: ApiChatMessage = {
+        role: "user",
+        image_url: null,
+        text: result.user_message ?? "",
+      };
+      const blockedAssistantMessage: ApiChatMessage = {
+        role: "assistant",
+        image_url: null,
+        text: result.response,
+      };
+      setMessages([...messages, blockedUserMessage, blockedAssistantMessage]);
+    } else {
+      setMessages(messages);
+    }
+  };
+
   const handleLoadMore = () => {
     if (!loadingMore && hasMore && local.chatId) {
       setLoadingMore(true);
@@ -400,54 +499,148 @@ export default function Chat() {
                 </ThemedView>
               )}
               <ThemedView style={styles.inputContainer}>
-                <ThemedTextInput
-                  testID="chat-input"
-                  autoFocus={!local.chatId}
-                  multiline={true}
-                  placeholder="Message…"
-                  placeholderTextColor={placeholderColor}
-                  onChangeText={setInput}
-                  value={input}
-                  style={[styles.input, { borderColor: inputBorderColor }]}
-                ></ThemedTextInput>
-                <ThemedButton
-                  testID="camera-button"
-                  darkColor="#0a7ea4"
-                  style={styles.sendButton}
-                  onPress={handleImagePicker}
-                >
-                  <IconSymbol
-                    name="camera.fill"
-                    color="#fff"
-                    size={22}
-                  ></IconSymbol>
-                </ThemedButton>
-                {busy ? (
-                  <ThemedButton
-                    testID="stop-button"
-                    darkColor="#d9534f"
-                    style={styles.sendButton}
-                    onPress={handleStop}
-                  >
-                    <IconSymbol
-                      name="stop.fill"
-                      color="#fff"
-                      size={20}
-                    ></IconSymbol>
-                  </ThemedButton>
+                {voiceAvailable ? (
+                  <>
+                    <ThemedButton
+                      testID="voice-mode-toggle"
+                      darkColor="#0a7ea4"
+                      style={[
+                        styles.sendButton,
+                        voiceMode && styles.activeModeButton,
+                      ]}
+                      onPress={() => setVoiceMode(!voiceMode)}
+                    >
+                      <IconSymbol
+                        name="mic.fill"
+                        color="#fff"
+                        size={22}
+                      ></IconSymbol>
+                    </ThemedButton>
+                    {voiceMode ? (
+                      <>
+                        <VoiceInput onSend={sendVoiceToServer} />
+                        <ThemedButton
+                          testID="tts-autoplay-toggle"
+                          darkColor="#0a7ea4"
+                          style={[
+                            styles.sendButton,
+                            autoPlayTts && styles.activeModeButton,
+                          ]}
+                          onPress={() => setAutoPlayTts(!autoPlayTts)}
+                        >
+                          <IconSymbol
+                            name={autoPlayTts ? "speaker.wave.2.fill" : "speaker.slash.fill"}
+                            color="#fff"
+                            size={22}
+                          ></IconSymbol>
+                        </ThemedButton>
+                      </>
+                    ) : (
+                      <>
+                        <ThemedTextInput
+                          testID="chat-input"
+                          autoFocus={!local.chatId}
+                          multiline={true}
+                          placeholder="Message…"
+                          placeholderTextColor={placeholderColor}
+                          onChangeText={setInput}
+                          value={input}
+                          style={[styles.input, { borderColor: inputBorderColor }]}
+                        ></ThemedTextInput>
+                        <ThemedButton
+                          testID="camera-button"
+                          darkColor="#0a7ea4"
+                          style={styles.sendButton}
+                          onPress={handleImagePicker}
+                        >
+                          <IconSymbol
+                            name="camera.fill"
+                            color="#fff"
+                            size={22}
+                          ></IconSymbol>
+                        </ThemedButton>
+                        {busy ? (
+                          <ThemedButton
+                            testID="stop-button"
+                            darkColor="#d9534f"
+                            style={styles.sendButton}
+                            onPress={handleStop}
+                          >
+                            <IconSymbol
+                              name="stop.fill"
+                              color="#fff"
+                              size={20}
+                            ></IconSymbol>
+                          </ThemedButton>
+                        ) : (
+                          <ThemedButton
+                            testID="send-button"
+                            darkColor="#0a7ea4"
+                            style={styles.sendButton}
+                            onPress={sendChatToServer}
+                          >
+                            <IconSymbol
+                              name="arrow.up"
+                              color="#fff"
+                              size={22}
+                            ></IconSymbol>
+                          </ThemedButton>
+                        )}
+                      </>
+                    )}
+                  </>
                 ) : (
-                  <ThemedButton
-                    testID="send-button"
-                    darkColor="#0a7ea4"
-                    style={styles.sendButton}
-                    onPress={sendChatToServer}
-                  >
-                    <IconSymbol
-                      name="arrow.up"
-                      color="#fff"
-                      size={22}
-                    ></IconSymbol>
-                  </ThemedButton>
+                  <>
+                    <ThemedTextInput
+                      testID="chat-input"
+                      autoFocus={!local.chatId}
+                      multiline={true}
+                      placeholder="Message…"
+                      placeholderTextColor={placeholderColor}
+                      onChangeText={setInput}
+                      value={input}
+                      style={[styles.input, { borderColor: inputBorderColor }]}
+                    ></ThemedTextInput>
+                    <ThemedButton
+                      testID="camera-button"
+                      darkColor="#0a7ea4"
+                      style={styles.sendButton}
+                      onPress={handleImagePicker}
+                    >
+                      <IconSymbol
+                        name="camera.fill"
+                        color="#fff"
+                        size={22}
+                      ></IconSymbol>
+                    </ThemedButton>
+                    {busy ? (
+                      <ThemedButton
+                        testID="stop-button"
+                        darkColor="#d9534f"
+                        style={styles.sendButton}
+                        onPress={handleStop}
+                      >
+                        <IconSymbol
+                          name="stop.fill"
+                          color="#fff"
+                          size={20}
+                        ></IconSymbol>
+                      </ThemedButton>
+                    ) : (
+                      <ThemedButton
+                        testID="send-button"
+                        darkColor="#0a7ea4"
+                        style={styles.sendButton}
+                        onPress={sendChatToServer}
+                      >
+                        <IconSymbol
+                          name="arrow.up"
+                          color="#fff"
+                          size={22}
+                        ></IconSymbol>
+                      </ThemedButton>
+                    )}
+                  </>
                 )}
               </ThemedView>
           </ThemedView>
@@ -520,5 +713,10 @@ const styles = {
   deckToastButtonText: {
     color: "#fff",
     fontSize: 14,
+  },
+  activeModeButton: {
+    backgroundColor: "#0a7ea4",
+    borderWidth: 2,
+    borderColor: "#7fd4ff",
   },
 };

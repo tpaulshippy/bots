@@ -170,6 +170,16 @@ export default function SimpleBotEditor({
           }
         />
       </ThemedView>
+      <ThemedView
+        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+      >
+        <ThemedText style={styles.checkboxLabel}>Enable Voice</ThemedText>
+        <Switch
+          testID="enable-voice-switch"
+          value={bot.enable_voice}
+          onValueChange={(value) => setBotProperty({ enable_voice: value })}
+        />
+      </ThemedView>
     </ThemedView>
   );
 }
