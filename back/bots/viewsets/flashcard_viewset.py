@@ -70,7 +70,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         serializer.save(deck=deck, order=max_order + 1)
 
     @action(detail=True, methods=['post'], url_path='review')
-    def review(self, request, deck_pk=None, flashcardId=None):
+    def review(self, request, deck_pk=None, flashcardId=None, format=None):
         """Rate a card (again|hard|good|easy) and reschedule it via SM-2."""
         flashcard = self.get_object()
 
@@ -187,7 +187,7 @@ class DeckViewSet(viewsets.ModelViewSet):
         instance.delete()
 
     @action(detail=True, methods=['get'], url_path='study_queue')
-    def study_queue(self, request, pk=None):
+    def study_queue(self, request, pk=None, format=None):
         """Cards to study, ordered by due_at ascending (nulls last).
 
         Query params:
