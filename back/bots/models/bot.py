@@ -27,6 +27,7 @@ class Bot(models.Model):
     restrict_adult_topics = models.BooleanField(default=True)
     enable_web_search = models.BooleanField(default=False)
     use_profile_memory = models.BooleanField(default=True)
+    enable_vision = models.BooleanField(default=False)
     color = models.CharField(max_length=7, null=True, blank=True)
     icon = models.CharField(max_length=255, null=True, blank=True)
 
