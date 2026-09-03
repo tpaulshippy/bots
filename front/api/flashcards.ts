@@ -153,7 +153,7 @@ export const fetchStudyQueue = async (
   limit = 50
 ): Promise<Flashcard[]> =>
   request<Flashcard[]>(
-    `/decks/${deckId}/study_queue/.json?mode=${mode}&limit=${limit}`,
+    `/decks/${deckId}/study_queue.json?mode=${mode}&limit=${limit}`,
     { method: "GET" },
     []
   );
@@ -165,7 +165,7 @@ export const reviewFlashcard = async (
   rating: FlashcardRating
 ): Promise<Flashcard | null> =>
   request<Flashcard | null>(
-    `/decks/${deckId}/flashcards/${flashcardId}/review/.json`,
+    `/decks/${deckId}/flashcards/${flashcardId}/review.json`,
     {
       method: "POST",
       body: JSON.stringify({ rating }),
