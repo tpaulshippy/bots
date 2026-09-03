@@ -6,6 +6,7 @@ import Chat from '../botChat';
 import { fetchChatMessages, sendVoice } from '@/api/chats';
 
 jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
   useLocalSearchParams: jest.fn(),
 }));
 

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bots', '0038_alter_aimodel_options_alter_device_options'),
+        ('bots', '0050_bot_enable_vision_bot_enable_voice_message_intent_and_more'),
     ]
 
     operations = [
@@ -14,11 +14,6 @@ class Migration(migrations.Migration):
             model_name='bot',
             name='enable_voice',
             field=models.BooleanField(default=False),
-        ),
-        migrations.AddField(
-            model_name='message',
-            name='meta',
-            field=models.JSONField(blank=True, default=dict),
         ),
         migrations.AddField(
             model_name='message',
