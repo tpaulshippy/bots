@@ -187,6 +187,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     opacity: 0.7,
     marginTop: 20,
+    marginBottom: 16,
   },
   botContainer: {
     flexDirection: "row",
@@ -197,11 +198,6 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     marginTop: 24,
-  },
-  emptyText: {
-    fontSize: 16,
-    opacity: 0.7,
-    marginBottom: 16,
   },
   emptyCta: {
     borderRadius: 14,
