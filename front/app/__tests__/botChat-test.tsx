@@ -6,9 +6,8 @@ import Chat from '../botChat';
 import { fetchChatMessages, streamChatMessage, ChatStreamEvent } from '@/api/chats';
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
   useLocalSearchParams: jest.fn(),
-  useRouter: () => ({ replace: jest.fn(), push: jest.fn(), back: jest.fn() }),
 }));
 
 jest.mock('@/api/chats', () => ({
