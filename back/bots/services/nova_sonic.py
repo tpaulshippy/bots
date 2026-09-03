@@ -171,17 +171,6 @@ class NovaSonicService:
         except Exception as e:
             logger.warning(f'Nova Sonic teardown error: {e}')
 
-    async def _open_stream(self):
-        client, operation_input, chunk_type, part_type = self._client()
-        stream = await client.invoke_model_with_bidirectional_stream(
-            operation_input(model_id=self.model_id)
-        )
-        return {
-            'stream': stream,
-            'chunk_type': chunk_type,
-            'part_type': part_type,
-        }
-
     async def _read_events(self, state, handler):
         _, output_stream = await state['stream'].await_output()
         deadline = asyncio.get_event_loop().time() + TURN_TIMEOUT_SECONDS
