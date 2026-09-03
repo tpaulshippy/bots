@@ -9,6 +9,11 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from bots.models import AiModel, Bot, Chat, Deck, Profile
+from bots.services.parent_reauth import (
+    PARENT_REAUTH_HEADER,
+    ParentReauthToken,
+    hash_pin,
+)
 from bots.tokens import SyftRefreshToken
 
 PARENT_EMAIL = 'parent@example.com'
@@ -33,10 +38,16 @@ def sibling_profile(parent):
     return Profile.objects.create(user=parent, name='Leo')
 
 
-def parent_client(parent):
+def parent_client(parent, reauth=False):
     client = APIClient()
     refresh = RefreshToken.for_user(parent)
     client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+    if reauth:
+        header = 'HTTP_' + PARENT_REAUTH_HEADER.replace('-', '_').upper()
+        client.credentials(
+            HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}',
+            **{header: str(ParentReauthToken.for_user(parent))},
+        )
     return client
 
 
@@ -222,11 +233,12 @@ class TestTeenDeniedParentSurfaces:
         assert 'pin' not in response.json()
 
     def test_parent_get_user_still_has_pin(self, parent):
-        parent.user_account.pin = 1234
+        parent.user_account.pin_hash = hash_pin('1234')
         parent.user_account.save()
         response = parent_client(parent).get('/api/user')
         assert response.status_code == 200
-        assert response.json()['pin'] == 1234
+        assert response.json()['hasPin'] is True
+        assert 'pin' not in response.json()
 
     def test_teen_cannot_delete_account(self, parent, teen_profile):
         response = teen_client(teen_profile).delete('/api/user/delete')
@@ -349,7 +361,8 @@ class TestWebRedirectForwardsClaims:
 @pytest.mark.django_db
 class TestParentSessionUnchanged:
     def test_parent_can_switch_profiles_and_manage_everything(self, parent, teen_profile, sibling_profile):
-        client = parent_client(parent)
+        # Parent writes now require a reauth session (roadmap 02 stacked).
+        client = parent_client(parent, reauth=True)
 
         # The parent fixture also has the signal-provisioned default profile.
         profiles = client.get('/api/profiles.json').json()['results']

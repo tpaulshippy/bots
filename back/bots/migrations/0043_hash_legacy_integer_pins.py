@@ -18,7 +18,7 @@ def hash_legacy_pins(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bots', '0039_useraccount_pin_hash_pin_failed_attempts_pin_locked_until'),
+        ('bots', '0042_useraccount_pin_hash_pin_failed_attempts_pin_locked_until'),
     ]
 
     operations = [

@@ -4,7 +4,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bots', '0040_hash_legacy_integer_pins'),
+        ('bots', '0043_hash_legacy_integer_pins'),
     ]
 
     operations = [

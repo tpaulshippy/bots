@@ -337,14 +337,14 @@ class _StubApps:
 
 @pytest.mark.django_db
 class TestLegacyPinMigration:
-    """bots.0040 must convert legacy integer PINs into hashed pin_hash values."""
+    """bots.0043 must convert legacy integer PINs into hashed pin_hash values."""
 
     def test_hash_legacy_pins_converts_integer_pins(self, load_fixture):
         import importlib
 
         from django.db import connection, models
 
-        migration = importlib.import_module('bots.migrations.0040_hash_legacy_integer_pins')
+        migration = importlib.import_module('bots.migrations.0043_hash_legacy_integer_pins')
 
         # Recreate the pre-migration schema state: restore the dropped column.
         with connection.cursor() as cursor:
@@ -361,7 +361,7 @@ class TestLegacyPinMigration:
                     'UPDATE bots_useraccount SET pin = %s WHERE id = %s',
                     [4321, legacy_user.user_account.id])
 
-            # Stand-in model mirroring historical UserAccount at 0040
+            # Stand-in model mirroring historical UserAccount at 0043
             # (both `pin` and `pin_hash` exist), bound to the real table.
             class LegacyUserAccount(models.Model):
                 class Meta:
