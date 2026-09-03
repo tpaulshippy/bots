@@ -17,10 +17,15 @@ export default function ChildHome() {
       }
       // If the app was launched by tapping a notification, the root layout
       // navigates to that chat instead; don't clobber it with a redirect.
-      const response = Notifications.getLastNotificationResponse();
-      const data = response?.notification.request.content.data as
-        | { chat_id?: string }
-        | undefined;
+      let data: { chat_id?: string } | undefined;
+      try {
+        const response = Notifications.getLastNotificationResponse();
+        data = response?.notification.request.content.data as
+          | { chat_id?: string }
+          | undefined;
+      } catch {
+        data = undefined;
+      }
       if (data?.chat_id) {
         return;
       }
