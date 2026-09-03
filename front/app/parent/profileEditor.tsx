@@ -235,6 +235,15 @@ export default function ProfileEditor() {
               </ThemedView>
 
               <ThemedButton onPress={() => deleteProfile()} style={styles.button}>
+                <IconSymbol
+                  name="trash"
+                  color={buttonIconColor}
+                  size={40}
+                  style={styles.buttonIcon}
+                ></IconSymbol>
+                <ThemedText>Delete Profile</ThemedText>
+              </ThemedButton>
+            </>
           ) : null}
         </ThemedView>
       </ScrollView>
