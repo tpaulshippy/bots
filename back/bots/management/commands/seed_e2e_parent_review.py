@@ -20,6 +20,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from bots.models import AiModel, Bot, Chat, Message, Profile, UserAccount
+from bots.services.parent_reauth import hash_pin
 
 USERNAME = 'e2e-test-user'
 PASSWORD = 'testpassword123'
@@ -42,10 +43,11 @@ class Command(BaseCommand):
         user.save()
 
         account, _ = UserAccount.objects.get_or_create(user=user)
-        if account.pin != PARENT_PIN:
-            account.pin = PARENT_PIN
-            account.subscription_level = 2
-            account.save()
+        account.pin_hash = hash_pin(str(PARENT_PIN))
+        account.pin_failed_attempts = 0
+        account.pin_locked_until = None
+        account.subscription_level = 2
+        account.save()
 
         now = timezone.now()
         default_model = AiModel.objects.filter(is_default=True).first()

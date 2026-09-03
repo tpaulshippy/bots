@@ -24,6 +24,7 @@ def auth_client_for(user, teen=False):
     client = APIClient()
     refresh = RefreshToken.for_user(user)
     if teen:
+        refresh['is_teen_delegated'] = True
         refresh['session_type'] = 'teen'
     client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
     return client

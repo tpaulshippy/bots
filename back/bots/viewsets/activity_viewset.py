@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.db.models import Count, OuterRef, Q, Subquery, Value
 from django.utils import timezone
 from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from bots.models import Chat, Message, Profile
@@ -68,7 +69,7 @@ class ActivityChatViewSet(viewsets.GenericViewSet):
     Read-only by design: parents review here, they never write into the kid
     thread (roadmap 04 non-goal).
     """
-    permission_classes = [IsParentSession]
+    permission_classes = [IsAuthenticated, IsParentSession]
     serializer_class = ActivityChatListSerializer
 
     def get_queryset(self):
@@ -112,7 +113,7 @@ class ActivityChatViewSet(viewsets.GenericViewSet):
 
 class ActivitySummaryViewSet(viewsets.ViewSet):
     """Per-profile activity counts for the "This week" chips."""
-    permission_classes = [IsParentSession]
+    permission_classes = [IsAuthenticated, IsParentSession]
 
     def list(self, request):
         try:

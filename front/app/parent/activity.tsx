@@ -8,7 +8,6 @@ import {
   ActivityChatItem,
   ActivitySummary,
 } from "@/api/activity";
-import { getAccount } from "@/api/account";
 import { handleUnauthorized } from "@/hooks/useSelectedProfile";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { format, formatDistance } from "date-fns";
@@ -41,7 +40,6 @@ export default function ActivityScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [correctPin, setCorrectPin] = useState<string>("");
   const [summary, setSummary] = useState<ActivitySummary | null>(null);
   const [chats, setChats] = useState<ActivityChatItem[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -75,13 +73,6 @@ export default function ActivityScreen() {
     },
     [router, selectedProfileId, safetyOnly]
   );
-
-  useEffect(() => {
-    getAccount().then((account) => {
-      // Empty PIN leaves PinWrapper open; a seeded PIN gates the inbox.
-      setCorrectPin(account?.pin?.toString() || "");
-    });
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -149,7 +140,7 @@ export default function ActivityScreen() {
   );
 
   return (
-    <PinWrapper correctPin={correctPin}>
+    <PinWrapper>
       <ThemedView testID="activity-screen" style={styles.container}>
         <ThemedText style={styles.sectionHeader}>This week</ThemedText>
         {loading ? (
