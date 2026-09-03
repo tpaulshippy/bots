@@ -10,6 +10,28 @@ export interface Account {
     maxDailyCost?: number;
     subscriptionLevel?: number;
     timezone?: string;
+    onboardingCompleted?: boolean;
+}
+
+export type PartialAccount = Partial<Account> & { pin: number };
+
+export interface OnboardingBootstrapPayload {
+    profileName: string;
+    botName?: string;
+    templateName?: string;
+    pin?: string;
+    systemPrompt?: string;
+    color?: string;
+    icon?: string;
+}
+
+export interface OnboardingBootstrapResult {
+    response?: string;
+    onboardingCompleted?: boolean;
+    // Identifies exactly which profile/bot the wizard configured, since
+    // profile listings are name-ordered and the default may not be first.
+    profileId?: string;
+    botId?: string;
 }
 
 export const getAccount = async (): Promise<Account | null> => {
@@ -35,6 +57,24 @@ export const setPin = async (
             currentPin !== undefined ? { pin, currentPin } : { pin }
         ),
     });
+};
+
+// Marks first-run onboarding complete; idempotent on the server.
+export const completeOnboarding = async (): Promise<void> => {
+    await request<void>('/user/onboarding/complete', {
+        method: 'POST',
+        body: JSON.stringify({}),
+    }, undefined);
+};
+
+// Atomic wizard save: profile name, first bot, PIN and completion flag.
+export const bootstrapOnboarding = async (
+    payload: OnboardingBootstrapPayload
+): Promise<OnboardingBootstrapResult | null> => {
+    return request<OnboardingBootstrapResult | null>('/onboarding/bootstrap', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    }, null);
 };
 
 export const deleteAccount = async (): Promise<void> => {

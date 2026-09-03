@@ -31,7 +31,12 @@ from bots.views.get_jwt import get_jwt, start_web_login
 from bots.views.reauthenticate import reauthenticate
 from bots.views.revenuecat_webhook import revenuecat_webhook
 from bots.views.support import support_view
-from bots.views.user_account_view import DeleteUserAccountView, user_account_view
+from bots.views.user_account_view import (
+    DeleteUserAccountView,
+    onboarding_bootstrap_view,
+    onboarding_complete_view,
+    user_account_view,
+)
 from bots.viewsets.activity_viewset import ActivityChatViewSet, ActivitySummaryViewSet
 from bots.viewsets.ai_model_viewset import AiModelViewSet
 from bots.viewsets.bot_viewset import BotViewSet
@@ -84,6 +89,8 @@ urlpatterns = [
         path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
         path('auth/reauthenticate', reauthenticate, name='reauthenticate'),
         path('user', user_account_view, name='user_account'),
+        path('user/onboarding/complete', onboarding_complete_view, name='onboarding_complete'),
+        path('onboarding/bootstrap', onboarding_bootstrap_view, name='onboarding_bootstrap'),
         path('user/delete', DeleteUserAccountView.as_view(), name='delete_user_account'),
         path('accounts/google/auto-login/', auto_google_login, name='google-auto-login'),
         path('accounts/apple/auto-login/', auto_apple_login, name='apple-auto-login'),

@@ -24,9 +24,20 @@ class UserAccount(models.Model):
     pin_locked_until = models.DateTimeField(null=True, blank=True)
     subscription_level = models.IntegerField(default=0)
     timezone = models.CharField(max_length=50, default='UTC')
-    
+    # Set by the first-run onboarding wizard (feature 05); null for accounts
+    # that predate it or have not finished onboarding yet.
+    onboarding_completed_at = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return self.user.email
+
+    def onboarding_completed(self):
+        """Prefer the explicit flag set by the onboarding wizard; fall back to a
+        heuristic for older accounts that will never run the wizard."""
+        if self.onboarding_completed_at is not None:
+            return True
+        return (self.pin_hash is not None
+                and self.user.profile_set.filter(deleted_at=None).count() >= 1)
 
     def over_limit(self):
         from .usage_limit_hit import UsageLimitHit

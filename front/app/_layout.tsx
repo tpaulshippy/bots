@@ -22,6 +22,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import * as Sentry from "@sentry/react-native";
 import { isRunningInExpoGo } from "expo";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
+import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { useNotificationChatNavigation } from "@/hooks/useNotificationChatNavigation";
 import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
 import { useDelegatedRouteGuard } from "@/hooks/useDelegatedRouteGuard";
@@ -142,6 +143,39 @@ export default function RootLayout() {
                 headerLeft: () => (
                   <DrawerMenuButton onOpen={() => setIsDrawerOpen(true)} />
                 ),
+                headerRight: () => <ProfileSwitcher />,
+              }}
+            />
+            <Stack.Screen
+              name="onboarding/index"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+                headerBackVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="onboarding/profile"
+              options={{
+                headerShown: false,
+                // Skip-resistant: no swipe-back off the required steps.
+                gestureEnabled: false,
+                headerBackVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="onboarding/bot"
+              options={{
+                headerShown: false,
+                headerBackVisible: false,
+              }}
+            />
+            <Stack.Screen
+              name="onboarding/protect"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+                headerBackVisible: false,
               }}
             />
             <Stack.Screen

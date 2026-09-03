@@ -1,10 +1,12 @@
-from rest_framework.decorators import api_view
+from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from bots.models.user_account import MAX_COST_DAILY
 from bots.permissions import IsParentSession, ParentReauthRequired
+from bots.services.onboarding import bootstrap_onboarding
 from bots.services.parent_reauth import (
     has_valid_parent_reauth,
     hash_pin,
@@ -13,6 +15,15 @@ from bots.services.parent_reauth import (
     validate_pin,
     verify_pin,
 )
+
+TEEN_DELEGATED_DETAIL = 'Onboarding is completed by the parent account.'
+
+
+def request_is_teen_delegated(request) -> bool:
+    """Teen delegated sessions carry the claim added by get_delegated_tokens;
+    they must never run or complete onboarding themselves."""
+    payload = getattr(request.auth, 'payload', None)
+    return bool(payload.get('is_teen_delegated')) if isinstance(payload, dict) else False
 
 
 @api_view(['POST', 'GET'])
@@ -32,6 +43,7 @@ def user_account_view(request):
                 'maxDailyCost': MAX_COST_DAILY[user.user_account.subscription_level],
                 'subscriptionLevel': user.user_account.subscription_level,
                 'timezone': user.user_account.timezone,
+                'onboardingCompleted': user.user_account.onboarding_completed(),
             }
         return Response(accountInfo)
 
@@ -76,6 +88,47 @@ def set_pin(request):
     account.save(update_fields=['pin_hash'])
 
     return Response({'response': 'ok'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def onboarding_complete_view(request):
+    """Mark onboarding complete. Idempotent; teen delegated sessions are 403."""
+    if request_is_teen_delegated(request):
+        return Response({'detail': TEEN_DELEGATED_DETAIL}, status=403)
+
+    account = request.user.user_account
+    if account.onboarding_completed_at is None:
+        account.onboarding_completed_at = timezone.now()
+        account.save()
+    return Response({'response': 'ok', 'onboardingCompleted': True})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def onboarding_bootstrap_view(request):
+    """Atomic wizard save: profile name, first bot, PIN and completion flag."""
+    if request_is_teen_delegated(request):
+        return Response({'detail': TEEN_DELEGATED_DETAIL}, status=403)
+
+    data = request.data
+    result = bootstrap_onboarding(
+        request.user,
+        profile_name=data.get('profileName'),
+        bot_name=data.get('botName'),
+        template_name=data.get('templateName'),
+        pin=data.get('pin'),
+        system_prompt=data.get('systemPrompt'),
+        color=data.get('color'),
+        icon=data.get('icon'),
+    )
+    return Response({
+        'response': 'ok',
+        'onboardingCompleted': True,
+        # Let clients select exactly what the wizard configured.
+        'profileId': str(result['profile'].profile_id),
+        'botId': str(result['bot'].bot_id),
+    })
 
 
 class DeleteUserAccountView(APIView):
