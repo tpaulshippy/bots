@@ -110,7 +110,11 @@ class ProfileSchedule(models.Model):
         except Exception:
             tz_name = "UTC"
 
-        local_tz = pytz.timezone(tz_name)
+        try:
+            local_tz = pytz.timezone(tz_name)
+        except Exception:
+            # A bad timezone string must never 500 chat; fall back to UTC.
+            local_tz = pytz.UTC
         local_now = now_utc.astimezone(local_tz)
 
         # Python weekday(): Monday=0 … Sunday=6

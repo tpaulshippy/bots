@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bots', '0038_alter_aimodel_options_alter_device_options'),
+        ('bots', '0048_bot_use_profile_memory_useraccount_memory_enabled_and_more'),
     ]
 
     operations = [

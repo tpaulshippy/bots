@@ -116,7 +116,7 @@ class TestScheduleAllows:
 
     def test_enabled_outside_window_blocks(self):
         user = _make_user()
-        user.user_account.timezone = "US/Eastern"
+        user.user_account.timezone = "America/New_York"
         user.user_account.save()
         profile = _make_profile(user)
         # Window: Mon-Fri 7:00-20:00
@@ -126,7 +126,7 @@ class TestScheduleAllows:
             block_message="Bedtime!",
         )
         # Simulate 1am Eastern on a Monday
-        eastern = pytz.timezone("US/Eastern")
+        eastern = pytz.timezone("America/New_York")
         fake_now = eastern.localize(datetime(2025, 6, 9, 1, 0, 0)).astimezone(pytz.UTC)
         allowed, msg = schedule.allows(now_utc=fake_now)
         assert allowed is False
@@ -134,7 +134,7 @@ class TestScheduleAllows:
 
     def test_enabled_inside_window_allows(self):
         user = _make_user()
-        user.user_account.timezone = "US/Eastern"
+        user.user_account.timezone = "America/New_York"
         user.user_account.save()
         profile = _make_profile(user)
         windows = [{"dow": d, "start": "07:00", "end": "20:00"} for d in range(1, 6)]
@@ -142,7 +142,7 @@ class TestScheduleAllows:
             profile=profile, enabled=True, windows_json=windows,
         )
         # 10am Eastern on a Monday
-        eastern = pytz.timezone("US/Eastern")
+        eastern = pytz.timezone("America/New_York")
         fake_now = eastern.localize(datetime(2025, 6, 9, 10, 0, 0)).astimezone(pytz.UTC)
         allowed, msg = schedule.allows(now_utc=fake_now)
         assert allowed is True
