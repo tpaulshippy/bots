@@ -100,7 +100,29 @@ def get_chat_response(request, chat_id):
         text=user_input, role='user', order=chat.messages.count(), image_filename=filename
     )
     response = chat.get_response(user_message=user_message)
-    return Response({'response': response, 'chat_id': chat.chat_id})
+    data = {'response': response, 'chat_id': chat.chat_id}
+    # Save the message with the uploaded image filename
+    chat.messages.create(text=user_input, role='user', order=chat.messages.count(), image_filename=filename)
+
+    response = chat.get_response()
+    data = {'response': response, 'chat_id': chat.chat_id}
+
+    # Optional structured tool results so non-stream clients can still toast
+    # (roadmap doc 06 §3).
+    deck_events = [
+        {
+            "type": "flashcard_deck_created",
+            "deck_id": event["deck_id"],
+            "name": event["name"],
+            "card_count": event["card_count"],
+        }
+        for event in getattr(chat, 'last_client_events', [])
+        if event.get("tool") == "create_flashcard_deck"
+    ]
+    if deck_events:
+        data['events'] = deck_events
+
+    return Response(data)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS

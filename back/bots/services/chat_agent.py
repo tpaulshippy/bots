@@ -35,6 +35,9 @@ class ChatAgentService:
         self.ai_client = ai_client
         # Server-owned policy; falls back to the bot's flags when not passed.
         self.policy = policy or SafetyPolicy.for_bot(chat.bot)
+        # Structured tool results the API can surface to clients (SSE status
+        # payloads and the legacy `events[]` array). Roadmap doc 06 §3.
+        self.client_events = []
 
     def respond(self, message_list):
         tools = {
@@ -59,12 +62,86 @@ class ChatAgentService:
 
         return self._extract_response(messages)
 
+    def respond_events(self, message_list):
+        """Streaming variant of respond(): yields agent events for SSE.
+
+        Event dicts follow roadmap doc 06 §1:
+          {"type": "token", "text": ...}
+          {"type": "tool_start", "tool": ..., "args": {...}}
+          {"type": "tool_end", "tool": ..., ...result extras (deck_id, name, card_count)}
+          {"type": "done", "input_tokens": n, "output_tokens": m}
+
+        Tool-call chunks are buffered until complete, then executed; text chunks
+        are emitted as tokens as they arrive. Usage metadata comes from streamed
+        chunk metadata when the provider includes it; when absent, totals stay 0
+        rather than being estimated inaccurately.
+        """
+        tools = {
+            "create_flashcard_deck": self._create_flashcard_deck_tool(),
+            "create_flashcard": self._create_flashcard_tool(),
+        }
+        web_search = self._create_web_search_tool()
+        has_web_search = False
+        if web_search:
+            tools["web_search"] = web_search
+            has_web_search = True
+
+        model_with_tools = self.ai_client.bind_tools(list(tools.values()))
+        messages = list(message_list)
+        usage_totals = {"input_tokens": 0, "output_tokens": 0}
+
+        for iteration in range(1, self.MAX_ITERATIONS + 1):
+            logger.info(f"🤖 AGENT_STREAM_ITERATION: {iteration}")
+
+            merged_chunk = None
+            for chunk in model_with_tools.stream(messages):
+                delta = self._message_text(chunk)
+                if delta:
+                    yield {"type": "token", "text": delta}
+                merged_chunk = chunk if merged_chunk is None else merged_chunk + chunk
+
+            response = self._chunk_to_ai_message(merged_chunk)
+            messages.append(response)
+            self._accumulate_usage(usage_totals, response)
+
+            if not response.tool_calls:
+                logger.info(f"🤖 AGENT_STREAM_COMPLETE: no more tool calls after {iteration} iterations")
+                break
+
+            for tool_call in response.tool_calls:
+                tool_name = tool_call["name"]
+                tool_args = tool_call["args"]
+                logger.info("🔍 AGENT_TOOL_CALL: %s", tool_name)
+
+                yield {"type": "tool_start", "tool": tool_name, "args": tool_args or {}}
+
+                tool_result = self._execute_tool(tool_name, tool_args, tools, has_web_search)
+                logger.info(f"🔍 AGENT_TOOL_RESULT: {tool_result[:100]}")
+
+                tool_end = {"type": "tool_end", "tool": tool_name}
+                # Flatten extras from the recorded client_event (deck_id, name,
+                # card_count, result_preview, ...) onto the tool_end payload.
+                for event in reversed(self.client_events):
+                    if event.get("tool") == tool_name:
+                        tool_end.update({k: v for k, v in event.items() if k != "tool"})
+                        break
+                yield tool_end
+
+                messages.append(ToolMessage(
+                    content=tool_result,
+                    tool_call_id=tool_call["id"],
+                    name=tool_name
+                ))
+
+        yield {"type": "done", **usage_totals}
+
+    MAX_ITERATIONS = 5
+
     def _run_agent_loop(self, model_with_tools, messages, tools):
-        max_iterations = 5
         iteration = 0
         has_web_search = "web_search" in tools
 
-        while iteration < max_iterations:
+        while iteration < self.MAX_ITERATIONS:
             iteration += 1
             logger.info(f"🤖 AGENT_LOOP_ITERATION: {iteration}")
 
@@ -84,12 +161,7 @@ class ChatAgentService:
                     list(tool_args.keys()) if isinstance(tool_args, dict) else type(tool_args).__name__,
                 )
 
-                if tool_name == "web_search" and not has_web_search:
-                    tool_result = WEB_SEARCH_UNAVAILABLE
-                elif tool_name in tools:
-                    tool_result = tools[tool_name].invoke(tool_args)
-                else:
-                    tool_result = f"Unknown tool: {tool_name}"
+                tool_result = self._execute_tool(tool_name, tool_args, tools, has_web_search)
 
                 logger.info(f"🔍 AGENT_TOOL_RESULT: {tool_result[:100]}")
 
@@ -100,6 +172,41 @@ class ChatAgentService:
                 ))
 
         return messages
+
+    def _execute_tool(self, tool_name, tool_args, tools, has_web_search):
+        if tool_name == "web_search" and not has_web_search:
+            return WEB_SEARCH_UNAVAILABLE
+        elif tool_name in tools:
+            return tools[tool_name].invoke(tool_args)
+        return f"Unknown tool: {tool_name}"
+
+    @staticmethod
+    def _chunk_to_ai_message(chunk):
+        """Normalize a merged AIMessageChunk (or None) into an AIMessage."""
+        from langchain_core.messages import AIMessageChunk
+
+        if isinstance(chunk, AIMessageChunk):
+            kwargs = {}
+            usage = getattr(chunk, "usage_metadata", None)
+            if usage:
+                kwargs["usage_metadata"] = usage
+            return AIMessage(
+                content=chunk.content,
+                additional_kwargs=getattr(chunk, "additional_kwargs", {}),
+                tool_calls=getattr(chunk, "tool_calls", None) or [],
+                **kwargs,
+            )
+        return AIMessage(content="")
+
+    @staticmethod
+    def _accumulate_usage(totals, message):
+        usage = getattr(message, "usage_metadata", None)
+        if usage:
+            totals["input_tokens"] += usage.get("input_tokens", 0) or 0
+            totals["output_tokens"] += usage.get("output_tokens", 0) or 0
+
+    def _record_event(self, event):
+        self.client_events.append(event)
 
     def _extract_response(self, messages):
         response_text = ""
@@ -192,6 +299,12 @@ class ChatAgentService:
                         )
                         created_cards += 1
                     logger.info(f"🃏 CREATE_FLASHCARD_DECK_SUCCESS: deck_id={deck.deck_id}, cards={created_cards}")
+                    self._record_event({
+                        "tool": "create_flashcard_deck",
+                        "deck_id": str(deck.deck_id),
+                        "name": name,
+                        "card_count": created_cards,
+                    })
                     return f"Created deck '{name}' with {created_cards} flashcards. Deck ID: {deck.deck_id}"
             except Exception as e:
                 logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {e!s}")
@@ -252,6 +365,11 @@ class ChatAgentService:
                         order=max_order + 1
                     )
                     logger.info(f"🃏 CREATE_FLASHCARD_SUCCESS: deck={deck.name}")
+                    self._record_event({
+                        "tool": "create_flashcard",
+                        "deck_id": str(deck.deck_id),
+                        "name": deck_name,
+                    })
                     return f"Added flashcard to deck '{deck_name}'. Deck ID: {deck.deck_id}"
             except Exception as e:
                 logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {e!s}")
@@ -289,6 +407,13 @@ class ChatAgentService:
 
             try:
                 results = tavily_client.search(query=query)
+                num_results = len(results.get('results', []))
+                logger.info(f"🔍 WEB_SEARCH_SUCCESS: returned {num_results} results")
+                self._record_event({
+                    "tool": "web_search",
+                    "query": query,
+                    "result_preview": f"{num_results} results",
+                })
                 formatted_results = []
                 for r in results.get('results', [])[:3]:
                     title = r.get('title', 'No title')
