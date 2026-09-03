@@ -119,6 +119,23 @@ class Chat(models.Model):
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
 
+    def _persist_assistant_message(self, text, usage_metadata):
+        message_order = self.messages.count()
+
+        input_tokens = usage_metadata.get('input_tokens', 0)
+        output_tokens = usage_metadata.get('output_tokens', 0)
+
+        self.messages.create(
+            text=text,
+            role='assistant',
+            order=message_order,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens
+        )
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+        self.save()
+
     def get_response(self, ai=None, user_message=None):
         # Input safety is evaluated BEFORE any model setup or quota check so
         # a misconfigured model or an over-limit account cannot swallow the
