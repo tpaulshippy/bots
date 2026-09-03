@@ -373,8 +373,12 @@ export default function Chat() {
             style={styles.list}
             data={[...messages].reverse()}
             keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => (
-              <ChatMessage message={item} onRetry={item.failed ? retryLastSend : undefined} />
+            renderItem={({ item, index }) => (
+              <ChatMessage
+                message={item}
+                onRetry={item.failed ? retryLastSend : undefined}
+                isStreaming={phase === "streaming" && index === 0 && item.role === "assistant"}
+              />
             )}
                 onStartReached={handleLoadMore}
                 onStartReachedThreshold={0.5}

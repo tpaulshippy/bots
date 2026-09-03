@@ -11,6 +11,10 @@ import { format } from "date-fns";
 interface ChatMessageProps {
   message: ApiChatMessage & { created_at?: string };
   onRetry?: () => void;
+  // True while this assistant message is still streaming. Partial
+  // markdown can emit bare text nodes on web, so render plain text
+  // until the stream completes and full markdown is safe.
+  isStreaming?: boolean;
 }
 
 const chipLabel = (event: AgentActivity): string => {
@@ -22,7 +26,7 @@ const chipLabel = (event: AgentActivity): string => {
   }
 };
 
-const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
+const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
   const assistantColor = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const userColor = useThemeColor({ light: "#03465b", dark: "#0a7ea4" }, "tint");
@@ -83,7 +87,11 @@ const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
           </ThemedText>
         ) : (
           <ThemedView style={styles.assistantMessage(assistantColor, borderColor)}>
-            <MarkdownRenderer content={message.text} />
+            {isStreaming && !isUser ? (
+              <ThemedText selectable={true}>{message.text}</ThemedText>
+            ) : (
+              <MarkdownRenderer content={message.text} />
+            )}
           </ThemedView>
         )
       )}
