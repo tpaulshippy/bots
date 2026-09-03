@@ -77,7 +77,7 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
           ))}
         </ThemedView>
       )}
-      {message.text && (
+      {message.text ? (
         isUser ? (
           <ThemedText
             selectable={true}
@@ -94,7 +94,7 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
             )}
           </ThemedView>
         )
-      )}
+      ) : null}
       {message.failed && onRetry && (
         <TouchableOpacity testID="retry-button" style={styles.retryButton} onPress={onRetry}>
           <ThemedText style={styles.retryText}>↻ Retry</ThemedText>
