@@ -43,6 +43,10 @@ export default function SettingsScreen() {
   const actionColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   const loadAccount = useCallback(() => {
+    // Show the spinner (not stale UI) on every refetch: without this,
+    // returning from Set PIN after removing a PIN would briefly render
+    // the old PinWrapper gate until the network call resolves.
+    setLoading(true);
     getAccount()
       .then((account) => {
         if (account) {
