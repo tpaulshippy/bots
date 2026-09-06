@@ -23,7 +23,22 @@ export function useAuthBootstrap(loaded: boolean) {
     const profileData = await AsyncStorage.getItem("selectedProfile");
     const profiles = await fetchProfiles();
     if (profileData) {
-      const profile = JSON.parse(profileData);
+      let profile: { profile_id?: string } | null = null;
+      try {
+        profile = JSON.parse(profileData);
+      } catch {
+        profile = null;
+      }
+      if (!profile || typeof profile.profile_id !== "string") {
+        await AsyncStorage.removeItem("selectedProfile");
+        if (profiles && profiles.count > 0) {
+          await AsyncStorage.setItem(
+            "selectedProfile",
+            JSON.stringify(profiles.results[0])
+          );
+        }
+        return;
+      }
       const profileExists = profiles?.results.some(
         (p) => p.profile_id === profile.profile_id
       );
@@ -49,8 +64,16 @@ export function useAuthBootstrap(loaded: boolean) {
     if (!mode.isTeenDelegated || !mode.activeProfileId) return;
 
     const existing = await AsyncStorage.getItem("selectedProfile");
-    if (existing && JSON.parse(existing).profile_id === mode.activeProfileId) {
-      return;
+    if (existing) {
+      try {
+        const parsed = JSON.parse(existing) as { profile_id?: unknown };
+        if (parsed?.profile_id === mode.activeProfileId) {
+          return;
+        }
+      } catch {
+        // Corrupted selection: fall through, refetch, and overwrite below.
+        await AsyncStorage.removeItem("selectedProfile");
+      }
     }
     const ownProfile =
       (await fetchOwnProfile()) ?? { profile_id: mode.activeProfileId };

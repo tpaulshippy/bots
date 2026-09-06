@@ -64,6 +64,31 @@ describe('tokens session helpers', () => {
       // A profile id without delegation is not stored.
       expect(explicit?.activeProfileId).toBeNull();
     });
+
+    it('takes the first entry when expo-linking returns repeated params', () => {
+      const session = sessionFromQueryParams({
+        access: ['a-token', 'stale-token'],
+        refresh: ['r-token', 'stale-refresh'],
+        is_teen_delegated: ['true', 'false'],
+        active_profile_id: ['profile-1', 'profile-2'],
+      });
+
+      expect(session).toEqual({
+        access: 'a-token',
+        refresh: 'r-token',
+        isTeenDelegated: true,
+        activeProfileId: 'profile-1',
+      });
+    });
+
+    it('returns null when token params are non-strings', () => {
+      expect(
+        sessionFromQueryParams({ access: 123, refresh: 'r' })
+      ).toBeNull();
+      expect(
+        sessionFromQueryParams({ access: 'a', refresh: [''] })
+      ).toBeNull();
+    });
   });
 
   describe('getSessionMode', () => {

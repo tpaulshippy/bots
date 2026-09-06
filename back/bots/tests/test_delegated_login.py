@@ -163,6 +163,24 @@ class TestOauthEmailConstraint:
         new = Profile.objects.create(user=parent, name='New', oauth_email=TEEN_EMAIL)
         assert new.pk is not None
 
+    def test_serializer_normalizes_oauth_email_case_and_whitespace(self, parent, teen_profile):
+        from bots.serializers import ProfileSerializer
+
+        serializer = ProfileSerializer(
+            teen_profile, data={'name': 'Maya', 'oauth_email': '  MAYA@School.EDU  '}, partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data['oauth_email'] == TEEN_EMAIL
+
+    def test_serializer_empty_string_unbinds_to_none(self, parent, teen_profile):
+        from bots.serializers import ProfileSerializer
+
+        serializer = ProfileSerializer(
+            teen_profile, data={'name': 'Maya', 'oauth_email': '   '}, partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data['oauth_email'] is None
+
 
 @pytest.mark.django_db
 class TestTeenDeniedParentSurfaces:
