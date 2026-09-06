@@ -47,7 +47,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
                 {'detail': 'Only available for teen-delegated sessions.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        profile = delegated_profile_from_auth(request.auth)
+        profile = delegated_profile_from_auth(request.auth, request.user)
         if profile is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(OwnProfileSerializer(profile).data)

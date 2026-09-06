@@ -253,6 +253,35 @@ class TestTeenDeniedParentSurfaces:
 
 
 @pytest.mark.django_db
+class TestDelegatedClaimUserScoping:
+    """A delegated claim for a profile owned by a different user resolves
+    to None (defense-in-depth: such a token should never be issued, but a
+    mismatched claim must never widen access)."""
+
+    def _mismatched_client(self, parent, teen_profile):
+        stranger = User.objects.create_user(username='stranger', email='s@example.com', password='pass')
+        refresh = SyftRefreshToken.for_delegated_profile(stranger, teen_profile)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        return client
+
+    def test_mismatched_claim_gets_no_self_profile(self, parent, teen_profile):
+        response = self._mismatched_client(parent, teen_profile).get('/api/profiles/self.json')
+        assert response.status_code == 404
+
+    def test_mismatched_claim_sees_no_chats_or_decks(self, parent, teen_profile):
+        client = self._mismatched_client(parent, teen_profile)
+        assert client.get('/api/chats.json').json()['results'] == []
+        assert client.get('/api/decks.json').json()['results'] == []
+
+    def test_mismatched_claim_cannot_post_chat(self, parent, teen_profile):
+        response = post_chat(
+            self._mismatched_client(parent, teen_profile), '/api/chats/new', {'message': 'hi'}
+        )
+        assert response.status_code == 403
+
+
+@pytest.mark.django_db
 class TestTeenChatProfileLock:
     def test_teen_can_create_chat_with_claimed_profile(self, parent, teen_profile):
         response = post_chat(teen_client(teen_profile), '/api/chats/new', {'message': 'hi'})

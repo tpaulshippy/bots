@@ -25,18 +25,24 @@ def is_teen_delegated(auth) -> bool:
     return bool(auth is not None and auth.get("is_teen_delegated"))
 
 
-def delegated_profile_from_auth(auth):
+def delegated_profile_from_auth(auth, user=None):
     """Return the Profile this teen-delegated session is locked to, or None.
 
     Returns None both for parent sessions and for delegated sessions whose
     claimed profile no longer exists (e.g. soft-deleted after issuing).
     Callers that need to distinguish those cases should use is_teen_delegated.
-    """
+
+    When user is given, the claimed profile must belong to them: JWTs are
+    server-signed so a mismatched claim should never occur, but a mismatch
+    must never widen access (defense-in-depth)."""
     if not is_teen_delegated(auth):
         return None
     active_profile_id = auth.get("active_profile_id")
     if not active_profile_id:
         return None
-    return Profile.objects.filter(
+    queryset = Profile.objects.filter(
         profile_id=active_profile_id, deleted_at__isnull=True
-    ).first()
+    )
+    if user is not None and getattr(user, "is_authenticated", False):
+        queryset = queryset.filter(user=user)
+    return queryset.first()

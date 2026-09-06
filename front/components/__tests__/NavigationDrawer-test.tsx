@@ -40,4 +40,14 @@ describe('NavigationDrawer session modes', () => {
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
     expect(screen.queryByText('Settings')).toBeNull();
   });
+
+  it('hides Settings while the session mode is still loading (fail closed)', () => {
+    mockUseSessionMode.mockReturnValue(null);
+
+    render(<NavigationDrawer isOpen={true} onClose={jest.fn()} />);
+
+    expect(screen.getByText('Chats')).toBeOnTheScreen();
+    expect(screen.getByText('Flashcards')).toBeOnTheScreen();
+    expect(screen.queryByText('Settings')).toBeNull();
+  });
 });

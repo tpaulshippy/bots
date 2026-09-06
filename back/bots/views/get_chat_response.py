@@ -53,7 +53,7 @@ def get_chat_response(request, chat_id):
 
     # Teen-delegated sessions are locked to their claimed profile: a
     # client-sent profile id is ignored and the claim is enforced instead.
-    delegated_profile = delegated_profile_from_auth(request.auth)
+    delegated_profile = delegated_profile_from_auth(request.auth, user)
     if is_teen_delegated(request.auth) and delegated_profile is None:
         return JsonResponse({'error': 'No active profile for this session'}, status=403)
 

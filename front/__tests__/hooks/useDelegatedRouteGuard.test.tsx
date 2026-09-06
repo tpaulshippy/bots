@@ -65,4 +65,14 @@ describe('useDelegatedRouteGuard', () => {
 
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
+
+  it('waits for the session mode to load before redirecting off /parent/*', async () => {
+    (usePathname as jest.Mock).mockReturnValue('/parent/settings');
+    (useSessionMode as jest.Mock).mockReturnValue(null);
+
+    render(<Harness />);
+    await act(async () => {});
+
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
 });
