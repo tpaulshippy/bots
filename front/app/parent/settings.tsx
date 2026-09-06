@@ -18,6 +18,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
 import { IconSymbol, IconSymbolName } from "@/components/ui/IconSymbol";
 import { clearUser } from "@/api/tokens";
+import { getCachedHasPin } from "@/api/pinStorage";
 
 import { subscriptionNames } from "@/constants/subscriptions";
 import * as Updates from "expo-updates";
@@ -55,8 +56,12 @@ export default function SettingsScreen() {
         }
       })
       .catch(() => {
-        // Keep hasPin as null so the spinner resolves to the gated UI
-        // below instead of hanging when tokens are expired/offline.
+        // Server unreachable (expired tokens/offline): fall back to the
+        // cached flag so the spinner resolves to a gated UI. Leaving
+        // hasPin as null would match `hasPin === null` below and hang on
+        // the spinner indefinitely. getCachedHasPin never rejects, so
+        // hasPin always becomes a boolean here.
+        getCachedHasPin().then(setHasPin);
       })
       .finally(() => {
         setLoading(false);

@@ -48,7 +48,9 @@ export const getParentSession = (): ParentSession | null => {
   if (!parentSession) {
     return null;
   }
-  if (Date.now() >= parentSession.expiresAt) {
+  // A non-finite expiry would make `Date.now() >= expiresAt` false forever
+  // and keep the capability alive indefinitely — treat it as expired.
+  if (!Number.isFinite(parentSession.expiresAt) || Date.now() >= parentSession.expiresAt) {
     parentSession = null;
     return null;
   }
@@ -64,6 +66,12 @@ export const setParentSession = (
     expiry = expiresAt;
   } else {
     expiry = new Date(expiresAt).getTime();
+  }
+
+  // Normalize unparseable expiries (NaN) to 0 (already expired) so a bad
+  // server value can never mint an immortal parent session.
+  if (!Number.isFinite(expiry)) {
+    expiry = 0;
   }
 
   parentSession = { token, expiresAt: expiry };

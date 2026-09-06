@@ -44,6 +44,13 @@ describe('pinStorage', () => {
 
       expect(getParentSession()).toBeNull();
     });
+
+    it('treats an unparseable expiry as already expired', () => {
+      setParentSession('token-bad', 'not-a-date');
+
+      expect(getParentSession()).toBeNull();
+      expect(getParentSession()).toBeNull();
+    });
   });
 
   describe('hasPin cache', () => {
