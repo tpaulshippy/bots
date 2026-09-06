@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, usePathname } from 'expo-router';
 import { useNotificationChatNavigation } from '@/hooks/useNotificationChatNavigation';
 import { fetchChat } from '@/api/chats';
-import { clearUser } from '@/api/tokens';
+import { clearUser, getSessionMode } from '@/api/tokens';
 import { UnauthorizedError } from '@/api/apiClient';
 
 jest.mock('expo-router', () => ({
@@ -26,6 +26,7 @@ jest.mock('@/api/chats', () => ({
 
 jest.mock('@/api/tokens', () => ({
   clearUser: jest.fn(),
+  getSessionMode: jest.fn(),
 }));
 
 const CHAT = {
@@ -68,6 +69,10 @@ describe('useNotificationChatNavigation', () => {
       null
     );
     (fetchChat as jest.Mock).mockResolvedValue(CHAT);
+    (getSessionMode as jest.Mock).mockResolvedValue({
+      isTeenDelegated: false,
+      activeProfileId: null,
+    });
   });
 
   it('switches to the chat profile before opening the chat on tap', async () => {

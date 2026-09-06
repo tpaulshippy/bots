@@ -10,7 +10,20 @@ interface TokenStore {
 export interface TokenData {
   access: string;
   refresh: string;
+  // Present on teen-delegated sessions: this device is locked to one profile.
+  isTeenDelegated?: boolean;
+  activeProfileId?: string | null;
 }
+
+export interface SessionMode {
+  isTeenDelegated: boolean;
+  activeProfileId: string | null;
+}
+
+export const PARENT_SESSION_MODE: SessionMode = {
+  isTeenDelegated: false,
+  activeProfileId: null,
+};
 
 const getTokensFromStorage = async (): Promise<TokenStore | null> => {
   const tokens = await AsyncStorage.getItem("tokens");
@@ -47,9 +60,60 @@ export const setTokens = async (tokens: TokenData) => {
     await saveTokensToStorage(newTokens);
 };
 
+/**
+ * Session mode derived from the stored JWT claims. Parent sessions default
+ * to { isTeenDelegated: false } when the claims are absent.
+ */
+export const getSessionMode = async (): Promise<SessionMode> => {
+  const tokens = await getTokens();
+  if (!tokens) {
+    return PARENT_SESSION_MODE;
+  }
+  return {
+    isTeenDelegated: tokens.isTeenDelegated === true,
+    activeProfileId:
+      tokens.isTeenDelegated === true ? tokens.activeProfileId ?? null : null,
+  };
+};
+
+/**
+ * Map login deep-link / web query params onto stored session data.
+ * Returns null when the params do not carry a token pair.
+ */
+export const sessionFromQueryParams = (
+  queryParams: Record<string, unknown> | undefined | null
+): TokenData | null => {
+  // expo-linking may return string[] for repeated query params; take the
+  // first entry so we never store a joined "a,b" token value.
+  const firstString = (value: unknown): string | undefined => {
+    const first = Array.isArray(value) ? value[0] : value;
+    return typeof first === "string" && first ? first : undefined;
+  };
+  const access = firstString(queryParams?.access);
+  const refresh = firstString(queryParams?.refresh);
+  if (!access || !refresh) {
+    return null;
+  }
+  const isTeenDelegated =
+    (firstString(queryParams?.is_teen_delegated) ?? "false").toLowerCase() ===
+    "true";
+  const activeProfileId = firstString(queryParams?.active_profile_id) ?? null;
+  return {
+    access,
+    refresh,
+    isTeenDelegated,
+    activeProfileId: isTeenDelegated ? activeProfileId : null,
+  };
+};
+
 export const clearUser = async () => {
   const tokens = await getTokens();
-  if (tokens && (tokens.access || tokens.refresh)) {
-    await setTokens({ access: "", refresh: "" });
+  if (tokens && (tokens.access || tokens.refresh || tokens.isTeenDelegated)) {
+    await setTokens({
+      access: "",
+      refresh: "",
+      isTeenDelegated: false,
+      activeProfileId: null,
+    });
   }
 };

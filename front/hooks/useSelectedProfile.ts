@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { useRouter } from "expo-router";
 
 import { UnauthorizedError } from "@/api/apiClient";
-import { clearUser } from "@/api/tokens";
+import { clearUser, getSessionMode } from "@/api/tokens";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -22,7 +22,19 @@ export const getSelectedProfileId = async () => {
   return null;
 };
 
+/**
+ * Store the selected profile. Teen-delegated sessions are locked to their
+ * claimed profile: attempts to select anything else are ignored, and
+ * clearing the selection (null) is also refused so the lock can't be lost.
+ */
 export const setSelectedProfile = async (profile: unknown) => {
+  const mode = await getSessionMode();
+  if (mode.isTeenDelegated) {
+    const lockedId = profile ? (profile as { profile_id?: string }).profile_id : null;
+    if (!profile || lockedId !== mode.activeProfileId) {
+      return;
+    }
+  }
   if (profile) {
     await AsyncStorage.setItem("selectedProfile", JSON.stringify(profile));
   } else {

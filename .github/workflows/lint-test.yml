@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # Stacked roadmap PRs target their parent feature branch; run checks
+    # for those too so every PR in the stack shows backend/frontend status.
+    branches: [main, 'feature/**']
 
 jobs:
   frontend:

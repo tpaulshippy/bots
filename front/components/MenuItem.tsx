@@ -12,6 +12,7 @@ export type MenuItemProps = {
   iconName: IconSymbolName;
   title: string;
   hideChevron?: boolean;
+  testID?: string;
 };
 export function MenuItem({
   style,

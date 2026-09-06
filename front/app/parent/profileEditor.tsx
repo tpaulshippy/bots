@@ -23,6 +23,7 @@ export default function ProfileEditor() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [nameMissing, setNameMissing] = useState(false);
+  const [emailInvalid, setEmailInvalid] = useState(false);
   const local = useLocalSearchParams();
   const iconColor = useThemeColor({}, "tint");
   const buttonIconColor = useThemeColor({}, "text");
@@ -39,6 +40,7 @@ export default function ProfileEditor() {
           id: -1,
           profile_id: "",
           name: "",
+          oauth_email: null,
           deleted_at: null,
         };
         if (!cancelled) setProfile(newProfile);
@@ -48,16 +50,31 @@ export default function ProfileEditor() {
     return () => { cancelled = true; };
   }, [local.profileId]);
 
+  // Empty means unbound; otherwise it must look like an email address.
+  const isValidOauthEmail = (email: string | null | undefined): boolean => {
+    if (!email || !email.trim()) return true;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  };
+
   const validateProfile = useCallback(async () => {
     setNameMissing(!profile?.name.trim());
-  }, [profile?.name]);
+    setEmailInvalid(!isValidOauthEmail(profile?.oauth_email));
+  }, [profile?.name, profile?.oauth_email]);
 
   const saveProfile = useCallback(async () => {
     await validateProfile();
 
     if (profile) {
+      if (!profile.name.trim() || !isValidOauthEmail(profile.oauth_email)) {
+        return;
+      }
       try {
-        await upsertProfile(profile);
+        await upsertProfile({
+          ...profile,
+          oauth_email: profile.oauth_email?.trim()
+            ? profile.oauth_email.trim()
+            : null,
+        });
         router.back();
       } catch (error) {
         Sentry.captureException(error);
@@ -65,10 +82,16 @@ export default function ProfileEditor() {
     }
   }, [profile, router, validateProfile]);
 
+  const removeTeenSignIn = useCallback(() => {
+    if (profile?.oauth_email) {
+      setProfile({ ...profile, oauth_email: null });
+    }
+  }, [profile]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <Pressable onPress={saveProfile}>
+        <Pressable onPress={saveProfile} testID="save-profile-button">
           <IconSymbol
             name="checkmark"
             color={iconColor}
@@ -112,10 +135,45 @@ export default function ProfileEditor() {
             <ThemedText style={styles.label}>Name</ThemedText>
             <ThemedTextInput
               autoFocus={true}
+              testID="profile-name-input"
               style={[styles.input, nameMissing ? styles.missing : {}]}
               value={profile.name}
               onChangeText={(text) => setProfile({ ...profile, name: text })}
             />
+          </ThemedView>
+          <ThemedView style={styles.formGroup}>
+            <ThemedText style={styles.label}>Teen sign-in email</ThemedText>
+            <ThemedTextInput
+              testID="teen-signin-email-input"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="maya@school.edu"
+              style={[styles.input, emailInvalid ? styles.missing : {}]}
+              value={profile.oauth_email ?? ""}
+              onChangeText={(text) =>
+                setProfile({ ...profile, oauth_email: text })
+              }
+            />
+            <ThemedText style={styles.helpText}>
+              Your child can sign in with this Google or Apple email on their
+              own device. They will only see their chats and flashcards — not
+              Settings, bots, or billing.
+            </ThemedText>
+            {profile.id > 0 && profile.oauth_email ? (
+              <Pressable
+                onPress={removeTeenSignIn}
+                testID="remove-teen-signin-button"
+                style={styles.removeButton}
+              >
+                <IconSymbol
+                  name="minus.circle.fill"
+                  color={buttonIconColor}
+                  size={20}
+                  style={styles.buttonIcon}
+                ></IconSymbol>
+                <ThemedText>Remove teen sign-in</ThemedText>
+              </Pressable>
+            ) : null}
           </ThemedView>
           {profile.id > 0 ? (
             <ThemedButton onPress={() => deleteProfile()} style={styles.button}>
@@ -157,6 +215,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     marginBottom: 5,
+  },
+  helpText: {
+    fontSize: 13,
+    opacity: 0.7,
+    marginTop: 5,
+  },
+  removeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
   },
   checkboxLabel: {
     fontSize: 16,
