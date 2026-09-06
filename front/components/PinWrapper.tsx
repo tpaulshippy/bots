@@ -9,6 +9,7 @@ import { AppState, Pressable, StyleSheet, View } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "./ThemedText";
 import { getTokens } from "@/api/tokens";
+import { refreshWithRefreshToken } from "@/api/apiClient";
 import {
   getParentSession,
   setParentSession,
@@ -51,22 +52,24 @@ export default function PinWrapper({ children, onUnlocked }: Props) {
   }, []);
 
   // Re-enable the keypad once the server-side lockout window passes so the
-  // UI doesn't stay permanently disabled after `lockedUntil`.
+  // UI doesn't stay permanently disabled after `lockedUntil`. Resets run
+  // inside a timer, never synchronously in the effect body
+  // (react-hooks/set-state-in-effect). An already-expired window clears on
+  // the next tick while keeping the message visible, matching the previous
+  // synchronous behavior.
   useEffect(() => {
     if (!locked || !lockedUntil) {
       return;
     }
     const delay = new Date(lockedUntil).getTime() - Date.now();
-    if (!Number.isFinite(delay) || delay <= 0) {
-      setLocked(false);
-      setLockedUntil(null);
-      return;
-    }
+    const wait = Number.isFinite(delay) && delay > 0 ? delay : 0;
     const timer = setTimeout(() => {
       setLocked(false);
       setLockedUntil(null);
-      setMessage(null);
-    }, delay);
+      if (wait > 0) {
+        setMessage(null);
+      }
+    }, wait);
     return () => clearTimeout(timer);
   }, [locked, lockedUntil]);
 
@@ -109,7 +112,6 @@ export default function PinWrapper({ children, onUnlocked }: Props) {
           result.status === 401 &&
           typeof result.data?.remainingAttempts !== "number"
         ) {
-          const { refreshWithRefreshToken } = await import("@/api/apiClient");
           try {
             await refreshWithRefreshToken(await getTokens());
           } catch {

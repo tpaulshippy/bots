@@ -230,7 +230,7 @@ class TestTeenDeniedParentSurfaces:
     def test_teen_get_user_is_redacted_of_pin(self, teen_profile):
         response = teen_client(teen_profile).get('/api/user')
         assert response.status_code == 200
-        assert 'pin' not in response.json()
+        assert response.json()['pin'] is None
 
     def test_parent_get_user_still_has_pin(self, parent):
         parent.user_account.pin_hash = hash_pin('1234')
@@ -238,7 +238,7 @@ class TestTeenDeniedParentSurfaces:
         response = parent_client(parent).get('/api/user')
         assert response.status_code == 200
         assert response.json()['hasPin'] is True
-        assert 'pin' not in response.json()
+        assert response.json()['pin'] is None
 
     def test_teen_cannot_delete_account(self, parent, teen_profile):
         response = teen_client(teen_profile).delete('/api/user/delete')

@@ -35,8 +35,8 @@ def reauthenticate(request):
     if not validate_pin(pin):
         return Response({'detail': 'PIN must be a string of 4 to 8 digits.'}, status=400)
 
-    account = request.user.user_account
-    if not account.pin_hash:
+    account = getattr(request.user, 'user_account', None)
+    if account is None or not account.pin_hash:
         return Response({'detail': 'No PIN has been set for this account.'}, status=400)
 
     if is_pin_locked(account):

@@ -25,10 +25,22 @@ def user_account_view(request):
             user.user_account.save()
 
         # Never return the PIN or its hash — only whether one is set.
+        # Legacy compat (old app builds): `pin` is always null — the real
+        # value never leaves the server, and `None` keeps old clients from
+        # crashing on `account.pin.toString()` during login. `costForToday`
+        # preserves the old usage-bar shape. Note: old clients treat
+        # `pin: null` as "no PIN", so their local gate may show parent
+        # screens without prompting; every parent mutation is still gated
+        # server-side by ParentReauthRequired, which old builds cannot
+        # satisfy (they send no X-Parent-Reauth header), so nothing can be
+        # changed from them. Old builds should still upgrade.
+        cost = user.user_account.cost_for_today()[0]
         accountInfo = {
                 'userId': user.id,
                 'hasPin': bool(user.user_account.pin_hash),
-                'cost': user.user_account.cost_for_today()[0],
+                'pin': None,
+                'cost': cost,
+                'costForToday': [cost],
                 'maxDailyCost': MAX_COST_DAILY[user.user_account.subscription_level],
                 'subscriptionLevel': user.user_account.subscription_level,
                 'timezone': user.user_account.timezone,
@@ -36,6 +48,18 @@ def user_account_view(request):
         return Response(accountInfo)
 
     return set_pin(request)
+
+
+def _coerce_legacy_pin(value):
+    """Accept the legacy integer PIN shape sent by old app builds.
+
+    Old clients POST {"pin": 1234}; the current contract is a string.
+    Coerce ints (excluding bools) to their decimal form so first-time
+    setup keeps working; anything else passes through to validation.
+    """
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return value
 
 
 def set_pin(request):
@@ -53,8 +77,8 @@ def set_pin(request):
             status=403,
         )
 
-    pin = request.data.get('pin')
-    current_pin = request.data.get('currentPin')
+    pin = _coerce_legacy_pin(request.data.get('pin'))
+    current_pin = _coerce_legacy_pin(request.data.get('currentPin'))
 
     if not validate_pin(pin):
         return Response(

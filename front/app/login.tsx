@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Platform, Button, View, Text, Alert, ActivityIndicator } from "react-native";
+import React, { useEffect } from "react";
+import { StyleSheet, Platform, Button, View, Text, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";

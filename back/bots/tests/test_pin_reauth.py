@@ -88,11 +88,29 @@ class TestSetPin:
             '/api/user', {'pin': TEST_PIN, 'currentPin': ''}, format='json')
         assert response.status_code == 200
 
-    @pytest.mark.parametrize('bad_pin', ['123', '123456789', 'abcd', '12 4', '', None, 1234])
+    @pytest.mark.parametrize('bad_pin', ['123', '123456789', 'abcd', '12 4', '', None, True, 12.5])
     def test_invalid_pin_format_rejected(self, bad_pin, load_fixture):
         user = User.objects.create_user(username='u3', email='u3@example.com', password='pass')
         response = auth_client(user).post('/api/user', {'pin': bad_pin}, format='json')
         assert response.status_code == 400
+
+    def test_legacy_integer_pin_accepted_on_first_set(self, load_fixture):
+        # Old app builds POST {"pin": 1234} (integer, pre-roadmap-02 shape).
+        user = User.objects.create_user(username='u4', email='u4@example.com', password='pass')
+        response = auth_client(user).post('/api/user', {'pin': 1234}, format='json')
+
+        assert response.status_code == 200
+        user.user_account.refresh_from_db()
+        assert check_password('1234', user.user_account.pin_hash)
+
+    def test_legacy_integer_current_pin_accepted_on_change(self, parent_with_pin):
+        client = with_reauth_header(auth_client(parent_with_pin), parent_with_pin)
+        response = client.post(
+            '/api/user', {'pin': 5678, 'currentPin': 1234}, format='json')
+
+        assert response.status_code == 200
+        parent_with_pin.user_account.refresh_from_db()
+        assert check_password('5678', parent_with_pin.user_account.pin_hash)
 
     def test_change_requires_current_pin(self, parent_with_pin):
         client = auth_client(parent_with_pin)
@@ -136,10 +154,15 @@ class TestGetAccount:
         data = response.json()
         assert data['hasPin'] is True
         assert data['userId'] == parent_with_pin.id
-        assert 'pin' not in data
+        # Legacy compat key: always null, never the real value.
+        assert data['pin'] is None
         assert 'pinHash' not in data
         assert 'pin_hash' not in data
         assert TEST_PIN not in str(data)
+
+    def test_get_includes_legacy_cost_shape(self, parent_with_pin):
+        data = auth_client(parent_with_pin).get('/api/user').json()
+        assert data['costForToday'] == [data['cost']]
 
     def test_get_reports_missing_pin(self, load_fixture):
         user = User.objects.create_user(username='nopin', email='n@example.com', password='pass')
