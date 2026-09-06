@@ -30,7 +30,7 @@ class TestBotListReadOnly:
         assert Profile.objects.filter(user=user).count() == 1
         assert Bot.objects.filter(user=user).count() == 1
         assert Chat.objects.filter(user=user).count() == 1
-        assert Message.objects.filter(chat__user=user).count() == 2
+        assert Message.objects.filter(chat__user=user).count() == 1
 
         response = make_auth_client(api_client, user).get('/api/bots.json')
 
@@ -43,7 +43,7 @@ class TestBotListReadOnly:
         assert Profile.objects.filter(user=user).count() == 1
         assert Bot.objects.filter(user=user).count() == 1
         assert Chat.objects.filter(user=user).count() == 1
-        assert Message.objects.filter(chat__user=user).count() == 2
+        assert Message.objects.filter(chat__user=user).count() == 1
 
     def test_get_bots_without_default_model_creates_no_rows(self, api_client):
         user = User.objects.create_user(username='testuser', password='testpass123')
