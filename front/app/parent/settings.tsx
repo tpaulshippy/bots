@@ -42,18 +42,25 @@ export default function SettingsScreen() {
   const actionColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   useEffect(() => {
-    getAccount().then((account) => {
-      if (account) {
-        setHasPin(!!account.hasPin);
-        const percent = (account.cost ?? 0) / (account.maxDailyCost || 1);
-        setPercentUsedToday(percent);
-        if (account.subscriptionLevel !== undefined) {
-          setSubscription(subscriptionNames[account.subscriptionLevel]);
-          setSubscriptionLevel(account.subscriptionLevel);
+    getAccount()
+      .then((account) => {
+        if (account) {
+          setHasPin(!!account.hasPin);
+          const percent = (account.cost ?? 0) / (account.maxDailyCost || 1);
+          setPercentUsedToday(percent);
+          if (account.subscriptionLevel !== undefined) {
+            setSubscription(subscriptionNames[account.subscriptionLevel]);
+            setSubscriptionLevel(account.subscriptionLevel);
+          }
         }
-      }
-      setLoading(false);
-    });
+      })
+      .catch(() => {
+        // Keep hasPin as null so the spinner resolves to the gated UI
+        // below instead of hanging when tokens are expired/offline.
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const handleLogout = async () => {

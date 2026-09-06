@@ -35,6 +35,7 @@ export default function PinWrapper({ children, onUnlocked }: Props) {
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
+  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Re-lock when returning to the app if the parent session has expired.
@@ -48,6 +49,26 @@ export default function PinWrapper({ children, onUnlocked }: Props) {
     });
     return () => subscription.remove();
   }, []);
+
+  // Re-enable the keypad once the server-side lockout window passes so the
+  // UI doesn't stay permanently disabled after `lockedUntil`.
+  useEffect(() => {
+    if (!locked || !lockedUntil) {
+      return;
+    }
+    const delay = new Date(lockedUntil).getTime() - Date.now();
+    if (!Number.isFinite(delay) || delay <= 0) {
+      setLocked(false);
+      setLockedUntil(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setLocked(false);
+      setLockedUntil(null);
+      setMessage(null);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [locked, lockedUntil]);
 
   const submitPin = useCallback(
     async (entered: string) => {
@@ -109,11 +130,15 @@ export default function PinWrapper({ children, onUnlocked }: Props) {
 
         if (status === 423) {
           setLocked(true);
+          setLockedUntil(data?.lockedUntil ?? null);
           setMessage(data?.detail || "PIN locked. Try again later.");
           return;
         }
 
         if (typeof data?.remainingAttempts === "number") {
+          // A 401 with remaining attempts means any prior lockout expired.
+          setLocked(false);
+          setLockedUntil(null);
           const attempts = data.remainingAttempts;
           setMessage(
             attempts > 0

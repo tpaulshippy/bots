@@ -3,7 +3,17 @@ import { apiClient } from '../../api/apiClient';
 
 jest.mock('../../api/apiClient', () => ({
   apiClient: jest.fn(),
+  ForbiddenError: class ForbiddenError extends Error {
+    constructor() {
+      super('Forbidden');
+      this.name = 'ForbiddenError';
+    }
+  },
 }));
+
+const { ForbiddenError } = jest.requireMock('../../api/apiClient') as {
+  ForbiddenError: new () => Error;
+};
 
 const mockedClient = apiClient as unknown as jest.Mock;
 
@@ -38,6 +48,14 @@ describe('account API', () => {
 
       const [, options] = mockedClient.mock.calls[0];
       expect(JSON.parse(options.body)).toEqual({ pin: '5678', currentPin: '1234' });
+    });
+
+    it('maps a 403 into a distinguishable response (not null)', async () => {
+      mockedClient.mockRejectedValueOnce(new ForbiddenError());
+
+      const response = await setPin('5678', '1234');
+
+      expect(response).toEqual({ data: null, status: 403, ok: false });
     });
   });
 

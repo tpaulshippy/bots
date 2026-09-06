@@ -24,14 +24,18 @@ export default function SetPin() {
 
   useEffect(() => {
     // Prefer the fresh server answer; fall back to the cached flag offline.
-    getAccount().then((account) => {
-      if (account && typeof account.hasPin === "boolean") {
-        setHasPin(account.hasPin);
-        setCachedHasPin(account.hasPin);
-      } else {
+    getAccount()
+      .then((account) => {
+        if (account && typeof account.hasPin === "boolean") {
+          setHasPin(account.hasPin);
+          setCachedHasPin(account.hasPin);
+        } else {
+          return getCachedHasPin().then(setHasPin);
+        }
+      })
+      .catch(() => {
         getCachedHasPin().then(setHasPin);
-      }
-    });
+      });
   }, []);
 
   const validationError = useCallback((): string | null => {
