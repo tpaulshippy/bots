@@ -42,3 +42,18 @@ export const deleteAccount = async (): Promise<void> => {
         method: 'DELETE',
     }, undefined);
 };
+
+/**
+ * Remove the parent PIN (DELETE /api/user/pin — opt out of PIN protection).
+ * Requires an active parent reauth session plus the current PIN.
+ * Returns the raw response so callers can distinguish 403 (wrong current
+ * PIN / expired reauth) from transport failures (null).
+ */
+export const removePin = async (
+    currentPin: string
+): Promise<ApiResponse<void> | null> => {
+    return requestRaw<void>('/user/pin', {
+        method: 'DELETE',
+        body: JSON.stringify({ currentPin }),
+    });
+};

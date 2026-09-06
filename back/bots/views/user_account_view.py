@@ -102,6 +102,41 @@ def set_pin(request):
     return Response({'response': 'ok'})
 
 
+@api_view(['DELETE'])
+def clear_pin(request):
+    """DELETE /api/user/pin — remove the parent PIN (opt out of PIN protection).
+
+    Body: {"currentPin": "1234"}. Always requires a valid parent reauth
+    session plus the current PIN when one is set, so a kid holding the
+    device cannot be the one to turn protection off. No-op success when no
+    PIN is set. After removal, parent mutations rely on the parent session
+    alone (see ParentReauthRequired).
+    """
+    account = getattr(request.user, 'user_account', None)
+
+    if is_teen_delegated(request):
+        return Response(
+            {'detail': 'Teen-delegated sessions cannot manage the parent PIN.'},
+            status=403,
+        )
+
+    if account is None or not account.pin_hash:
+        return Response({'response': 'ok'})
+
+    if not has_valid_parent_reauth(request):
+        return Response({'detail': 'Parent reauthentication required.'}, status=403)
+
+    current_pin = _coerce_legacy_pin(request.data.get('currentPin'))
+    if not verify_pin(account, current_pin or ''):
+        return Response({'detail': 'Current PIN is incorrect.'}, status=403)
+
+    account.pin_hash = None
+    reset_pin_failures(account)
+    account.save(update_fields=['pin_hash'])
+
+    return Response({'response': 'ok'})
+
+
 class DeleteUserAccountView(APIView):
     permission_classes = [IsAuthenticated, ParentReauthRequired]
 
