@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from bots.models import Profile
-from bots.permissions import IsOwner, IsParentSession
+from bots.permissions import IsOwner, IsParentSession, ParentReauthRequired
 from bots.serializers import OwnProfileSerializer, ProfileSerializer
 from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 from bots.viewsets.mixins import get_object_by_uuid_or_id
@@ -13,7 +13,8 @@ from bots.viewsets.mixins import get_object_by_uuid_or_id
 class ProfileViewSet(viewsets.ModelViewSet):
     # Parent-only: teen-delegated sessions may not list/create/edit/delete
     # profiles (they get the redacted `self` endpoint below instead).
-    permission_classes = [IsOwner, IsParentSession]
+    # Parent writes additionally need a reauth session.
+    permission_classes = [IsOwner, IsParentSession, ParentReauthRequired]
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
 

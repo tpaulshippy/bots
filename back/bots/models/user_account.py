@@ -15,10 +15,13 @@ MAX_COST_DAILY = {
 }
 
 class UserAccount(models.Model):
-    user = models.OneToOneField(User, 
+    user = models.OneToOneField(User,
                                 on_delete=models.CASCADE,
                                 related_name='user_account')
-    pin = models.IntegerField(null=True)
+    # Parent PIN, stored hashed (never plaintext). See docs/roadmap/02-pin-security-and-reauth.md
+    pin_hash = models.CharField(max_length=128, null=True, blank=True)
+    pin_failed_attempts = models.PositiveSmallIntegerField(default=0)
+    pin_locked_until = models.DateTimeField(null=True, blank=True)
     subscription_level = models.IntegerField(default=0)
     timezone = models.CharField(max_length=50, default='UTC')
     
