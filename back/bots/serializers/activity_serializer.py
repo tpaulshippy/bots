@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from bots.models import Bot, Profile
+from bots.models import Bot, Profile, SafetyEvent
 
 
 class ActivityProfileSerializer(serializers.ModelSerializer):
@@ -31,6 +31,14 @@ class ActivityChatListSerializer(serializers.Serializer):
 class ActivityBotCountSerializer(serializers.Serializer):
     name = serializers.CharField(allow_null=True)
     count = serializers.IntegerField()
+
+
+class ActivitySafetyEventSerializer(serializers.ModelSerializer):
+    """Redacted-by-construction: the model never stores raw matched text."""
+
+    class Meta:
+        model = SafetyEvent
+        fields = ['event_id', 'stage', 'reason_code', 'snippet_redacted', 'created_at']
 
 
 class ActivityProfileSummarySerializer(serializers.Serializer):

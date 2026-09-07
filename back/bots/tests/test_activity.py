@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from bots.models import Bot, Chat, Device, Message, Profile
+from bots.models import Bot, Chat, Device, Message, Profile, SafetyEvent
 
 
 @pytest.fixture
@@ -137,11 +137,42 @@ class TestActivityChatList:
         titles = {r['title'] for r in response.json()['results']}
         assert titles == {'What is a prime number?'}
 
-    def test_has_safety_event_filter_empty_before_feature_03(self, parent, family):
-        """No SafetyEvent rows exist before roadmap 03; the filter matches nothing."""
+    def test_has_safety_event_filter_matches_flagged_chats(self, parent, family):
+        flagged = family['essay']
+        SafetyEvent.objects.create(
+            user=parent, profile=family['maya'], chat=flagged,
+            bot=family['penelope'], stage='input', reason_code='language',
+            snippet_redacted='[redacted]',
+        )
+
+        response = auth_client_for(parent).get('/api/activity/chats/?hasSafetyEvent=true')
+        assert response.status_code == 200
+        assert [r['chat_id'] for r in response.json()['results']] == [str(flagged.chat_id)]
+
+    def test_has_safety_event_filter_empty_without_events(self, parent, family):
         response = auth_client_for(parent).get('/api/activity/chats/?hasSafetyEvent=true')
         assert response.status_code == 200
         assert response.json()['results'] == []
+
+    def test_list_safety_event_counts(self, parent, family):
+        SafetyEvent.objects.create(
+            user=parent, profile=family['maya'], chat=family['essay'],
+            bot=family['penelope'], stage='input', reason_code='language',
+            snippet_redacted='[redacted]',
+        )
+        SafetyEvent.objects.create(
+            user=parent, profile=family['maya'], chat=family['essay'],
+            bot=family['penelope'], stage='output', reason_code='language',
+            snippet_redacted='[redacted]',
+        )
+
+        response = auth_client_for(parent).get('/api/activity/chats/')
+        counts = {r['title']: r['safety_event_count'] for r in response.json()['results']}
+        assert counts['Essay outline help'] == 2
+        assert counts['Can you help with fractions?'] == 0
+        # The safety join must not inflate the message counts.
+        message_counts = {r['title']: r['message_count'] for r in response.json()['results']}
+        assert message_counts['Essay outline help'] == 2
 
     def test_teen_session_rejected(self, parent, family):
         client = auth_client_for(parent, teen=True)
@@ -165,6 +196,22 @@ class TestActivityChatDetail:
         assert body['messages'][0]['text'] == 'What is a prime number?'
         assert body['safety_events'] == []
         assert body['message_count'] == 2
+
+    def test_detail_returns_safety_markers(self, parent, family):
+        chat = family['primes']
+        SafetyEvent.objects.create(
+            user=parent, profile=family['sam'], chat=chat,
+            bot=family['math_bot'], stage='input', reason_code='language',
+            snippet_redacted='[redacted]',
+        )
+        response = auth_client_for(parent).get(f'/api/activity/chats/{chat.chat_id}/')
+
+        assert response.status_code == 200
+        (event,) = response.json()['safety_events']
+        assert event['stage'] == 'input'
+        assert event['reason_code'] == 'language'
+        assert event['snippet_redacted'] == '[redacted]'
+        assert 'created_at' in event
 
     def test_other_users_chat_is_404(self, parent, other_parent, family):
         client = auth_client_for(other_parent)
@@ -199,6 +246,17 @@ class TestActivitySummary:
         assert sam['chat_count'] == 1
         assert sam['message_count'] == 2
         assert sam['top_bots'] == [{'name': 'Math Bot', 'count': 1}]
+
+    def test_summary_safety_event_counts(self, parent, family):
+        SafetyEvent.objects.create(
+            user=parent, profile=family['maya'], chat=family['essay'],
+            bot=family['penelope'], stage='input', reason_code='language',
+            snippet_redacted='[redacted]',
+        )
+        response = auth_client_for(parent).get('/api/activity/summary/?days=7')
+        by_name = {p['name']: p for p in response.json()['profiles']}
+        assert by_name['Maya']['safety_event_count'] == 1
+        assert by_name['Sam']['safety_event_count'] == 0
 
     def test_summary_respects_days_window(self, parent, family):
         response = auth_client_for(parent).get('/api/activity/summary/?days=1')

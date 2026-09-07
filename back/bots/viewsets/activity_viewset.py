@@ -1,19 +1,20 @@
 import uuid
 from datetime import timedelta
 
-from django.db.models import Count, OuterRef, Q, Subquery, Value
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import serializers, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from bots.models import Chat, Message, Profile
+from bots.models import Chat, Message, Profile, SafetyEvent
 from bots.permissions import IsParentSession
 from bots.serializers import (
     ActivityBotSerializer,
     ActivityChatListSerializer,
     ActivityProfileSerializer,
+    ActivitySafetyEventSerializer,
     ActivitySummarySerializer,
     MessageSerializer,
 )
@@ -24,7 +25,8 @@ def annotate_activity(queryset):
     """Annotate chats with the fields the parent inbox needs.
 
     Counts and previews exclude system messages so the numbers match what
-    the parent sees in the read-only transcript.
+    the parent sees in the read-only transcript. Both counts are distinct:
+    the messages and safety-event joins fan out against each other.
     """
     recent_messages = (
         Message.objects.filter(chat=OuterRef('pk'))
@@ -32,11 +34,10 @@ def annotate_activity(queryset):
         .order_by('-created_at', '-id')
     )
     return queryset.annotate(
-        message_count=Count('messages', filter=~Q(messages__role='system')),
+        message_count=Count('messages', filter=~Q(messages__role='system'), distinct=True),
         last_message_preview=Subquery(recent_messages.values('text')[:1]),
         last_message_at=Subquery(recent_messages.values('created_at')[:1]),
-        # SafetyEvent arrives with roadmap 03; until then no chat has safety events.
-        safety_event_count=Value(0),
+        safety_event_count=Count('safetyevent', distinct=True),
     )
 
 
@@ -44,8 +45,9 @@ def apply_activity_filters(queryset, params):
     """Apply the documented activity query params: profileId, botId, since, until, hasSafetyEvent.
 
     Invalid UUIDs / datetimes raise ``serializers.ValidationError`` (400).
-    ``hasSafetyEvent=true`` is accepted but always matches nothing until
-    roadmap 03 ships SafetyEvent rows (see annotate_activity).
+    ``hasSafetyEvent=true`` matches chats with at least one SafetyEvent row
+    (roadmap 03); the pk subquery avoids an extra join so the list
+    annotations are unaffected.
     """
     profile_id = params.get('profileId')
     if profile_id:
@@ -78,8 +80,7 @@ def apply_activity_filters(queryset, params):
         queryset = queryset.filter(modified_at__lte=parsed)
 
     if params.get('hasSafetyEvent', '').lower() == 'true':
-        # No SafetyEvent rows can exist before roadmap 03 ships.
-        queryset = queryset.filter(pk__in=Chat.objects.none())
+        queryset = queryset.filter(pk__in=SafetyEvent.objects.values('chat_id'))
 
     return queryset
 
@@ -127,8 +128,9 @@ class ActivityChatViewSet(viewsets.GenericViewSet):
             'bot': ActivityBotSerializer(chat.bot).data if chat.bot else None,
             'message_count': messages.count(),
             'messages': MessageSerializer(messages, many=True, context=self.get_serializer_context()).data,
-            # SafetyEvent markers land with roadmap 03.
-            'safety_events': [],
+            'safety_events': ActivitySafetyEventSerializer(
+                chat.safetyevent_set.order_by('created_at', 'id'), many=True
+            ).data,
         })
 
 
@@ -178,14 +180,25 @@ class ActivitySummaryViewSet(viewsets.ViewSet):
             if len(bucket) < 3:
                 bucket.append({'name': row['bot__name'], 'count': row['count']})
 
+        # SafetyEvent rows are point-in-time; window on their own timestamp.
+        safety_counts = dict(
+            SafetyEvent.objects.filter(
+                user=request.user,
+                profile__in=profiles,
+                created_at__gte=since,
+            )
+            .values('profile_id')
+            .annotate(c=Count('pk'))
+            .values_list('profile_id', 'c')
+        )
+
         profiles_payload = [
             {
                 'profile_id': str(profile.profile_id),
                 'name': profile.name,
                 'chat_count': chat_counts.get(profile.pk, 0),
                 'message_count': message_counts.get(profile.pk, 0),
-                # SafetyEvent arrives with roadmap 03.
-                'safety_event_count': 0,
+                'safety_event_count': safety_counts.get(profile.pk, 0),
                 'top_bots': top_by_profile.get(profile.pk, []),
             }
             for profile in profiles
