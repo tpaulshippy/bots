@@ -11,6 +11,8 @@ name: Preview OTA Update
 # `production` for the App Store builds.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
