@@ -50,6 +50,9 @@ export default function ActivityScreen() {
   const cardBackground = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const secondaryColor = useThemeColor({}, "icon");
+  // Dark-mode tint (#03465b) is nearly invisible on dark backgrounds, so
+  // selected filters use the brighter accent (matches settings/flashcards).
+  const tintColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   const load = useCallback(
     async (isRefresh: boolean) => {
@@ -181,40 +184,42 @@ export default function ActivityScreen() {
               style={styles.chipsRow}
               testID="activity-summary-chips"
             >
-              {(summary?.profiles ?? []).map((profile) => (
+              {(summary?.profiles ?? []).map((profile) => {
+                const isSelected = selectedProfileId === profile.profile_id;
+                return (
                 <Pressable
                   key={profile.profile_id}
                   testID={`activity-summary-chip-${profile.profile_id}`}
                   accessibilityLabel={`Filter by ${profile.name}`}
+                  accessibilityState={{ selected: isSelected }}
                   onPress={() => toggleProfileFilter(profile.profile_id)}
                   style={[
                     styles.chip,
                     { borderColor },
-                    selectedProfileId === profile.profile_id && [
-                      styles.chipSelected,
-                      { backgroundColor: cardBackground },
-                    ],
+                    isSelected && { backgroundColor: tintColor, borderColor: tintColor },
                   ]}
                 >
-                  <ThemedText style={styles.chipText}>
+                  <ThemedText style={[styles.chipText, isSelected && styles.chipTextSelected]}>
                     {profile.name} {profile.chat_count}
                   </ThemedText>
                   {profile.safety_event_count > 0 && (
-                    <IconSymbol name="shield.fill" size={12} color="#FF9500" />
+                    <IconSymbol name="shield.fill" size={12} color={isSelected ? "#fff" : "#FF9500"} />
                   )}
                 </Pressable>
-              ))}
+                );
+              })}
               <Pressable
                 testID="activity-safety-filter"
                 accessibilityLabel="Only chats with safety events"
+                accessibilityState={{ selected: safetyOnly }}
                 onPress={() => setSafetyOnly((value) => !value)}
                 style={[
                   styles.chip,
                   { borderColor },
-                  safetyOnly && [styles.chipSelected, { backgroundColor: cardBackground }],
+                  safetyOnly && { backgroundColor: tintColor, borderColor: tintColor },
                 ]}
               >
-                <ThemedText style={styles.chipText}>🛡 Safety</ThemedText>
+                <ThemedText style={[styles.chipText, safetyOnly && styles.chipTextSelected]}>🛡 Safety</ThemedText>
               </Pressable>
             </ScrollView>
             <FlatList
@@ -286,12 +291,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginRight: 8,
   },
-  chipSelected: {
-    borderColor: "#03465b",
-  },
   chipText: {
     fontSize: 13,
     marginRight: 4,
+  },
+  chipTextSelected: {
+    color: "#fff",
+    fontWeight: "600",
   },
   card: {
     marginHorizontal: 10,
