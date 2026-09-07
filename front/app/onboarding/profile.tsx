@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { fetchProfiles } from "@/api/profiles";
 import { WizardStep } from "./WizardStep";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -13,19 +12,6 @@ export default function OnboardingProfile() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    // The signup signal already created a profile (named after the parent's
-    // first name); pre-fill and rename it instead of creating a duplicate.
-    fetchProfiles().then((data) => {
-      const existing = data?.results?.[0]?.name;
-      if (existing) {
-        setName(existing);
-      }
-      setLoaded(true);
-    });
-  }, []);
 
   const trimmedEmail = studentEmail.trim();
   const emailValid = trimmedEmail === "" || EMAIL_PATTERN.test(trimmedEmail);
@@ -42,11 +28,11 @@ export default function OnboardingProfile() {
         testID="onboarding-profile-input"
         value={name}
         onChangeText={setName}
-        placeholder="Child's first name"
+        placeholder="Student name"
         autoFocus
         style={[styles.input, name.trim() ? undefined : styles.missing]}
       />
-      {!name.trim() && loaded ? (
+      {!name.trim() ? (
         <ThemedText style={styles.hint}>A profile name is required.</ThemedText>
       ) : null}
       <ThemedTextInput

@@ -150,7 +150,7 @@ export default function OnboardingProtect() {
   return (
     <WizardStep
       step={4}
-      title="Keep settings grown-up only"
+      title="Keep settings parent-only"
       subtitle="Optional — skip to leave parent controls unprotected."
       onBack={saving ? undefined : () => router.back()}
     >

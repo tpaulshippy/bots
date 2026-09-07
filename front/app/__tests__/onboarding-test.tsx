@@ -83,23 +83,24 @@ describe('Onboarding wizard', () => {
   });
 
   describe('Kid profile step', () => {
-    it('pre-fills the existing first profile name and renames via params', async () => {
+    it('starts blank with a Student name placeholder and forwards the typed name', async () => {
       render(<OnboardingProfile />);
       await act(async () => {});
 
       const input = screen.getByTestId('onboarding-profile-input');
-      expect(input.props.value).toBe('Jordan');
+      expect(input.props.value).toBe('');
+      expect(input.props.placeholder).toBe('Student name');
 
+      fireEvent.changeText(input, 'Alex');
       fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
 
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/onboarding/bot',
-        params: { profileName: 'Jordan' },
+        params: { profileName: 'Alex' },
       });
     });
 
     it('blocks Continue without a name', async () => {
-      (fetchProfiles as jest.Mock).mockResolvedValue({ results: [], count: 0 });
       render(<OnboardingProfile />);
       await act(async () => {});
 
@@ -113,6 +114,10 @@ describe('Onboarding wizard', () => {
       await act(async () => {});
 
       fireEvent.changeText(
+        screen.getByTestId('onboarding-profile-input'),
+        'Alex'
+      );
+      fireEvent.changeText(
         screen.getByTestId('onboarding-student-email-input'),
         'Maya@School.edu'
       );
@@ -120,7 +125,7 @@ describe('Onboarding wizard', () => {
 
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/onboarding/bot',
-        params: { profileName: 'Jordan', studentEmail: 'maya@school.edu' },
+        params: { profileName: 'Alex', studentEmail: 'maya@school.edu' },
       });
     });
 

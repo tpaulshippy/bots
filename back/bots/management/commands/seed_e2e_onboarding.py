@@ -2,7 +2,7 @@
 
 Creates 'e2e-test-user' / 'testpassword123' with:
 - the signup-signal default profile ('Jordan') and Penelope bot, so wizard
-  step 2 has a name to pre-fill and step 3 a bot to rename,
+  step 3 has a bot to rename,
 - no PIN and no onboarding flag, so the app gates to /onboarding,
 - a second profile ('Maya') so the profile switcher has something to switch to.
 

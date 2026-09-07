@@ -111,8 +111,8 @@ describe('Onboarding E2E Flow (Real API)', () => {
       .toBeVisible()
       .withTimeout(5000);
 
-    // Step 2: Kid name — pre-filled with the signal-created "Jordan".
-    await element(by.id('onboarding-profile-input')).replaceText(KID_NAME);
+    // Step 2: Kid name — blank with a "Student name" placeholder.
+    await element(by.id('onboarding-profile-input')).typeText(KID_NAME);
     await element(by.id('onboarding-profile-continue')).tap();
 
     // Step 3: First bot — defaults (Blank / Penelope) are already valid.
