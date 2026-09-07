@@ -49,8 +49,12 @@ export function useNotificationChatNavigation() {
         return;
       }
 
+      if (!data.chat_id) {
+        return;
+      }
+
       try {
-        const chat = await fetchChat(data.chat_id!);
+        const chat = await fetchChat(data.chat_id);
         if (!chat) {
           return;
         }

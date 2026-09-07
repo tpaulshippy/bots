@@ -57,7 +57,7 @@ class Command(BaseCommand):
             chat_count = Chat.objects.filter(
                 user=account.user,
                 profile=profile,
-                created_at__gte=since,
+                modified_at__gte=since,
             ).count()
             if chat_count > 0:
                 lines.append(f"{profile.name or 'Kid'}: {chat_count} chat{'s' if chat_count != 1 else ''}")

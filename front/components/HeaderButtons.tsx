@@ -8,12 +8,12 @@ export type DrawerMenuButtonProps = {
   testID?: string;
 };
 
-export function DrawerMenuButton({ onOpen, testID = "menu-button" }: DrawerMenuButtonProps) {
+export function DrawerMenuButton({ onOpen, testID = "drawer-menu-button" }: DrawerMenuButtonProps) {
   const iconColor = useThemeColor({}, "tint");
   return (
     <Pressable
       onPress={onOpen}
-      testID="drawer-menu-button"
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel="Open menu"
       hitSlop={8}
@@ -33,12 +33,12 @@ export type BackButtonProps = {
   testID?: string;
 };
 
-export function BackButton({ onPress }: BackButtonProps) {
+export function BackButton({ onPress, testID = "header-back-button" }: BackButtonProps) {
   const iconColor = useThemeColor({}, "tint");
   return (
     <Pressable
       onPress={onPress}
-      testID="header-back-button"
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel="Go back"
       hitSlop={8}
