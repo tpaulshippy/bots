@@ -96,6 +96,35 @@ describe('Onboarding wizard', () => {
       expect(mockRouter.push).not.toHaveBeenCalled();
     });
 
+    it('forwards the student email so teens can log in as themselves', async () => {
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-student-email-input'),
+        'Maya@School.edu'
+      );
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: { profileName: 'Jordan', studentEmail: 'maya@school.edu' },
+      });
+    });
+
+    it('blocks Continue with an invalid student email', async () => {
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-student-email-input'),
+        'not-an-email'
+      );
+
+      const button = screen.getByTestId('onboarding-profile-continue');
+      expect(button.props.accessibilityState.disabled).toBe(true);
+    });
+
     it('goes back to the previous step', async () => {
       render(<OnboardingProfile />);
 
@@ -157,9 +186,16 @@ describe('Onboarding wizard', () => {
       });
     });
 
-    it('requires matching PINs before Finish is enabled', async () => {
+    it('allows PIN-less finish but blocks mismatched PINs', async () => {
       render(<OnboardingProtect />);
       await act(async () => {});
+
+      // Empty PIN fields = PIN-less: Finish stays enabled with clear label.
+      expect(
+        screen.getByTestId('onboarding-finish').props.accessibilityState
+          .disabled
+      ).toBe(false);
+      expect(screen.getByTestId('onboarding-pinless-hint')).toBeTruthy();
 
       fireEvent.changeText(screen.getByTestId('onboarding-pin-input'), '1234');
       fireEvent.changeText(
@@ -182,6 +218,20 @@ describe('Onboarding wizard', () => {
         screen.getByTestId('onboarding-finish').props.accessibilityState
           .disabled
       ).toBe(false);
+    });
+
+    it('finishes PIN-less without sending a PIN', async () => {
+      render(<OnboardingProtect />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(bootstrapOnboarding).toHaveBeenCalledWith(
+        expect.not.objectContaining({ pin: expect.anything() })
+      );
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
 
     it('bootstraps the account, selects the renamed profile and lands on chat', async () => {

@@ -37,8 +37,15 @@ export interface ActivityTranscriptMessage {
     image_url: string | null;
 }
 
-// Populated once roadmap 03 (SafetyEvent) ships; always empty today.
+// Safety marker behind a flagged turn (GET /api/activity/chats/{id}/).
+// Snippets are redacted server-side; transcript anchoring by message
+// needs a message link on SafetyEvent (follow-up).
 export interface ActivitySafetyEvent {
+    event_id: string;
+    stage: string;
+    reason_code: string;
+    snippet_redacted: string;
+    created_at: string;
     message_order?: number;
     summary?: string;
 }

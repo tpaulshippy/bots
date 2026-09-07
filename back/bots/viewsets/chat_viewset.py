@@ -18,7 +18,7 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
 
         chat_queryset = Chat.objects.filter(user=user)
         # Teen-delegated sessions may only read messages of their own profile's chats.
-        delegated_profile = delegated_profile_from_auth(self.request.auth)
+        delegated_profile = delegated_profile_from_auth(self.request.auth, user)
         if delegated_profile is not None:
             chat_queryset = chat_queryset.filter(profile=delegated_profile)
         elif is_teen_delegated(self.request.auth):
@@ -41,7 +41,7 @@ class ChatViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Teen-delegated sessions are locked to their claimed profile: any
         # client-sent profileId is ignored and the claim is enforced instead.
-        delegated_profile = delegated_profile_from_auth(self.request.auth)
+        delegated_profile = delegated_profile_from_auth(self.request.auth, user)
         if delegated_profile is not None:
             queryset = queryset.filter(profile=delegated_profile)
         elif is_teen_delegated(self.request.auth):

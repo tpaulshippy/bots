@@ -1,10 +1,11 @@
-import { StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedButton } from "@/components/ThemedButton";
 import {
   getAccount,
+  removePin as removePinApi,
   setPin as setPinApi,
 } from "@/api/account";
 import { getCachedHasPin, setCachedHasPin, clearParentSession } from "@/api/pinStorage";
@@ -24,14 +25,18 @@ export default function SetPin() {
 
   useEffect(() => {
     // Prefer the fresh server answer; fall back to the cached flag offline.
-    getAccount().then((account) => {
-      if (account && typeof account.hasPin === "boolean") {
-        setHasPin(account.hasPin);
-        setCachedHasPin(account.hasPin);
-      } else {
+    getAccount()
+      .then((account) => {
+        if (account && typeof account.hasPin === "boolean") {
+          setHasPin(account.hasPin);
+          setCachedHasPin(account.hasPin);
+        } else {
+          return getCachedHasPin().then(setHasPin);
+        }
+      })
+      .catch(() => {
         getCachedHasPin().then(setHasPin);
-      }
-    });
+      });
   }, []);
 
   const validationError = useCallback((): string | null => {
@@ -83,6 +88,54 @@ export default function SetPin() {
       setSaving(false);
     }
   }, [currentPin, hasPin, pin, router, saving, validationError]);
+
+  const removePin = useCallback(async () => {
+    if (!PIN_PATTERN.test(currentPin) || saving) {
+      setError("Enter your current PIN to remove it.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await removePinApi(currentPin);
+
+      if (!response || !response.ok) {
+        const status = response?.status;
+        setError(
+          status === 403
+            ? "Current PIN is incorrect, or your reauthentication expired. Go back and unlock again."
+            : "Could not remove PIN. Check your connection and try again."
+        );
+        return;
+      }
+
+      clearParentSession();
+      await setCachedHasPin(false);
+
+      router.back();
+    } catch (error) {
+      console.error("Error removing PIN:", error);
+      setError("Could not remove PIN. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  }, [currentPin, router, saving]);
+
+  const confirmRemovePin = useCallback(() => {
+    Alert.alert(
+      "Remove PIN?",
+      "Parent controls will no longer require a PIN on this account.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => void removePin(),
+        },
+      ]
+    );
+  }, [removePin]);
 
   return (
     <ThemedView style={styles.container}>
@@ -144,6 +197,21 @@ export default function SetPin() {
             {saving ? "Saving…" : hasPin ? "Change PIN" : "Save PIN"}
           </ThemedText>
         </ThemedButton>
+
+        {hasPin && (
+          <ThemedButton
+            style={styles.removeButton}
+            testID="pin-remove-button"
+            onPress={confirmRemovePin}
+            disabled={saving}
+            lightColor="transparent"
+            darkColor="transparent"
+          >
+            <ThemedText style={styles.removeButtonText}>
+              Remove PIN
+            </ThemedText>
+          </ThemedButton>
+        )}
       </View>
     </ThemedView>
   );
@@ -181,6 +249,15 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: '#fff',
+    fontWeight: '600',
+  },
+  removeButton: {
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+  },
+  removeButtonText: {
+    color: '#FF6B6B',
     fontWeight: '600',
   },
   disabled: {

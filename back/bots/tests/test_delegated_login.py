@@ -174,6 +174,24 @@ class TestOauthEmailConstraint:
         new = Profile.objects.create(user=parent, name='New', oauth_email=TEEN_EMAIL)
         assert new.pk is not None
 
+    def test_serializer_normalizes_oauth_email_case_and_whitespace(self, parent, teen_profile):
+        from bots.serializers import ProfileSerializer
+
+        serializer = ProfileSerializer(
+            teen_profile, data={'name': 'Maya', 'oauth_email': '  MAYA@School.EDU  '}, partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data['oauth_email'] == TEEN_EMAIL
+
+    def test_serializer_empty_string_unbinds_to_none(self, parent, teen_profile):
+        from bots.serializers import ProfileSerializer
+
+        serializer = ProfileSerializer(
+            teen_profile, data={'name': 'Maya', 'oauth_email': '   '}, partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data['oauth_email'] is None
+
 
 @pytest.mark.django_db
 class TestTeenDeniedParentSurfaces:
@@ -230,7 +248,7 @@ class TestTeenDeniedParentSurfaces:
     def test_teen_get_user_is_redacted_of_pin(self, teen_profile):
         response = teen_client(teen_profile).get('/api/user')
         assert response.status_code == 200
-        assert 'pin' not in response.json()
+        assert response.json()['pin'] is None
 
     def test_parent_get_user_still_has_pin(self, parent):
         parent.user_account.pin_hash = hash_pin('1234')
@@ -238,12 +256,41 @@ class TestTeenDeniedParentSurfaces:
         response = parent_client(parent).get('/api/user')
         assert response.status_code == 200
         assert response.json()['hasPin'] is True
-        assert 'pin' not in response.json()
+        assert response.json()['pin'] is None
 
     def test_teen_cannot_delete_account(self, parent, teen_profile):
         response = teen_client(teen_profile).delete('/api/user/delete')
         assert response.status_code == 403
         assert User.objects.filter(id=parent.id).exists()
+
+
+@pytest.mark.django_db
+class TestDelegatedClaimUserScoping:
+    """A delegated claim for a profile owned by a different user resolves
+    to None (defense-in-depth: such a token should never be issued, but a
+    mismatched claim must never widen access)."""
+
+    def _mismatched_client(self, parent, teen_profile):
+        stranger = User.objects.create_user(username='stranger', email='s@example.com', password='pass')
+        refresh = SyftRefreshToken.for_delegated_profile(stranger, teen_profile)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        return client
+
+    def test_mismatched_claim_gets_no_self_profile(self, parent, teen_profile):
+        response = self._mismatched_client(parent, teen_profile).get('/api/profiles/self.json')
+        assert response.status_code == 404
+
+    def test_mismatched_claim_sees_no_chats_or_decks(self, parent, teen_profile):
+        client = self._mismatched_client(parent, teen_profile)
+        assert client.get('/api/chats.json').json()['results'] == []
+        assert client.get('/api/decks.json').json()['results'] == []
+
+    def test_mismatched_claim_cannot_post_chat(self, parent, teen_profile):
+        response = post_chat(
+            self._mismatched_client(parent, teen_profile), '/api/chats/new', {'message': 'hi'}
+        )
+        assert response.status_code == 403
 
 
 @pytest.mark.django_db

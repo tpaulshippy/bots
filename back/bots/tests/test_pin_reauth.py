@@ -88,11 +88,29 @@ class TestSetPin:
             '/api/user', {'pin': TEST_PIN, 'currentPin': ''}, format='json')
         assert response.status_code == 200
 
-    @pytest.mark.parametrize('bad_pin', ['123', '123456789', 'abcd', '12 4', '', None, 1234])
+    @pytest.mark.parametrize('bad_pin', ['123', '123456789', 'abcd', '12 4', '', None, True, 12.5])
     def test_invalid_pin_format_rejected(self, bad_pin, load_fixture):
         user = User.objects.create_user(username='u3', email='u3@example.com', password='pass')
         response = auth_client(user).post('/api/user', {'pin': bad_pin}, format='json')
         assert response.status_code == 400
+
+    def test_legacy_integer_pin_accepted_on_first_set(self, load_fixture):
+        # Old app builds POST {"pin": 1234} (integer, pre-roadmap-02 shape).
+        user = User.objects.create_user(username='u4', email='u4@example.com', password='pass')
+        response = auth_client(user).post('/api/user', {'pin': 1234}, format='json')
+
+        assert response.status_code == 200
+        user.user_account.refresh_from_db()
+        assert check_password('1234', user.user_account.pin_hash)
+
+    def test_legacy_integer_current_pin_accepted_on_change(self, parent_with_pin):
+        client = with_reauth_header(auth_client(parent_with_pin), parent_with_pin)
+        response = client.post(
+            '/api/user', {'pin': 5678, 'currentPin': 1234}, format='json')
+
+        assert response.status_code == 200
+        parent_with_pin.user_account.refresh_from_db()
+        assert check_password('5678', parent_with_pin.user_account.pin_hash)
 
     def test_change_requires_current_pin(self, parent_with_pin):
         client = auth_client(parent_with_pin)
@@ -129,6 +147,50 @@ class TestSetPin:
 
 
 @pytest.mark.django_db
+class TestClearPin:
+    """DELETE /api/user/pin removes the PIN (opt out of PIN protection)."""
+    url = '/api/user/pin'
+
+    def test_clear_without_pin_is_noop_success(self, load_fixture):
+        user = User.objects.create_user(username='nopin2', email='n2@example.com', password='pass')
+        response = auth_client(user).delete(self.url, {'currentPin': '1234'}, format='json')
+        assert response.status_code == 200
+
+    def test_clear_without_reauth_denied(self, parent_with_pin):
+        response = auth_client(parent_with_pin).delete(
+            self.url, {'currentPin': TEST_PIN}, format='json')
+        assert response.status_code == 403
+        parent_with_pin.user_account.refresh_from_db()
+        assert check_password(TEST_PIN, parent_with_pin.user_account.pin_hash)
+
+    def test_clear_with_wrong_current_pin_denied(self, parent_with_pin):
+        client = with_reauth_header(auth_client(parent_with_pin), parent_with_pin)
+        response = client.delete(self.url, {'currentPin': '9999'}, format='json')
+        assert response.status_code == 403
+        parent_with_pin.user_account.refresh_from_db()
+        assert check_password(TEST_PIN, parent_with_pin.user_account.pin_hash)
+
+    def test_clear_removes_pin_and_resets_failures(self, parent_with_pin):
+        account = parent_with_pin.user_account
+        account.pin_failed_attempts = 3
+        account.save(update_fields=['pin_failed_attempts'])
+
+        client = with_reauth_header(auth_client(parent_with_pin), parent_with_pin)
+        response = client.delete(self.url, {'currentPin': TEST_PIN}, format='json')
+
+        assert response.status_code == 200
+        account.refresh_from_db()
+        assert account.pin_hash is None
+        assert account.pin_failed_attempts == 0
+        assert auth_client(parent_with_pin).get('/api/user').json()['hasPin'] is False
+
+    def test_clear_accepts_legacy_integer_current_pin(self, parent_with_pin):
+        client = with_reauth_header(auth_client(parent_with_pin), parent_with_pin)
+        response = client.delete(self.url, {'currentPin': 1234}, format='json')
+        assert response.status_code == 200
+
+
+@pytest.mark.django_db
 class TestGetAccount:
     def test_get_never_returns_pin_or_hash(self, parent_with_pin):
         response = auth_client(parent_with_pin).get('/api/user')
@@ -136,10 +198,15 @@ class TestGetAccount:
         data = response.json()
         assert data['hasPin'] is True
         assert data['userId'] == parent_with_pin.id
-        assert 'pin' not in data
+        # Legacy compat key: always null, never the real value.
+        assert data['pin'] is None
         assert 'pinHash' not in data
         assert 'pin_hash' not in data
         assert TEST_PIN not in str(data)
+
+    def test_get_includes_legacy_cost_shape(self, parent_with_pin):
+        data = auth_client(parent_with_pin).get('/api/user').json()
+        assert data['costForToday'] == [data['cost']]
 
     def test_get_reports_missing_pin(self, load_fixture):
         user = User.objects.create_user(username='nopin', email='n@example.com', password='pass')
@@ -254,6 +321,14 @@ class TestTeenDelegatedDenial:
             '/api/user', {'pin': '5678', 'currentPin': TEST_PIN}, format='json')
         assert response.status_code == 403
 
+    def test_teen_delegated_cannot_clear_pin(self, parent_with_pin):
+        client = teen_auth_client(parent_with_pin)
+        response = client.delete(
+            '/api/user/pin', {'currentPin': TEST_PIN}, format='json')
+        assert response.status_code == 403
+        parent_with_pin.user_account.refresh_from_db()
+        assert check_password(TEST_PIN, parent_with_pin.user_account.pin_hash)
+
 
 @pytest.mark.django_db
 class TestParentMutationsRequireReauth:
@@ -298,6 +373,26 @@ class TestParentMutationsRequireReauth:
         client = auth_client(parent_with_pin)
         assert client.get('/api/bots.json').status_code == 200
         assert client.get('/api/profiles.json').status_code == 200
+
+    def test_mutation_without_reauth_allowed_when_no_pin(self, load_fixture):
+        # Opt-out: with no PIN configured there is nothing to
+        # reauthenticate against, so the parent session alone suffices.
+        user = User.objects.create_user(username='nopin3', email='n3@example.com', password='pass')
+        model = AiModel.objects.filter(is_default=True).first()
+        response = auth_client(user).post('/api/bots.json', {
+            'name': 'New Bot',
+            'ai_model': str(model.model_id),
+        }, format='json')
+        assert response.status_code == 201
+
+    def test_teen_mutation_still_denied_when_no_pin(self, load_fixture):
+        user = User.objects.create_user(username='nopin4', email='n4@example.com', password='pass')
+        model = AiModel.objects.filter(is_default=True).first()
+        response = teen_auth_client(user).post('/api/bots.json', {
+            'name': 'New Bot',
+            'ai_model': str(model.model_id),
+        }, format='json')
+        assert response.status_code == 403
 
     def test_delete_account_without_reauth_denied(self, parent_with_pin):
         response = auth_client(parent_with_pin).delete('/api/user/delete')

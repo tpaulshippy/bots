@@ -25,6 +25,7 @@ export default function OnboardingBot() {
   const router = useRouter();
   const local = useLocalSearchParams<{
     profileName?: string;
+    studentEmail?: string;
   }>();
   const [botName, setBotName] = useState(DEFAULTS.name);
   const [templateName, setTemplateName] = useState<string>(DEFAULTS.templateName);
@@ -63,6 +64,7 @@ export default function OnboardingBot() {
       pathname: "/onboarding/protect",
       params: {
         profileName: local.profileName ?? "",
+        ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
         botName: botName.trim(),
         templateName,
         systemPrompt: generateSystemPrompt(draftBot, inputs),

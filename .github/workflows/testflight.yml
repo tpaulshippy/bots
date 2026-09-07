@@ -1,0 +1,51 @@
+name: TestFlight Build
+
+# Native path for testing on TestFlight: builds with the `testflight`
+# eas.json profile (store distribution, channel `preview`) and submits the
+# result to TestFlight. Run this for native changes, version bumps, or to
+# cut a fresh baseline; use the Preview OTA Update workflow for fast
+# JS-only iterations on top of an installed TestFlight build.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  testflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd front
+          npm ci --legacy-peer-deps
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build for TestFlight
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: '1'
+          EXPO_PUBLIC_API_BASE_URL: https://syftlearning.app/api
+        run: |
+          cd front
+          npx eas build --profile testflight --platform ios \
+            --non-interactive --wait
+
+      - name: Submit to TestFlight
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: '1'
+        run: |
+          cd front
+          # Reuses the existing submit.production config (ascAppId).
+          npx eas submit -p ios --profile production --latest \
+            --non-interactive

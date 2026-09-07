@@ -121,7 +121,7 @@ describe('Onboarding E2E Flow (Real API)', () => {
       .withTimeout(5000);
     await element(by.id('onboarding-bot-continue')).tap();
 
-    // Step 4: Protect — PIN required, notifications toggle optional/off.
+    // Step 4: Protect — PIN optional (PIN-less is supported), notifications toggle optional/off.
     await waitFor(element(by.id('onboarding-pin-input')))
       .toBeVisible()
       .withTimeout(5000);
@@ -154,7 +154,7 @@ describe('Onboarding E2E Flow (Real API)', () => {
 
     const account = await authedFetch(tokens.access, '/user?timezone=UTC');
     expect(account.onboardingCompleted).toBe(true);
-    expect(String(account.pin)).toBe(PIN);
+    expect(account.hasPin).toBe(true);
   }, 180000);
 
   it('never shows the wizard again to returning users', async () => {

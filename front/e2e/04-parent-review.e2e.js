@@ -73,9 +73,9 @@ describe('Parent Conversation Review E2E Flow (Real API)', () => {
 
   it('parent opens the Activity inbox from Settings behind the PIN gate', async () => {
     // Kid chat -> chat history, where the drawer lives.
-    await element(by.id('back-button')).tap();
-    await waitFor(element(by.id('menu-button'))).toBeVisible().withTimeout(10000);
-    await element(by.id('menu-button')).tap();
+    await element(by.id('header-back-button')).tap();
+    await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(10000);
+    await element(by.id('drawer-menu-button')).tap();
     await element(by.text('Settings')).tap();
 
     // Parent-area PIN gate (roadmap 02 dependency).

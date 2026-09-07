@@ -10,7 +10,10 @@ import { useSessionMode } from "@/hooks/useSessionMode";
 export function useDelegatedRouteGuard() {
   const router = useRouter();
   const pathname = usePathname();
-  const { isTeenDelegated } = useSessionMode();
+  const sessionMode = useSessionMode();
+  // Only redirect once the mode resolves: bouncing an unknown session off
+  // /parent/* would kick parents out on cold start before claims load.
+  const isTeenDelegated = sessionMode?.isTeenDelegated === true;
 
   useEffect(() => {
     if (isTeenDelegated && pathname?.startsWith("/parent")) {

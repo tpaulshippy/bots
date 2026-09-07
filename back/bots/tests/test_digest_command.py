@@ -17,7 +17,7 @@ def parent(db):
 
 def _chat(user, profile, bot, when):
     chat = Chat.objects.create(user=user, profile=profile, bot=bot, title='t')
-    Chat.objects.filter(pk=chat.pk).update(created_at=when)
+    Chat.objects.filter(pk=chat.pk).update(created_at=when, modified_at=when)
     return chat
 
 
@@ -79,6 +79,25 @@ class TestSendActivityDigests:
         maya = Profile.objects.create(user=parent, name='Maya')
         bot = Bot.objects.create(user=parent, name='Penelope')
         _chat(parent, maya, bot, timezone.now() - timedelta(hours=1))
+        Device.objects.create(
+            user=parent, notification_token='digest-tok', notify_digest_only=True)
+
+        call_command('send_activity_digests')
+
+        notification = mock_client.return_value.notify.call_args.args[0]
+        assert notification.body == 'Maya: 1 chat'
+
+    @patch('bots.models.device.NotificationClient')
+    def test_ongoing_chat_with_recent_activity_counts(self, mock_client, parent):
+        maya = Profile.objects.create(user=parent, name='Maya')
+        bot = Bot.objects.create(user=parent, name='Penelope')
+        # Old chat with a recent reply: created outside the window but
+        # modified inside it, so the digest must still count it.
+        chat = Chat.objects.create(user=parent, profile=maya, bot=bot, title='t')
+        Chat.objects.filter(pk=chat.pk).update(
+            created_at=timezone.now() - timedelta(days=3),
+            modified_at=timezone.now() - timedelta(hours=1),
+        )
         Device.objects.create(
             user=parent, notification_token='digest-tok', notify_digest_only=True)
 

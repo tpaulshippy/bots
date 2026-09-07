@@ -23,10 +23,13 @@ import { setSelectedProfile } from "@/hooks/useSelectedProfile";
 import { registerForPushNotificationsAsync } from "../parent/notifications";
 import { WizardStep } from "./WizardStep";
 
+const PIN_PATTERN = /^\d{4,8}$/;
+
 export default function OnboardingProtect() {
   const router = useRouter();
   const local = useLocalSearchParams<{
     profileName?: string;
+    studentEmail?: string;
     botName?: string;
     templateName?: string;
     systemPrompt?: string;
@@ -49,22 +52,33 @@ export default function OnboardingProtect() {
     });
   }, [notificationsEnabled]);
 
-  const pinsMatch = pin.length > 0 && pin === pinConfirm;
+  // PIN is optional (PIN-less accounts are supported): leaving both fields
+  // empty finishes without a PIN. A half-filled PIN must match and be valid.
+  const pinEmpty = pin.length === 0 && pinConfirm.length === 0;
+  const pinValid = PIN_PATTERN.test(pin) && pin === pinConfirm;
+  const pinError =
+    !pinEmpty && !pinValid
+      ? !PIN_PATTERN.test(pin) && pin.length > 0
+        ? "PIN must be 4 to 8 digits."
+        : "PINs don't match yet."
+      : null;
+  const canFinish = pinEmpty || pinValid;
 
   const finish = async () => {
-    if (!pinsMatch || saving) {
+    if (!canFinish || saving) {
       return;
     }
     setSaving(true);
     try {
       const result = await bootstrapOnboarding({
         profileName: local.profileName ?? "",
+        ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
         botName: local.botName || undefined,
         templateName: local.templateName || undefined,
         systemPrompt: local.systemPrompt || undefined,
         color: local.color || undefined,
         icon: local.icon || undefined,
-        pin,
+        ...(pinValid ? { pin } : {}),
       });
 
       // Select exactly the renamed default profile and first bot so the very
@@ -105,18 +119,18 @@ export default function OnboardingProtect() {
     <WizardStep
       step={4}
       title="Keep settings grown-up only"
-      subtitle="Your PIN guards profiles, bots and billing."
+      subtitle="Optional — skip to leave parent controls unprotected."
       onBack={saving ? undefined : () => router.back()}
     >
       <View style={styles.formGroup}>
-        <ThemedText style={styles.label}>Create PIN</ThemedText>
+        <ThemedText style={styles.label}>Create PIN (optional)</ThemedText>
         <ThemedTextInput
           testID="onboarding-pin-input"
           keyboardType="numeric"
           secureTextEntry
           value={pin}
           onChangeText={setPin}
-          placeholder="Enter new pin"
+          placeholder="4–8 digits, or leave blank"
           maxLength={8}
           style={styles.input}
         />
@@ -129,12 +143,17 @@ export default function OnboardingProtect() {
           secureTextEntry
           value={pinConfirm}
           onChangeText={setPinConfirm}
-          placeholder="Re-enter pin"
+          placeholder="Re-enter PIN, or leave blank"
           maxLength={8}
-          style={[styles.input, pinConfirm.length > 0 && !pinsMatch && styles.missing]}
+          style={[styles.input, pinError && styles.missing]}
         />
-        {pinConfirm.length > 0 && !pinsMatch ? (
-          <ThemedText style={styles.hint}>PINs don&apos;t match yet.</ThemedText>
+        {pinError ? (
+          <ThemedText style={styles.hint}>{pinError}</ThemedText>
+        ) : pinEmpty ? (
+          <ThemedText style={styles.hint} testID="onboarding-pinless-hint">
+            No PIN means anyone with this device can open parent settings.
+            You can add a PIN anytime in Settings → Set PIN.
+          </ThemedText>
         ) : null}
       </View>
       <ThemedView style={styles.notificationsRow}>
@@ -155,12 +174,12 @@ export default function OnboardingProtect() {
       ) : (
         <ThemedButton
           testID="onboarding-finish"
-          style={[styles.cta, !pinsMatch && styles.ctaDisabled]}
-          disabled={!pinsMatch}
+          style={[styles.cta, !canFinish && styles.ctaDisabled]}
+          disabled={!canFinish}
           onPress={finish}
         >
           <ThemedText lightColor="#fff" darkColor="#fff" style={styles.ctaText}>
-            Finish
+            {pinEmpty ? "Finish without a PIN" : "Finish"}
           </ThemedText>
         </ThemedButton>
       )}

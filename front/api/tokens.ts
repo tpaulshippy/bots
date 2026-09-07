@@ -83,14 +83,21 @@ export const getSessionMode = async (): Promise<SessionMode> => {
 export const sessionFromQueryParams = (
   queryParams: Record<string, unknown> | undefined | null
 ): TokenData | null => {
-  const access = queryParams?.access as string | undefined;
-  const refresh = queryParams?.refresh as string | undefined;
+  // expo-linking may return string[] for repeated query params; take the
+  // first entry so we never store a joined "a,b" token value.
+  const firstString = (value: unknown): string | undefined => {
+    const first = Array.isArray(value) ? value[0] : value;
+    return typeof first === "string" && first ? first : undefined;
+  };
+  const access = firstString(queryParams?.access);
+  const refresh = firstString(queryParams?.refresh);
   if (!access || !refresh) {
     return null;
   }
   const isTeenDelegated =
-    String(queryParams?.is_teen_delegated ?? "false").toLowerCase() === "true";
-  const activeProfileId = (queryParams?.active_profile_id as string) || null;
+    (firstString(queryParams?.is_teen_delegated) ?? "false").toLowerCase() ===
+    "true";
+  const activeProfileId = firstString(queryParams?.active_profile_id) ?? null;
   return {
     access,
     refresh,

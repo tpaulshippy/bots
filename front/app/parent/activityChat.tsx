@@ -23,9 +23,13 @@ export default function ActivityChatScreen() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const secondaryColor = useThemeColor({}, "icon");
+  // Missing route param is derived during render (not via setState in the
+  // effect below) so the screen shows not-found instead of an infinite
+  // spinner when chatId is absent.
+  const missingChatId = !chatId;
 
   useEffect(() => {
-    if (!chatId) return;
+    if (missingChatId) return;
     let cancelled = false;
     fetchActivityChat(chatId).then((detail) => {
       if (cancelled) return;
@@ -40,10 +44,11 @@ export default function ActivityChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [chatId]);
+  }, [chatId, missingChatId]);
 
-  // Roadmap 03 will attach message_order to safety events; markers render
-  // above the blocked turn in the transcript.
+  // Input/output safety events carry message_order; markers render
+  // above the blocked turn in the transcript. Tool/web events are
+  // chat-level only (no single message) and render no marker.
   const markerByOrder = new Map<number, string>();
   for (const event of safetyEvents) {
     if (typeof event.message_order === "number" && event.summary) {
@@ -71,14 +76,14 @@ export default function ActivityChatScreen() {
 
   return (
     <ThemedView testID="activity-transcript-screen" style={styles.container}>
-      {!loading && !notFound && (
+      {!loading && !notFound && !missingChatId && (
         <ThemedText testID="activity-transcript-subtitle" style={[styles.subtitle, { color: secondaryColor }]}>
           Read only · {messages.length} message{messages.length === 1 ? "" : "s"}
         </ThemedText>
       )}
-      {loading ? (
+      {loading && !missingChatId ? (
         <ActivityIndicator testID="activity-transcript-loading" style={styles.loading} />
-      ) : notFound ? (
+      ) : notFound || missingChatId ? (
         <ThemedView testID="activity-transcript-missing" style={styles.emptyState}>
           <ThemedText>This conversation is unavailable.</ThemedText>
         </ThemedView>

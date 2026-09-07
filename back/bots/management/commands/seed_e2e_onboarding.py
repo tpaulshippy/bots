@@ -58,7 +58,8 @@ class Command(BaseCommand):
         self.stdout.write(f'Profiles: [{FIRST_NAME}, {SECOND_PROFILE_NAME}]')
 
         # Fresh onboarding state on every run.
-        account = user.user_account
+        from bots.models import UserAccount
+        account, _ = UserAccount.objects.get_or_create(user=user)
         account.pin_hash = None
         account.pin_failed_attempts = 0
         account.pin_locked_until = None

@@ -8,8 +8,8 @@ Creates:
 - Parent account 'e2e-test-user' / 'testpassword123' with PIN 1234
 - Kids Maya + Sam, bots Penelope + Math Bot
 - Several chats across days, including Maya's fractions chat whose last
-  assistant turn is a refusal stand-in for the blocked turn; the
-  SafetyEvent rows themselves arrive with roadmap 03.
+  assistant turn is a refusal stand-in for the blocked turn, plus the
+  SafetyEvent row behind it (roadmap 03 model).
 
 Idempotent: re-running never duplicates users/profiles/bots/chats.
 """
@@ -19,7 +19,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from bots.models import AiModel, Bot, Chat, Message, Profile, UserAccount
+from bots.models import AiModel, Bot, Chat, Message, Profile, SafetyEvent, UserAccount
 from bots.services.parent_reauth import hash_pin
 
 USERNAME = 'e2e-test-user'
@@ -90,10 +90,9 @@ class Command(BaseCommand):
             ],
         )
 
-        # Chat 3 — Maya/Penelope two days ago, ending in a refusal turn. The
-        # SafetyEvent row for this turn lands with roadmap 03; the text keeps
-        # the demo readable until then.
-        self._chat(
+        # Chat 3 — Maya/Penelope two days ago, ending in a refusal turn, with
+        # the SafetyEvent row behind the blocked turn (roadmap 03 model).
+        essay_chat = self._chat(
             user, maya, penelope,
             title='Essay about my weekend',
             age=now - timedelta(days=2),
@@ -107,6 +106,15 @@ class Command(BaseCommand):
                               "but I can help you outline your own ideas.",
                  timedelta(seconds=120)),
             ],
+        )
+        SafetyEvent.objects.get_or_create(
+            user=user,
+            profile=maya,
+            chat=essay_chat,
+            bot=penelope,
+            stage='input',
+            reason_code='global_floor',
+            defaults={'snippet_redacted': '[redacted]'},
         )
 
         self.stdout.write(self.style.SUCCESS(

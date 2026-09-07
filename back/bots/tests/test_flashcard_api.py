@@ -38,10 +38,9 @@ def auth_client(api_client, test_user):
 
 def with_parent_reauth(client, user):
     """Attach a valid parent reauth session header (roadmap doc 02)."""
-    from rest_framework_simplejwt.tokens import AccessToken
+    from bots.services.parent_reauth import ParentReauthToken
 
-    token = AccessToken.for_user(user)
-    token['parent_reauth'] = True
+    token = ParentReauthToken.for_user(user)
     client.credentials(HTTP_AUTHORIZATION=client._credentials['HTTP_AUTHORIZATION'],
                        HTTP_X_PARENT_REAUTH=str(token))
     return client

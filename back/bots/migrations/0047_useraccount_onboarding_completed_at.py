@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bots', '0045_device_notify_digest_only'),
+        ('bots', '0046_safetyevent_message'),
     ]
 
     operations = [

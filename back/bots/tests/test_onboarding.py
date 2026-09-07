@@ -195,13 +195,86 @@ class TestOnboardingBootstrap:
 
     def test_invalid_pin_returns_400(self, load_ai_models):
         user = User.objects.create_user(username='badpin', password='pass')
+        original_name = Profile.objects.get(user=user).name
+        original_bot_name = Bot.objects.get(user=user).name
 
         response = make_auth_client(user).post(
-            '/api/onboarding/bootstrap', self.payload(pin='abcd'), format='json')
+            '/api/onboarding/bootstrap',
+            self.payload(pin='abcd', profileName='Changed', botName='ChangedBot'),
+            format='json')
 
         assert response.status_code == 400
         user.user_account.refresh_from_db()
         assert user.user_account.pin_hash is None
+        assert user.user_account.onboarding_completed_at is None
+        # Invalid PIN must not leave half-applied renames behind.
+        assert Profile.objects.get(user=user).name == original_name
+        assert Bot.objects.get(user=user).name == original_bot_name
+        assert Profile.objects.filter(user=user, deleted_at=None).count() == 1
+
+    def test_pinless_bootstrap_completes_without_pin(self, load_ai_models):
+        user = User.objects.create_user(username='nopin', password='pass')
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap', self.payload(pin=''), format='json')
+
+        assert response.status_code == 200
+        assert response.json()['onboardingCompleted'] is True
+        user.user_account.refresh_from_db()
+        assert user.user_account.pin_hash is None
+        assert user.user_account.onboarding_completed_at is not None
+        assert Profile.objects.get(user=user).name == 'Maya'
+
+    def test_blank_profile_name_returns_400_without_side_effects(self, load_ai_models):
+        user = User.objects.create_user(username='blankname', password='pass')
+        original_name = Profile.objects.get(user=user).name
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap', self.payload(profileName='   '), format='json')
+
+        assert response.status_code == 400
+        assert Profile.objects.get(user=user).name == original_name
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is None
+
+    def test_create_branches_keep_appearance(self, load_ai_models):
+        user = User.objects.create_user(username='newlook', password='pass')
+        Bot.objects.filter(user=user).delete()
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(color='#E63946', icon='dragon'),
+            format='json')
+
+        assert response.status_code == 200
+        bot = Bot.objects.get(user=user)
+        assert bot.color == '#E63946'
+        assert bot.icon == 'dragon'
+
+    def test_student_email_binds_profile_for_teen_login(self, load_ai_models):
+        user = User.objects.create_user(username='student', password='pass')
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(studentEmail='Maya@School.edu'),
+            format='json')
+
+        assert response.status_code == 200
+        assert Profile.objects.get(user=user).oauth_email == 'maya@school.edu'
+
+    def test_invalid_student_email_returns_400_without_side_effects(self, load_ai_models):
+        user = User.objects.create_user(username='bademail', password='pass')
+        original_name = Profile.objects.get(user=user).name
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(studentEmail='not-an-email'),
+            format='json')
+
+        assert response.status_code == 400
+        assert Profile.objects.get(user=user).name == original_name
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is None
 
     def test_teen_delegated_session_is_403(self, load_ai_models):
         user = User.objects.create_user(username='delegated', password='pass')

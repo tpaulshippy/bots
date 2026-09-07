@@ -11,7 +11,6 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from bots.services.chat_agent import ChatAgentService
 from bots.services.safety import (
     SafetyPolicy,
-    build_system_prompt,
     evaluate_text,
     record_safety_event,
     refusal_for_verdict,
@@ -97,6 +96,7 @@ class Chat(models.Model):
                         verdict=verdict,
                         chat=self,
                         snippet=subject.text,
+                        message=subject,
                     )
                 return refusal
 
@@ -134,7 +134,7 @@ class Chat(models.Model):
             message_order = self.messages.count()
             input_tokens = usage_metadata.get('input_tokens', 0)
             output_tokens = usage_metadata.get('output_tokens', 0)
-            self.messages.create(
+            assistant_message = self.messages.create(
                 text=response_text,
                 role='assistant',
                 order=message_order,
@@ -145,7 +145,13 @@ class Chat(models.Model):
             self.output_tokens += output_tokens
             self.save()
             if output_verdict.blocked:
-                record_safety_event(stage='output', verdict=output_verdict, chat=self, snippet=flagged_output)
+                record_safety_event(
+                    stage='output',
+                    verdict=output_verdict,
+                    chat=self,
+                    snippet=flagged_output,
+                    message=assistant_message,
+                )
         return response_text
 
     def setup_human_message_content(self, message):
@@ -186,22 +192,17 @@ class Chat(models.Model):
                 if len(message_list) > 0: # need to start with a user message
                     message_list.append(AIMessage(content=message.text))
 
-        system_message = SystemMessage(content=self.get_system_message())
-        message_list.insert(0, system_message)
+        system_prompt = self.get_system_message()
+        if system_prompt:
+            system_message = SystemMessage(content=system_prompt)
+            message_list.insert(0, system_message)
 
         return message_list, contains_image
     
     def get_system_message(self):
-        """Server-owned layered prompt: preamble + parent customization + policy suffix.
-
-        The flags are restated here every turn so a custom (advanced-editor)
-        system_prompt cannot strip the safety layers, and the client is never
-        the control plane for policy text.
-        """
-        policy = SafetyPolicy.for_bot(self.bot)
-        bot_prompt = self.bot.system_prompt if self.bot else None
-        response_length = self.bot.response_length if self.bot else None
-        return build_system_prompt(bot_prompt, policy, response_length)
+        if self.bot and self.bot.system_prompt:
+            return self.bot.system_prompt
+        return ""
 
     def get_image_data(self, filename):
         try:

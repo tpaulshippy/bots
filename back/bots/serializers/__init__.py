@@ -4,6 +4,7 @@ from .activity_serializer import (
     ActivityChatListSerializer,
     ActivityProfileSerializer,
     ActivityProfileSummarySerializer,
+    ActivitySafetyEventSerializer,
     ActivitySummarySerializer,
 )
 from .ai_model_serializer import AiModelSerializer
@@ -28,6 +29,7 @@ __all__ = [
     'ActivityChatListSerializer',
     'ActivityProfileSerializer',
     'ActivityProfileSummarySerializer',
+    'ActivitySafetyEventSerializer',
     'ActivitySummarySerializer',
     'AiModelSerializer',
     'BotSerializer',

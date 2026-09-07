@@ -142,4 +142,21 @@ describe('useAuthBootstrap teen login deep link', () => {
     // Parent sessions still run the normal profile repair.
     expect(fetchProfiles).toHaveBeenCalled();
   });
+
+  it('recovers from a corrupted stored profile instead of throwing', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      key === 'selectedProfile' ? Promise.resolve('not-json{{{') : Promise.resolve(null)
+    );
+
+    render(<Harness />);
+    await act(async () => {});
+
+    // Bootstrap survives and overwrites the corrupted value.
+    expect(fetchOwnProfile).toHaveBeenCalled();
+    const call = (AsyncStorage.setItem as jest.Mock).mock.calls.find(
+      ([key]) => key === 'selectedProfile'
+    );
+    expect(call).toBeDefined();
+    expect(JSON.parse(call![1]).profile_id).toBe('profile-maya');
+  });
 });
