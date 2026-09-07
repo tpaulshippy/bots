@@ -62,7 +62,9 @@ class ParentReauthRequired(BasePermission):
     Reads stay open (kid paths list/read bots and profiles for chat), but any
     create/update/delete requires the `X-Parent-Reauth` header issued by
     `POST /api/auth/reauthenticate` within the reauth TTL. Teen-delegated
-    sessions are always denied.
+    sessions are always denied. Opt-out: accounts with no PIN configured
+    fall back to the parent session alone — there is nothing to
+    reauthenticate against (see DELETE /api/user/pin).
     """
     message = f'Parent reauthentication required. Send a valid {PARENT_REAUTH_HEADER} header.'
 
@@ -71,5 +73,7 @@ class ParentReauthRequired(BasePermission):
             return True
         if is_teen_delegated(request):
             return False
-        return has_valid_parent_reauth(request)
-
+        if has_valid_parent_reauth(request):
+            return True
+        account = getattr(getattr(request, 'user', None), 'user_account', None)
+        return account is not None and not account.pin_hash

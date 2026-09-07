@@ -9,7 +9,9 @@ def hash_legacy_pins(apps, schema_editor):
     it is removed by the following migration.
     """
     UserAccount = apps.get_model('bots', 'UserAccount')
-    for account in UserAccount.objects.exclude(pin__isnull=True).iterator():
+    for account in UserAccount.objects.filter(
+        pin__isnull=False, pin_hash__isnull=True
+    ).iterator():
         account.pin_hash = make_password(str(account.pin))
         account.pin_failed_attempts = 0
         account.save(update_fields=['pin_hash', 'pin_failed_attempts'])

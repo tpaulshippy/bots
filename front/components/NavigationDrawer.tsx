@@ -35,7 +35,10 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
   // Teen-delegated devices only get Chats + Flashcards: no parent surfaces.
-  const { isTeenDelegated } = useSessionMode();
+  // Unknown (still loading) fails closed to the teen view so a teen device
+  // never flashes Settings before the stored claims resolve.
+  const sessionMode = useSessionMode();
+  const isTeenDelegated = sessionMode?.isTeenDelegated ?? true;
 
   const drawerWidth = 250;
 

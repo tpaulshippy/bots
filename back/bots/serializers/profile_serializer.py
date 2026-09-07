@@ -17,10 +17,15 @@ class ProfileSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate_oauth_email(self, value):
         """Empty string means unbind; store NULL so the unique constraint
-        and delegated login lookup treat the profile as unbound."""
-        if value is not None and value.strip() == '':
+        and delegated login lookup treat the profile as unbound. Stored
+        lowercased/trimmed so the iexact delegated lookup can't match two
+        active profiles bound with different casing."""
+        if value is None:
             return None
-        return value
+        stripped = value.strip()
+        if stripped == '':
+            return None
+        return stripped.lower()
 
 class ProfileIdSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:

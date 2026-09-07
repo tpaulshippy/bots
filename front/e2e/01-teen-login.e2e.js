@@ -121,7 +121,7 @@ async function launchAndInject(injection) {
 }
 
 async function openDrawer() {
-  await element(by.id('menu-button')).tap();
+  await element(by.id('drawer-menu-button')).tap();
   await waitFor(element(by.id('drawer-item-chats'))).toBeVisible().withTimeout(5000);
 }
 
@@ -145,7 +145,7 @@ describe('Teen delegated login (roadmap 01)', () => {
       initialRoute: '/chatHistory',
     });
 
-    await waitFor(element(by.id('menu-button'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(15000);
     await openDrawer();
 
     await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(3000);
@@ -191,12 +191,12 @@ describe('Teen delegated login (roadmap 01)', () => {
       initialRoute: '/chatHistory',
     });
 
-    await waitFor(element(by.id('menu-button'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(15000);
     await openDrawer();
 
     await waitFor(element(by.id('drawer-item-chats'))).toBeVisible().withTimeout(3000);
     await waitFor(element(by.id('drawer-item-flashcards'))).toBeVisible().withTimeout(3000);
-    expect(element(by.id('drawer-item-settings')).exists()).toBe(false);
+    await expect(element(by.id('drawer-item-settings'))).toNotExist();
   });
 
   it('teen deep link into /parent/* bounces off the parent area', async () => {
@@ -204,8 +204,8 @@ describe('Teen delegated login (roadmap 01)', () => {
     await new Promise((resolve) => setTimeout(resolve, 2500));
 
     // The app is alive on a kid-safe screen and the drawer stays teen-scoped.
-    await waitFor(element(by.id('menu-button'))).toBeVisible().withTimeout(10000);
+    await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(10000);
     await openDrawer();
-    expect(element(by.id('drawer-item-settings')).exists()).toBe(false);
+    await expect(element(by.id('drawer-item-settings'))).toNotExist();
   });
 });
