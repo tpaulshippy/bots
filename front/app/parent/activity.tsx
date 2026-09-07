@@ -2,6 +2,8 @@ import PinWrapper from "@/components/PinWrapper";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { getAccount } from "@/api/account";
+import { getCachedHasPin } from "@/api/pinStorage";
 import {
   fetchActivityChats,
   fetchActivitySummary,
@@ -12,7 +14,7 @@ import { handleUnauthorized } from "@/hooks/useSelectedProfile";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { format, formatDistance } from "date-fns";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -38,6 +40,7 @@ function formatRowTime(inputDate: string | null): string {
 
 export default function ActivityScreen() {
   const router = useRouter();
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState<ActivitySummary | null>(null);
@@ -83,6 +86,30 @@ export default function ActivityScreen() {
       active = false;
     };
   }, [load]);
+
+  // Mirror settings.tsx: accounts that opted out of a PIN (no pin_hash)
+  // render parent surfaces directly instead of hitting the PIN gate, which
+  // would otherwise fail with "No PIN has been set for this account."
+  // Refetch on focus so removing a PIN in Set PIN ungates immediately.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getAccount()
+        .then((account) => {
+          if (active && account) {
+            setHasPin(!!account.hasPin);
+          }
+        })
+        .catch(() => {
+          getCachedHasPin().then((cached) => {
+            if (active) setHasPin(cached);
+          });
+        });
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const toggleProfileFilter = (profileId: string) => {
     if (process.env.EXPO_OS === "ios") {
@@ -139,9 +166,8 @@ export default function ActivityScreen() {
     </Pressable>
   );
 
-  return (
-    <PinWrapper>
-      <ThemedView testID="activity-screen" style={styles.container}>
+  const content = (
+    <ThemedView testID="activity-screen" style={styles.container}>
         <ThemedText style={styles.sectionHeader}>This week</ThemedText>
         {loading ? (
           <ThemedView style={styles.loadingContainer}>
@@ -216,8 +242,23 @@ export default function ActivityScreen() {
           </>
         )}
       </ThemedView>
-    </PinWrapper>
   );
+
+  if (hasPin === null) {
+    return (
+      <ThemedView testID="activity-screen" style={styles.container}>
+        <ThemedView style={styles.loadingContainer}>
+          <ActivityIndicator testID="activity-loading" />
+        </ThemedView>
+      </ThemedView>
+    );
+  }
+
+  if (!hasPin) {
+    return content;
+  }
+
+  return <PinWrapper>{content}</PinWrapper>;
 }
 
 const styles = StyleSheet.create({

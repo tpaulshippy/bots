@@ -138,7 +138,7 @@ class ActivitySummaryViewSet(viewsets.ViewSet):
     """Per-profile activity counts for the "This week" chips."""
     permission_classes = [IsAuthenticated, IsParentSession]
 
-    def list(self, request):
+    def list(self, request, *args, **kwargs):
         try:
             days = int(request.query_params.get('days', 7))
         except (TypeError, ValueError):
