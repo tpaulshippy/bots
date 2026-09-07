@@ -36,6 +36,7 @@ from bots.views.user_account_view import (
     clear_pin,
     user_account_view,
 )
+from bots.viewsets.activity_viewset import ActivityChatViewSet, ActivitySummaryViewSet
 from bots.viewsets.ai_model_viewset import AiModelViewSet
 from bots.viewsets.bot_viewset import BotViewSet
 from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
@@ -52,6 +53,8 @@ router.register(r'bots', BotViewSet)
 router.register(r'ai_models', AiModelViewSet)
 router.register(r'devices', DeviceViewSet)
 router.register(r'decks', DeckViewSet)
+router.register(r'activity/chats', ActivityChatViewSet, basename='activity-chats')
+router.register(r'activity/summary', ActivitySummaryViewSet, basename='activity-summary')
 
 chats_router = NestedDefaultRouter(router, r'chats', lookup='chat')
 chats_router.register(r'messages', MessageViewSet, basename='chat-messages')

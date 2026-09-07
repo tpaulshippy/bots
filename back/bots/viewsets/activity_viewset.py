@@ -1,0 +1,208 @@
+import uuid
+from datetime import timedelta
+
+from django.db.models import Count, OuterRef, Q, Subquery
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from rest_framework import serializers, viewsets
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from bots.models import Chat, Message, Profile, SafetyEvent
+from bots.permissions import IsParentSession
+from bots.serializers import (
+    ActivityBotSerializer,
+    ActivityChatListSerializer,
+    ActivityProfileSerializer,
+    ActivitySafetyEventSerializer,
+    ActivitySummarySerializer,
+    MessageSerializer,
+)
+from bots.viewsets.mixins import get_object_by_uuid_or_id
+
+
+def annotate_activity(queryset):
+    """Annotate chats with the fields the parent inbox needs.
+
+    Counts and previews exclude system messages so the numbers match what
+    the parent sees in the read-only transcript. Both counts are distinct:
+    the messages and safety-event joins fan out against each other.
+    """
+    recent_messages = (
+        Message.objects.filter(chat=OuterRef('pk'))
+        .exclude(role='system')
+        .order_by('-created_at', '-id')
+    )
+    return queryset.annotate(
+        message_count=Count('messages', filter=~Q(messages__role='system'), distinct=True),
+        last_message_preview=Subquery(recent_messages.values('text')[:1]),
+        last_message_at=Subquery(recent_messages.values('created_at')[:1]),
+        safety_event_count=Count('safetyevent', distinct=True),
+    )
+
+
+def apply_activity_filters(queryset, params):
+    """Apply the documented activity query params: profileId, botId, since, until, hasSafetyEvent.
+
+    Invalid UUIDs / datetimes raise ``serializers.ValidationError`` (400).
+    ``hasSafetyEvent=true`` matches chats with at least one SafetyEvent row
+    (roadmap 03); the pk subquery avoids an extra join so the list
+    annotations are unaffected.
+    """
+    profile_id = params.get('profileId')
+    if profile_id:
+        try:
+            profile_uuid = uuid.UUID(str(profile_id))
+        except (ValueError, AttributeError, TypeError):
+            raise serializers.ValidationError({'profileId': 'Invalid UUID.'})
+        queryset = queryset.filter(profile__profile_id=profile_uuid)
+
+    bot_id = params.get('botId')
+    if bot_id:
+        try:
+            bot_uuid = uuid.UUID(str(bot_id))
+        except (ValueError, AttributeError, TypeError):
+            raise serializers.ValidationError({'botId': 'Invalid UUID.'})
+        queryset = queryset.filter(bot__bot_id=bot_uuid)
+
+    since = params.get('since')
+    if since:
+        parsed = parse_datetime(str(since))
+        if parsed is None:
+            raise serializers.ValidationError({'since': 'Invalid datetime. Use ISO 8601.'})
+        queryset = queryset.filter(modified_at__gte=parsed)
+
+    until = params.get('until')
+    if until:
+        parsed = parse_datetime(str(until))
+        if parsed is None:
+            raise serializers.ValidationError({'until': 'Invalid datetime. Use ISO 8601.'})
+        queryset = queryset.filter(modified_at__lte=parsed)
+
+    if params.get('hasSafetyEvent', '').lower() == 'true':
+        queryset = queryset.filter(pk__in=SafetyEvent.objects.values('chat_id'))
+
+    return queryset
+
+
+class ActivityChatViewSet(viewsets.GenericViewSet):
+    """Parent inbox: list recent chats across profiles + read-only transcript.
+
+    Read-only by design: parents review here, they never write into the kid
+    thread (roadmap 04 non-goal).
+    """
+    permission_classes = [IsAuthenticated, IsParentSession]
+    serializer_class = ActivityChatListSerializer
+
+    def get_queryset(self):
+        return apply_activity_filters(
+            annotate_activity(
+                Chat.objects.filter(user=self.request.user).select_related('profile', 'bot')
+            ),
+            self.request.query_params,
+        ).order_by('-modified_at')
+
+    def get_object(self):
+        lookup_value = self.kwargs[self.lookup_field]
+        chat = get_object_by_uuid_or_id(self.get_queryset(), 'chat_id', lookup_value)
+        self.check_object_permissions(self.request, chat)
+        return chat
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        serializer = ActivityChatListSerializer(
+            page if page is not None else queryset, many=True
+        )
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        chat = self.get_object()
+        messages = chat.messages.exclude(role='system').order_by('id')
+        return Response({
+            'chat_id': str(chat.chat_id),
+            'title': chat.title,
+            'profile': ActivityProfileSerializer(chat.profile).data if chat.profile else None,
+            'bot': ActivityBotSerializer(chat.bot).data if chat.bot else None,
+            'message_count': messages.count(),
+            'messages': MessageSerializer(messages, many=True, context=self.get_serializer_context()).data,
+            'safety_events': ActivitySafetyEventSerializer(
+                chat.safetyevent_set.order_by('created_at', 'id'), many=True
+            ).data,
+        })
+
+
+class ActivitySummaryViewSet(viewsets.ViewSet):
+    """Per-profile activity counts for the "This week" chips."""
+    permission_classes = [IsAuthenticated, IsParentSession]
+
+    def list(self, request):
+        try:
+            days = int(request.query_params.get('days', 7))
+        except (TypeError, ValueError):
+            days = 7
+        days = max(1, min(days, 365))
+        since = timezone.now() - timedelta(days=days)
+
+        profiles = list(
+            Profile.objects.filter(user=request.user, deleted_at=None).order_by('id')
+        )
+        # Window on modified_at to match the inbox list filter/ordering.
+        window = Chat.objects.filter(
+            user=request.user, profile__in=profiles, modified_at__gte=since
+        )
+
+        chat_counts = dict(
+            window.values('profile_id').annotate(c=Count('pk')).values_list('profile_id', 'c')
+        )
+        message_counts = dict(
+            Message.objects.filter(
+                chat__user=request.user,
+                chat__profile__in=profiles,
+                chat__modified_at__gte=since,
+            )
+            .exclude(role='system')
+            .values('chat__profile_id')
+            .annotate(c=Count('pk'))
+            .values_list('chat__profile_id', 'c')
+        )
+        top_rows = (
+            window.exclude(bot=None)
+            .values('profile_id', 'bot__name')
+            .annotate(count=Count('pk'))
+            .order_by('profile_id', '-count')
+        )
+        top_by_profile: dict = {}
+        for row in top_rows:
+            bucket = top_by_profile.setdefault(row['profile_id'], [])
+            if len(bucket) < 3:
+                bucket.append({'name': row['bot__name'], 'count': row['count']})
+
+        # SafetyEvent rows are point-in-time; window on their own timestamp.
+        safety_counts = dict(
+            SafetyEvent.objects.filter(
+                user=request.user,
+                profile__in=profiles,
+                created_at__gte=since,
+            )
+            .values('profile_id')
+            .annotate(c=Count('pk'))
+            .values_list('profile_id', 'c')
+        )
+
+        profiles_payload = [
+            {
+                'profile_id': str(profile.profile_id),
+                'name': profile.name,
+                'chat_count': chat_counts.get(profile.pk, 0),
+                'message_count': message_counts.get(profile.pk, 0),
+                'safety_event_count': safety_counts.get(profile.pk, 0),
+                'top_bots': top_by_profile.get(profile.pk, []),
+            }
+            for profile in profiles
+        ]
+
+        serializer = ActivitySummarySerializer({'profiles': profiles_payload})
+        return Response(serializer.data)

@@ -1,0 +1,71 @@
+from rest_framework import serializers
+
+from bots.models import Bot, Profile, SafetyEvent
+
+
+class ActivityProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['profile_id', 'name']
+
+
+class ActivityBotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Bot
+        fields = ['bot_id', 'name', 'color', 'icon']
+
+
+class ActivityChatListSerializer(serializers.Serializer):
+    """Row of the parent activity inbox. Fields are annotations on the Chat queryset."""
+
+    chat_id = serializers.UUIDField()
+    title = serializers.CharField()
+    profile = ActivityProfileSerializer(allow_null=True)
+    bot = ActivityBotSerializer(allow_null=True)
+    message_count = serializers.IntegerField()
+    last_message_preview = serializers.CharField(allow_null=True, allow_blank=True)
+    last_message_at = serializers.DateTimeField(allow_null=True)
+    safety_event_count = serializers.IntegerField(read_only=True)
+
+
+class ActivityBotCountSerializer(serializers.Serializer):
+    name = serializers.CharField(allow_null=True)
+    count = serializers.IntegerField()
+
+
+class ActivitySafetyEventSerializer(serializers.ModelSerializer):
+    """Redacted-by-construction: the model never stores raw matched text.
+
+    message_order anchors the marker above the blocked turn in the parent
+    transcript; it is null for tool/web stages (no single message) and
+    pre-link rows.
+    """
+
+    message_order = serializers.SerializerMethodField()
+    summary = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SafetyEvent
+        fields = [
+            'event_id', 'stage', 'reason_code', 'snippet_redacted',
+            'created_at', 'message_order', 'summary',
+        ]
+
+    def get_message_order(self, obj):
+        return obj.message.order if obj.message else None
+
+    def get_summary(self, obj):
+        return f"Safety flag: {obj.reason_code or obj.stage}"
+
+
+class ActivityProfileSummarySerializer(serializers.Serializer):
+    profile_id = serializers.UUIDField()
+    name = serializers.CharField(allow_null=True, allow_blank=True)
+    chat_count = serializers.IntegerField()
+    message_count = serializers.IntegerField()
+    safety_event_count = serializers.IntegerField(read_only=True)
+    top_bots = ActivityBotCountSerializer(many=True)
+
+
+class ActivitySummarySerializer(serializers.Serializer):
+    profiles = ActivityProfileSummarySerializer(many=True)

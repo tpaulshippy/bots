@@ -8,6 +8,7 @@ export interface Device {
   notification_token: string;
   notify_on_new_chat: boolean;
   notify_on_new_message: boolean;
+  notify_digest_only: boolean;
   deleted_at: Date | null;
 }
 

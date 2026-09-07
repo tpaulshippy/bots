@@ -1,5 +1,6 @@
 /** @type {import('@jest/types').Config.InitialOptions} */
 module.exports = {
+  watchman: false,
   rootDir: '..',
   testMatch: ['<rootDir>/e2e/**/*.e2e.js'],
   testTimeout: 120000,

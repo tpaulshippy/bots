@@ -96,6 +96,7 @@ class Chat(models.Model):
                         verdict=verdict,
                         chat=self,
                         snippet=subject.text,
+                        message=subject,
                     )
                 return refusal
 
@@ -133,7 +134,7 @@ class Chat(models.Model):
             message_order = self.messages.count()
             input_tokens = usage_metadata.get('input_tokens', 0)
             output_tokens = usage_metadata.get('output_tokens', 0)
-            self.messages.create(
+            assistant_message = self.messages.create(
                 text=response_text,
                 role='assistant',
                 order=message_order,
@@ -144,7 +145,13 @@ class Chat(models.Model):
             self.output_tokens += output_tokens
             self.save()
             if output_verdict.blocked:
-                record_safety_event(stage='output', verdict=output_verdict, chat=self, snippet=flagged_output)
+                record_safety_event(
+                    stage='output',
+                    verdict=output_verdict,
+                    chat=self,
+                    snippet=flagged_output,
+                    message=assistant_message,
+                )
         return response_text
 
     def setup_human_message_content(self, message):

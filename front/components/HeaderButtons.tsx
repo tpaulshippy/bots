@@ -5,14 +5,15 @@ import { IconSymbol } from "./ui/IconSymbol";
 
 export type DrawerMenuButtonProps = {
   onOpen: () => void;
+  testID?: string;
 };
 
-export function DrawerMenuButton({ onOpen }: DrawerMenuButtonProps) {
+export function DrawerMenuButton({ onOpen, testID = "drawer-menu-button" }: DrawerMenuButtonProps) {
   const iconColor = useThemeColor({}, "tint");
   return (
     <Pressable
       onPress={onOpen}
-      testID="drawer-menu-button"
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel="Open menu"
       hitSlop={8}
@@ -29,14 +30,15 @@ export function DrawerMenuButton({ onOpen }: DrawerMenuButtonProps) {
 
 export type BackButtonProps = {
   onPress: () => void;
+  testID?: string;
 };
 
-export function BackButton({ onPress }: BackButtonProps) {
+export function BackButton({ onPress, testID = "header-back-button" }: BackButtonProps) {
   const iconColor = useThemeColor({}, "tint");
   return (
     <Pressable
       onPress={onPress}
-      testID="header-back-button"
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel="Go back"
       hitSlop={8}

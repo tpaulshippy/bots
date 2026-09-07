@@ -1,4 +1,5 @@
 import json
+import secrets
 
 import pytest
 from django.contrib.auth.models import User
@@ -12,12 +13,12 @@ from bots.models import Bot, Chat, Device, Profile, RevenueCatWebhookEvent
 
 @pytest.fixture
 def user_a(db):
-    return User.objects.create_user(username='usera', email='a@example.com', password='pass')
+    return User.objects.create_user(username='usera', email='a@example.com', password=secrets.token_urlsafe())
 
 
 @pytest.fixture
 def user_b(db):
-    return User.objects.create_user(username='userb', email='b@example.com', password='pass')
+    return User.objects.create_user(username='userb', email='b@example.com', password=secrets.token_urlsafe())
 
 
 def auth_client_for(user):
