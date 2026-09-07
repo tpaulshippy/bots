@@ -130,7 +130,7 @@ export default function OnboardingProtect() {
           secureTextEntry
           value={pin}
           onChangeText={setPin}
-          placeholder="4–8 digits, or leave blank"
+          placeholder="4–8 digits"
           maxLength={8}
           style={styles.input}
         />
@@ -143,7 +143,7 @@ export default function OnboardingProtect() {
           secureTextEntry
           value={pinConfirm}
           onChangeText={setPinConfirm}
-          placeholder="Re-enter PIN, or leave blank"
+          placeholder="Re-enter PIN"
           maxLength={8}
           style={[styles.input, pinError && styles.missing]}
         />
