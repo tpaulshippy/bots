@@ -121,7 +121,8 @@ describe('Onboarding E2E Flow (Real API)', () => {
       .withTimeout(5000);
     await element(by.id('onboarding-bot-continue')).tap();
 
-    // Step 4: Protect — PIN optional (PIN-less is supported), notifications toggle optional/off.
+    // Step 4: Protect — PIN optional (PIN-less is supported); notification
+    // toggles (new chat / each message / digest-only, PR 46) optional/off.
     await waitFor(element(by.id('onboarding-pin-input')))
       .toBeVisible()
       .withTimeout(5000);

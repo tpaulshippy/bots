@@ -10,6 +10,12 @@ import OnboardingProtect from '../onboarding/protect';
 import { fetchProfiles } from '@/api/profiles';
 import { fetchBots } from '@/api/bots';
 import {
+  fetchDeviceByToken,
+  setDeviceIdInStorage,
+  upsertDevice,
+} from '@/api/devices';
+import { registerForPushNotificationsAsync } from '../parent/notifications';
+import {
   bootstrapOnboarding,
   completeOnboarding,
 } from '@/api/account';
@@ -25,6 +31,12 @@ jest.mock('@/api/profiles', () => ({
 
 jest.mock('@/api/bots', () => ({
   fetchBots: jest.fn(),
+}));
+
+jest.mock('@/api/devices', () => ({
+  fetchDeviceByToken: jest.fn(),
+  setDeviceIdInStorage: jest.fn(),
+  upsertDevice: jest.fn(),
 }));
 
 jest.mock('@/api/account', () => ({
@@ -268,8 +280,7 @@ describe('Onboarding wizard', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
 
-    it('selects the configured profile even when it is not listed first', async () => {
-      // Listings are name-ordered; "Zoe" sorts after "Maya".
+    it('selects the configured profile even when it is not listed first', async () => {      // Listings are name-ordered; "Zoe" sorts after "Maya".
       (fetchProfiles as jest.Mock).mockResolvedValue({
         results: [
           { profile_id: 'p2', name: 'Maya' },
@@ -298,6 +309,89 @@ describe('Onboarding wizard', () => {
         'selectedProfile',
         JSON.stringify({ profile_id: 'p1', name: 'Zoe' })
       );
+    });
+
+    it('offers the PR46 notification options and persists the chosen flags', async () => {
+      (registerForPushNotificationsAsync as jest.Mock).mockResolvedValue(
+        'ExponentPushToken[test]'
+      );
+      (fetchDeviceByToken as jest.Mock).mockResolvedValue(null);
+      (upsertDevice as jest.Mock).mockResolvedValue({
+        device_id: 'd1',
+      });
+
+      render(<OnboardingProtect />);
+      await act(async () => {});
+
+      // All three PR46 options are visible; the legacy testID stays on the
+      // new-chat toggle.
+      expect(screen.getByTestId('onboarding-notifications-switch')).toBeTruthy();
+      expect(screen.getByTestId('onboarding-notify-message-switch')).toBeTruthy();
+      expect(screen.getByTestId('onboarding-notify-digest-switch')).toBeTruthy();
+
+      fireEvent(screen.getByTestId('onboarding-notifications-switch'), 'onValueChange', true);
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: -1,
+          notification_token: 'ExponentPushToken[test]',
+          notify_on_new_chat: true,
+          notify_on_new_message: false,
+          notify_digest_only: false,
+        })
+      );
+      expect(setDeviceIdInStorage).toHaveBeenCalledWith('d1');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('digest-only disables the immediate pushes and skips them on save', async () => {
+      (registerForPushNotificationsAsync as jest.Mock).mockResolvedValue(
+        'ExponentPushToken[test]'
+      );
+      (fetchDeviceByToken as jest.Mock).mockResolvedValue(null);
+      (upsertDevice as jest.Mock).mockResolvedValue({
+        device_id: 'd1',
+      });
+
+      render(<OnboardingProtect />);
+      await act(async () => {});
+
+      fireEvent(screen.getByTestId('onboarding-notify-digest-switch'), 'onValueChange', true);
+
+      expect(
+        screen.getByTestId('onboarding-notifications-switch').props.disabled
+      ).toBe(true);
+      expect(
+        screen.getByTestId('onboarding-notify-message-switch').props.disabled
+      ).toBe(true);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notify_on_new_chat: false,
+          notify_on_new_message: false,
+          notify_digest_only: true,
+        })
+      );
+    });
+
+    it('skips device registration when all notifications are off', async () => {
+      render(<OnboardingProtect />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(registerForPushNotificationsAsync).not.toHaveBeenCalled();
+      expect(upsertDevice).not.toHaveBeenCalled();
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
   });
 });

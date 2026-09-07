@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,11 @@ import {
   completeOnboarding,
 } from "@/api/account";
 import { fetchBots } from "@/api/bots";
+import {
+  fetchDeviceByToken,
+  setDeviceIdInStorage,
+  upsertDevice,
+} from "@/api/devices";
 import { fetchProfiles } from "@/api/profiles";
 import { setSelectedProfile } from "@/hooks/useSelectedProfile";
 import { registerForPushNotificationsAsync } from "../parent/notifications";
@@ -39,18 +44,44 @@ export default function OnboardingProtect() {
 
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  // Same per-device flags as Settings → Notifications (PR 46): digest-only
+  // suppresses the two immediate pushes, mirroring the settings screen.
+  const [notifyOnNewChat, setNotifyOnNewChat] = useState(false);
+  const [notifyOnNewMessage, setNotifyOnNewMessage] = useState(false);
+  const [notifyDigestOnly, setNotifyDigestOnly] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Never let a notification-registration hiccup block finishing setup.
-  useEffect(() => {
-    if (!notificationsEnabled) {
+  // Persist the chosen flags to this device. Never blocks finishing: push
+  // registration throws on simulators/web and offline upserts return null.
+  const persistNotificationChoices = async () => {
+    if (!notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly) {
       return;
     }
-    registerForPushNotificationsAsync().catch((error) => {
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (!token) {
+        return;
+      }
+      const existing = await fetchDeviceByToken(token);
+      const saved = await upsertDevice({
+        ...(existing ?? {
+          id: -1,
+          device_id: "",
+          notification_token: token,
+          deleted_at: null,
+        }),
+        notification_token: token,
+        notify_on_new_chat: notifyOnNewChat,
+        notify_on_new_message: notifyOnNewMessage,
+        notify_digest_only: notifyDigestOnly,
+      });
+      if (saved) {
+        await setDeviceIdInStorage(saved.device_id);
+      }
+    } catch (error) {
       Sentry.captureException?.(error);
-    });
-  }, [notificationsEnabled]);
+    }
+  };
 
   // PIN is optional (PIN-less accounts are supported): leaving both fields
   // empty finishes without a PIN. A half-filled PIN must match and be valid.
@@ -70,6 +101,7 @@ export default function OnboardingProtect() {
     }
     setSaving(true);
     try {
+      await persistNotificationChoices();
       const result = await bootstrapOnboarding({
         profileName: local.profileName ?? "",
         ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
@@ -162,12 +194,39 @@ export default function OnboardingProtect() {
         </ThemedText>
         <Switch
           testID="onboarding-notifications-switch"
-          value={notificationsEnabled}
-          onValueChange={setNotificationsEnabled}
+          value={notifyOnNewChat}
+          disabled={notifyDigestOnly}
+          onValueChange={setNotifyOnNewChat}
+        />
+      </ThemedView>
+      <ThemedView style={styles.notificationsRow}>
+        <ThemedText style={styles.notificationsLabel}>
+          Notify me on each message
+        </ThemedText>
+        <Switch
+          testID="onboarding-notify-message-switch"
+          value={notifyOnNewMessage}
+          disabled={notifyDigestOnly}
+          onValueChange={setNotifyOnNewMessage}
+        />
+      </ThemedView>
+      <ThemedView style={styles.notificationsRow}>
+        <View style={styles.digestLabelContainer}>
+          <ThemedText style={styles.notificationsLabel}>
+            Daily digest only
+          </ThemedText>
+          <ThemedText style={styles.digestHint}>
+            One summary a day instead of instant pushes
+          </ThemedText>
+        </View>
+        <Switch
+          testID="onboarding-notify-digest-switch"
+          value={notifyDigestOnly}
+          onValueChange={setNotifyDigestOnly}
         />
       </ThemedView>
       <ThemedText style={styles.optionalNote}>
-        Optional — you can turn this on anytime in Settings.
+        Optional — you can change these anytime in Settings → Notifications.
       </ThemedText>
       {saving ? (
         <ActivityIndicator style={styles.saving} />
@@ -227,6 +286,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     marginRight: 10,
+  },
+  digestLabelContainer: {
+    flex: 1,
+    flexDirection: "column",
+    marginRight: 10,
+  },
+  digestHint: {
+    fontSize: 12,
+    opacity: 0.6,
+    marginTop: 2,
   },
   optionalNote: {
     fontSize: 12,
