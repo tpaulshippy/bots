@@ -134,6 +134,10 @@ def describe_chat_response_filters():
         assert event.chat == chat
         assert "[redacted]" in event.snippet_redacted
         assert "fuck" not in event.snippet_redacted
+        # Anchored to the blocked user turn for transcript markers.
+        assert event.message is not None
+        assert event.message.role == "user"
+        assert event.message.text == "say fuck you"
 
     def it_replaces_blocked_model_output(chat, ai):
         flagged_output = AIMessage(
@@ -150,6 +154,9 @@ def describe_chat_response_filters():
         event = SafetyEvent.objects.get()
         assert event.stage == "output"
         assert event.reason_code == REASON_ADULT_TOPIC
+        # Anchored to the refusal turn that replaced the flagged completion.
+        assert event.message == saved
+        assert event.message.role == "assistant"
 
     def it_marks_blocked_input_and_excludes_it_from_later_model_context(chat, ai):
         chat.messages.create(text="I want to hurt myself", role="user")
@@ -203,6 +210,18 @@ def describe_chat_response_filters():
         result = chat.get_response(ai=ai)
         assert result == safety.REFUSAL_CRISIS
         assert SafetyEvent.objects.filter(stage="input").exists()
+
+    def it_leaves_message_unset_for_chat_level_stages(chat):
+        from bots.services.safety import record_safety_event
+
+        record_safety_event(
+            stage="web_query",
+            verdict=SafetyVerdict(True, "web_blocked"),
+            chat=chat,
+            snippet="query",
+        )
+        event = SafetyEvent.objects.get()
+        assert event.message is None
 
 
 @pytest.mark.django_db

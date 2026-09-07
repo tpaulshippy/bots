@@ -199,10 +199,12 @@ class TestActivityChatDetail:
 
     def test_detail_returns_safety_markers(self, parent, family):
         chat = family['primes']
+        blocked = Message.objects.create(
+            chat=chat, role='user', text='blocked turn', order=99)
         SafetyEvent.objects.create(
             user=parent, profile=family['sam'], chat=chat,
             bot=family['math_bot'], stage='input', reason_code='language',
-            snippet_redacted='[redacted]',
+            snippet_redacted='[redacted]', message=blocked,
         )
         response = auth_client_for(parent).get(f'/api/activity/chats/{chat.chat_id}/')
 
@@ -211,6 +213,8 @@ class TestActivityChatDetail:
         assert event['stage'] == 'input'
         assert event['reason_code'] == 'language'
         assert event['snippet_redacted'] == '[redacted]'
+        assert event['message_order'] == 99
+        assert event['summary'] == 'Safety flag: language'
         assert 'created_at' in event
 
     def test_other_users_chat_is_404(self, parent, other_parent, family):

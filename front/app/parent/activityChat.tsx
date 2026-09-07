@@ -42,8 +42,9 @@ export default function ActivityChatScreen() {
     };
   }, [chatId]);
 
-  // Roadmap 03 will attach message_order to safety events; markers render
-  // above the blocked turn in the transcript.
+  // Input/output safety events carry message_order; markers render
+  // above the blocked turn in the transcript. Tool/web events are
+  // chat-level only (no single message) and render no marker.
   const markerByOrder = new Map<number, string>();
   for (const event of safetyEvents) {
     if (typeof event.message_order === "number" && event.summary) {

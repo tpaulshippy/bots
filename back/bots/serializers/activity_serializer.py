@@ -34,11 +34,28 @@ class ActivityBotCountSerializer(serializers.Serializer):
 
 
 class ActivitySafetyEventSerializer(serializers.ModelSerializer):
-    """Redacted-by-construction: the model never stores raw matched text."""
+    """Redacted-by-construction: the model never stores raw matched text.
+
+    message_order anchors the marker above the blocked turn in the parent
+    transcript; it is null for tool/web stages (no single message) and
+    pre-link rows.
+    """
+
+    message_order = serializers.SerializerMethodField()
+    summary = serializers.SerializerMethodField()
 
     class Meta:
         model = SafetyEvent
-        fields = ['event_id', 'stage', 'reason_code', 'snippet_redacted', 'created_at']
+        fields = [
+            'event_id', 'stage', 'reason_code', 'snippet_redacted',
+            'created_at', 'message_order', 'summary',
+        ]
+
+    def get_message_order(self, obj):
+        return obj.message.order if obj.message else None
+
+    def get_summary(self, obj):
+        return f"Safety flag: {obj.reason_code or obj.stage}"
 
 
 class ActivityProfileSummarySerializer(serializers.Serializer):

@@ -281,7 +281,7 @@ def redact_snippet(snippet: str, verdict: SafetyVerdict | None = None, limit: in
     return redacted[:limit]
 
 
-def record_safety_event(*, stage: str, verdict: SafetyVerdict, chat=None, snippet: str = "") -> None:
+def record_safety_event(*, stage: str, verdict: SafetyVerdict, chat=None, snippet: str = "", message=None) -> None:
     """Best-effort audit log; feeds feature 04 (parent inbox). Never raises."""
     try:
         from bots.models import SafetyEvent  # deferred: avoid circular imports
@@ -291,6 +291,7 @@ def record_safety_event(*, stage: str, verdict: SafetyVerdict, chat=None, snippe
             profile=getattr(chat, "profile", None),
             chat=chat,
             bot=getattr(chat, "bot", None),
+            message=message,
             stage=stage,
             reason_code=verdict.reason_code or "",
             snippet_redacted=redact_snippet(snippet, verdict),
