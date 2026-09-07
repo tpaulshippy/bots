@@ -1,8 +1,10 @@
+import uuid
 from datetime import timedelta
 
 from django.db.models import Count, OuterRef, Q, Subquery, Value
 from django.utils import timezone
-from rest_framework import viewsets
+from django.utils.dateparse import parse_datetime
+from rest_framework import serializers, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -39,22 +41,41 @@ def annotate_activity(queryset):
 
 
 def apply_activity_filters(queryset, params):
-    """Apply the documented activity query params: profileId, botId, since, until, hasSafetyEvent."""
+    """Apply the documented activity query params: profileId, botId, since, until, hasSafetyEvent.
+
+    Invalid UUIDs / datetimes raise ``serializers.ValidationError`` (400).
+    ``hasSafetyEvent=true`` is accepted but always matches nothing until
+    roadmap 03 ships SafetyEvent rows (see annotate_activity).
+    """
     profile_id = params.get('profileId')
     if profile_id:
-        queryset = queryset.filter(profile__profile_id=profile_id)
+        try:
+            profile_uuid = uuid.UUID(str(profile_id))
+        except (ValueError, AttributeError, TypeError):
+            raise serializers.ValidationError({'profileId': 'Invalid UUID.'})
+        queryset = queryset.filter(profile__profile_id=profile_uuid)
 
     bot_id = params.get('botId')
     if bot_id:
-        queryset = queryset.filter(bot__bot_id=bot_id)
+        try:
+            bot_uuid = uuid.UUID(str(bot_id))
+        except (ValueError, AttributeError, TypeError):
+            raise serializers.ValidationError({'botId': 'Invalid UUID.'})
+        queryset = queryset.filter(bot__bot_id=bot_uuid)
 
     since = params.get('since')
     if since:
-        queryset = queryset.filter(modified_at__gte=since)
+        parsed = parse_datetime(str(since))
+        if parsed is None:
+            raise serializers.ValidationError({'since': 'Invalid datetime. Use ISO 8601.'})
+        queryset = queryset.filter(modified_at__gte=parsed)
 
     until = params.get('until')
     if until:
-        queryset = queryset.filter(modified_at__lte=until)
+        parsed = parse_datetime(str(until))
+        if parsed is None:
+            raise serializers.ValidationError({'until': 'Invalid datetime. Use ISO 8601.'})
+        queryset = queryset.filter(modified_at__lte=parsed)
 
     if params.get('hasSafetyEvent', '').lower() == 'true':
         # No SafetyEvent rows can exist before roadmap 03 ships.
@@ -102,7 +123,7 @@ class ActivityChatViewSet(viewsets.GenericViewSet):
         return Response({
             'chat_id': str(chat.chat_id),
             'title': chat.title,
-            'profile': ActivityProfileSerializer(chat.profile).data,
+            'profile': ActivityProfileSerializer(chat.profile).data if chat.profile else None,
             'bot': ActivityBotSerializer(chat.bot).data if chat.bot else None,
             'message_count': messages.count(),
             'messages': MessageSerializer(messages, many=True, context=self.get_serializer_context()).data,
@@ -123,31 +144,52 @@ class ActivitySummaryViewSet(viewsets.ViewSet):
         days = max(1, min(days, 365))
         since = timezone.now() - timedelta(days=days)
 
-        profiles_payload = []
-        profiles = Profile.objects.filter(user=request.user, deleted_at=None).order_by('id')
-        for profile in profiles:
-            chats = Chat.objects.filter(user=request.user, profile=profile, created_at__gte=since)
-            message_count = chats.aggregate(
-                total=Count('messages', filter=~Q(messages__role='system'))
-            )['total'] or 0
-            top_bots = [
-                {'name': row['bot__name'], 'count': row['count']}
-                for row in (
-                    chats.exclude(bot=None)
-                    .values('bot__name')
-                    .annotate(count=Count('pk'))
-                    .order_by('-count')[:3]
-                )
-            ]
-            profiles_payload.append({
+        profiles = list(
+            Profile.objects.filter(user=request.user, deleted_at=None).order_by('id')
+        )
+        # Window on modified_at to match the inbox list filter/ordering.
+        window = Chat.objects.filter(
+            user=request.user, profile__in=profiles, modified_at__gte=since
+        )
+
+        chat_counts = dict(
+            window.values('profile_id').annotate(c=Count('pk')).values_list('profile_id', 'c')
+        )
+        message_counts = dict(
+            Message.objects.filter(
+                chat__user=request.user,
+                chat__profile__in=profiles,
+                chat__modified_at__gte=since,
+            )
+            .exclude(role='system')
+            .values('chat__profile_id')
+            .annotate(c=Count('pk'))
+            .values_list('chat__profile_id', 'c')
+        )
+        top_rows = (
+            window.exclude(bot=None)
+            .values('profile_id', 'bot__name')
+            .annotate(count=Count('pk'))
+            .order_by('profile_id', '-count')
+        )
+        top_by_profile: dict = {}
+        for row in top_rows:
+            bucket = top_by_profile.setdefault(row['profile_id'], [])
+            if len(bucket) < 3:
+                bucket.append({'name': row['bot__name'], 'count': row['count']})
+
+        profiles_payload = [
+            {
                 'profile_id': str(profile.profile_id),
                 'name': profile.name,
-                'chat_count': chats.count(),
-                'message_count': message_count,
+                'chat_count': chat_counts.get(profile.pk, 0),
+                'message_count': message_counts.get(profile.pk, 0),
                 # SafetyEvent arrives with roadmap 03.
                 'safety_event_count': 0,
-                'top_bots': top_bots,
-            })
+                'top_bots': top_by_profile.get(profile.pk, []),
+            }
+            for profile in profiles
+        ]
 
         serializer = ActivitySummarySerializer({'profiles': profiles_payload})
         return Response(serializer.data)

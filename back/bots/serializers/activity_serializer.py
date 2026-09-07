@@ -20,7 +20,7 @@ class ActivityChatListSerializer(serializers.Serializer):
 
     chat_id = serializers.UUIDField()
     title = serializers.CharField()
-    profile = ActivityProfileSerializer()
+    profile = ActivityProfileSerializer(allow_null=True)
     bot = ActivityBotSerializer(allow_null=True)
     message_count = serializers.IntegerField()
     last_message_preview = serializers.CharField(allow_null=True, allow_blank=True)
