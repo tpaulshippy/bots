@@ -40,7 +40,13 @@ export default function OnboardingProtect() {
     systemPrompt?: string;
     color?: string;
     icon?: string;
+    review?: string;
   }>();
+  // Review mode (?review=true): re-walking the wizard to verify the current
+  // setup. Earlier steps pre-fill from the API; finishing saves normally —
+  // bootstrap is idempotent (renames in place, never duplicates), so leaving
+  // everything unchanged changes nothing.
+  const isReview = local.review === "true";
 
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
@@ -153,6 +159,7 @@ export default function OnboardingProtect() {
       title="Keep settings parent-only"
       subtitle="Optional — skip to leave parent controls unprotected."
       onBack={saving ? undefined : () => router.back()}
+      review={isReview}
     >
       <View style={styles.formGroup}>
         <ThemedText style={styles.label}>Create PIN (optional)</ThemedText>

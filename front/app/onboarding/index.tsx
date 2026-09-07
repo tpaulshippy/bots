@@ -1,5 +1,5 @@
 import { StyleSheet, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -8,6 +8,8 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 
 export default function OnboardingWelcome() {
   const router = useRouter();
+  const { review } = useLocalSearchParams<{ review?: string }>();
+  const isReview = review === "true";
   const tintColor = useThemeColor({}, "tint");
 
   return (
@@ -26,11 +28,25 @@ export default function OnboardingWelcome() {
           Set up your child&apos;s profile and first tutor in under three
           minutes. Free to start.
         </ThemedText>
+        {isReview ? (
+          <ThemedText style={styles.reviewNote} testID="onboarding-review-banner">
+            Reviewing your current setup.
+          </ThemedText>
+        ) : null}
       </ThemedView>
       <ThemedButton
         testID="onboarding-get-started"
         style={styles.cta}
-        onPress={() => router.push("/onboarding/profile")}
+        onPress={() => {
+          if (isReview) {
+            router.push({
+              pathname: "/onboarding/profile",
+              params: { review: "true" },
+            });
+          } else {
+            router.push("/onboarding/profile");
+          }
+        }}
       >
         <ThemedText lightColor="#fff" darkColor="#fff" style={styles.ctaText}>
           Get started
@@ -75,6 +91,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: 8,
     paddingHorizontal: 16,
+  },
+  reviewNote: {
+    fontSize: 13,
+    textAlign: "center",
+    opacity: 0.7,
+    marginTop: 12,
   },
   cta: {
     borderRadius: 14,

@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
@@ -11,6 +12,7 @@ import {
   generateSystemPrompt,
 } from "@/api/botTemplates";
 import type { Bot } from "@/api/bots";
+import { fetchBots } from "@/api/bots";
 import { WizardStep } from "./WizardStep";
 
 // Wizard defaults: Blank template, Penelope, teal, sparkles icon.
@@ -26,12 +28,57 @@ export default function OnboardingBot() {
   const local = useLocalSearchParams<{
     profileName?: string;
     studentEmail?: string;
+    review?: string;
   }>();
+  const isReview = local.review === "true";
   const [botName, setBotName] = useState(DEFAULTS.name);
   const [templateName, setTemplateName] = useState<string>(DEFAULTS.templateName);
   const [color, setColor] = useState(DEFAULTS.color);
   const [icon, setIcon] = useState(DEFAULTS.icon);
   const [story, setStory] = useState("");
+
+  // Review mode: pre-fill with the currently configured tutor so the wizard
+  // shows what's set. Prefer the selected bot, fall back to the first bot.
+  useEffect(() => {
+    if (!isReview) {
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem("selectedBot").catch(
+          () => null
+        );
+        const parsed = stored ? JSON.parse(stored) : null;
+        if (parsed && typeof parsed.name === "string" && active) {
+          setBotName(parsed.name || DEFAULTS.name);
+          if (typeof parsed.template_name === "string" && parsed.template_name) {
+            setTemplateName(parsed.template_name);
+          }
+          if (typeof parsed.color === "string" && parsed.color) {
+            setColor(parsed.color);
+          }
+          if (typeof parsed.icon === "string" && parsed.icon) {
+            setIcon(parsed.icon);
+          }
+          return;
+        }
+        const bots = await fetchBots().catch(() => null);
+        const first = bots?.results?.[0];
+        if (first && active) {
+          setBotName(first.name || DEFAULTS.name);
+          if (first.template_name) setTemplateName(first.template_name);
+          if (first.color) setColor(first.color);
+          if (first.icon) setIcon(first.icon);
+        }
+      } catch {
+        // Prefill is best-effort; defaults still work.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isReview]);
 
   const canContinue =
     botName.trim().length > 0 &&
@@ -70,6 +117,7 @@ export default function OnboardingBot() {
         systemPrompt: generateSystemPrompt(draftBot, inputs),
         color,
         icon,
+        ...(isReview ? { review: "true" } : {}),
       },
     });
   };
@@ -80,6 +128,7 @@ export default function OnboardingBot() {
       title="Create a tutor"
       subtitle="Pick a starting point — you can change everything later."
       onBack={() => router.back()}
+      review={isReview}
     >
       <FlatList
         data={templates}

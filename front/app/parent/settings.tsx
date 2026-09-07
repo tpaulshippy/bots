@@ -171,6 +171,14 @@ export default function SettingsScreen() {
           testID="menu-item-terms"
           onPress={() => goTo("/parent/terms")}
         ></MenuItem>
+        <MenuItem
+          title="Review onboarding setup"
+          iconName="wand.and.sparkles"
+          testID="menu-item-preview-onboarding"
+          onPress={() =>
+            router.push({ pathname: "/onboarding", params: { review: "true" } })
+          }
+        ></MenuItem>
         <ActionRow
           title="Delete Account"
           iconName="trash.fill"

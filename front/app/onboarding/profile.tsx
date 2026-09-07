@@ -1,17 +1,60 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
+import { fetchProfiles } from "@/api/profiles";
+import { getSelectedProfile } from "@/hooks/useSelectedProfile";
 import { WizardStep } from "./WizardStep";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function OnboardingProfile() {
   const router = useRouter();
+  const { review } = useLocalSearchParams<{ review?: string }>();
+  const isReview = review === "true";
   const [name, setName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
+
+  // Review mode: pre-fill with what's currently configured so the wizard
+  // doubles as a way to verify the setup. Prefer the selected profile,
+  // fall back to the first profile on the account.
+  useEffect(() => {
+    if (!isReview) {
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const selected = await getSelectedProfile().catch(() => null);
+        const selectedName =
+          selected && typeof selected.name === "string"
+            ? selected.name
+            : "";
+        const selectedEmail =
+          selected && typeof selected.oauth_email === "string"
+            ? selected.oauth_email
+            : "";
+        if (selectedName && active) {
+          setName(selectedName);
+          setStudentEmail(selectedEmail ?? "");
+          return;
+        }
+        const profiles = await fetchProfiles().catch(() => null);
+        const first = profiles?.results?.[0];
+        if (first && active) {
+          setName(first.name ?? "");
+          setStudentEmail(first.oauth_email ?? "");
+        }
+      } catch {
+        // Prefill is best-effort; the wizard still works blank.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isReview]);
 
   const trimmedEmail = studentEmail.trim();
   const emailValid = trimmedEmail === "" || EMAIL_PATTERN.test(trimmedEmail);
@@ -23,6 +66,7 @@ export default function OnboardingProfile() {
       title="Who will be chatting?"
       subtitle="They can sign in themselves with this email."
       onBack={() => router.back()}
+      review={isReview}
     >
       <ThemedTextInput
         testID="onboarding-profile-input"
@@ -63,6 +107,7 @@ export default function OnboardingProfile() {
             params: {
               profileName: name.trim(),
               ...(trimmedEmail ? { studentEmail: trimmedEmail.toLowerCase() } : {}),
+              ...(isReview ? { review: "true" } : {}),
             },
           })
         }

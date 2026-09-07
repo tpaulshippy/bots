@@ -16,12 +16,15 @@ export function WizardStep({
   subtitle,
   children,
   onBack,
+  review = false,
 }: {
   step: number;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
   onBack?: () => void;
+  /** Review mode: re-walking the wizard to verify the current setup. */
+  review?: boolean;
 }) {
   const tintColor = useThemeColor({}, "tint");
   return (
@@ -44,6 +47,11 @@ export function WizardStep({
       </ThemedText>
       {subtitle ? (
         <ThemedText style={styles.subtitle}>{subtitle}</ThemedText>
+      ) : null}
+      {review ? (
+        <ThemedText style={styles.reviewBanner} testID="onboarding-review-banner">
+          Reviewing your current setup.
+        </ThemedText>
       ) : null}
       {children}
     </ThemedView>
@@ -80,5 +88,11 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: 8,
     marginBottom: 20,
+  },
+  reviewBanner: {
+    fontSize: 13,
+    textAlign: "center",
+    opacity: 0.7,
+    marginBottom: 8,
   },
 });

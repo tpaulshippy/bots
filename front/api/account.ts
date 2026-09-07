@@ -13,7 +13,7 @@ export interface Account {
     onboardingCompleted?: boolean;
 }
 
-export type PartialAccount = Partial<Account> & { pin: number };
+export type PartialAccount = Partial<Account> & { pin: string };
 
 export interface OnboardingBootstrapPayload {
     profileName: string;

@@ -70,13 +70,21 @@ export function ProfileSwitcher() {
     if (readOnly) {
       return;
     }
+    setPinGate(false);
     setVisible(true);
   };
+
+  const closeModal = useCallback(() => {
+    // Reset the PIN gate too: dismissing mid-gate (backdrop/Android back)
+    // must not reopen straight onto the PIN screen next time.
+    setPinGate(false);
+    setVisible(false);
+  }, []);
 
   const handleSelect = async (profile: Profile) => {
     await storeSelectedProfile(profile);
     setSelected(profile);
-    setVisible(false);
+    closeModal();
   };
 
   const handleManagePress = async () => {
@@ -84,20 +92,19 @@ export function ProfileSwitcher() {
       const account = await getAccount();
       if (!account?.hasPin) {
         // No PIN configured yet — nothing to gate on.
-        setVisible(false);
+        closeModal();
         router.push("/parent/profilesList");
         return;
       }
       setPinGate(true);
     } catch (error) {
-      setVisible(false);
+      closeModal();
       Sentry.captureException?.(error);
     }
   };
 
   const handlePinVerified = () => {
-    setPinGate(false);
-    setVisible(false);
+    closeModal();
     router.push("/parent/profilesList");
   };
 
@@ -125,15 +132,19 @@ export function ProfileSwitcher() {
         visible={visible}
         transparent
         animationType="fade"
-        onRequestClose={() => setVisible(false)}
+        onRequestClose={closeModal}
       >
         <Pressable
           style={styles.overlay}
-          onPress={() => setVisible(false)}
+          onPress={closeModal}
           testID="profile-switcher-backdrop"
         >
           <ThemedView
             style={[styles.sheet, { backgroundColor: cardBackground }]}
+            // Claim touches inside the sheet so taps on non-interactive
+            // areas (title/spacing) don't bubble to the backdrop Pressable
+            // and dismiss the modal accidentally.
+            onStartShouldSetResponder={() => true}
           >
             {pinGate ? (
               <PinWrapper onUnlocked={handlePinVerified} />
@@ -177,7 +188,17 @@ function ProfileOptionsList({
   const [profiles, setProfiles] = useState<Profile[]>([]);
 
   useEffect(() => {
-    fetchProfiles().then((data) => setProfiles(data?.results ?? []));
+    let mounted = true;
+    fetchProfiles()
+      .then((data) => {
+        if (mounted) setProfiles(data?.results ?? []);
+      })
+      .catch(() => {
+        if (mounted) setProfiles([]);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (

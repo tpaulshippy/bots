@@ -95,10 +95,15 @@ def bootstrap_onboarding(user,
     profile = Profile.objects.filter(
         user=user, deleted_at=None).order_by('id').first()
     if profile is None:
-        # Parent deleted the signal-provisioned default; recreate it.
+        # Parent deleted the signal-provisioned default; recreate it. A name
+        # is required here — persisting '' would create a blank profile
+        # (Profile has no blank=True), so omit/blank names 400 instead.
+        if not cleaned_name:
+            raise ValidationError(
+                {'profileName': 'Profile name must not be blank.'})
         profile = Profile.objects.create(
             user=user,
-            name=cleaned_name or '',
+            name=cleaned_name,
             oauth_email=cleaned_email,
         )
     else:

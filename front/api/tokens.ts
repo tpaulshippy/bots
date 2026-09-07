@@ -140,13 +140,17 @@ const decodeJwtPayload = (jwt: string): Record<string, unknown> | null => {
 
 /**
  * Teen delegated sessions (parent tokens minted for a teen profile) skip
- * onboarding and see a display-only profile switcher. The flag rides in the
- * JWT claims set by the backend's delegated login.
+ * onboarding and see a display-only profile switcher. Consult the stored
+ * session flag first (the source of truth used by getSessionMode), falling
+ * back to the JWT claim for sessions stored before the flag existed.
  */
 export const isTeenDelegatedSession = async (): Promise<boolean> => {
   const tokens = await getTokens();
   if (!tokens?.access) {
     return false;
+  }
+  if (tokens.isTeenDelegated === true) {
+    return true;
   }
   const payload = decodeJwtPayload(tokens.access);
   return payload?.is_teen_delegated === true;

@@ -237,6 +237,21 @@ class TestOnboardingBootstrap:
         user.user_account.refresh_from_db()
         assert user.user_account.onboarding_completed_at is None
 
+    def test_missing_name_with_no_default_profile_returns_400(self, load_ai_models):
+        # Deleted default + omitted name must not create a blank profile.
+        user = User.objects.create_user(username='noname', password='pass')
+        Profile.objects.filter(user=user).delete()
+        body = self.payload()
+        del body['profileName']
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap', body, format='json')
+
+        assert response.status_code == 400
+        assert Profile.objects.filter(user=user, deleted_at=None).count() == 0
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is None
+
     def test_create_branches_keep_appearance(self, load_ai_models):
         user = User.objects.create_user(username='newlook', password='pass')
         Bot.objects.filter(user=user).delete()
