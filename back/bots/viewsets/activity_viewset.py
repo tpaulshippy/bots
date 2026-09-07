@@ -135,7 +135,7 @@ class ActivityChatViewSet(viewsets.GenericViewSet):
 
 
 class ActivitySummaryViewSet(viewsets.ViewSet):
-    """Per-profile activity counts for the "This week" chips."""
+    """Per-profile activity counts for the summary chips (windowed by ?days=)."""
     permission_classes = [IsAuthenticated, IsParentSession]
 
     def list(self, request, *args, **kwargs):

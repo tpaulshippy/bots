@@ -60,7 +60,8 @@ export default function ActivityScreen() {
       setRefreshing(isRefresh);
       try {
         const [summaryData, chatData] = await Promise.all([
-          fetchActivitySummary(7),
+          // Chips count chats touched in the last 24h (see section header).
+          fetchActivitySummary(1),
           fetchActivityChats({
             profileId: selectedProfileId,
             hasSafetyEvent: safetyOnly ? true : null,
@@ -171,7 +172,7 @@ export default function ActivityScreen() {
 
   const content = (
     <ThemedView testID="activity-screen" style={styles.container}>
-        <ThemedText style={styles.sectionHeader}>This week</ThemedText>
+        <ThemedText style={styles.sectionHeader}>Last 24 hours</ThemedText>
         {loading ? (
           <ThemedView style={styles.loadingContainer}>
             <ActivityIndicator testID="activity-loading" />
