@@ -493,3 +493,63 @@ def describe_stream_whitespace():
 
         assistant = chat.messages.filter(role="assistant").get()
         assert assistant.text == "Hey there! I'm Fred"
+
+    def test_text_across_tool_call_gets_separator(chat):
+        """Regression: iteration 1 ends with "you:" and iteration 2 starts
+        with "Done!" — neither side carries the space ("you:Done!")."""
+        chat.messages.create(text="hello", role="user")
+
+        class ToolBoundaryClient:
+            def __init__(self):
+                self.calls = 0
+
+            def bind_tools(self, tools):
+                return self
+
+            def stream(self, message_list):
+                self.calls += 1
+                if self.calls == 1:
+                    yield AIMessageChunk(content="for you:")
+                    yield AIMessageChunk(content="", tool_calls=[{
+                        "name": "create_flashcard_deck",
+                        "args": {
+                            "name": "Oil Prices",
+                            "flashcards": [{"front": "q", "back": "a"}],
+                            "description": "",
+                        },
+                        "id": "call-1",
+                        "type": "tool_call",
+                    }])
+                else:
+                    yield AIMessageChunk(content="Done!")
+
+            def invoke(self, message_list):
+                raise AssertionError("streaming path only")
+
+        events = list(chat.stream_response(ai=ToolBoundaryClient()))
+
+        tokens = "".join(e["text"] for e in events if e["type"] == "token")
+        assert tokens == "for you: Done!"
+
+        assistant = chat.messages.filter(role="assistant").get()
+        assert assistant.text == "for you: Done!"
+
+    def test_mid_word_chunk_split_gets_no_separator(chat):
+        """Raw chunks can split mid-word ("Hel"+"lo") — no space inserted."""
+        chat.messages.create(text="hello", role="user")
+
+        class MidWordSplitClient:
+            def bind_tools(self, tools):
+                return self
+
+            def stream(self, message_list):
+                yield AIMessageChunk(content="Hel")
+                yield AIMessageChunk(content="lo")
+
+            def invoke(self, message_list):
+                raise AssertionError("streaming path only")
+
+        events = list(chat.stream_response(ai=MidWordSplitClient()))
+
+        tokens = "".join(e["text"] for e in events if e["type"] == "token")
+        assert tokens == "Hello"

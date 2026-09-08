@@ -89,6 +89,8 @@ class ChatAgentService:
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
         messages = list(message_list)
         usage_totals = {"input_tokens": 0, "output_tokens": 0}
+        yielded_text = ""
+        after_tool = False
 
         for iteration in range(1, self.MAX_ITERATIONS + 1):
             logger.info(f"🤖 AGENT_STREAM_ITERATION: {iteration}")
@@ -102,6 +104,15 @@ class ChatAgentService:
                 # the default strip=True.
                 delta = self._message_text(chunk, strip=False)
                 if delta:
+                    # Separate responses across a tool call: iteration N can end
+                    # with "you:" and iteration N+1 start with "Done!" — neither
+                    # side carries the space, so abutting them yields "you:Done!".
+                    # Only at tool boundaries, never between raw chunks (which
+                    # can split mid-word, e.g. "Hel"+"lo").
+                    if after_tool and yielded_text and not yielded_text[-1].isspace() and not delta[0].isspace():
+                        delta = " " + delta
+                    after_tool = False
+                    yielded_text += delta
                     yield {"type": "token", "text": delta}
                 merged_chunk = chunk if merged_chunk is None else merged_chunk + chunk
 
@@ -135,6 +146,7 @@ class ChatAgentService:
                         tool_end.update({k: v for k, v in event.items() if k != "tool"})
                         break
                 yield tool_end
+                after_tool = True
 
                 messages.append(ToolMessage(
                     content=tool_result,
