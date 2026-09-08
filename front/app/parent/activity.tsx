@@ -183,6 +183,7 @@ export default function ActivityScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.chipsRow}
+              contentContainerStyle={styles.chipsContent}
               testID="activity-summary-chips"
             >
               {(summary?.profiles ?? []).map((profile) => {
@@ -200,7 +201,13 @@ export default function ActivityScreen() {
                     isSelected && { backgroundColor: tintColor, borderColor: tintColor },
                   ]}
                 >
-                  <ThemedText style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                  <ThemedText
+                    style={[
+                      styles.chipText,
+                      profile.safety_event_count > 0 && styles.chipTextWithIcon,
+                      isSelected && styles.chipTextSelected,
+                    ]}
+                  >
                     {profile.name} {profile.chat_count}
                   </ThemedText>
                   {profile.safety_event_count > 0 && (
@@ -280,20 +287,28 @@ const styles = StyleSheet.create({
   },
   chipsRow: {
     flexGrow: 0,
+  },
+  chipsContent: {
     paddingVertical: 8,
     paddingHorizontal: 10,
+    alignItems: "center",
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 8,
+    minHeight: 32,
   },
   chipText: {
     fontSize: 13,
+    lineHeight: 18,
+  },
+  chipTextWithIcon: {
     marginRight: 4,
   },
   chipTextSelected: {
