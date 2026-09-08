@@ -11,15 +11,21 @@ name: Preview OTA Update
 # `production` for the App Store builds.
 
 on:
-  push:
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
 jobs:
   preview-ota:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -47,4 +53,4 @@ jobs:
           npx expo export --platform ios --no-bytecode --output-dir dist --clear
           npx eas update --branch preview --environment preview \
             --input-dir dist --skip-bundler \
-            --message "${{ github.event.head_commit.message || format('Preview OTA from {0}', github.ref_name) }}"
+            --message "${{ github.event.workflow_run.head_commit.message || github.event.head_commit.message || format('Preview OTA from {0}', github.ref_name) }}"
