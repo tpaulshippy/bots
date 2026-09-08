@@ -8,6 +8,7 @@ from django.db import models, transaction
 from langchain_aws import ChatBedrock
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
+from bots.services import fake_ai
 from bots.services.chat_agent import ChatAgentService
 from bots.services.safety import (
     SafetyPolicy,
@@ -30,6 +31,19 @@ class AiClientWrapper:
         self.model_id = model_id
         if client:
             self.client = client
+        elif (model_id or "").startswith(fake_ai.FAKE_MODEL_PREFIX):
+            # E2E/demo fake client — never in prod. Gated behind
+            # ALLOW_E2E_FAKE_STREAM (defaults to DEBUG) so a stray
+            # `e2e-fake-stream*` AiModel row can't hijack prod traffic.
+            if not getattr(settings, 'ALLOW_E2E_FAKE_STREAM', settings.DEBUG):
+                logger.warning(
+                    "Refusing e2e fake model %r in prod; using Bedrock.",
+                    model_id,
+                )
+                self.client = ChatBedrock(model_id=model_id)
+            else:
+                # Deterministic fake streaming client for e2e/demo — no AWS creds.
+                self.client = fake_ai.FakeStreamingClient()
         else:
             self.client = ChatBedrock(model_id=model_id)
 
@@ -54,6 +68,7 @@ class Chat(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ai = None
+        self.last_client_events = []
 
     def __str__(self):
         return self.title if self.user is None else self.user.email + ' - ' + self.title
@@ -66,10 +81,14 @@ class Chat(models.Model):
         
         self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
 
-    def get_response(self, ai=None, user_message=None):
-        # Input safety is evaluated BEFORE any model setup or quota check so
-        # a misconfigured model or an over-limit account cannot swallow the
-        # fixed crisis refusal or leave the unsafe message unmarked.
+    def _input_refusal(self, user_message=None, message_id=None):
+        """Evaluate input safety BEFORE any model setup or quota check.
+
+        Returns the fixed refusal text when the latest user turn is blocked
+        (marking it so later turns exclude it via get_input()), else None.
+        A misconfigured model or an over-limit account can therefore never
+        swallow the crisis refusal or leave the unsafe message unmarked.
+        """
         policy = SafetyPolicy.for_bot(self.bot)
         subject = user_message or self.messages.filter(role='user').order_by('-id').first()
         if subject is not None:
@@ -90,6 +109,7 @@ class Chat(models.Model):
                         text=refusal,
                         role='assistant',
                         order=self.messages.count(),
+                        **({'message_id': message_id} if message_id is not None else {}),
                     )
                     record_safety_event(
                         stage='input',
@@ -100,25 +120,58 @@ class Chat(models.Model):
                     )
                 return refusal
 
-        if self.user.user_account.over_limit():
-            return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
-
-        # AI client is instantiated only after input has passed the global
-        # floor, so a missing default model never blocks the crisis path.
+    def resolve_ai_client(self, ai=None, contains_image=False):
         if self.bot and self.bot.ai_model:
             self.ai = AiClientWrapper(model_id=self.bot.ai_model.model_id, client=ai)
         else:
             self.use_default_model(ai)
 
+        if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
+            self.use_default_model(ai)
+
+    def _persist_assistant_message(self, text, usage_metadata, message_id=None):
+        message_order = self.messages.count()
+
+        input_tokens = usage_metadata.get('input_tokens', 0)
+        output_tokens = usage_metadata.get('output_tokens', 0)
+
+        assistant_message = self.messages.create(
+            text=text,
+            role='assistant',
+            order=message_order,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            **({'message_id': message_id} if message_id is not None else {}),
+        )
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+        self.save()
+        return assistant_message
+
+    def get_response(self, ai=None, user_message=None):
+        # Input safety is evaluated BEFORE any model setup or quota check so
+        # a misconfigured model or an over-limit account cannot swallow the
+        # fixed crisis refusal or leave the unsafe message unmarked.
+        refusal = self._input_refusal(user_message=user_message)
+        if refusal is not None:
+            return refusal
+
+        if self.user.user_account.over_limit():
+            return "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
+
+        policy = SafetyPolicy.for_bot(self.bot)
+        # AI client is instantiated only after input has passed the global
+        # floor, so a missing default model never blocks the crisis path.
         # Context is built AFTER the blocked check so any safety-blocked
         # message (including this turn's) is excluded from model history.
         # This work is done outside any DB transaction.
         message_list, contains_image = self.get_input()
+        self.resolve_ai_client(ai=ai, contains_image=contains_image)
 
-        if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
-            self.use_default_model(ai)
-
-        response_text, usage_metadata = ChatAgentService(self, self.ai.client, policy=policy).respond(message_list)
+        service = ChatAgentService(self, self.ai.client, policy=policy)
+        response_text, usage_metadata = service.respond(message_list)
+        # Structured tool results for the legacy `events[]` payload (doc 06 §3).
+        self.last_client_events = service.client_events
 
         # Post-model output filter: replace flagged completions before save.
         output_verdict = evaluate_text(response_text, policy, source='OUTPUT')
@@ -153,6 +206,78 @@ class Chat(models.Model):
                     message=assistant_message,
                 )
         return response_text
+
+    def stream_response(self, ai=None, message_id=None):
+        """Yield agent events for SSE while persisting the assistant message.
+
+        The assistant row is persisted on `done` with token totals. On early
+        exit (client disconnect / abort mid-stream) the partial text is saved
+        so history matches what the kid saw (roadmap doc 06 §2 "prefer save
+        partial"). Partial saves carry the usage accumulated so far.
+
+        Output safety mirrors the legacy path: the streamed text is evaluated
+        before persist and replaced with the fixed refusal when flagged, so
+        raw completions are never stored or replayed as history.
+
+        When `message_id` is given (the SSE view's `meta` id), the persisted
+        row reuses it so clients can correlate streamed frames with the saved
+        assistant message.
+        """
+        # Blocked input short-circuits the stream with the fixed refusal,
+        # already persisted by _input_refusal — never streamed to the model.
+        refusal = self._input_refusal(message_id=message_id)
+        if refusal is not None:
+            yield {"type": "token", "text": refusal}
+            yield {"type": "done", "input_tokens": 0, "output_tokens": 0}
+            return
+
+        policy = SafetyPolicy.for_bot(self.bot)
+        message_list, contains_image = self.get_input()
+        self.resolve_ai_client(ai=ai, contains_image=contains_image)
+
+        if self.user.user_account.over_limit():
+            yield {"type": "error", "code": "over_limit",
+                   "message": "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."}
+            return
+
+        service = ChatAgentService(self, self.ai.client, policy=policy)
+        self.last_client_events = service.client_events
+
+        streamed_text = []
+        usage_totals = {"input_tokens": 0, "output_tokens": 0}
+
+        def persist(text):
+            output_verdict = evaluate_text(text, policy, source='OUTPUT')
+            flagged_output = None
+            if output_verdict.blocked:
+                flagged_output = text
+                text = refusal_for_verdict(output_verdict)
+            assistant_message = self._persist_assistant_message(text, usage_totals, message_id=message_id)
+            if output_verdict.blocked:
+                record_safety_event(
+                    stage='output',
+                    verdict=output_verdict,
+                    chat=self,
+                    snippet=flagged_output,
+                    message=assistant_message,
+                )
+
+        try:
+            for event in service.respond_events(message_list):
+                event_type = event.get("type")
+                if event_type == "token":
+                    streamed_text.append(event.get("text", ""))
+                elif event_type == "done":
+                    usage_totals["input_tokens"] += event.get("input_tokens", 0) or 0
+                    usage_totals["output_tokens"] += event.get("output_tokens", 0) or 0
+                yield event
+        finally:
+            # Runs both after normal completion and on GeneratorExit when the
+            # client disconnects mid-stream: whatever the kid saw gets saved.
+            text = "".join(streamed_text)
+            if text.strip():
+                persist(text)
+
 
     def setup_human_message_content(self, message):
         if self.has_image(message):
