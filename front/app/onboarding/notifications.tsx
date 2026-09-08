@@ -135,7 +135,13 @@ export default function OnboardingNotifications() {
         }
         return;
       }
+      // 2xx carries the success shape; the union type keeps the 400
+      // field-error body honest, so narrow to string ids before matching.
       const result = response.data;
+      const profileId =
+        typeof result?.profileId === "string" ? result.profileId : undefined;
+      const botId =
+        typeof result?.botId === "string" ? result.botId : undefined;
 
       // Select exactly the renamed default profile and first bot so the very
       // first chat needs no further setup (fixes "Please select a profile
@@ -143,8 +149,8 @@ export default function OnboardingNotifications() {
       const profiles = await fetchProfiles();
       const profilesList = profiles?.results ?? [];
       const profile =
-        (result?.profileId &&
-          profilesList.find((p) => p.profile_id === result.profileId)) ||
+        (profileId &&
+          profilesList.find((p) => p.profile_id === profileId)) ||
         profilesList[0];
       if (profile) {
         await setSelectedProfile(profile);
@@ -152,7 +158,7 @@ export default function OnboardingNotifications() {
       const bots = await fetchBots();
       const botsList = bots?.results ?? [];
       const bot =
-        (result?.botId && botsList.find((b) => b.bot_id === result.botId)) ||
+        (botId && botsList.find((b) => b.bot_id === botId)) ||
         botsList[0];
       if (bot) {
         await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));

@@ -1,5 +1,6 @@
 import { request, requestRaw, PaginatedResponse } from './request';
 import { ApiResponse, UnauthorizedError } from './apiClient';
+import type { FieldErrorBody } from './fieldErrors';
 
 export interface Profile {
     id: number;
@@ -35,16 +36,18 @@ export const fetchOwnProfile = async (): Promise<Profile | null> => {
  * Create/update a profile. Returns the raw response (null only on transport
  * failure) so callers can surface field errors — e.g. a taken teen sign-in
  * email comes back as 400 with an `oauth_email` body — instead of treating
- * a rejection as a success.
+ * a rejection as a success. The data is a union because a non-2xx body is
+ * the field-error shape, not a Profile; narrow (e.g. via `ok`) before
+ * reading Profile fields.
  */
-export const upsertProfile = async (profile: Profile): Promise<ApiResponse<Profile> | null> => {
+export const upsertProfile = async (profile: Profile): Promise<ApiResponse<Profile | FieldErrorBody> | null> => {
     if (profile.id === -1) {
-        return requestRaw<Profile>('/profiles.json', {
+        return requestRaw<Profile | FieldErrorBody>('/profiles.json', {
             method: 'POST',
             body: JSON.stringify(profile),
         });
     }
-    return requestRaw<Profile>(`/profiles/${profile.id}.json`, {
+    return requestRaw<Profile | FieldErrorBody>(`/profiles/${profile.id}.json`, {
         method: 'PUT',
         body: JSON.stringify(profile),
     });

@@ -1,5 +1,6 @@
 import { request, requestRaw } from './request';
 import type { ApiResponse } from './apiClient';
+import type { FieldErrorBody } from './fieldErrors';
 
 // Shape returned by GET /api/user (roadmap doc 02). The PIN itself is
 // hashed server-side and never sent to the client — only hasPin.
@@ -72,10 +73,12 @@ export const completeOnboarding = async (): Promise<void> => {
 // Returns the raw response (null only on transport failure) so the wizard
 // can surface field errors — e.g. a taken student email comes back as 400
 // with a `studentEmail` body — instead of sailing on as if it succeeded.
+// The data is a union because a non-2xx body is the field-error shape, not
+// the success shape; narrow (e.g. via `ok`) before reading success fields.
 export const bootstrapOnboarding = async (
     payload: OnboardingBootstrapPayload
-): Promise<ApiResponse<OnboardingBootstrapResult> | null> => {
-    return requestRaw<OnboardingBootstrapResult>('/onboarding/bootstrap', {
+): Promise<ApiResponse<OnboardingBootstrapResult | FieldErrorBody> | null> => {
+    return requestRaw<OnboardingBootstrapResult | FieldErrorBody>('/onboarding/bootstrap', {
         method: 'POST',
         body: JSON.stringify(payload),
     });
