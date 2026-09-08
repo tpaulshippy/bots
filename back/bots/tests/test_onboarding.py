@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from bots.models import Bot, Profile
+from bots.models import Bot, Chat, Message, Profile
 from bots.services.parent_reauth import hash_pin, verify_pin
 
 
@@ -78,6 +78,39 @@ class TestOnboardingFlag:
         response = make_auth_client(user).get('/api/user')
 
         assert response.json()['onboardingCompleted'] is False
+
+    def test_heuristic_passes_for_pinless_account_with_chats(self, load_ai_models):
+        """PIN-less established accounts never see the wizard either: a
+        profile plus any user-sent message counts as done. (The seeded
+        welcome chat holds only the assistant greeting.)"""
+        user = User.objects.create_user(username='pinless', password='pass')
+        chat = Chat.objects.filter(user=user).first()
+        Message.objects.create(chat=chat, role='user', text='help!', order=1)
+
+        response = make_auth_client(user).get('/api/user')
+
+        assert response.json()['onboardingCompleted'] is True
+
+    def test_heuristic_fails_for_pinless_account_without_chats(self, load_ai_models):
+        """A fresh PIN-less account (signal defaults only) still gates."""
+        user = User.objects.create_user(username='freshpinless', password='pass')
+
+        response = make_auth_client(user).get('/api/user')
+
+        assert response.json()['onboardingCompleted'] is False
+
+    def test_backfill_marks_pre_wizard_accounts_complete(self, load_ai_models):
+        import importlib
+        migration = importlib.import_module(
+            'bots.migrations.0048_backfill_onboarding_completed_at')
+        from django.apps import apps
+        user = User.objects.create_user(username='backfill', password='pass')
+        assert user.user_account.onboarding_completed_at is None
+
+        migration.backfill_onboarding_completed(apps, None)
+
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is not None
 
     def test_complete_requires_authentication(self):
         assert APIClient().post('/api/user/onboarding/complete').status_code == 401
