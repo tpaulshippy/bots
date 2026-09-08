@@ -7,6 +7,7 @@ export interface Profile {
     profile_id: string;
     name: string;
     oauth_email?: string | null;
+    photo_url?: string | null;
     deleted_at: Date | null;
 }
 
@@ -40,15 +41,47 @@ export const fetchOwnProfile = async (): Promise<Profile | null> => {
  * the field-error shape, not a Profile; narrow (e.g. via `ok`) before
  * reading Profile fields.
  */
-export const upsertProfile = async (profile: Profile): Promise<ApiResponse<Profile | FieldErrorBody> | null> => {
-    if (profile.id === -1) {
-        return requestRaw<Profile | FieldErrorBody>('/profiles.json', {
-            method: 'POST',
-            body: JSON.stringify(profile),
-        });
+export const upsertProfile = async (
+    profile: Profile,
+    opts: { photoUri?: string | null; removePhoto?: boolean } = {},
+): Promise<ApiResponse<Profile | FieldErrorBody> | null> => {
+    const endpoint = profile.id === -1 ? '/profiles.json' : `/profiles/${profile.id}.json`;
+    const method = profile.id === -1 ? 'POST' : 'PUT';
+    // Photo changes need multipart so the image bytes can ride along;
+    // text-only saves stay on the JSON path.
+    if (opts.photoUri || opts.removePhoto) {
+        const formData = new FormData();
+        formData.append('name', profile.name);
+        // Only send oauth_email when explicitly present: omitting it in a
+        // multipart update must not clear an existing bound email.
+        if (profile.oauth_email !== undefined) {
+            formData.append('oauth_email', profile.oauth_email?.trim() ? profile.oauth_email.trim() : '');
+        }
+        if (profile.deleted_at) {
+            const deletedAt = profile.deleted_at instanceof Date
+                ? profile.deleted_at.toISOString()
+                : String(profile.deleted_at);
+            formData.append('deleted_at', deletedAt);
+        }
+        if (opts.removePhoto) {
+            formData.append('remove_photo', 'true');
+        }
+        if (opts.photoUri) {
+            const fileUri = opts.photoUri;
+            const rawExt = fileUri.split('?')[0].split('.').pop()?.toLowerCase() || 'jpeg';
+            // `jpg` is not a standard MIME subtype; normalize to `jpeg` so
+            // the content-type is `image/jpeg`.
+            const fileType = rawExt === 'jpg' ? 'jpeg' : rawExt;
+            formData.append('photo', {
+                uri: fileUri,
+                name: `profile-photo.${fileType}`,
+                type: `image/${fileType}`,
+            } as any);
+        }
+        return requestRaw<Profile | FieldErrorBody>(endpoint, { method, body: formData });
     }
-    return requestRaw<Profile | FieldErrorBody>(`/profiles/${profile.id}.json`, {
-        method: 'PUT',
+    return requestRaw<Profile | FieldErrorBody>(endpoint, {
+        method,
         body: JSON.stringify(profile),
     });
 };
