@@ -25,7 +25,18 @@ class ProfileSerializer(serializers.HyperlinkedModelSerializer):
         stripped = value.strip()
         if stripped == '':
             return None
-        return stripped.lower()
+        normalized = stripped.lower()
+        # Surface the partial-unique DB constraint as a 400 instead of a 500:
+        # one active profile per teen sign-in email (soft-deleted rows don't
+        # count; the row being updated doesn't count against itself).
+        conflict = Profile.objects.filter(
+            oauth_email=normalized, deleted_at=None)
+        if self.instance is not None:
+            conflict = conflict.exclude(pk=self.instance.pk)
+        if conflict.exists():
+            raise serializers.ValidationError(
+                'That email is already used by another profile.')
+        return normalized
 
 class ProfileIdSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:

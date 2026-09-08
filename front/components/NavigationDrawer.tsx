@@ -11,6 +11,7 @@ import { useRouter, usePathname, Href } from "expo-router";
 import { IconSymbol, IconSymbolName } from "@/components/ui/IconSymbol";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
+import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { useSessionMode } from "@/hooks/useSessionMode";
 
@@ -110,6 +111,9 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
           </View>
 
           <View style={styles.menuItemsContainer}>
+            <View style={styles.switcherRow}>
+              <ProfileSwitcher />
+            </View>
             {menuItems.map((item) => {
               const isActive = isItemActive(item.path);
               return (
@@ -185,6 +189,12 @@ const styles = StyleSheet.create({
   },
   menuItemsContainer: {
     paddingVertical: 8,
+  },
+  switcherRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#333",
   },
   menuItem: {
     flexDirection: "row",

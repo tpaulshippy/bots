@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getTokens } from "@/api/tokens";
+import { getAccount } from "@/api/account";
+import { getTokens, isTeenDelegatedSession } from "@/api/tokens";
 import { isE2ETestMode } from "@/e2e/utils";
 
 export default function ChildHome() {
@@ -39,7 +40,22 @@ export default function ChildHome() {
           return;
         }
       }
-      // Redirect immediately without blocking on network calls.
+      // First-run gate: accounts that have not finished onboarding go through
+      // the wizard. Teen delegated sessions were set up by their parent and
+      // skip it. If the account info can't be loaded we fall through to chat,
+      // which handles its own data fetching and auth errors.
+      try {
+        const account = await getAccount();
+        if (account && !account.onboardingCompleted) {
+          if (!(await isTeenDelegatedSession())) {
+            router.replace("/onboarding");
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error checking onboarding status:", error);
+      }
+      // Redirect without blocking further on network calls.
       // Screens handle their own data fetching and auth errors.
       router.replace("/chat");
     };

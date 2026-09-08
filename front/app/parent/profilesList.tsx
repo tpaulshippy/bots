@@ -106,8 +106,9 @@ export default function ProfilesList() {
       } else {
         setSelectedProfile(profile);
         await storeSelectedProfile(profile);
-        router.back();
-        router.back();
+        // Pop just this screen; the old double router.back() also closed
+        // whatever screen opened Profiles (e.g. Settings).
+        router.dismiss();
       }
     } catch (error) {
       Sentry.captureException(error);
