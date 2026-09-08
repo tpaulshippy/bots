@@ -39,7 +39,11 @@ export function ProfileAvatar({
       testID={testID}
       style={[styles.fallback, { width: size, height: size, borderRadius: radius, backgroundColor }, style]}
     >
-      <ThemedText style={[styles.fallbackText, { fontSize: size * 0.5 }]} lightColor="#fff" darkColor="#fff">
+      <ThemedText
+        style={[styles.fallbackText, { fontSize: size * 0.5, lineHeight: size * 0.5 }]}
+        lightColor="#fff"
+        darkColor="#fff"
+      >
         {profile.name.charAt(0).toUpperCase()}
       </ThemedText>
     </View>

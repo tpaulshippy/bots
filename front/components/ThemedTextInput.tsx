@@ -13,9 +13,11 @@ export function ThemedTextInput({
   lightColor,
   darkColor,
   type = 'default',
+  placeholderTextColor,
   ...rest
 }: ThemedTextInputProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const defaultPlaceholderColor = useThemeColor({}, 'icon');
 
   return (
     <TextInput
@@ -28,7 +30,7 @@ export function ThemedTextInput({
         type === 'link' ? styles.link : undefined,
         style,
       ]}
-      placeholderTextColor={color}
+      placeholderTextColor={placeholderTextColor ?? defaultPlaceholderColor}
       {...rest}
     />
   );
