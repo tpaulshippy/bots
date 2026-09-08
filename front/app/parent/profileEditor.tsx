@@ -1,4 +1,5 @@
 import {
+  Image,
   ScrollView,
   Platform,
   StyleSheet,
@@ -8,15 +9,21 @@ import {
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { Profile, fetchProfile, upsertProfile } from "@/api/profiles";
 import { fieldMessage } from "@/api/fieldErrors";
 import alert from "@/components/Alert";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { ThemedButton } from "@/components/ThemedButton";
+import {
+  getSelectedProfile,
+  setSelectedProfile as storeSelectedProfile,
+} from "@/hooks/useSelectedProfile";
 import * as Sentry from "@sentry/react-native";
 
 export default function ProfileEditor() {
@@ -26,6 +33,10 @@ export default function ProfileEditor() {
   const [nameMissing, setNameMissing] = useState(false);
   const [emailInvalid, setEmailInvalid] = useState(false);
   const [emailTaken, setEmailTaken] = useState(false);
+  // Pending photo edits: a new local image URI, or a flag to clear the
+  // saved photo. Applied on save via multipart; null/null means no change.
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
   const local = useLocalSearchParams();
   const iconColor = useThemeColor({}, "tint");
   const buttonIconColor = useThemeColor({}, "text");
@@ -71,12 +82,18 @@ export default function ProfileEditor() {
         return;
       }
       try {
-        const response = await upsertProfile({
+        const payload = {
           ...profile,
           oauth_email: profile.oauth_email?.trim()
             ? profile.oauth_email.trim()
             : null,
-        });
+        };
+        const response = photoUri || photoRemoved
+          ? await upsertProfile(payload, {
+              photoUri,
+              removePhoto: photoRemoved && !photoUri,
+            })
+          : await upsertProfile(payload);
         if (!response || !response.ok) {
           // A taken teen sign-in email comes back as a 400 with an
           // `oauth_email` body: stay on the screen and say so inline
@@ -93,12 +110,51 @@ export default function ProfileEditor() {
           ]);
           return;
         }
+        // Keep the header/switcher chip in sync when the edited profile is
+        // the selected one (it caches the full profile, now with photo_url).
+        try {
+          const saved = response.data as Profile;
+          const selected = await getSelectedProfile();
+          if (selected && saved && saved.profile_id === selected.profile_id) {
+            await storeSelectedProfile(saved);
+          }
+        } catch (error) {
+          Sentry.captureException(error);
+        }
         router.back();
       } catch (error) {
         Sentry.captureException(error);
       }
     }
-  }, [profile, router, validateProfile]);
+  }, [photoRemoved, photoUri, profile, router, validateProfile]);
+
+  const pickPhoto = useCallback(async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        alert("Photo access needed", "Allow photo access to add a profile photo.", [
+          { text: "OK", onPress: () => {} },
+        ]);
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled) {
+        setPhotoUri(result.assets[0].uri);
+        setPhotoRemoved(false);
+      }
+    } catch (error) {
+      Sentry.captureException(error);
+    }
+  }, []);
+
+  const removePhoto = useCallback(() => {
+    setPhotoUri(null);
+    setPhotoRemoved(true);
+  }, []);
 
   const removeTeenSignIn = useCallback(() => {
     if (profile?.oauth_email) {
@@ -141,6 +197,8 @@ export default function ProfileEditor() {
     ]);
   };
 
+  const displayPhotoUrl = photoUri ?? (photoRemoved ? null : profile?.photo_url ?? null);
+
   return profile ? (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -149,6 +207,50 @@ export default function ProfileEditor() {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <ThemedView style={styles.container}>
+          <ThemedView style={styles.photoGroup}>
+            {displayPhotoUrl ? (
+              <Image
+                testID="profile-photo-preview"
+                source={{ uri: displayPhotoUrl }}
+                style={styles.photoPreview}
+              />
+            ) : (
+              <ProfileAvatar
+                profile={{ name: profile.name || "?", photo_url: null }}
+                size={96}
+                backgroundColor={iconColor}
+                testID="profile-photo-preview"
+              />
+            )}
+            <Pressable
+              onPress={pickPhoto}
+              testID="profile-photo-add"
+              style={styles.photoButton}
+            >
+              <IconSymbol
+                name="camera.fill"
+                color={buttonIconColor}
+                size={20}
+                style={styles.buttonIcon}
+              ></IconSymbol>
+              <ThemedText>{displayPhotoUrl ? "Change photo" : "Add photo"}</ThemedText>
+            </Pressable>
+            {displayPhotoUrl ? (
+              <Pressable
+                onPress={removePhoto}
+                testID="profile-photo-remove"
+                style={styles.photoButton}
+              >
+                <IconSymbol
+                  name="trash"
+                  color={buttonIconColor}
+                  size={20}
+                  style={styles.buttonIcon}
+                ></IconSymbol>
+                <ThemedText>Remove photo</ThemedText>
+              </Pressable>
+            ) : null}
+          </ThemedView>
           <ThemedView style={styles.formGroup}>
             <ThemedText style={styles.label}>Name</ThemedText>
             <ThemedTextInput
@@ -232,6 +334,21 @@ const styles = StyleSheet.create({
   formGroup: {
     width: "100%",
     marginBottom: 15,
+  },
+  photoGroup: {
+    width: "100%",
+    marginBottom: 15,
+    alignItems: "center",
+  },
+  photoPreview: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  photoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
   },
   formGroupCheckbox: {
     width: "100%",

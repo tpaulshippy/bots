@@ -4,6 +4,7 @@ import { ThemedView } from "@/components/ThemedView";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { fetchProfiles, Profile } from "@/api/profiles";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import * as Haptics from "expo-haptics";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import {
@@ -131,7 +132,7 @@ export default function ProfilesList() {
               styles.cardWrapper,
             ]}
           >
-          <Pressable
+            <Pressable
             testID={`profile-card-${item.name}`}
             style={[
               styles.profileCard,
@@ -141,12 +142,16 @@ export default function ProfilesList() {
             onPress={() => handleProfilePress(item)}
             onLongPress={() => editProfile(item)}
           >
-            <IconSymbol
-              name="person.fill"
-              color="#555"
-              size={80}
-              style={styles.profileIcon}
-            ></IconSymbol>
+            {item.photo_url ? (
+              <ProfileAvatar profile={item} size={80} style={styles.profilePhoto} />
+            ) : (
+              <IconSymbol
+                name="person.fill"
+                color="#555"
+                size={80}
+                style={styles.profileIcon}
+              ></IconSymbol>
+            )}
             <ThemedText style={styles.profileText}>{item.name}</ThemedText>
           </Pressable>
           <Pressable
@@ -182,6 +187,9 @@ const styles = StyleSheet.create({
   },
   profileIcon: {
     flex: 1,
+  },
+  profilePhoto: {
+    marginRight: 0,
   },
   titleContainer: {
     flexDirection: "row",

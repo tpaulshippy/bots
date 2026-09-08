@@ -1,48 +1,18 @@
-import io
-import uuid
-
-import boto3
-from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from PIL import Image
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from bots.models import Bot, Chat, Profile
+from bots.services.images import (
+    ALLOWED_PHOTO_EXTENSIONS,
+    MAX_PHOTO_BYTES,
+    compress_and_upload_image,
+)
 from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 
 # Allowed image extensions
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-
-# S3 bucket configuration
-S3_BUCKET = settings.AWS_STORAGE_BUCKET_NAME
-S3_CLIENT = boto3.client('s3')
-
-def compress_and_upload_image(file):
-    try:
-        # Open the image using Pillow
-        image = Image.open(file)
-
-        # Resize the image (e.g., to a maximum width/height of 800px)
-        max_size = (800, 800)
-        image.thumbnail(max_size)
-        
-        # Convert to RGB if it's not already
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
-
-        # Compress the image
-        buffered = io.BytesIO()
-        image.save(buffered, format="JPEG", quality=85)  # Adjust quality as needed
-        compressed_image_data = buffered.getvalue()
-
-        # Upload to S3
-        filename = f"{uuid.uuid4()!s}.jpg"
-        S3_CLIENT.upload_fileobj(io.BytesIO(compressed_image_data), S3_BUCKET, Key=filename)
-        return filename
-    except Exception as e:
-        raise ValueError(f'Unable to upload image: {e!s}')
+ALLOWED_EXTENSIONS = ALLOWED_PHOTO_EXTENSIONS
 
 @api_view(['GET', 'POST'])
 def get_chat_response(request, chat_id):
@@ -86,7 +56,7 @@ def get_chat_response(request, chat_id):
         file = request.FILES.get('image')  # Only allow one image
         if file is None:
             return JsonResponse({'error': 'No image file provided'}, status=400)
-        if file.size > 20 * 1024 * 1024:
+        if file.size > MAX_PHOTO_BYTES:
             return JsonResponse({'error': 'File size exceeds 20MB limit'}, status=400)
         if not allowed_file(file.name):
             return JsonResponse({'error': 'Invalid file type'}, status=400)

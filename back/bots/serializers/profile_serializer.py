@@ -1,9 +1,12 @@
 from rest_framework import serializers
 
 from bots.models import Profile
+from bots.services.images import presigned_photo_url
 
 
 class ProfileSerializer(serializers.HyperlinkedModelSerializer):
+    photo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Profile
         fields = [
@@ -11,9 +14,13 @@ class ProfileSerializer(serializers.HyperlinkedModelSerializer):
             'profile_id',
             'name',
             'oauth_email',
+            'photo_url',
             'deleted_at',
             'created_at',
             'modified_at']
+
+    def get_photo_url(self, obj):
+        return presigned_photo_url(obj.photo_filename)
 
     def validate_oauth_email(self, value):
         """Empty string means unbind; store NULL so the unique constraint
@@ -48,6 +55,11 @@ class OwnProfileSerializer(serializers.ModelSerializer):
     """Redacted profile for teen-delegated sessions: no oauth_email and no
     parent-only fields."""
 
+    photo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Profile
-        fields = ['id', 'profile_id', 'name']
+        fields = ['id', 'profile_id', 'name', 'photo_url']
+
+    def get_photo_url(self, obj):
+        return presigned_photo_url(obj.photo_filename)

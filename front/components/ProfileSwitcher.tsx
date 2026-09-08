@@ -4,7 +4,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -14,6 +13,7 @@ import { ThemedView } from "@/components/ThemedView";
 import PinWrapper from "@/components/PinWrapper";
 import * as Sentry from "@sentry/react-native";
 import { fetchProfiles, type Profile } from "@/api/profiles";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { getAccount } from "@/api/account";
 import { isTeenDelegatedSession } from "@/api/tokens";
 import { useThemeColor } from "@/hooks/useThemeColor";
@@ -121,11 +121,7 @@ export function ProfileSwitcher() {
   return (
     <>
       <Pressable testID="profile-switcher-chip" onPress={openSwitcher} style={styles.chip}>
-        <View style={[styles.avatar, { backgroundColor: tintColor }]}>
-          <ThemedText style={styles.avatarText} lightColor="#fff" darkColor="#fff">
-            {selected.name.charAt(0).toUpperCase()}
-          </ThemedText>
-        </View>
+        <ProfileAvatar profile={selected} size={26} backgroundColor={tintColor} />
         <ThemedText numberOfLines={1} style={styles.chipName}>
           {selected.name}
         </ThemedText>
@@ -220,11 +216,11 @@ function ProfileOptionsList({
             style={styles.option}
             onPress={() => onSelect(item)}
           >
-            <View style={styles.optionAvatar}>
-              <ThemedText style={styles.optionAvatarText}>
-                {item.name.charAt(0).toUpperCase()}
-              </ThemedText>
-            </View>
+            <ProfileAvatar
+              profile={item}
+              size={34}
+              backgroundColor="rgba(127, 127, 127, 0.25)"
+            />
             <ThemedText style={styles.optionName}>{item.name}</ThemedText>
             {isSelected ? (
               <IconSymbol name="checkmark" color={textColor} size={20} />
@@ -245,18 +241,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginRight: 5,
     maxWidth: 150,
-  },
-  avatar: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 6,
-  },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: "700",
   },
   chipName: {
     fontSize: 15,
@@ -287,22 +271,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
   },
-  optionAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(127, 127, 127, 0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  optionAvatarText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
   optionName: {
     flex: 1,
     fontSize: 16,
+    marginLeft: 6,
   },
   manageButton: {
     borderRadius: 12,
