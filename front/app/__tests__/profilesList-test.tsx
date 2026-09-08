@@ -57,7 +57,7 @@ describe('ProfilesList', () => {
     await waitFor(() => expect(screen.getByText('Maya')).toBeTruthy());
     expect(
       screen.getByText(
-        'Tap to select. Long-press or tap ✎ to edit.'
+        'Select a profile to chat, or edit its details.'
       )
     ).toBeTruthy();
   });
@@ -76,16 +76,18 @@ describe('ProfilesList', () => {
     });
   });
 
-  it('long-pressing a card still opens the editor', async () => {
+  it('shows a select button per profile that selects and dismisses', async () => {
     render(<ProfilesList />);
     await waitFor(() => expect(screen.getByText('Leo')).toBeTruthy());
 
-    fireEvent(screen.getByTestId('profile-card-Leo'), 'onLongPress');
+    const select = screen.getByTestId('profile-select-Leo');
+    expect(select.props.accessibilityLabel).toBe('Select Leo');
+    fireEvent.press(select);
 
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/parent/profileEditor',
-      params: { title: 'Leo', profileId: 'p2' },
-    });
+    await waitFor(() =>
+      expect(storeSelectedProfile).toHaveBeenCalledWith(profiles[1])
+    );
+    expect(mockRouter.dismiss).toHaveBeenCalled();
   });
 
   it('tapping a card selects the profile and dismisses', async () => {

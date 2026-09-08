@@ -123,12 +123,14 @@ export default function ProfilesList() {
         numberOfLines={1}
         adjustsFontSizeToFit
       >
-        Tap to select. Long-press or tap ✎ to edit.
+        Select a profile to chat, or edit its details.
       </ThemedText>
       <FlatList
         numColumns={2}
         data={profiles}
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          const isSelected = selectedProfile?.profile_id === item.profile_id;
+          return (
           <View
             key={item.profile_id}
             style={[
@@ -140,11 +142,10 @@ export default function ProfilesList() {
             testID={`profile-card-${item.name}`}
             style={[
               styles.profileCard,
-              selectedProfile?.profile_id === item.profile_id ?
+              isSelected ?
                 { backgroundColor: bgColorSelected } : { backgroundColor: bgColor },
             ]}
             onPress={() => handleProfilePress(item)}
-            onLongPress={() => editProfile(item)}
           >
             {item.photo_url ? (
               <ProfileAvatar profile={item} size={80} style={styles.profilePhoto} />
@@ -158,22 +159,42 @@ export default function ProfilesList() {
             )}
             <ThemedText style={styles.profileText}>{item.name}</ThemedText>
           </Pressable>
-          <Pressable
-            testID={`profile-edit-${item.name}`}
-            accessibilityLabel={`Edit ${item.name}`}
-            accessibilityRole="button"
-            hitSlop={12}
-            style={styles.editButton}
-            onPress={() => editProfile(item)}
-          >
-            <IconSymbol
-              name="pencil"
-              color="#fff"
-              size={14}
-            ></IconSymbol>
-          </Pressable>
+          <View style={styles.actionRow}>
+            <Pressable
+              testID={`profile-select-${item.name}`}
+              accessibilityLabel={`Select ${item.name}`}
+              accessibilityRole="button"
+              hitSlop={12}
+              style={[
+                styles.actionButton,
+                isSelected && { backgroundColor: tintColor },
+              ]}
+              onPress={() => handleProfilePress(item)}
+            >
+              <IconSymbol
+                name="checkmark"
+                color={isSelected ? "#fff" : tintColor}
+                size={18}
+              ></IconSymbol>
+            </Pressable>
+            <Pressable
+              testID={`profile-edit-${item.name}`}
+              accessibilityLabel={`Edit ${item.name}`}
+              accessibilityRole="button"
+              hitSlop={12}
+              style={styles.actionButton}
+              onPress={() => editProfile(item)}
+            >
+              <IconSymbol
+                name="pencil"
+                color={tintColor}
+                size={18}
+              ></IconSymbol>
+            </Pressable>
           </View>
-        )}
+          </View>
+          );
+        }}
       >
         
       </FlatList>      
@@ -210,16 +231,17 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     margin: 5,
-    position: "relative",
   },
-  editButton: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "rgba(0,0,0,0.35)",
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  actionButton: {
+    flex: 1,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(127,127,127,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
