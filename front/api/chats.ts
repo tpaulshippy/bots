@@ -14,7 +14,9 @@ export interface Chat {
     bot: {
         name: string;
         bot_id: string;
-    }
+        color: string | null;
+        icon: string | null;
+    } | null
 }
 
 export interface ChatMessage {

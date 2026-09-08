@@ -18,27 +18,11 @@ import * as Sentry from "@sentry/react-native";
 
 import { fetchChats, Chat } from "@/api/chats";
 import { getSelectedProfileId, handleUnauthorized } from "@/hooks/useSelectedProfile";
+import { botColor, botIcon } from "@/constants/botAppearance";
 
 type ChatsByDay = {
   [key: string]: Chat[];
 };
-
-const AVATAR_COLORS = [
-  "#5B8DEF",
-  "#8E6BC8",
-  "#4FA38A",
-  "#D07A5A",
-  "#C25E7E",
-  "#5E9C6B",
-];
-
-function getAvatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 function getRelativeDate(inputDate: string): string {
   try {
@@ -184,7 +168,13 @@ export default function ChatList() {
               {item[0]}
             </ThemedText>
             {item[1].map((record: Chat) => {
-              const avatarName = record.bot?.name || record.title || "?";
+              const bot = record.bot
+                ? {
+                    name: record.bot.name,
+                    color: record.bot.color ?? null,
+                    icon: record.bot.icon ?? null,
+                  }
+                : { name: record.title || "?", color: null, icon: null };
               return (
                 <Pressable
                   key={record.id}
@@ -197,12 +187,14 @@ export default function ChatList() {
                   <View
                     style={[
                       styles.avatar,
-                      { backgroundColor: getAvatarColor(avatarName) },
+                      { backgroundColor: botColor(bot) },
                     ]}
                   >
-                    <ThemedText style={styles.avatarText}>
-                      {avatarName.charAt(0).toUpperCase()}
-                    </ThemedText>
+                    <IconSymbol
+                      name={botIcon(bot)}
+                      size={20}
+                      color="#fff"
+                    />
                   </View>
                   <View style={styles.cardBody}>
                     <ThemedText
