@@ -10,6 +10,7 @@ export type MenuItemProps = {
   onPress?: () => void;
   style?: any;
   iconName: IconSymbolName;
+  iconColor?: string;
   title: string;
   hideChevron?: boolean;
   testID?: string;
@@ -19,6 +20,7 @@ export function MenuItem({
   lightColor,
   darkColor,
   iconName,
+  iconColor,
   title,
   onPress,
   hideChevron = false,
@@ -32,14 +34,15 @@ export function MenuItem({
     { light: '#ddd', dark: '#444' },
     "background"
   );
-  const iconColor = useThemeColor({}, "icon");
+  const defaultIconColor = useThemeColor({}, "icon");
+  const resolvedIconColor = iconColor ?? defaultIconColor;
   return (
     <Pressable
       style={[{ backgroundColor }, styles.container, style]}
       onPress={onPress}
       {...otherProps}
     >
-      <IconSymbol name={iconName} style={styles.icon} color={iconColor} />
+      <IconSymbol name={iconName} style={styles.icon} color={resolvedIconColor} />
       <ThemedView style={[
         { backgroundColor, borderColor }, 
         styles.rightContainer,
