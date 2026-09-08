@@ -23,6 +23,7 @@ export function WizardStep({
   subtitle,
   children,
   onBack,
+  onClose,
   review = false,
 }: {
   step: number;
@@ -31,6 +32,8 @@ export function WizardStep({
   subtitle?: string;
   children: React.ReactNode;
   onBack?: () => void;
+  /** X control: exits the wizard without saving (review → Settings). */
+  onClose?: () => void;
   /** Review mode: re-walking the wizard to verify the current setup. */
   review?: boolean;
 }) {
@@ -58,7 +61,13 @@ export function WizardStep({
             <ThemedText style={styles.stepLabel} type="defaultSemiBold">
               Step {step} of {total}
             </ThemedText>
-            <View style={styles.backSlot} />
+            {onClose ? (
+              <Pressable testID="onboarding-close" onPress={onClose} style={styles.closeSlot}>
+                <IconSymbol name="xmark" color={tintColor} size={24} />
+              </Pressable>
+            ) : (
+              <View style={styles.backSlot} />
+            )}
           </View>
           <ThemedText type="title" style={styles.title}>
             {title}
@@ -101,6 +110,10 @@ const styles = StyleSheet.create({
   backSlot: {
     width: 32,
     alignItems: "flex-start",
+  },
+  closeSlot: {
+    width: 32,
+    alignItems: "flex-end",
   },
   stepLabel: {
     opacity: 0.6,

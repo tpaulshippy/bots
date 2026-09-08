@@ -38,6 +38,22 @@ export default function OnboardingProtect() {
       : null;
   const canContinue = pinEmpty || pinValid;
 
+  // X gets out without saving: review mode returns to Settings, first-run
+  // drops to chat (which re-gates to the wizard if nothing exists yet).
+  const exitWizard = () => {
+    const target = isReview ? "/parent/settings" : "/chat";
+    const r = router as unknown as { dismissTo?: (href: string) => void };
+    if (typeof r.dismissTo === "function") {
+      try {
+        r.dismissTo(target);
+        return;
+      } catch {
+        // Fall through to replace.
+      }
+    }
+    router.replace(target as never);
+  };
+
   const continueToNotifications = () => {
     if (!canContinue) {
       return;
@@ -64,6 +80,7 @@ export default function OnboardingProtect() {
       title="Keep settings parent-only"
       subtitle="Optional — skip to leave parent controls unprotected."
       onBack={() => router.back()}
+      onClose={exitWizard}
       review={isReview}
     >
       <View style={styles.formGroup}>

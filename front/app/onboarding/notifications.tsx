@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,7 +19,9 @@ import {
 import { fieldMessage } from "@/api/fieldErrors";
 import { fetchBots } from "@/api/bots";
 import {
+  fetchDevice,
   fetchDeviceByToken,
+  getDeviceIdFromStorage,
   setDeviceIdInStorage,
   upsertDevice,
 } from "@/api/devices";
@@ -56,6 +58,51 @@ export default function OnboardingNotifications() {
   // Field error from the last failed save (e.g. taken student email), shown
   // inline so the user can go back and fix it instead of losing the wizard.
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Review mode: pre-fill with this device's current notification settings
+  // so re-walking the wizard shows what's set (same source as Settings →
+  // Notifications). First-run stays all-off.
+  useEffect(() => {
+    if (!isReview) {
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const deviceId = await getDeviceIdFromStorage().catch(() => null);
+        if (!deviceId) {
+          return;
+        }
+        const current = await fetchDevice(deviceId).catch(() => null);
+        if (current && active) {
+          setNotifyOnNewChat(current.notify_on_new_chat);
+          setNotifyOnNewMessage(current.notify_on_new_message);
+          setNotifyDigestOnly(current.notify_digest_only);
+        }
+      } catch {
+        // Prefill is best-effort; the wizard still works all-off.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isReview]);
+
+  // X gets out without saving: review mode returns to Settings, first-run
+  // drops to chat (which re-gates to the wizard if nothing exists yet).
+  const exitWizard = () => {
+    const target = isReview ? "/parent/settings" : "/chat";
+    const r = router as unknown as { dismissTo?: (href: string) => void };
+    if (typeof r.dismissTo === "function") {
+      try {
+        r.dismissTo(target);
+        return;
+      } catch {
+        // Fall through to replace.
+      }
+    }
+    router.replace(target as never);
+  };
 
   // Persist the chosen flags to this device. Never blocks finishing: push
   // registration throws on simulators/web and offline upserts return null.
@@ -183,6 +230,7 @@ export default function OnboardingNotifications() {
       title="Stay in the loop"
       subtitle="Choose how you hear about your student's chats."
       onBack={saving ? undefined : () => router.back()}
+      onClose={saving ? undefined : exitWizard}
       review={isReview}
     >
       <ThemedView style={styles.notificationsRow}>

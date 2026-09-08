@@ -1,4 +1,4 @@
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
@@ -12,8 +12,32 @@ export default function OnboardingWelcome() {
   const isReview = review === "true";
   const tintColor = useThemeColor({}, "tint");
 
+  // X gets out without saving: review mode returns to Settings, first-run
+  // drops to chat (which re-gates to the wizard if nothing exists yet).
+  const exitWizard = () => {
+    const target = isReview ? "/parent/settings" : "/chat";
+    const r = router as unknown as { dismissTo?: (href: string) => void };
+    if (typeof r.dismissTo === "function") {
+      try {
+        r.dismissTo(target);
+        return;
+      } catch {
+        // Fall through to replace.
+      }
+    }
+    router.replace(target as never);
+  };
+
   return (
     <ThemedView style={styles.container}>
+      <Pressable
+        testID="onboarding-close"
+        onPress={exitWizard}
+        style={styles.closeButton}
+        accessibilityLabel="Close"
+      >
+        <IconSymbol name="xmark" color={tintColor} size={24} />
+      </Pressable>
       <ThemedView style={styles.content}>
         <View style={[styles.iconCircle, { backgroundColor: tintColor }]}>
           <IconSymbol name="wand.and.sparkles" color="#fff" size={44} />
@@ -62,6 +86,10 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 80,
     paddingBottom: 40,
+  },
+  closeButton: {
+    alignSelf: "flex-end",
+    padding: 4,
   },
   content: {
     flex: 1,

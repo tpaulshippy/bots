@@ -122,12 +122,29 @@ export default function OnboardingBot() {
     });
   };
 
+  // X gets out without saving: review mode returns to Settings, first-run
+  // drops to chat (which re-gates to the wizard if nothing exists yet).
+  const exitWizard = () => {
+    const target = isReview ? "/parent/settings" : "/chat";
+    const r = router as unknown as { dismissTo?: (href: string) => void };
+    if (typeof r.dismissTo === "function") {
+      try {
+        r.dismissTo(target);
+        return;
+      } catch {
+        // Fall through to replace.
+      }
+    }
+    router.replace(target as never);
+  };
+
   return (
     <WizardStep
       step={3}
       title="Create a bot"
       subtitle="Pick a starting point — you can change everything later."
       onBack={() => router.back()}
+      onClose={exitWizard}
       review={isReview}
     >
       <FlatList

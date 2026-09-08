@@ -60,12 +60,29 @@ export default function OnboardingProfile() {
   const emailValid = trimmedEmail === "" || EMAIL_PATTERN.test(trimmedEmail);
   const canContinue = name.trim().length > 0 && emailValid;
 
+  // X gets out without saving: review mode returns to Settings, first-run
+  // drops to chat (which re-gates to the wizard if nothing exists yet).
+  const exitWizard = () => {
+    const target = isReview ? "/parent/settings" : "/chat";
+    const r = router as unknown as { dismissTo?: (href: string) => void };
+    if (typeof r.dismissTo === "function") {
+      try {
+        r.dismissTo(target);
+        return;
+      } catch {
+        // Fall through to replace.
+      }
+    }
+    router.replace(target as never);
+  };
+
   return (
     <WizardStep
       step={2}
       title="Who will be chatting?"
       subtitle="They can sign in themselves with this email."
       onBack={() => router.back()}
+      onClose={exitWizard}
       review={isReview}
     >
       <ThemedTextInput
