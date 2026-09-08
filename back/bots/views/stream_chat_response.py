@@ -22,6 +22,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.request import Request
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from bots.models import Bot, Chat, Profile
@@ -41,14 +42,15 @@ def _sse_frame(event_type, payload):
 def _authenticate(request):
     """Run DRF authenticators against a plain HttpRequest.
 
-    JWTAuthentication reads only request.headers and SessionAuthentication
-    reads request._request.user, so neither needs the DRF Request wrapper.
+    Authenticators expect a DRF Request (SessionAuthentication reads
+    request._request.user), so the plain Django request is wrapped first.
     Returns (user, auth) so callers can enforce teen-delegation guards,
     mirroring the legacy blocking endpoint.
     """
+    drf_request = Request(request)
     for authenticator in (JWTAuthentication(), SessionAuthentication()):
         try:
-            result = authenticator.authenticate(request)
+            result = authenticator.authenticate(drf_request)
         except Exception:
             result = None
         if result is not None:
@@ -129,7 +131,10 @@ def stream_chat_response(request, chat_id):
     )
 
     assistant_message_id = uuid.uuid4()
-    event_generator = chat.stream_response()
+    # The same id is used for the SSE meta/done frames and the persisted
+    # assistant row (via stream_response(message_id=...)) so clients can
+    # correlate the streamed bubble with the saved message.
+    event_generator = chat.stream_response(message_id=assistant_message_id)
 
     def sse():
         yield _sse_frame("meta", {"chat_id": str(chat.chat_id), "message_id": str(assistant_message_id)})

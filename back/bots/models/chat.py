@@ -81,7 +81,7 @@ class Chat(models.Model):
         
         self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
 
-    def _input_refusal(self, user_message=None):
+    def _input_refusal(self, user_message=None, message_id=None):
         """Evaluate input safety BEFORE any model setup or quota check.
 
         Returns the fixed refusal text when the latest user turn is blocked
@@ -109,6 +109,7 @@ class Chat(models.Model):
                         text=refusal,
                         role='assistant',
                         order=self.messages.count(),
+                        **({'message_id': message_id} if message_id is not None else {}),
                     )
                     record_safety_event(
                         stage='input',
@@ -128,7 +129,7 @@ class Chat(models.Model):
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
 
-    def _persist_assistant_message(self, text, usage_metadata):
+    def _persist_assistant_message(self, text, usage_metadata, message_id=None):
         message_order = self.messages.count()
 
         input_tokens = usage_metadata.get('input_tokens', 0)
@@ -139,7 +140,8 @@ class Chat(models.Model):
             role='assistant',
             order=message_order,
             input_tokens=input_tokens,
-            output_tokens=output_tokens
+            output_tokens=output_tokens,
+            **({'message_id': message_id} if message_id is not None else {}),
         )
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
@@ -205,7 +207,7 @@ class Chat(models.Model):
                 )
         return response_text
 
-    def stream_response(self, ai=None):
+    def stream_response(self, ai=None, message_id=None):
         """Yield agent events for SSE while persisting the assistant message.
 
         The assistant row is persisted on `done` with token totals. On early
@@ -216,10 +218,14 @@ class Chat(models.Model):
         Output safety mirrors the legacy path: the streamed text is evaluated
         before persist and replaced with the fixed refusal when flagged, so
         raw completions are never stored or replayed as history.
+
+        When `message_id` is given (the SSE view's `meta` id), the persisted
+        row reuses it so clients can correlate streamed frames with the saved
+        assistant message.
         """
         # Blocked input short-circuits the stream with the fixed refusal,
         # already persisted by _input_refusal — never streamed to the model.
-        refusal = self._input_refusal()
+        refusal = self._input_refusal(message_id=message_id)
         if refusal is not None:
             yield {"type": "token", "text": refusal}
             yield {"type": "done", "input_tokens": 0, "output_tokens": 0}
@@ -246,7 +252,7 @@ class Chat(models.Model):
             if output_verdict.blocked:
                 flagged_output = text
                 text = refusal_for_verdict(output_verdict)
-            assistant_message = self._persist_assistant_message(text, usage_totals)
+            assistant_message = self._persist_assistant_message(text, usage_totals, message_id=message_id)
             if output_verdict.blocked:
                 record_safety_event(
                     stage='output',

@@ -21,7 +21,6 @@ import * as Haptics from 'expo-haptics';
 
 import {
   fetchChatMessages,
-  sendChat,
   streamChatMessage,
   ChatMessage as ApiChatMessage,
   ChatStreamEvent,
@@ -324,7 +323,7 @@ export default function Chat() {
       text: "",
     };
 
-    setMessages([...messages, newUserMessage, loadingMessage]);
+    setMessages(prev => [...prev, newUserMessage, loadingMessage]);
     await runStream({ text: inputText, image });
   };
 
@@ -337,7 +336,7 @@ export default function Chat() {
       isLoading: true,
       text: "",
     };
-    setMessages([...messages, loadingMessage]);
+    setMessages(prev => [...prev, loadingMessage]);
     await runStream(payload);
   };
 
@@ -395,8 +394,8 @@ export default function Chat() {
                 isStreaming={phase === "streaming" && index === 0 && item.role === "assistant"}
               />
             )}
-                onStartReached={handleLoadMore}
-                onStartReachedThreshold={0.5}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5}
                 ListHeaderComponent={loadingMore ? <ActivityIndicator /> : null}
               />
               {deckToast && (
