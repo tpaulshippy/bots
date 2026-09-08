@@ -117,30 +117,53 @@ export default function ProfilesList() {
 
   return (
     <ThemedView style={styles.container}>
+      <ThemedText style={styles.hint}>
+        Tap to select a profile. Long-press or tap the pencil to edit.
+      </ThemedText>
       <FlatList
         numColumns={2}
         data={profiles}
         renderItem={({ item }) => (
+          <ThemedView
+            key={item.profile_id}
+            style={[
+              profiles.length > 1 ? { width: "46%" } : { width: "65%" },
+              styles.cardWrapper,
+            ]}
+          >
           <Pressable
-          key={item.profile_id}
-          testID={`profile-card-${item.name}`}
-          style={[
-            profiles.length > 1 ? { width: "46%" } : { width: "65%" },
-            styles.profileCard,
-            selectedProfile?.profile_id === item.profile_id ?
-              { backgroundColor: bgColorSelected } : { backgroundColor: bgColor },
-          ]}
-          onPress={() => handleProfilePress(item)}
-          onLongPress={() => editProfile(item)}
-        >
-          <IconSymbol
-            name="person.fill"
-            color="#555"
-            size={80}
-            style={styles.profileIcon}
-          ></IconSymbol>
-          <ThemedText style={styles.profileText}>{item.name}</ThemedText>
-        </Pressable>
+            testID={`profile-card-${item.name}`}
+            style={[
+              styles.profileCard,
+              selectedProfile?.profile_id === item.profile_id ?
+                { backgroundColor: bgColorSelected } : { backgroundColor: bgColor },
+            ]}
+            onPress={() => handleProfilePress(item)}
+            onLongPress={() => editProfile(item)}
+          >
+            <IconSymbol
+              name="person.fill"
+              color="#555"
+              size={80}
+              style={styles.profileIcon}
+            ></IconSymbol>
+            <ThemedText style={styles.profileText}>{item.name}</ThemedText>
+          </Pressable>
+          <Pressable
+            testID={`profile-edit-${item.name}`}
+            accessibilityLabel={`Edit ${item.name}`}
+            accessibilityRole="button"
+            hitSlop={12}
+            style={styles.editButton}
+            onPress={() => editProfile(item)}
+          >
+            <IconSymbol
+              name="pencil"
+              color={tintColor}
+              size={20}
+            ></IconSymbol>
+          </Pressable>
+          </ThemedView>
         )}
       >
         
@@ -165,13 +188,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   profileCard: {
+    width: "100%",
     height: 100,
     aspectRatio: 1,
     padding: 5,
-    margin: 5,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 10,
+  },
+  cardWrapper: {
+    margin: 5,
+  },
+  editButton: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    padding: 6,
+  },
+  hint: {
+    fontSize: 13,
+    opacity: 0.7,
+    textAlign: "center",
+    marginBottom: 8,
   },
   profileText: {
     fontSize: 24,
