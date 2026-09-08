@@ -220,6 +220,7 @@ export default function ProfileEditor() {
                 size={96}
                 backgroundColor={iconColor}
                 testID="profile-photo-preview"
+                style={{ marginRight: 0 }}
               />
             )}
             <Pressable

@@ -52,7 +52,11 @@ export const upsertProfile = async (
     if (opts.photoUri || opts.removePhoto) {
         const formData = new FormData();
         formData.append('name', profile.name);
-        formData.append('oauth_email', profile.oauth_email?.trim() ? profile.oauth_email.trim() : '');
+        // Only send oauth_email when explicitly present: omitting it in a
+        // multipart update must not clear an existing bound email.
+        if (profile.oauth_email !== undefined) {
+            formData.append('oauth_email', profile.oauth_email?.trim() ? profile.oauth_email.trim() : '');
+        }
         if (profile.deleted_at) {
             const deletedAt = profile.deleted_at instanceof Date
                 ? profile.deleted_at.toISOString()
@@ -64,7 +68,10 @@ export const upsertProfile = async (
         }
         if (opts.photoUri) {
             const fileUri = opts.photoUri;
-            const fileType = fileUri.split('.').pop()?.toLowerCase() || 'jpeg';
+            const rawExt = fileUri.split('?')[0].split('.').pop()?.toLowerCase() || 'jpeg';
+            // `jpg` is not a standard MIME subtype; normalize to `jpeg` so
+            // the content-type is `image/jpeg`.
+            const fileType = rawExt === 'jpg' ? 'jpeg' : rawExt;
             formData.append('photo', {
                 uri: fileUri,
                 name: `profile-photo.${fileType}`,

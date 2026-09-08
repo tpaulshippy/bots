@@ -61,4 +61,9 @@ def upload_validated_photo(uploaded_file):
     error = validate_uploaded_photo(uploaded_file)
     if error:
         raise ValidationError({'photo': error})
-    return compress_and_upload_image(uploaded_file)
+    try:
+        return compress_and_upload_image(uploaded_file)
+    except ValidationError:
+        raise
+    except ValueError as e:
+        raise ValidationError({'photo': str(e) or 'Unable to upload image'})
