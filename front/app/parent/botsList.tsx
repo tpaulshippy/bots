@@ -7,7 +7,7 @@ import { fetchBots, Bot } from "@/api/bots";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRouter } from "expo-router";
 import { MenuItem } from "@/components/MenuItem";
-import { botIcon } from "@/constants/botAppearance";
+import { botColor, botIcon } from "@/constants/botAppearance";
 
 export default function BotsList() {
   const [bots, setBots] = useState<Bot[]>([]);
@@ -55,6 +55,7 @@ export default function BotsList() {
             <MenuItem 
               key={item.bot_id}
               iconName={botIcon(item)}
+              iconColor={botColor(item)}
               title={item.name}
               onPress={() => handleBotPress(item)}
             />

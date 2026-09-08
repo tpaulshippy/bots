@@ -2,6 +2,8 @@ import PinWrapper from "@/components/PinWrapper";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { getAccount } from "@/api/account";
+import { getCachedHasPin } from "@/api/pinStorage";
 import {
   fetchActivityChats,
   fetchActivitySummary,
@@ -12,7 +14,7 @@ import { handleUnauthorized } from "@/hooks/useSelectedProfile";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { format, formatDistance } from "date-fns";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -38,6 +40,7 @@ function formatRowTime(inputDate: string | null): string {
 
 export default function ActivityScreen() {
   const router = useRouter();
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState<ActivitySummary | null>(null);
@@ -47,6 +50,9 @@ export default function ActivityScreen() {
   const cardBackground = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const secondaryColor = useThemeColor({}, "icon");
+  // Dark-mode tint (#03465b) is nearly invisible on dark backgrounds, so
+  // selected filters use the brighter accent (matches settings/flashcards).
+  const tintColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   const load = useCallback(
     async (isRefresh: boolean) => {
@@ -54,7 +60,8 @@ export default function ActivityScreen() {
       setRefreshing(isRefresh);
       try {
         const [summaryData, chatData] = await Promise.all([
-          fetchActivitySummary(7),
+          // Chips count chats touched in the last 24h (see section header).
+          fetchActivitySummary(1),
           fetchActivityChats({
             profileId: selectedProfileId,
             hasSafetyEvent: safetyOnly ? true : null,
@@ -83,6 +90,30 @@ export default function ActivityScreen() {
       active = false;
     };
   }, [load]);
+
+  // Mirror settings.tsx: accounts that opted out of a PIN (no pin_hash)
+  // render parent surfaces directly instead of hitting the PIN gate, which
+  // would otherwise fail with "No PIN has been set for this account."
+  // Refetch on focus so removing a PIN in Set PIN ungates immediately.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getAccount()
+        .then((account) => {
+          if (active && account) {
+            setHasPin(!!account.hasPin);
+          }
+        })
+        .catch(() => {
+          getCachedHasPin().then((cached) => {
+            if (active) setHasPin(cached);
+          });
+        });
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const toggleProfileFilter = (profileId: string) => {
     if (process.env.EXPO_OS === "ios") {
@@ -139,10 +170,9 @@ export default function ActivityScreen() {
     </Pressable>
   );
 
-  return (
-    <PinWrapper>
-      <ThemedView testID="activity-screen" style={styles.container}>
-        <ThemedText style={styles.sectionHeader}>This week</ThemedText>
+  const content = (
+    <ThemedView testID="activity-screen" style={styles.container}>
+        <ThemedText style={styles.sectionHeader}>Last 24 hours</ThemedText>
         {loading ? (
           <ThemedView style={styles.loadingContainer}>
             <ActivityIndicator testID="activity-loading" />
@@ -155,40 +185,42 @@ export default function ActivityScreen() {
               style={styles.chipsRow}
               testID="activity-summary-chips"
             >
-              {(summary?.profiles ?? []).map((profile) => (
+              {(summary?.profiles ?? []).map((profile) => {
+                const isSelected = selectedProfileId === profile.profile_id;
+                return (
                 <Pressable
                   key={profile.profile_id}
                   testID={`activity-summary-chip-${profile.profile_id}`}
                   accessibilityLabel={`Filter by ${profile.name}`}
+                  accessibilityState={{ selected: isSelected }}
                   onPress={() => toggleProfileFilter(profile.profile_id)}
                   style={[
                     styles.chip,
                     { borderColor },
-                    selectedProfileId === profile.profile_id && [
-                      styles.chipSelected,
-                      { backgroundColor: cardBackground },
-                    ],
+                    isSelected && { backgroundColor: tintColor, borderColor: tintColor },
                   ]}
                 >
-                  <ThemedText style={styles.chipText}>
+                  <ThemedText style={[styles.chipText, isSelected && styles.chipTextSelected]}>
                     {profile.name} {profile.chat_count}
                   </ThemedText>
                   {profile.safety_event_count > 0 && (
-                    <IconSymbol name="shield.fill" size={12} color="#FF9500" />
+                    <IconSymbol name="shield.fill" size={12} color={isSelected ? "#fff" : "#FF9500"} />
                   )}
                 </Pressable>
-              ))}
+                );
+              })}
               <Pressable
                 testID="activity-safety-filter"
                 accessibilityLabel="Only chats with safety events"
+                accessibilityState={{ selected: safetyOnly }}
                 onPress={() => setSafetyOnly((value) => !value)}
                 style={[
                   styles.chip,
                   { borderColor },
-                  safetyOnly && [styles.chipSelected, { backgroundColor: cardBackground }],
+                  safetyOnly && { backgroundColor: tintColor, borderColor: tintColor },
                 ]}
               >
-                <ThemedText style={styles.chipText}>🛡 Safety</ThemedText>
+                <ThemedText style={[styles.chipText, safetyOnly && styles.chipTextSelected]}>🛡 Safety</ThemedText>
               </Pressable>
             </ScrollView>
             <FlatList
@@ -208,7 +240,7 @@ export default function ActivityScreen() {
                   <IconSymbol name="text.bubble" size={48} color={secondaryColor} />
                   <ThemedText style={styles.emptyTitle}>No chats yet</ThemedText>
                   <ThemedText style={[styles.emptyHint, { color: secondaryColor }]}>
-                    Conversations your kids have will appear here
+                    Conversations your students have will appear here
                   </ThemedText>
                 </ThemedView>
               }
@@ -216,8 +248,23 @@ export default function ActivityScreen() {
           </>
         )}
       </ThemedView>
-    </PinWrapper>
   );
+
+  if (hasPin === null) {
+    return (
+      <ThemedView testID="activity-screen" style={styles.container}>
+        <ThemedView style={styles.loadingContainer}>
+          <ActivityIndicator testID="activity-loading" />
+        </ThemedView>
+      </ThemedView>
+    );
+  }
+
+  if (!hasPin) {
+    return content;
+  }
+
+  return <PinWrapper>{content}</PinWrapper>;
 }
 
 const styles = StyleSheet.create({
@@ -245,12 +292,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginRight: 8,
   },
-  chipSelected: {
-    borderColor: "#03465b",
-  },
   chipText: {
     fontSize: 13,
     marginRight: 4,
+  },
+  chipTextSelected: {
+    color: "#fff",
+    fontWeight: "600",
   },
   card: {
     marginHorizontal: 10,

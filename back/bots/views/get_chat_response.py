@@ -53,7 +53,7 @@ def get_chat_response(request, chat_id):
 
     # Teen-delegated sessions are locked to their claimed profile: a
     # client-sent profile id is ignored and the claim is enforced instead.
-    delegated_profile = delegated_profile_from_auth(request.auth)
+    delegated_profile = delegated_profile_from_auth(request.auth, user)
     if is_teen_delegated(request.auth) and delegated_profile is None:
         return JsonResponse({'error': 'No active profile for this session'}, status=403)
 
@@ -69,10 +69,10 @@ def get_chat_response(request, chat_id):
         else:
             bot = None
         chat = Chat.objects.create(title=user_input, profile=profile, bot=bot, user=user)
-        # Server-owned layered prompt (preamble + bot customization + policy
-        # suffix); never store the un-layered client-built prompt here.
+        # Parent-controlled prompt only; store it when present.
         system_prompt = chat.get_system_message()
-        chat.messages.create(text=system_prompt, role='system', order=0)
+        if system_prompt:
+            chat.messages.create(text=system_prompt, role='system', order=0)
 
     else:
         chat = get_object_or_404(Chat, chat_id=chat_id, user=user)
@@ -100,11 +100,6 @@ def get_chat_response(request, chat_id):
         text=user_input, role='user', order=chat.messages.count(), image_filename=filename
     )
     response = chat.get_response(user_message=user_message)
-    data = {'response': response, 'chat_id': chat.chat_id}
-    # Save the message with the uploaded image filename
-    chat.messages.create(text=user_input, role='user', order=chat.messages.count(), image_filename=filename)
-
-    response = chat.get_response()
     data = {'response': response, 'chat_id': chat.chat_id}
 
     # Optional structured tool results so non-stream clients can still toast

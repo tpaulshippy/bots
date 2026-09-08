@@ -2,7 +2,7 @@ import PinWrapper from "@/components/PinWrapper";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { getAccount } from "@/api/account";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -11,13 +11,14 @@ import {
   Platform,
   Pressable,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as Progress from "react-native-progress";
 import * as Haptics from "expo-haptics";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { MenuItem } from "@/components/MenuItem";
 import { IconSymbol, IconSymbolName } from "@/components/ui/IconSymbol";
 import { clearUser } from "@/api/tokens";
+import { getCachedHasPin } from "@/api/pinStorage";
 
 import { subscriptionNames } from "@/constants/subscriptions";
 import * as Updates from "expo-updates";
@@ -41,20 +42,43 @@ export default function SettingsScreen() {
   );
   const actionColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
-  useEffect(() => {
-    getAccount().then((account) => {
-      if (account) {
-        setHasPin(!!account.hasPin);
-        const percent = (account.cost ?? 0) / (account.maxDailyCost || 1);
-        setPercentUsedToday(percent);
-        if (account.subscriptionLevel !== undefined) {
-          setSubscription(subscriptionNames[account.subscriptionLevel]);
-          setSubscriptionLevel(account.subscriptionLevel);
+  const loadAccount = useCallback(() => {
+    // Show the spinner (not stale UI) on every refetch: without this,
+    // returning from Set PIN after removing a PIN would briefly render
+    // the old PinWrapper gate until the network call resolves.
+    setLoading(true);
+    getAccount()
+      .then((account) => {
+        if (account) {
+          setHasPin(!!account.hasPin);
+          const percent = (account.cost ?? 0) / (account.maxDailyCost || 1);
+          setPercentUsedToday(percent);
+          if (account.subscriptionLevel !== undefined) {
+            setSubscription(subscriptionNames[account.subscriptionLevel]);
+            setSubscriptionLevel(account.subscriptionLevel);
+          }
         }
-      }
-      setLoading(false);
-    });
+      })
+      .catch(() => {
+        // Server unreachable (expired tokens/offline): fall back to the
+        // cached flag so the spinner resolves to a gated UI. Leaving
+        // hasPin as null would match `hasPin === null` below and hang on
+        // the spinner indefinitely. getCachedHasPin never rejects, so
+        // hasPin always becomes a boolean here.
+        getCachedHasPin().then(setHasPin);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
+
+  // Refetch on focus (not just mount) so returning from the Set PIN screen
+  // — after setting or removing a PIN — re-resolves the gate immediately.
+  useFocusEffect(
+    useCallback(() => {
+      void loadAccount();
+    }, [loadAccount])
+  );
 
   const handleLogout = async () => {
     await clearUser();
@@ -81,6 +105,99 @@ export default function SettingsScreen() {
       params: { subscriptionLevel: subscriptionLevel },
     });
   };
+
+  // Parent controls, shared by the gated (PIN set) and ungated (opt-out)
+  // branches below. The opt-out branch renders these directly — no gate,
+  // no banner, no prompts to set a PIN.
+  const controls = (
+    <>
+      <ThemedView style={[{ backgroundColor }, styles.usageContainer]}>
+        <ThemedText>You have the {subscription} subscription.</ThemedText>
+        <Progress.Bar
+          height={20}
+          width={null}
+          color={tintColor}
+          unfilledColor={trackColor}
+          borderColor={trackColor}
+          borderRadius={10}
+          style={styles.progressBar}
+          progress={percentUsedToday}
+        />
+        <ThemedText style={styles.usageText}>
+          {(percentUsedToday * 100).toFixed(2)}% of available tokens used
+          today
+        </ThemedText>
+      </ThemedView>
+      <ThemedView style={[{ backgroundColor }, styles.menuContainer]}>
+        <MenuItem
+          title="Profiles"
+          iconName="person.fill"
+          testID="menu-profiles"
+          onPress={() => goTo("/parent/profilesList")}
+        ></MenuItem>
+        <MenuItem
+          title="Bots"
+          iconName="cpu"
+          testID="menu-item-bots"
+          onPress={() => goTo("/parent/botsList")}
+        ></MenuItem>
+        <MenuItem
+          title="Notifications"
+          iconName="bell.fill"
+          testID="menu-item-notifications"
+          onPress={() => goTo("/parent/notifications")}
+        ></MenuItem>
+        <MenuItem
+          title="Activity"
+          iconName="list.bullet"
+          testID="settings-activity-item"
+          onPress={() => goTo("/parent/activity")}
+        ></MenuItem>
+        <MenuItem
+          title="Subscription"
+          iconName="dollarsign.circle.fill"
+          testID="menu-item-subscription"
+          onPress={() => goTo("/parent/subscription")}                
+        />
+        <MenuItem
+          title="Set Pin"
+          iconName="lock.fill"
+          testID="menu-item-set-pin"
+          onPress={() => goTo("/parent/setPin")}
+        ></MenuItem>
+        <MenuItem
+          title="Terms of Use and Privacy Policy"
+          iconName="questionmark.circle.fill"
+          testID="menu-item-terms"
+          onPress={() => goTo("/parent/terms")}
+        ></MenuItem>
+        <MenuItem
+          title="Review onboarding setup"
+          iconName="wand.and.sparkles"
+          testID="menu-item-preview-onboarding"
+          onPress={() =>
+            router.push({ pathname: "/onboarding", params: { review: "true" } })
+          }
+        ></MenuItem>
+        <ActionRow
+          title="Delete Account"
+          iconName="trash.fill"
+          color={destructiveColor}
+          showChevron
+          testID="menu-item-delete-account"
+          onPress={() => goTo("/parent/deleteAccount")}
+        />
+        <ActionRow
+          title="Log Out"
+          iconName="arrowshape.turn.up.left.fill"
+          color={actionColor}
+          testID="menu-item-log-out"
+          onPress={handleLogout}
+        />
+      </ThemedView>
+    </>
+  );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -94,112 +211,10 @@ export default function SettingsScreen() {
               <ActivityIndicator />
             </ThemedView>
           ) : !hasPin ? (
-            // No PIN yet: block everything behind PIN setup so parent
-            // controls can never be left ungated accidentally.
-            <ThemedView
-              style={[{ backgroundColor }, styles.setPinCard]}
-              testID="set-pin-blocking-card"
-            >
-              <IconSymbol
-                name="lock.fill"
-                size={28}
-                color={tintColor}
-                style={styles.setPinIcon}
-              />
-              <ThemedText style={styles.setPinTitle}>
-                Set a PIN to protect parent controls
-              </ThemedText>
-              <ThemedText style={styles.setPinBody}>
-                Your PIN is required to open settings and make changes.
-              </ThemedText>
-              <Pressable
-                style={[{ borderColor: tintColor }, styles.setPinButton]}
-                testID="set-pin-button"
-                onPress={() => goTo("/parent/setPin")}
-              >
-                <ThemedText style={[{ color: tintColor }, styles.setPinButtonText]}>
-                  Set a PIN
-                </ThemedText>
-              </Pressable>
-            </ThemedView>
+            controls
           ) : (
             <PinWrapper onUnlocked={() => undefined}>
-              <ThemedView style={[{ backgroundColor }, styles.usageContainer]}>
-                <ThemedText>You have the {subscription} subscription.</ThemedText>
-                <Progress.Bar
-                  height={20}
-                  width={null}
-                  color={tintColor}
-                  unfilledColor={trackColor}
-                  borderColor={trackColor}
-                  borderRadius={10}
-                  style={styles.progressBar}
-                  progress={percentUsedToday}
-                />
-                <ThemedText style={styles.usageText}>
-                  {(percentUsedToday * 100).toFixed(2)}% of available tokens used
-                  today
-                </ThemedText>
-              </ThemedView>
-              <ThemedView style={[{ backgroundColor }, styles.menuContainer]}>
-                <MenuItem
-                  title="Profiles"
-                  iconName="person.fill"
-                  testID="menu-profiles"
-                  onPress={() => goTo("/parent/profilesList")}
-                ></MenuItem>
-                <MenuItem
-                  title="Bots"
-                  iconName="cpu"
-                  testID="menu-item-bots"
-                  onPress={() => goTo("/parent/botsList")}
-                ></MenuItem>
-                <MenuItem
-                  title="Notifications"
-                  iconName="bell.fill"
-                  testID="menu-item-notifications"
-                  onPress={() => goTo("/parent/notifications")}
-                ></MenuItem>
-                <MenuItem
-                  title="Activity"
-                  iconName="list.bullet"
-                  testID="settings-activity-item"
-                  onPress={() => goTo("/parent/activity")}
-                ></MenuItem>
-                <MenuItem
-                  title="Subscription"
-                  iconName="dollarsign.circle.fill"
-                  testID="menu-item-subscription"
-                  onPress={() => goTo("/parent/subscription")}                
-                />
-                <MenuItem
-                  title="Set Pin"
-                  iconName="lock.fill"
-                  testID="menu-item-set-pin"
-                  onPress={() => goTo("/parent/setPin")}
-                ></MenuItem>
-                <MenuItem
-                  title="Terms of Use and Privacy Policy"
-                  iconName="questionmark.circle.fill"
-                  testID="menu-item-terms"
-                  onPress={() => goTo("/parent/terms")}
-                ></MenuItem>
-                <ActionRow
-                  title="Delete Account"
-                  iconName="trash.fill"
-                  color={destructiveColor}
-                  showChevron
-                  testID="menu-item-delete-account"
-                  onPress={() => goTo("/parent/deleteAccount")}
-                />
-                <ActionRow
-                  title="Log Out"
-                  iconName="arrowshape.turn.up.left.fill"
-                  color={actionColor}
-                  testID="menu-item-log-out"
-                  onPress={handleLogout}
-                />
-              </ThemedView>
+              {controls}
             </PinWrapper>
           )}
           {__DEV__ && (
@@ -295,37 +310,6 @@ const styles = StyleSheet.create({
     margin: 10,
     paddingVertical: 10,
     borderRadius: 10,
-  },
-  setPinCard: {
-    alignItems: "center",
-    margin: 10,
-    padding: 24,
-    borderRadius: 10,
-    gap: 8,
-  },
-  setPinIcon: {
-    marginBottom: 4,
-  },
-  setPinTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  setPinBody: {
-    fontSize: 13,
-    opacity: 0.7,
-    textAlign: "center",
-  },
-  setPinButton: {
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  setPinButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
   },
   progressBar: {
     marginTop: 8,

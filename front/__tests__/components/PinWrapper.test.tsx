@@ -143,6 +143,39 @@ describe('PinWrapper', () => {
     expect(queryByText('●')).toBeNull();
   });
 
+  it('re-enables the keypad once lockedUntil passes', async () => {
+    fetchMock.mockResolvedValueOnce(
+      reauthResponse(423, {
+        detail: 'PIN locked. Try again later.',
+        lockedUntil: new Date(Date.now() + 20).toISOString(),
+      })
+    );
+
+    const { getByTestId } = render(
+      <PinWrapper>
+        {gatedChildren()}
+      </PinWrapper>
+    );
+
+    for (const digit of ['0', '0', '0', '0']) {
+      fireEvent.press(getByTestId(`pin-key-${digit}`));
+    }
+    fireEvent.press(getByTestId('pin-submit'));
+
+    await waitFor(() => {
+      expect(getByTestId('pin-error')).toBeTruthy();
+    });
+
+    // After the server-side lockout window passes, input works again.
+    await waitFor(
+      () => {
+        fireEvent.press(getByTestId('pin-key-1'));
+        expect(getByTestId('pin-dots').props.children).toContain('●');
+      },
+      { timeout: 2000 }
+    );
+  });
+
   it('ignores submit until at least 4 digits are entered', () => {
     const { getByTestId } = render(
       <PinWrapper>

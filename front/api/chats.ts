@@ -16,7 +16,9 @@ export interface Chat {
     bot: {
         name: string;
         bot_id: string;
-    }
+        color: string | null;
+        icon: string | null;
+    } | null
 }
 
 // Agent activity chips rendered inside an assistant bubble (roadmap doc 06).

@@ -19,13 +19,6 @@ from bots.services.parent_reauth import (
 TEEN_DELEGATED_DETAIL = 'Onboarding is completed by the parent account.'
 
 
-def request_is_teen_delegated(request) -> bool:
-    """Teen delegated sessions carry the claim added by get_delegated_tokens;
-    they must never run or complete onboarding themselves."""
-    payload = getattr(request.auth, 'payload', None)
-    return bool(payload.get('is_teen_delegated')) if isinstance(payload, dict) else False
-
-
 @api_view(['POST', 'GET'])
 def user_account_view(request):
     user = request.user
@@ -36,10 +29,22 @@ def user_account_view(request):
             user.user_account.save()
 
         # Never return the PIN or its hash — only whether one is set.
+        # Legacy compat (old app builds): `pin` is always null — the real
+        # value never leaves the server, and `None` keeps old clients from
+        # crashing on `account.pin.toString()` during login. `costForToday`
+        # preserves the old usage-bar shape. Note: old clients treat
+        # `pin: null` as "no PIN", so their local gate may show parent
+        # screens without prompting; every parent mutation is still gated
+        # server-side by ParentReauthRequired, which old builds cannot
+        # satisfy (they send no X-Parent-Reauth header), so nothing can be
+        # changed from them. Old builds should still upgrade.
+        cost = user.user_account.cost_for_today()[0]
         accountInfo = {
                 'userId': user.id,
                 'hasPin': bool(user.user_account.pin_hash),
-                'cost': user.user_account.cost_for_today()[0],
+                'pin': None,
+                'cost': cost,
+                'costForToday': [cost],
                 'maxDailyCost': MAX_COST_DAILY[user.user_account.subscription_level],
                 'subscriptionLevel': user.user_account.subscription_level,
                 'timezone': user.user_account.timezone,
@@ -48,6 +53,18 @@ def user_account_view(request):
         return Response(accountInfo)
 
     return set_pin(request)
+
+
+def _coerce_legacy_pin(value):
+    """Accept the legacy integer PIN shape sent by old app builds.
+
+    Old clients POST {"pin": 1234}; the current contract is a string.
+    Coerce ints (excluding bools) to their decimal form so first-time
+    setup keeps working; anything else passes through to validation.
+    """
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return value
 
 
 def set_pin(request):
@@ -65,8 +82,8 @@ def set_pin(request):
             status=403,
         )
 
-    pin = request.data.get('pin')
-    current_pin = request.data.get('currentPin')
+    pin = _coerce_legacy_pin(request.data.get('pin'))
+    current_pin = _coerce_legacy_pin(request.data.get('currentPin'))
 
     if not validate_pin(pin):
         return Response(
@@ -94,7 +111,7 @@ def set_pin(request):
 @permission_classes([IsAuthenticated])
 def onboarding_complete_view(request):
     """Mark onboarding complete. Idempotent; teen delegated sessions are 403."""
-    if request_is_teen_delegated(request):
+    if is_teen_delegated(request):
         return Response({'detail': TEEN_DELEGATED_DETAIL}, status=403)
 
     account = request.user.user_account
@@ -108,7 +125,7 @@ def onboarding_complete_view(request):
 @permission_classes([IsAuthenticated])
 def onboarding_bootstrap_view(request):
     """Atomic wizard save: profile name, first bot, PIN and completion flag."""
-    if request_is_teen_delegated(request):
+    if is_teen_delegated(request):
         return Response({'detail': TEEN_DELEGATED_DETAIL}, status=403)
 
     data = request.data
@@ -121,6 +138,7 @@ def onboarding_bootstrap_view(request):
         system_prompt=data.get('systemPrompt'),
         color=data.get('color'),
         icon=data.get('icon'),
+        student_email=data.get('studentEmail'),
     )
     return Response({
         'response': 'ok',
@@ -129,6 +147,41 @@ def onboarding_bootstrap_view(request):
         'profileId': str(result['profile'].profile_id),
         'botId': str(result['bot'].bot_id),
     })
+
+
+@api_view(['DELETE'])
+def clear_pin(request):
+    """DELETE /api/user/pin — remove the parent PIN (opt out of PIN protection).
+
+    Body: {"currentPin": "1234"}. Always requires a valid parent reauth
+    session plus the current PIN when one is set, so a kid holding the
+    device cannot be the one to turn protection off. No-op success when no
+    PIN is set. After removal, parent mutations rely on the parent session
+    alone (see ParentReauthRequired).
+    """
+    account = getattr(request.user, 'user_account', None)
+
+    if is_teen_delegated(request):
+        return Response(
+            {'detail': 'Teen-delegated sessions cannot manage the parent PIN.'},
+            status=403,
+        )
+
+    if account is None or not account.pin_hash:
+        return Response({'response': 'ok'})
+
+    if not has_valid_parent_reauth(request):
+        return Response({'detail': 'Parent reauthentication required.'}, status=403)
+
+    current_pin = _coerce_legacy_pin(request.data.get('currentPin'))
+    if not verify_pin(account, current_pin or ''):
+        return Response({'detail': 'Current PIN is incorrect.'}, status=403)
+
+    account.pin_hash = None
+    reset_pin_failures(account)
+    account.save(update_fields=['pin_hash'])
+
+    return Response({'response': 'ok'})
 
 
 class DeleteUserAccountView(APIView):

@@ -12,16 +12,21 @@ import { useThemeColor } from "@/hooks/useThemeColor";
  */
 export function WizardStep({
   step,
+  total = 5,
   title,
   subtitle,
   children,
   onBack,
+  review = false,
 }: {
   step: number;
+  total?: number;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
   onBack?: () => void;
+  /** Review mode: re-walking the wizard to verify the current setup. */
+  review?: boolean;
 }) {
   const tintColor = useThemeColor({}, "tint");
   return (
@@ -35,7 +40,7 @@ export function WizardStep({
           <View style={styles.backSlot} />
         )}
         <ThemedText style={styles.stepLabel} type="defaultSemiBold">
-          Step {step} of 4
+          Step {step} of {total}
         </ThemedText>
         <View style={styles.backSlot} />
       </View>
@@ -44,6 +49,11 @@ export function WizardStep({
       </ThemedText>
       {subtitle ? (
         <ThemedText style={styles.subtitle}>{subtitle}</ThemedText>
+      ) : null}
+      {review ? (
+        <ThemedText style={styles.reviewBanner} testID="onboarding-review-banner">
+          Reviewing your current setup.
+        </ThemedText>
       ) : null}
       {children}
     </ThemedView>
@@ -80,5 +90,11 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: 8,
     marginBottom: 20,
+  },
+  reviewBanner: {
+    fontSize: 13,
+    textAlign: "center",
+    opacity: 0.7,
+    marginBottom: 8,
   },
 });

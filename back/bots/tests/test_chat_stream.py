@@ -5,7 +5,6 @@ responses, disconnect mid-stream saving partial text, the SSE endpoint framing,
 over_limit error events, and the legacy POST response gaining `events[]`.
 """
 import json
-import uuid
 from unittest.mock import patch
 
 import pytest
@@ -131,6 +130,15 @@ def auth_client(user):
     return client
 
 
+def delegated_client(teen_profile):
+    from bots.tokens import SyftRefreshToken
+    client = APIClient()
+    refresh = SyftRefreshToken.for_delegated_profile(
+        teen_profile.user, teen_profile)
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+    return client
+
+
 @pytest.mark.django_db
 def describe_agent_stream_generator():
     def it_emits_tokens_tool_events_then_done(chat):
@@ -165,7 +173,7 @@ def describe_agent_stream_generator():
     def it_persists_assistant_message_with_usage_and_creates_deck(chat):
         chat.messages.create(text="hello", role="user")
 
-        list(chat.stream_response(ai=ScriptedStreamClient(), message_id=uuid.uuid4()))
+        list(chat.stream_response(ai=ScriptedStreamClient()))
 
         assistant = [m for m in chat.messages.all() if m.role == "assistant"]
         assert len(assistant) == 1
@@ -312,3 +320,148 @@ def describe_legacy_post_with_events():
         assistant = [m for m in Chat.objects.get(chat_id=data["chat_id"]).messages.all()
                      if m.role == "assistant"]
         assert FINAL_TEXT in assistant[-1].text
+
+    def test_creates_user_message_exactly_once(user, profile, load_fixture):
+        """Regression: legacy POST must not double-write the user message
+        nor call get_response() twice (2x rows, 2x LLM cost)."""
+        with patch.object(chat_module, 'AiClientWrapper', FakeAiWrapper):
+            original = Chat.get_response
+            with patch.object(Chat, 'get_response', autospec=True,
+                              side_effect=lambda self, **kw: original(self, **kw)
+                              ) as get_response:
+                response = auth_client(user).post('/api/chats/new', {
+                    'message': 'Make me a deck about mitosis',
+                    'profile': str(profile.profile_id),
+                })
+
+        assert response.status_code == 200
+        assert get_response.call_count == 1
+        chat = Chat.objects.get(chat_id=response.json()["chat_id"])
+        assert chat.messages.filter(role='user').count() == 1
+
+
+@pytest.mark.django_db
+def describe_stream_delegation():
+    def test_teen_stream_ignores_sibling_profile(user, profile, load_fixture):
+        from bots.models.profile import Profile
+        sibling = Profile.objects.create(user=user, name='Sibling')
+        with patch.object(chat_module, 'AiClientWrapper', FakeAiWrapper):
+            response = delegated_client(profile).post('/api/chats/new/stream', {
+                'message': 'hi',
+                'profile': str(sibling.profile_id),
+            }, format='multipart')
+            raw = b"".join(response.streaming_content).decode()
+
+        assert response.status_code == 200
+        meta = parse_sse_frames(raw)[0][1]
+        chat = Chat.objects.get(chat_id=meta["chat_id"])
+        assert chat.profile_id == profile.id
+
+    def test_teen_stream_into_sibling_chat_is_404(user, profile, load_fixture):
+        from bots.models.profile import Profile
+        sibling = Profile.objects.create(user=user, name='Sibling')
+        sibling_chat = Chat.objects.create(
+            user=user, profile=sibling, title='sibling chat')
+        response = delegated_client(profile).post(
+            f'/api/chats/{sibling_chat.chat_id}/stream', {'message': 'hi'})
+        assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def describe_stream_output_filter():
+    def test_blocked_streamed_text_persisted_as_refusal(chat):
+        import bots.models.chat as chat_models
+        from bots.services.safety import SafetyVerdict, refusal_for_verdict
+        blocked = SafetyVerdict(True, "language", ("damn",))
+        real_evaluate = chat_models.evaluate_text
+
+        def evaluate(text, policy, source='INPUT'):
+            if source == 'OUTPUT':
+                return blocked
+            return real_evaluate(text, policy, source=source)
+
+        chat.messages.create(text="hello", role="user")
+        with patch.object(chat_models, 'evaluate_text', side_effect=evaluate):
+            events = list(chat.stream_response(ai=ScriptedStreamClient()))
+
+        # Raw tokens were already yielded, but history must hold the refusal.
+        assert any(e["type"] == "token" for e in events)
+        assistant = chat.messages.filter(role="assistant").get()
+        assert assistant.text == refusal_for_verdict(blocked)
+        assert FINAL_TEXT not in assistant.text
+
+
+@pytest.mark.django_db
+def describe_tool_end_on_error():
+    def test_failed_tool_carries_no_stale_deck_extras(chat):
+        """Regression: tool_end must not merge a previous success's
+        deck_id/name/card_count when this call errored."""
+        from langchain_core.messages import AIMessageChunk
+
+        from bots.services.chat_agent import ChatAgentService
+
+        chat.messages.create(text="hello", role="user")
+
+        class FailThenSucceedClient:
+            def __init__(self):
+                self.calls = 0
+
+            def bind_tools(self, tools):
+                return self
+
+            def stream(self, message_list):
+                self.calls += 1
+                if self.calls == 1:
+                    chunk = AIMessageChunk(
+                        content="",
+                        tool_calls=[{
+                            "name": "create_flashcard_deck",
+                            "args": {
+                                "name": "Good Deck",
+                                "flashcards": [{"front": "q", "back": "a"}],
+                                "description": "",
+                            },
+                            "id": "call-1",
+                            "type": "tool_call",
+                        }],
+                    )
+                else:
+                    chunk = AIMessageChunk(
+                        content="",
+                        tool_calls=[{
+                            "name": "create_flashcard_deck",
+                            "args": {"name": "x", "flashcards": [], "description": ""},
+                            "id": "call-2",
+                            "type": "tool_call",
+                        }],
+                    )
+                yield chunk
+
+            def invoke(self, message_list):
+                raise AssertionError("streaming path only")
+
+        service = ChatAgentService(chat, FailThenSucceedClient())
+        message_list, _ = chat.get_input()
+
+        # Force the second tool call to fail AFTER one success.
+        real_create = Deck.objects.create
+
+        def flaky_create(*args, **kwargs):
+            if service.client_events:
+                raise RuntimeError("boom")
+            return real_create(*args, **kwargs)
+
+        events = []
+        with patch.object(Deck.objects, 'create', side_effect=flaky_create):
+            gen = service.respond_events(message_list)
+            for event in gen:
+                events.append(event)
+                if len([e for e in events if e["type"] == "tool_end"]) == 2:
+                    break
+            gen.close()
+
+        tool_ends = [e for e in events if e["type"] == "tool_end"]
+        assert len(tool_ends) == 2
+        assert tool_ends[0].get("deck_id")
+        assert "deck_id" not in tool_ends[1]
+        assert "card_count" not in tool_ends[1]

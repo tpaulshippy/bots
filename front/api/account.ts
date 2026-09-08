@@ -1,5 +1,6 @@
 import { request, requestRaw } from './request';
 import type { ApiResponse } from './apiClient';
+import type { FieldErrorBody } from './fieldErrors';
 
 // Shape returned by GET /api/user (roadmap doc 02). The PIN itself is
 // hashed server-side and never sent to the client — only hasPin.
@@ -13,10 +14,11 @@ export interface Account {
     onboardingCompleted?: boolean;
 }
 
-export type PartialAccount = Partial<Account> & { pin: number };
+export type PartialAccount = Partial<Account> & { pin: string };
 
 export interface OnboardingBootstrapPayload {
     profileName: string;
+    studentEmail?: string;
     botName?: string;
     templateName?: string;
     pin?: string;
@@ -68,17 +70,37 @@ export const completeOnboarding = async (): Promise<void> => {
 };
 
 // Atomic wizard save: profile name, first bot, PIN and completion flag.
+// Returns the raw response (null only on transport failure) so the wizard
+// can surface field errors — e.g. a taken student email comes back as 400
+// with a `studentEmail` body — instead of sailing on as if it succeeded.
+// The data is a union because a non-2xx body is the field-error shape, not
+// the success shape; narrow (e.g. via `ok`) before reading success fields.
 export const bootstrapOnboarding = async (
     payload: OnboardingBootstrapPayload
-): Promise<OnboardingBootstrapResult | null> => {
-    return request<OnboardingBootstrapResult | null>('/onboarding/bootstrap', {
+): Promise<ApiResponse<OnboardingBootstrapResult | FieldErrorBody> | null> => {
+    return requestRaw<OnboardingBootstrapResult | FieldErrorBody>('/onboarding/bootstrap', {
         method: 'POST',
         body: JSON.stringify(payload),
-    }, null);
+    });
 };
 
 export const deleteAccount = async (): Promise<void> => {
     await request<void>('/user/delete', {
         method: 'DELETE',
     }, undefined);
+};
+
+/**
+ * Remove the parent PIN (DELETE /api/user/pin — opt out of PIN protection).
+ * Requires an active parent reauth session plus the current PIN.
+ * Returns the raw response so callers can distinguish 403 (wrong current
+ * PIN / expired reauth) from transport failures (null).
+ */
+export const removePin = async (
+    currentPin: string
+): Promise<ApiResponse<void> | null> => {
+    return requestRaw<void>('/user/pin', {
+        method: 'DELETE',
+        body: JSON.stringify({ currentPin }),
+    });
 };

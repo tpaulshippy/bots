@@ -5,6 +5,7 @@ from django.db import models
 
 from .bot import Bot
 from .chat import Chat
+from .message import Message
 from .profile import Profile
 
 
@@ -16,6 +17,9 @@ class SafetyEvent(models.Model):
     profile = models.ForeignKey(Profile, null=True, on_delete=models.SET_NULL)
     chat = models.ForeignKey(Chat, null=True, on_delete=models.SET_NULL)
     bot = models.ForeignKey(Bot, null=True, on_delete=models.SET_NULL)
+    # The blocked turn for input/output stages; null for tool/web stages
+    # (no single transcript message) and for pre-link rows.
+    message = models.ForeignKey(Message, null=True, on_delete=models.SET_NULL)
     # input|output|web_query|web_result|tool_flashcard
     stage = models.CharField(max_length=32)
     # adult_topic|language|global_floor|web_blocked

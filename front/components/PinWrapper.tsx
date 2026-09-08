@@ -9,6 +9,7 @@ import { AppState, Pressable, StyleSheet, View } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "./ThemedText";
 import { getTokens } from "@/api/tokens";
+import { refreshWithRefreshToken } from "@/api/apiClient";
 import {
   getParentSession,
   setParentSession,
@@ -35,6 +36,7 @@ export default function PinWrapper({ children, onUnlocked }: Props) {
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
+  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Re-lock when returning to the app if the parent session has expired.
@@ -48,6 +50,28 @@ export default function PinWrapper({ children, onUnlocked }: Props) {
     });
     return () => subscription.remove();
   }, []);
+
+  // Re-enable the keypad once the server-side lockout window passes so the
+  // UI doesn't stay permanently disabled after `lockedUntil`. Resets run
+  // inside a timer, never synchronously in the effect body
+  // (react-hooks/set-state-in-effect). An already-expired window clears on
+  // the next tick while keeping the message visible, matching the previous
+  // synchronous behavior.
+  useEffect(() => {
+    if (!locked || !lockedUntil) {
+      return;
+    }
+    const delay = new Date(lockedUntil).getTime() - Date.now();
+    const wait = Number.isFinite(delay) && delay > 0 ? delay : 0;
+    const timer = setTimeout(() => {
+      setLocked(false);
+      setLockedUntil(null);
+      if (wait > 0) {
+        setMessage(null);
+      }
+    }, wait);
+    return () => clearTimeout(timer);
+  }, [locked, lockedUntil]);
 
   const submitPin = useCallback(
     async (entered: string) => {
@@ -88,7 +112,6 @@ export default function PinWrapper({ children, onUnlocked }: Props) {
           result.status === 401 &&
           typeof result.data?.remainingAttempts !== "number"
         ) {
-          const { refreshWithRefreshToken } = await import("@/api/apiClient");
           try {
             await refreshWithRefreshToken(await getTokens());
           } catch {
@@ -109,11 +132,15 @@ export default function PinWrapper({ children, onUnlocked }: Props) {
 
         if (status === 423) {
           setLocked(true);
+          setLockedUntil(data?.lockedUntil ?? null);
           setMessage(data?.detail || "PIN locked. Try again later.");
           return;
         }
 
         if (typeof data?.remainingAttempts === "number") {
+          // A 401 with remaining attempts means any prior lockout expired.
+          setLocked(false);
+          setLockedUntil(null);
           const attempts = data.remainingAttempts;
           setMessage(
             attempts > 0

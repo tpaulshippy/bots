@@ -1,122 +1,80 @@
-import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Switch,
-  View,
-} from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as Sentry from "@sentry/react-native";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { ThemedView } from "@/components/ThemedView";
-import {
-  bootstrapOnboarding,
-  completeOnboarding,
-} from "@/api/account";
-import { fetchBots } from "@/api/bots";
-import { fetchProfiles } from "@/api/profiles";
-import { setSelectedProfile } from "@/hooks/useSelectedProfile";
-import { registerForPushNotificationsAsync } from "../parent/notifications";
 import { WizardStep } from "./WizardStep";
+
+const PIN_PATTERN = /^\d{4,8}$/;
 
 export default function OnboardingProtect() {
   const router = useRouter();
   const local = useLocalSearchParams<{
     profileName?: string;
+    studentEmail?: string;
     botName?: string;
     templateName?: string;
     systemPrompt?: string;
     color?: string;
     icon?: string;
+    review?: string;
   }>();
+  const isReview = local.review === "true";
 
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [saving, setSaving] = useState(false);
 
-  // Never let a notification-registration hiccup block finishing setup.
-  useEffect(() => {
-    if (!notificationsEnabled) {
+  // PIN is optional (PIN-less accounts are supported): leaving both fields
+  // empty continues without a PIN. A half-filled PIN must match and be valid.
+  // The PIN travels to the final step, which saves the whole wizard at once.
+  const pinEmpty = pin.length === 0 && pinConfirm.length === 0;
+  const pinValid = PIN_PATTERN.test(pin) && pin === pinConfirm;
+  const pinError =
+    !pinEmpty && !pinValid
+      ? !PIN_PATTERN.test(pin) && pin.length > 0
+        ? "PIN must be 4 to 8 digits."
+        : "PINs don't match yet."
+      : null;
+  const canContinue = pinEmpty || pinValid;
+
+  const continueToNotifications = () => {
+    if (!canContinue) {
       return;
     }
-    registerForPushNotificationsAsync().catch((error) => {
-      Sentry.captureException?.(error);
-    });
-  }, [notificationsEnabled]);
-
-  const pinsMatch = pin.length > 0 && pin === pinConfirm;
-
-  const finish = async () => {
-    if (!pinsMatch || saving) {
-      return;
-    }
-    setSaving(true);
-    try {
-      const result = await bootstrapOnboarding({
+    router.push({
+      pathname: "/onboarding/notifications",
+      params: {
         profileName: local.profileName ?? "",
-        botName: local.botName || undefined,
-        templateName: local.templateName || undefined,
-        systemPrompt: local.systemPrompt || undefined,
-        color: local.color || undefined,
-        icon: local.icon || undefined,
-        pin,
-      });
-
-      // Select exactly the renamed default profile and first bot so the very
-      // first chat needs no further setup (fixes "Please select a profile
-      // first"). Listings are name-ordered, so match by id when we have one.
-      const profiles = await fetchProfiles();
-      const profilesList = profiles?.results ?? [];
-      const profile =
-        (result?.profileId &&
-          profilesList.find((p) => p.profile_id === result.profileId)) ||
-        profilesList[0];
-      if (profile) {
-        await setSelectedProfile(profile);
-      }
-      const bots = await fetchBots();
-      const botsList = bots?.results ?? [];
-      const bot =
-        (result?.botId && botsList.find((b) => b.bot_id === result.botId)) ||
-        botsList[0];
-      if (bot) {
-        await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
-      }
-
-      await completeOnboarding();
-
-      router.replace("/chat");
-    } catch (error) {
-      Sentry.captureException?.(error);
-      setSaving(false);
-      Alert.alert(
-        "Something went wrong",
-        "We couldn't save your setup. Please try again."
-      );
-    }
+        ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
+        ...(local.botName ? { botName: local.botName } : {}),
+        ...(local.templateName ? { templateName: local.templateName } : {}),
+        ...(local.systemPrompt ? { systemPrompt: local.systemPrompt } : {}),
+        ...(local.color ? { color: local.color } : {}),
+        ...(local.icon ? { icon: local.icon } : {}),
+        ...(pinValid ? { pin } : {}),
+        ...(isReview ? { review: "true" } : {}),
+      },
+    });
   };
 
   return (
     <WizardStep
       step={4}
-      title="Keep settings grown-up only"
-      subtitle="Your PIN guards profiles, bots and billing."
-      onBack={saving ? undefined : () => router.back()}
+      title="Keep settings parent-only"
+      subtitle="Optional — skip to leave parent controls unprotected."
+      onBack={() => router.back()}
+      review={isReview}
     >
       <View style={styles.formGroup}>
-        <ThemedText style={styles.label}>Create PIN</ThemedText>
+        <ThemedText style={styles.label}>Create PIN (optional)</ThemedText>
         <ThemedTextInput
           testID="onboarding-pin-input"
           keyboardType="numeric"
           secureTextEntry
           value={pin}
           onChangeText={setPin}
-          placeholder="Enter new pin"
+          placeholder="4–8 digits"
           maxLength={8}
           style={styles.input}
         />
@@ -129,41 +87,29 @@ export default function OnboardingProtect() {
           secureTextEntry
           value={pinConfirm}
           onChangeText={setPinConfirm}
-          placeholder="Re-enter pin"
+          placeholder="Re-enter PIN"
           maxLength={8}
-          style={[styles.input, pinConfirm.length > 0 && !pinsMatch && styles.missing]}
+          style={[styles.input, pinError && styles.missing]}
         />
-        {pinConfirm.length > 0 && !pinsMatch ? (
-          <ThemedText style={styles.hint}>PINs don&apos;t match yet.</ThemedText>
+        {pinError ? (
+          <ThemedText style={styles.hint}>{pinError}</ThemedText>
+        ) : pinEmpty ? (
+          <ThemedText style={styles.hint} testID="onboarding-pinless-hint">
+            No PIN means anyone with this device can open parent settings.
+            You can add a PIN anytime in Settings → Set PIN.
+          </ThemedText>
         ) : null}
       </View>
-      <ThemedView style={styles.notificationsRow}>
-        <ThemedText style={styles.notificationsLabel}>
-          Notify me when my kid starts a chat
+      <ThemedButton
+        testID="onboarding-pin-continue"
+        style={[styles.cta, !canContinue && styles.ctaDisabled]}
+        disabled={!canContinue}
+        onPress={continueToNotifications}
+      >
+        <ThemedText lightColor="#fff" darkColor="#fff" style={styles.ctaText}>
+          {pinEmpty ? "Continue without a PIN" : "Continue"}
         </ThemedText>
-        <Switch
-          testID="onboarding-notifications-switch"
-          value={notificationsEnabled}
-          onValueChange={setNotificationsEnabled}
-        />
-      </ThemedView>
-      <ThemedText style={styles.optionalNote}>
-        Optional — you can turn this on anytime in Settings.
-      </ThemedText>
-      {saving ? (
-        <ActivityIndicator style={styles.saving} />
-      ) : (
-        <ThemedButton
-          testID="onboarding-finish"
-          style={[styles.cta, !pinsMatch && styles.ctaDisabled]}
-          disabled={!pinsMatch}
-          onPress={finish}
-        >
-          <ThemedText lightColor="#fff" darkColor="#fff" style={styles.ctaText}>
-            Finish
-          </ThemedText>
-        </ThemedButton>
-      )}
+      </ThemedButton>
     </WizardStep>
   );
 }
@@ -194,29 +140,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     opacity: 0.7,
     marginTop: 6,
-  },
-  notificationsRow: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 20,
-  },
-  notificationsLabel: {
-    flex: 1,
-    fontSize: 15,
-    marginRight: 10,
-  },
-  optionalNote: {
-    fontSize: 12,
-    opacity: 0.6,
-    marginTop: 6,
-  },
-  saving: {
-    marginTop: "auto",
-    marginBottom: 24,
   },
   cta: {
     borderRadius: 14,

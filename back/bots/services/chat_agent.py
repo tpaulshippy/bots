@@ -115,13 +115,17 @@ class ChatAgentService:
 
                 yield {"type": "tool_start", "tool": tool_name, "args": tool_args or {}}
 
+                events_before = len(self.client_events)
                 tool_result = self._execute_tool(tool_name, tool_args, tools, has_web_search)
                 logger.info(f"🔍 AGENT_TOOL_RESULT: {tool_result[:100]}")
 
                 tool_end = {"type": "tool_end", "tool": tool_name}
-                # Flatten extras from the recorded client_event (deck_id, name,
-                # card_count, result_preview, ...) onto the tool_end payload.
-                for event in reversed(self.client_events):
+                # Flatten extras from the client_event recorded BY THIS CALL
+                # (deck_id, name, card_count, result_preview, ...) onto the
+                # tool_end payload. Snapshotting the event count first avoids
+                # merging a previous success's extras when this call errored
+                # or was blocked (no new event recorded).
+                for event in reversed(self.client_events[events_before:]):
                     if event.get("tool") == tool_name:
                         tool_end.update({k: v for k, v in event.items() if k != "tool"})
                         break

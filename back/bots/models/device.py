@@ -14,11 +14,13 @@ class Notification:
         self.data = data
         
 
+
 class NotificationClient:
     def notify(self, notification):
         payload = notification.__dict__
-        requests.post('https://exp.host/--/api/v2/push/send', json=payload)
-        
+        requests.post(
+            'https://exp.host/--/api/v2/push/send', json=payload, timeout=10
+        )
     
 class Device(models.Model):
     user = models.ForeignKey(
@@ -49,10 +51,18 @@ class Device(models.Model):
         if self.notify_digest_only:
             return
         if self.notify_on_new_chat and chat.user == self.user:
+            if chat.profile:
+                from_name = chat.profile.name or "Someone"
+            else:
+                from_name = (self.user.first_name if self.user else "") or "Someone"
+            if chat.bot:
+                to_name = chat.bot.name
+            else:
+                to_name = "unknown"
             NotificationClient().notify(Notification(
                 to=self.notification_token,
                 sound='default',
-                title=f"{chat.profile.name} started a conversation with {chat.bot.name}",
+                title=f"{from_name} started a conversation with {to_name}",
                 body=chat.title,
                 data={'chat_id': str(chat.chat_id), 'target': 'chat'}
             ))

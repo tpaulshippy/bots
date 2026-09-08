@@ -2,7 +2,7 @@
 
 Creates 'e2e-test-user' / 'testpassword123' with:
 - the signup-signal default profile ('Jordan') and Penelope bot, so wizard
-  step 2 has a name to pre-fill and step 3 a bot to rename,
+  step 3 has a bot to rename,
 - no PIN and no onboarding flag, so the app gates to /onboarding,
 - a second profile ('Maya') so the profile switcher has something to switch to.
 
@@ -58,7 +58,8 @@ class Command(BaseCommand):
         self.stdout.write(f'Profiles: [{FIRST_NAME}, {SECOND_PROFILE_NAME}]')
 
         # Fresh onboarding state on every run.
-        account = user.user_account
+        from bots.models import UserAccount
+        account, _ = UserAccount.objects.get_or_create(user=user)
         account.pin_hash = None
         account.pin_failed_attempts = 0
         account.pin_locked_until = None

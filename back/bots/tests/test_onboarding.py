@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from bots.models import Bot, Profile
+from bots.models import Bot, Chat, Message, Profile
 from bots.services.parent_reauth import hash_pin, verify_pin
 
 
@@ -78,6 +78,39 @@ class TestOnboardingFlag:
         response = make_auth_client(user).get('/api/user')
 
         assert response.json()['onboardingCompleted'] is False
+
+    def test_heuristic_passes_for_pinless_account_with_chats(self, load_ai_models):
+        """PIN-less established accounts never see the wizard either: a
+        profile plus any user-sent message counts as done. (The seeded
+        welcome chat holds only the assistant greeting.)"""
+        user = User.objects.create_user(username='pinless', password='pass')
+        chat = Chat.objects.filter(user=user).first()
+        Message.objects.create(chat=chat, role='user', text='help!', order=1)
+
+        response = make_auth_client(user).get('/api/user')
+
+        assert response.json()['onboardingCompleted'] is True
+
+    def test_heuristic_fails_for_pinless_account_without_chats(self, load_ai_models):
+        """A fresh PIN-less account (signal defaults only) still gates."""
+        user = User.objects.create_user(username='freshpinless', password='pass')
+
+        response = make_auth_client(user).get('/api/user')
+
+        assert response.json()['onboardingCompleted'] is False
+
+    def test_backfill_marks_pre_wizard_accounts_complete(self, load_ai_models):
+        import importlib
+        migration = importlib.import_module(
+            'bots.migrations.0048_backfill_onboarding_completed_at')
+        from django.apps import apps
+        user = User.objects.create_user(username='backfill', password='pass')
+        assert user.user_account.onboarding_completed_at is None
+
+        migration.backfill_onboarding_completed(apps, None)
+
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is not None
 
     def test_complete_requires_authentication(self):
         assert APIClient().post('/api/user/onboarding/complete').status_code == 401
@@ -195,13 +228,117 @@ class TestOnboardingBootstrap:
 
     def test_invalid_pin_returns_400(self, load_ai_models):
         user = User.objects.create_user(username='badpin', password='pass')
+        original_name = Profile.objects.get(user=user).name
+        original_bot_name = Bot.objects.get(user=user).name
 
         response = make_auth_client(user).post(
-            '/api/onboarding/bootstrap', self.payload(pin='abcd'), format='json')
+            '/api/onboarding/bootstrap',
+            self.payload(pin='abcd', profileName='Changed', botName='ChangedBot'),
+            format='json')
 
         assert response.status_code == 400
         user.user_account.refresh_from_db()
         assert user.user_account.pin_hash is None
+        assert user.user_account.onboarding_completed_at is None
+        # Invalid PIN must not leave half-applied renames behind.
+        assert Profile.objects.get(user=user).name == original_name
+        assert Bot.objects.get(user=user).name == original_bot_name
+        assert Profile.objects.filter(user=user, deleted_at=None).count() == 1
+
+    def test_pinless_bootstrap_completes_without_pin(self, load_ai_models):
+        user = User.objects.create_user(username='nopin', password='pass')
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap', self.payload(pin=''), format='json')
+
+        assert response.status_code == 200
+        assert response.json()['onboardingCompleted'] is True
+        user.user_account.refresh_from_db()
+        assert user.user_account.pin_hash is None
+        assert user.user_account.onboarding_completed_at is not None
+        assert Profile.objects.get(user=user).name == 'Maya'
+
+    def test_blank_profile_name_returns_400_without_side_effects(self, load_ai_models):
+        user = User.objects.create_user(username='blankname', password='pass')
+        original_name = Profile.objects.get(user=user).name
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap', self.payload(profileName='   '), format='json')
+
+        assert response.status_code == 400
+        assert Profile.objects.get(user=user).name == original_name
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is None
+
+    def test_missing_name_with_no_default_profile_returns_400(self, load_ai_models):
+        # Deleted default + omitted name must not create a blank profile.
+        user = User.objects.create_user(username='noname', password='pass')
+        Profile.objects.filter(user=user).delete()
+        body = self.payload()
+        del body['profileName']
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap', body, format='json')
+
+        assert response.status_code == 400
+        assert Profile.objects.filter(user=user, deleted_at=None).count() == 0
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is None
+
+    def test_recreate_with_taken_email_returns_400(self, load_ai_models):
+        # Deleted default + already-bound studentEmail must 400, not 500.
+        other = User.objects.create_user(username='emailowner', password='pass')
+        Profile.objects.filter(user=other).update(oauth_email='taken@school.edu')
+        user = User.objects.create_user(username='dupemail', password='pass')
+        Profile.objects.filter(user=user).delete()
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(studentEmail='taken@school.edu'), format='json')
+
+        assert response.status_code == 400
+        assert Profile.objects.filter(user=user, deleted_at=None).count() == 0
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is None
+
+    def test_create_branches_keep_appearance(self, load_ai_models):
+        user = User.objects.create_user(username='newlook', password='pass')
+        Bot.objects.filter(user=user).delete()
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(color='#E63946', icon='dragon'),
+            format='json')
+
+        assert response.status_code == 200
+        bot = Bot.objects.get(user=user)
+        assert bot.color == '#E63946'
+        assert bot.icon == 'dragon'
+
+    def test_student_email_binds_profile_for_teen_login(self, load_ai_models):
+        user = User.objects.create_user(username='student', password='pass')
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(studentEmail='Maya@School.edu'),
+            format='json')
+
+        assert response.status_code == 200
+        assert Profile.objects.get(user=user).oauth_email == 'maya@school.edu'
+
+    def test_invalid_student_email_returns_400_without_side_effects(self, load_ai_models):
+        user = User.objects.create_user(username='bademail', password='pass')
+        original_name = Profile.objects.get(user=user).name
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(studentEmail='not-an-email'),
+            format='json')
+
+        assert response.status_code == 400
+        assert Profile.objects.get(user=user).name == original_name
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is None
 
     def test_teen_delegated_session_is_403(self, load_ai_models):
         user = User.objects.create_user(username='delegated', password='pass')

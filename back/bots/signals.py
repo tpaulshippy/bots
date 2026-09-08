@@ -1,12 +1,14 @@
+import logging
+
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from .models import AiModel, Bot, Chat, Message, Profile, UserAccount
 
-PENELOPE_SYSTEM_PROMPT = "Your name is Penelope. You are an expert in writing, guiding students through various writing topics. Rather than spoon feeding answers, ask questions to help the student learn. Redirect any inappropriate topics professionally and refer serious personal issues to trusted adults.\nPlease respond in less than 200 words.\nAlways avoid using foul language.\nAlways avoid discussing adult topics."
-
 PENELOPE_GREETING = "Hello! I'm Penelope, your writing assistant. How can I help you with writing today?"
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=User)
@@ -36,7 +38,7 @@ def provision_default_content(user):
             ai_model=default_model,
             name="Penelope",
             template_name="Blank",
-            system_prompt=PENELOPE_SYSTEM_PROMPT
+            system_prompt=""
         )
 
     if not Chat.objects.filter(user=user).exists():
@@ -46,19 +48,24 @@ def provision_default_content(user):
             bot=bot,
             title="Can you help with writing?"
         )
-        Message.objects.create(chat=chat, role="system", text=PENELOPE_SYSTEM_PROMPT, order=0)
-        Message.objects.create(chat=chat, role="assistant", text=PENELOPE_GREETING, order=1)
+        Message.objects.create(chat=chat, role="assistant", text=PENELOPE_GREETING, order=0)
 
 @receiver(post_save, sender=Chat)
 def notify_chat(sender, instance, created, **kwargs):
     if created and instance.user is not None:
-        devices = instance.user.devices.all()
+        devices = instance.user.devices.filter(deleted_at=None)
         for device in devices:
-            device.notify_chat(instance)
+            try:
+                device.notify_chat(instance)
+            except Exception:
+                logger.exception("Chat push failed for device %s; skipping", device.device_id)
 
 @receiver(post_save, sender=Message)
 def notify_message(sender, instance, created, **kwargs):
     if created and instance.chat is not None and instance.chat.user is not None:
-        devices = instance.chat.user.devices.all()
+        devices = instance.chat.user.devices.filter(deleted_at=None)
         for device in devices:
-            device.notify_message(instance)
+            try:
+                device.notify_message(instance)
+            except Exception:
+                logger.exception("Message push failed for device %s; skipping", device.device_id)
