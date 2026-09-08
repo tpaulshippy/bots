@@ -57,7 +57,7 @@ describe('ProfilesList', () => {
     await waitFor(() => expect(screen.getByText('Maya')).toBeTruthy());
     expect(
       screen.getByText(
-        'Tap to select a profile. Long-press or tap the pencil to edit.'
+        'Tap to select. Long-press or tap ✎ to edit.'
       )
     ).toBeTruthy();
   });

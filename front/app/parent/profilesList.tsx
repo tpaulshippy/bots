@@ -1,4 +1,4 @@
-import { FlatList, StyleSheet, Pressable } from "react-native";
+import { FlatList, StyleSheet, Pressable, View } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 
@@ -117,14 +117,18 @@ export default function ProfilesList() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText style={styles.hint}>
-        Tap to select a profile. Long-press or tap the pencil to edit.
+      <ThemedText
+        style={styles.hint}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        Tap to select. Long-press or tap ✎ to edit.
       </ThemedText>
       <FlatList
         numColumns={2}
         data={profiles}
         renderItem={({ item }) => (
-          <ThemedView
+          <View
             key={item.profile_id}
             style={[
               profiles.length > 1 ? { width: "46%" } : { width: "65%" },
@@ -159,11 +163,11 @@ export default function ProfilesList() {
           >
             <IconSymbol
               name="pencil"
-              color={tintColor}
-              size={20}
+              color="#fff"
+              size={14}
             ></IconSymbol>
           </Pressable>
-          </ThemedView>
+          </View>
         )}
       >
         
@@ -198,18 +202,25 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     margin: 5,
+    position: "relative",
   },
   editButton: {
     position: "absolute",
-    top: 2,
-    right: 2,
-    padding: 6,
+    top: 8,
+    right: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   hint: {
     fontSize: 13,
     opacity: 0.7,
     textAlign: "center",
     marginBottom: 8,
+    paddingHorizontal: 16,
   },
   profileText: {
     fontSize: 24,
