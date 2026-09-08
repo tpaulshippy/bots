@@ -20,6 +20,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 import {
   getSelectedProfile,
   setSelectedProfile as storeSelectedProfile,
+  subscribeToSelectedProfile,
 } from "@/hooks/useSelectedProfile";
 
 /**
@@ -65,6 +66,11 @@ export function ProfileSwitcher() {
       active = false;
     };
   }, [refreshSelected, visible]);
+
+  // A second instance lives in the menu drawer with its own state: when a
+  // switch happens in the header (or anywhere else), re-read storage so
+  // every chip shows the new kid without needing a tap to refresh.
+  useEffect(() => subscribeToSelectedProfile(() => refreshSelected()), [refreshSelected]);
 
   const openSwitcher = async () => {
     if (readOnly) {
