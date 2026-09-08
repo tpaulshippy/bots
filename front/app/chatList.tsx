@@ -13,11 +13,11 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import * as Haptics from "expo-haptics";
 import { formatDistance, format } from "date-fns";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import { fetchChats, Chat } from "@/api/chats";
-import { getSelectedProfileId, handleUnauthorized } from "@/hooks/useSelectedProfile";
+import { getSelectedProfileId, handleUnauthorized, subscribeToSelectedProfile } from "@/hooks/useSelectedProfile";
 import { botColor, botIcon } from "@/constants/botAppearance";
 
 type ChatsByDay = {
@@ -109,6 +109,11 @@ export default function ChatList() {
     setChats({});
     void refresh(1);
   }, [refresh]);
+
+  // ProfileSwitcher lives in the header: switching profiles doesn't
+  // blur/focus this screen, so useFocusEffect alone keeps showing the
+  // previous kid's chats. Resubscribe on profile change.
+  useEffect(() => subscribeToSelectedProfile(() => resetRefresh()), [resetRefresh]);
 
   useFocusEffect(
     useCallback(() => {

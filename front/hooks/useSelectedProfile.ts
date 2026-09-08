@@ -22,6 +22,29 @@ export const getSelectedProfileId = async () => {
   return null;
 };
 
+type SelectedProfileListener = (profileId: string | null) => void;
+
+const selectedProfileListeners = new Set<SelectedProfileListener>();
+
+export const subscribeToSelectedProfile = (
+  listener: SelectedProfileListener
+): (() => void) => {
+  selectedProfileListeners.add(listener);
+  return () => {
+    selectedProfileListeners.delete(listener);
+  };
+};
+
+const notifySelectedProfile = (profileId: string | null) => {
+  selectedProfileListeners.forEach((listener) => {
+    try {
+      listener(profileId);
+    } catch {
+      // A failing subscriber must not break profile switching.
+    }
+  });
+};
+
 /**
  * Store the selected profile. Teen-delegated sessions are locked to their
  * claimed profile: attempts to select anything else are ignored, and
@@ -40,6 +63,12 @@ export const setSelectedProfile = async (profile: unknown) => {
   } else {
     await AsyncStorage.removeItem("selectedProfile");
   }
+  const nextId =
+    profile && typeof profile === "object"
+      ? ((profile as { profile_id?: unknown }).profile_id as string | null) ??
+        null
+      : null;
+  notifySelectedProfile(nextId);
 };
 
 export const getSelectedBotId = async () => {
