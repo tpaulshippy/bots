@@ -125,7 +125,7 @@ export default function OnboardingBot() {
   return (
     <WizardStep
       step={3}
-      title="Create a tutor"
+      title="Create a bot"
       subtitle="Pick a starting point — you can change everything later."
       onBack={() => router.back()}
       review={isReview}
@@ -150,7 +150,7 @@ export default function OnboardingBot() {
         )}
       />
       <View style={styles.formGroup}>
-        <ThemedText style={styles.label}>Tutor name</ThemedText>
+        <ThemedText style={styles.label}>Bot name</ThemedText>
         <ThemedTextInput
           testID="onboarding-bot-name-input"
           value={botName}

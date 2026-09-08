@@ -138,7 +138,7 @@ const LoginScreen = () => {
       )}
 
       <ThemedText style={[styles.tagline, { color: textColor }]}>
-        Safe AI tutors for your kids
+        Safe AI bots for your students
       </ThemedText>
 
       <ThemedView style={styles.mainContent}>

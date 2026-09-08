@@ -175,13 +175,13 @@ export default function OnboardingNotifications() {
     <WizardStep
       step={5}
       title="Stay in the loop"
-      subtitle="Choose how you hear about your kid's chats."
+      subtitle="Choose how you hear about your student's chats."
       onBack={saving ? undefined : () => router.back()}
       review={isReview}
     >
       <ThemedView style={styles.notificationsRow}>
         <ThemedText style={styles.notificationsLabel}>
-          Notify me when my kid starts a chat
+          Notify me when my student starts a chat
         </ThemedText>
         <Switch
           testID="onboarding-notifications-switch"

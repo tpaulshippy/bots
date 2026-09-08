@@ -93,7 +93,7 @@ export default function OnboardingProfile() {
         <ThemedText style={styles.hint}>Enter a valid email address.</ThemedText>
       ) : (
         <ThemedText style={styles.optionalNote}>
-          Optional — lets your child log in as themselves. You can also add
+          Optional — lets your student log in as themselves. You can also add
           it later in Profiles.
         </ThemedText>
       )}

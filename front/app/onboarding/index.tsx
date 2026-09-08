@@ -25,7 +25,7 @@ export default function OnboardingWelcome() {
           Syft is AI tutoring you control.
         </ThemedText>
         <ThemedText style={styles.detail}>
-          Set up your child&apos;s profile and first tutor in under three
+          Set up your student&apos;s profile and first bot in under three
           minutes. Free to start.
         </ThemedText>
         {isReview ? (

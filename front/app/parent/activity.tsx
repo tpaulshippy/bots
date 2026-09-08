@@ -240,7 +240,7 @@ export default function ActivityScreen() {
                   <IconSymbol name="text.bubble" size={48} color={secondaryColor} />
                   <ThemedText style={styles.emptyTitle}>No chats yet</ThemedText>
                   <ThemedText style={[styles.emptyHint, { color: secondaryColor }]}>
-                    Conversations your kids have will appear here
+                    Conversations your students have will appear here
                   </ThemedText>
                 </ThemedView>
               }

@@ -91,7 +91,7 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
         </ThemedText>
         {loaded && bots.length === 0 ? (
           <ThemedView style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyText}>No tutors yet</ThemedText>
+            <ThemedText style={styles.emptyText}>No bots yet</ThemedText>
             <ThemedButton
               testID="create-first-tutor"
               darkColor="#0a7ea4"
@@ -99,7 +99,7 @@ export default function SelectBot({ setBotSelected, skipAutoSelect }: Props) {
               onPress={() => router.push("/parent/botEditor")}
             >
               <ThemedText lightColor="#fff" darkColor="#fff" style={styles.emptyCtaText}>
-                Create a tutor
+                Create a bot
               </ThemedText>
             </ThemedButton>
           </ThemedView>

@@ -160,7 +160,7 @@ export default function ProfileEditor() {
             />
           </ThemedView>
           <ThemedView style={styles.formGroup}>
-            <ThemedText style={styles.label}>Teen sign-in email</ThemedText>
+            <ThemedText style={styles.label}>Student sign-in email</ThemedText>
             <ThemedTextInput
               testID="teen-signin-email-input"
               keyboardType="email-address"
@@ -182,7 +182,7 @@ export default function ProfileEditor() {
               </ThemedText>
             ) : null}
             <ThemedText style={styles.helpText}>
-              Your child can sign in with this Google or Apple email on their
+              Your student can sign in with this Google or Apple email on their
               own device. They will only see their chats and flashcards — not
               Settings, bots, or billing.
             </ThemedText>
@@ -198,7 +198,7 @@ export default function ProfileEditor() {
                   size={20}
                   style={styles.buttonIcon}
                 ></IconSymbol>
-                <ThemedText>Remove teen sign-in</ThemedText>
+                <ThemedText>Remove student sign-in</ThemedText>
               </Pressable>
             ) : null}
           </ThemedView>

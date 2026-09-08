@@ -151,7 +151,7 @@ describe('Teen delegated login (roadmap 01)', () => {
     await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(3000);
   });
 
-  it('parent binds a teen sign-in email from the profile editor', async () => {
+  it('parent binds a student sign-in email from the profile editor', async () => {
     // Navigate: drawer -> Settings -> Profiles -> long-press Maya's card.
     await openDrawer();
     await element(by.id('drawer-item-settings')).tap();
