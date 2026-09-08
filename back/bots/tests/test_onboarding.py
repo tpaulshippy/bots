@@ -252,6 +252,22 @@ class TestOnboardingBootstrap:
         user.user_account.refresh_from_db()
         assert user.user_account.onboarding_completed_at is None
 
+    def test_recreate_with_taken_email_returns_400(self, load_ai_models):
+        # Deleted default + already-bound studentEmail must 400, not 500.
+        other = User.objects.create_user(username='emailowner', password='pass')
+        Profile.objects.filter(user=other).update(oauth_email='taken@school.edu')
+        user = User.objects.create_user(username='dupemail', password='pass')
+        Profile.objects.filter(user=user).delete()
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(studentEmail='taken@school.edu'), format='json')
+
+        assert response.status_code == 400
+        assert Profile.objects.filter(user=user, deleted_at=None).count() == 0
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is None
+
     def test_create_branches_keep_appearance(self, load_ai_models):
         user = User.objects.create_user(username='newlook', password='pass')
         Bot.objects.filter(user=user).delete()

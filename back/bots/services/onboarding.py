@@ -101,11 +101,15 @@ def bootstrap_onboarding(user,
         if not cleaned_name:
             raise ValidationError(
                 {'profileName': 'Profile name must not be blank.'})
-        profile = Profile.objects.create(
-            user=user,
-            name=cleaned_name,
-            oauth_email=cleaned_email,
-        )
+        try:
+            profile = Profile.objects.create(
+                user=user,
+                name=cleaned_name,
+                oauth_email=cleaned_email,
+            )
+        except IntegrityError:
+            raise ValidationError(
+                {'studentEmail': 'That email is already used by another profile.'})
     else:
         changed = False
         if cleaned_name:
