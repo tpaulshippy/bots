@@ -13,20 +13,13 @@ import {
   useRouter,
 } from "expo-router";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import {
-  getSelectedProfile,
-  setSelectedProfile as storeSelectedProfile,
-} from "@/hooks/useSelectedProfile";
-import * as Sentry from "@sentry/react-native";
 
 export default function ProfilesList() {
   const navigation = useNavigation();
   const router = useRouter();
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const tintColor = useThemeColor({}, "tint");
   const bgColor = useThemeColor({}, "cardBackground");
-  const bgColorSelected = useThemeColor({}, "cardBackgroundSelected");
   const refresh = async () => {
     fetchProfiles().then((data) => {
       if (!data) {
@@ -34,18 +27,6 @@ export default function ProfilesList() {
       }
       setProfiles(data.results);
     });
-    const loadSelectedProfile = async () => {
-      try {
-        const profile = await getSelectedProfile();
-        if (profile) {
-          setSelectedProfile(profile);
-        }
-      } catch (error) {
-        Sentry.captureException(error);
-      }
-    };
-
-    loadSelectedProfile();
   };
 
   useEffect(() => {
@@ -96,24 +77,7 @@ export default function ProfilesList() {
       // Add a soft haptic feedback when pressing down on the tabs.
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    try {
-      if (
-        selectedProfile &&
-        selectedProfile.profile_id === profile.profile_id
-      ) {
-        setSelectedProfile(null);
-        await storeSelectedProfile(null);
-        return;
-      } else {
-        setSelectedProfile(profile);
-        await storeSelectedProfile(profile);
-        // Pop just this screen; the old double router.back() also closed
-        // whatever screen opened Profiles (e.g. Settings).
-        router.dismiss();
-      }
-    } catch (error) {
-      Sentry.captureException(error);
-    }
+    editProfile(profile);
   };
 
   return (
@@ -123,14 +87,12 @@ export default function ProfilesList() {
         numberOfLines={1}
         adjustsFontSizeToFit
       >
-        Select a profile to chat, or edit its details.
+        Tap a profile to edit its details.
       </ThemedText>
       <FlatList
         numColumns={2}
         data={profiles}
-        renderItem={({ item }) => {
-          const isSelected = selectedProfile?.profile_id === item.profile_id;
-          return (
+        renderItem={({ item }) => (
           <View
             key={item.profile_id}
             style={[
@@ -140,61 +102,28 @@ export default function ProfilesList() {
           >
             <Pressable
             testID={`profile-card-${item.name}`}
+            accessibilityLabel={`Edit ${item.name}`}
+            accessibilityRole="button"
             style={[
               styles.profileCard,
-              isSelected ?
-                { backgroundColor: bgColorSelected } : { backgroundColor: bgColor },
+              { backgroundColor: bgColor },
             ]}
             onPress={() => handleProfilePress(item)}
           >
             {item.photo_url ? (
-              <ProfileAvatar profile={item} size={80} style={styles.profilePhoto} />
+              <ProfileAvatar profile={item} size={96} style={styles.profilePhoto} />
             ) : (
               <IconSymbol
                 name="person.fill"
                 color="#555"
-                size={80}
+                size={96}
                 style={styles.profileIcon}
               ></IconSymbol>
             )}
             <ThemedText style={styles.profileText}>{item.name}</ThemedText>
           </Pressable>
-          <View style={styles.actionRow}>
-            <Pressable
-              testID={`profile-select-${item.name}`}
-              accessibilityLabel={`Select ${item.name}`}
-              accessibilityRole="button"
-              hitSlop={12}
-              style={[
-                styles.actionButton,
-                isSelected && { backgroundColor: tintColor },
-              ]}
-              onPress={() => handleProfilePress(item)}
-            >
-              <IconSymbol
-                name="checkmark"
-                color={isSelected ? "#fff" : tintColor}
-                size={18}
-              ></IconSymbol>
-            </Pressable>
-            <Pressable
-              testID={`profile-edit-${item.name}`}
-              accessibilityLabel={`Edit ${item.name}`}
-              accessibilityRole="button"
-              hitSlop={12}
-              style={styles.actionButton}
-              onPress={() => editProfile(item)}
-            >
-              <IconSymbol
-                name="pencil"
-                color={tintColor}
-                size={18}
-              ></IconSymbol>
-            </Pressable>
           </View>
-          </View>
-          );
-        }}
+        )}
       >
         
       </FlatList>      
@@ -222,28 +151,14 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     width: "100%",
-    height: 100,
-    aspectRatio: 1,
-    padding: 5,
+    aspectRatio: 0.85,
+    padding: 20,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 14,
   },
   cardWrapper: {
-    margin: 5,
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 8,
-  },
-  actionButton: {
-    flex: 1,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "rgba(127,127,127,0.18)",
-    alignItems: "center",
-    justifyContent: "center",
+    margin: 8,
   },
   hint: {
     fontSize: 13,

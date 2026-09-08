@@ -3,10 +3,6 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react-nativ
 import { useNavigation, useRouter } from 'expo-router';
 import ProfilesList from '../parent/profilesList';
 import { fetchProfiles } from '@/api/profiles';
-import {
-  getSelectedProfile,
-  setSelectedProfile as storeSelectedProfile,
-} from '@/hooks/useSelectedProfile';
 
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -20,11 +16,6 @@ jest.mock('expo-router', () => {
 
 jest.mock('@/api/profiles', () => ({
   fetchProfiles: jest.fn(),
-}));
-
-jest.mock('@/hooks/useSelectedProfile', () => ({
-  getSelectedProfile: jest.fn(),
-  setSelectedProfile: jest.fn(),
 }));
 
 const profiles = [
@@ -48,7 +39,6 @@ describe('ProfilesList', () => {
       results: profiles,
       count: 2,
     });
-    (getSelectedProfile as jest.Mock).mockResolvedValue(null);
   });
 
   it('tells the user how to edit a profile', async () => {
@@ -57,48 +47,22 @@ describe('ProfilesList', () => {
     await waitFor(() => expect(screen.getByText('Maya')).toBeTruthy());
     expect(
       screen.getByText(
-        'Select a profile to chat, or edit its details.'
+        'Tap a profile to edit its details.'
       )
     ).toBeTruthy();
   });
 
-  it('shows an edit button per profile that opens the editor', async () => {
+  it('tapping a card opens the editor', async () => {
     render(<ProfilesList />);
     await waitFor(() => expect(screen.getByText('Maya')).toBeTruthy());
 
-    const edit = screen.getByTestId('profile-edit-Maya');
-    expect(edit.props.accessibilityLabel).toBe('Edit Maya');
-    fireEvent.press(edit);
+    const card = screen.getByTestId('profile-card-Maya');
+    expect(card.props.accessibilityLabel).toBe('Edit Maya');
+    fireEvent.press(card);
 
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/parent/profileEditor',
       params: { title: 'Maya', profileId: 'p1' },
     });
-  });
-
-  it('shows a select button per profile that selects and dismisses', async () => {
-    render(<ProfilesList />);
-    await waitFor(() => expect(screen.getByText('Leo')).toBeTruthy());
-
-    const select = screen.getByTestId('profile-select-Leo');
-    expect(select.props.accessibilityLabel).toBe('Select Leo');
-    fireEvent.press(select);
-
-    await waitFor(() =>
-      expect(storeSelectedProfile).toHaveBeenCalledWith(profiles[1])
-    );
-    expect(mockRouter.dismiss).toHaveBeenCalled();
-  });
-
-  it('tapping a card selects the profile and dismisses', async () => {
-    render(<ProfilesList />);
-    await waitFor(() => expect(screen.getByText('Maya')).toBeTruthy());
-
-    fireEvent.press(screen.getByTestId('profile-card-Maya'));
-
-    await waitFor(() =>
-      expect(storeSelectedProfile).toHaveBeenCalledWith(profiles[0])
-    );
-    expect(mockRouter.dismiss).toHaveBeenCalled();
   });
 });
