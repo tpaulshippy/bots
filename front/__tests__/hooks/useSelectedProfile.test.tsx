@@ -5,6 +5,7 @@ import {
   getSelectedProfile,
   getSelectedProfileId,
   setSelectedProfile,
+  subscribeToSelectedProfile,
   getSelectedBotId,
   handleUnauthorized,
 } from '@/hooks/useSelectedProfile';
@@ -152,5 +153,78 @@ describe('useSelectedProfile', () => {
 
     expect(clearUser).not.toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  describe('subscribeToSelectedProfile', () => {
+    it('notifies with the new profile id on switch', async () => {
+      const seen: (string | null)[] = [];      const unsubscribe = subscribeToSelectedProfile((id) => {
+        seen.push(id);
+      });
+      try {
+        await setSelectedProfile(PROFILE);
+
+        expect(seen).toEqual(['kid-1']);
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('notifies with null when the selection is cleared', async () => {
+      const seen: (string | null)[] = [];
+      const unsubscribe = subscribeToSelectedProfile((id) => {
+        seen.push(id);
+      });
+      try {
+        await setSelectedProfile(null);
+
+        expect(seen).toEqual([null]);
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('stops notifying after unsubscribe', async () => {
+      const listener = jest.fn();
+      const unsubscribe = subscribeToSelectedProfile(listener);
+      unsubscribe();
+
+      await setSelectedProfile(PROFILE);
+
+      expect(listener).not.toHaveBeenCalled();
+    });
+
+    it('does not notify when a teen-delegated switch is refused', async () => {
+      const { getSessionMode } =
+        require('@/api/tokens') as typeof import('@/api/tokens');
+      (getSessionMode as jest.Mock).mockResolvedValue({
+        isTeenDelegated: true,
+        activeProfileId: 'locked-profile',
+      });
+      const listener = jest.fn();
+      const unsubscribe = subscribeToSelectedProfile(listener);
+      try {
+        await setSelectedProfile({ profile_id: 'sibling-profile', name: 'Other' });
+
+        expect(listener).not.toHaveBeenCalled();
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('isolates a throwing subscriber so others still update', async () => {
+      const listener = jest.fn();
+      const badUnsubscribe = subscribeToSelectedProfile(() => {
+        throw new Error('boom');
+      });
+      const unsubscribe = subscribeToSelectedProfile(listener);
+      try {
+        await setSelectedProfile(PROFILE);
+
+        expect(listener).toHaveBeenCalledWith('kid-1');
+      } finally {
+        badUnsubscribe();
+        unsubscribe();
+      }
+    });
   });
 });
