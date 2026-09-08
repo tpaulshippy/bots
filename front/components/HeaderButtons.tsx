@@ -10,7 +10,6 @@ export type DrawerMenuButtonProps = {
 
 export function DrawerMenuButton({ onOpen, testID = "drawer-menu-button" }: DrawerMenuButtonProps) {
   const iconColor = useThemeColor({}, "navButtonIcon");
-  const backgroundColor = useThemeColor({}, "navButton");
   return (
     <Pressable
       onPress={onOpen}
@@ -18,16 +17,12 @@ export function DrawerMenuButton({ onOpen, testID = "drawer-menu-button" }: Draw
       accessibilityRole="button"
       accessibilityLabel="Open menu"
       hitSlop={8}
-      style={({ pressed }) => [
-        styles.button,
-        { backgroundColor },
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >
       <IconSymbol
         name="line.3.horizontal"
         color={iconColor}
-        size={22}
+        size={24}
       ></IconSymbol>
     </Pressable>
   );
@@ -40,7 +35,6 @@ export type BackButtonProps = {
 
 export function BackButton({ onPress, testID = "header-back-button" }: BackButtonProps) {
   const iconColor = useThemeColor({}, "navButtonIcon");
-  const backgroundColor = useThemeColor({}, "navButton");
   return (
     <Pressable
       onPress={onPress}
@@ -48,16 +42,13 @@ export function BackButton({ onPress, testID = "header-back-button" }: BackButto
       accessibilityRole="button"
       accessibilityLabel="Go back"
       hitSlop={8}
-      style={({ pressed }) => [
-        styles.button,
-        { backgroundColor },
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >
       <IconSymbol
         name="chevron.backward"
         color={iconColor}
         size={22}
+        weight="semibold"
       ></IconSymbol>
     </Pressable>
   );
@@ -82,10 +73,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   button: {
-    width: 40,
-    height: 40,
-    marginLeft: 4,
-    borderRadius: 20,
+    padding: 8,
     justifyContent: "center",
     alignItems: "center",
   },
