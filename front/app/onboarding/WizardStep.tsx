@@ -12,6 +12,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
  */
 export function WizardStep({
   step,
+  total = 5,
   title,
   subtitle,
   children,
@@ -19,6 +20,7 @@ export function WizardStep({
   review = false,
 }: {
   step: number;
+  total?: number;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
@@ -38,7 +40,7 @@ export function WizardStep({
           <View style={styles.backSlot} />
         )}
         <ThemedText style={styles.stepLabel} type="defaultSemiBold">
-          Step {step} of 4
+          Step {step} of {total}
         </ThemedText>
         <View style={styles.backSlot} />
       </View>

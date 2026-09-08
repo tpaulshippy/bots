@@ -7,6 +7,7 @@ import OnboardingWelcome from '../onboarding';
 import OnboardingProfile from '../onboarding/profile';
 import OnboardingBot from '../onboarding/bot';
 import OnboardingProtect from '../onboarding/protect';
+import OnboardingNotifications from '../onboarding/notifications';
 import { fetchProfiles } from '@/api/profiles';
 import { fetchBots } from '@/api/bots';
 import {
@@ -207,13 +208,13 @@ describe('Onboarding wizard', () => {
       });
     });
 
-    it('allows PIN-less finish but blocks mismatched PINs', async () => {
+    it('allows PIN-less continue but blocks mismatched PINs', async () => {
       render(<OnboardingProtect />);
       await act(async () => {});
 
-      // Empty PIN fields = PIN-less: Finish stays enabled with clear label.
+      // Empty PIN fields = PIN-less: Continue stays enabled with clear label.
       expect(
-        screen.getByTestId('onboarding-finish').props.accessibilityState
+        screen.getByTestId('onboarding-pin-continue').props.accessibilityState
           .disabled
       ).toBe(false);
       expect(screen.getByTestId('onboarding-pinless-hint')).toBeTruthy();
@@ -224,7 +225,7 @@ describe('Onboarding wizard', () => {
         '9999'
       );
       expect(
-        screen.getByTestId('onboarding-finish').props.accessibilityState
+        screen.getByTestId('onboarding-pin-continue').props.accessibilityState
           .disabled
       ).toBe(true);
 
@@ -236,26 +237,12 @@ describe('Onboarding wizard', () => {
       });
 
       expect(
-        screen.getByTestId('onboarding-finish').props.accessibilityState
+        screen.getByTestId('onboarding-pin-continue').props.accessibilityState
           .disabled
       ).toBe(false);
     });
 
-    it('finishes PIN-less without sending a PIN', async () => {
-      render(<OnboardingProtect />);
-      await act(async () => {});
-
-      await act(async () => {
-        fireEvent.press(screen.getByTestId('onboarding-finish'));
-      });
-
-      expect(bootstrapOnboarding).toHaveBeenCalledWith(
-        expect.not.objectContaining({ pin: expect.anything() })
-      );
-      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
-    });
-
-    it('bootstraps the account, selects the renamed profile and lands on chat', async () => {
+    it('carries a matching PIN to the notifications step', async () => {
       render(<OnboardingProtect />);
       await act(async () => {});
 
@@ -264,6 +251,53 @@ describe('Onboarding wizard', () => {
         screen.getByTestId('onboarding-pin-confirm'),
         '1234'
       );
+      fireEvent.press(screen.getByTestId('onboarding-pin-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/notifications',
+        params: expect.objectContaining({
+          profileName: 'Maya',
+          botName: 'Penelope',
+          templateName: 'Blank',
+          pin: '1234',
+        }),
+      });
+    });
+
+    it('continues PIN-less without sending a PIN', async () => {
+      render(<OnboardingProtect />);
+      await act(async () => {});
+
+      fireEvent.press(screen.getByTestId('onboarding-pin-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/notifications',
+        params: expect.not.objectContaining({ pin: expect.anything() }),
+      });
+    });
+
+    it('goes back to the previous step', async () => {
+      render(<OnboardingProtect />);
+
+      fireEvent.press(screen.getByTestId('onboarding-back'));
+      expect(mockRouter.back).toHaveBeenCalled();
+    });
+  });
+
+  describe('Notifications step', () => {
+    beforeEach(() => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        pin: '1234',
+      });
+    });
+
+    it('bootstraps the account, selects the renamed profile and lands on chat', async () => {
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
       await act(async () => {
         fireEvent.press(screen.getByTestId('onboarding-finish'));
       });
@@ -289,6 +323,26 @@ describe('Onboarding wizard', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
 
+    it('finishes PIN-less without sending a PIN', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(bootstrapOnboarding).toHaveBeenCalledWith(
+        expect.not.objectContaining({ pin: expect.anything() })
+      );
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
     it('selects the configured profile even when it is not listed first', async () => {      // Listings are name-ordered; "Zoe" sorts after "Maya".
       (fetchProfiles as jest.Mock).mockResolvedValue({
         results: [
@@ -306,14 +360,9 @@ describe('Onboarding wizard', () => {
         },
       });
 
-      render(<OnboardingProtect />);
+      render(<OnboardingNotifications />);
       await act(async () => {});
 
-      fireEvent.changeText(screen.getByTestId('onboarding-pin-input'), '1234');
-      fireEvent.changeText(
-        screen.getByTestId('onboarding-pin-confirm'),
-        '1234'
-      );
       await act(async () => {
         fireEvent.press(screen.getByTestId('onboarding-finish'));
       });
@@ -333,7 +382,7 @@ describe('Onboarding wizard', () => {
         device_id: 'd1',
       });
 
-      render(<OnboardingProtect />);
+      render(<OnboardingNotifications />);
       await act(async () => {});
 
       // All three PR46 options are visible; the legacy testID stays on the
@@ -369,7 +418,7 @@ describe('Onboarding wizard', () => {
         device_id: 'd1',
       });
 
-      render(<OnboardingProtect />);
+      render(<OnboardingNotifications />);
       await act(async () => {});
 
       fireEvent(screen.getByTestId('onboarding-notify-digest-switch'), 'onValueChange', true);
@@ -395,7 +444,7 @@ describe('Onboarding wizard', () => {
     });
 
     it('skips device registration when all notifications are off', async () => {
-      render(<OnboardingProtect />);
+      render(<OnboardingNotifications />);
       await act(async () => {});
 
       await act(async () => {
@@ -416,7 +465,7 @@ describe('Onboarding wizard', () => {
         },
       });
 
-      render(<OnboardingProtect />);
+      render(<OnboardingNotifications />);
       await act(async () => {});
 
       await act(async () => {
