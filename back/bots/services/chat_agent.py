@@ -95,7 +95,12 @@ class ChatAgentService:
 
             merged_chunk = None
             for chunk in model_with_tools.stream(messages):
-                delta = self._message_text(chunk)
+                # Per-chunk deltas must keep their whitespace: Bedrock streams
+                # list content blocks like {"type": "text", "text": " Hey"},
+                # where the leading space separates words. Stripping here
+                # glues words together ("Heythere"). Final-message callers use
+                # the default strip=True.
+                delta = self._message_text(chunk, strip=False)
                 if delta:
                     yield {"type": "token", "text": delta}
                 merged_chunk = chunk if merged_chunk is None else merged_chunk + chunk
@@ -231,7 +236,7 @@ class ChatAgentService:
         return response_text, usage_metadata
 
     @staticmethod
-    def _message_text(message):
+    def _message_text(message, strip=True):
         if isinstance(message.content, str):
             return message.content
         if isinstance(message.content, list):
@@ -241,7 +246,8 @@ class ChatAgentService:
                     text_parts.append(item.get('text', ''))
                 elif isinstance(item, str):
                     text_parts.append(item)
-            return "".join(text_parts).strip()
+            text = "".join(text_parts)
+            return text.strip() if strip else text
         return ""
 
     def _create_flashcard_deck_tool(self):

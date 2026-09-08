@@ -465,3 +465,31 @@ def describe_tool_end_on_error():
         assert tool_ends[0].get("deck_id")
         assert "deck_id" not in tool_ends[1]
         assert "card_count" not in tool_ends[1]
+
+
+@pytest.mark.django_db
+def describe_stream_whitespace():
+    def test_list_content_chunks_keep_inter_word_spaces(chat):
+        """Regression: Bedrock streams list blocks like
+        {"type": "text", "text": " Hey"} where the leading space separates
+        words. Stripping each chunk glued words together ("Heythere")."""
+        chat.messages.create(text="hello", role="user")
+
+        class SpacedListChunkClient:
+            def bind_tools(self, tools):
+                return self
+
+            def stream(self, message_list):
+                for text in ["Hey", " there!", " I'm", " Fred"]:
+                    yield AIMessageChunk(content=[{"type": "text", "text": text}])
+
+            def invoke(self, message_list):
+                raise AssertionError("streaming path only")
+
+        events = list(chat.stream_response(ai=SpacedListChunkClient()))
+
+        tokens = "".join(e["text"] for e in events if e["type"] == "token")
+        assert tokens == "Hey there! I'm Fred"
+
+        assistant = chat.messages.filter(role="assistant").get()
+        assert assistant.text == "Hey there! I'm Fred"
