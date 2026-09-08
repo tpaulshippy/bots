@@ -66,6 +66,27 @@ def post_chat(client, url, payload):
 
 
 @pytest.mark.django_db
+class TestProfileEmailUniqueness:
+    def test_binding_taken_email_returns_400(self, parent, teen_profile, sibling_profile):
+        # No PIN on this account, so the parent session alone may write.
+        response = parent_client(parent).put(
+            f'/api/profiles/{sibling_profile.profile_id}.json',
+            {'name': 'Leo', 'oauth_email': TEEN_EMAIL}, format='json')
+        assert response.status_code == 400
+        assert 'oauth_email' in response.json()
+        sibling_profile.refresh_from_db()
+        assert sibling_profile.oauth_email is None
+
+    def test_rebinding_own_email_succeeds(self, parent, teen_profile):
+        response = parent_client(parent).put(
+            f'/api/profiles/{teen_profile.profile_id}.json',
+            {'name': 'Maya', 'oauth_email': TEEN_EMAIL}, format='json')
+        assert response.status_code == 200
+        teen_profile.refresh_from_db()
+        assert teen_profile.oauth_email == TEEN_EMAIL
+
+
+@pytest.mark.django_db
 class TestDelegatedLogin:
     def test_matching_oauth_email_issues_delegated_tokens(self, parent, teen_profile):
         teen_user = User.objects.create_user(username='maya', email=TEEN_EMAIL, password='pass')

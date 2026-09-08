@@ -69,13 +69,16 @@ export const completeOnboarding = async (): Promise<void> => {
 };
 
 // Atomic wizard save: profile name, first bot, PIN and completion flag.
+// Returns the raw response (null only on transport failure) so the wizard
+// can surface field errors — e.g. a taken student email comes back as 400
+// with a `studentEmail` body — instead of sailing on as if it succeeded.
 export const bootstrapOnboarding = async (
     payload: OnboardingBootstrapPayload
-): Promise<OnboardingBootstrapResult | null> => {
-    return request<OnboardingBootstrapResult | null>('/onboarding/bootstrap', {
+): Promise<ApiResponse<OnboardingBootstrapResult> | null> => {
+    return requestRaw<OnboardingBootstrapResult>('/onboarding/bootstrap', {
         method: 'POST',
         body: JSON.stringify(payload),
-    }, null);
+    });
 };
 
 export const deleteAccount = async (): Promise<void> => {

@@ -65,7 +65,11 @@ describe('Onboarding wizard', () => {
       results: [{ bot_id: 'b1', name: 'Penelope' }],
       count: 1,
     });
-    (bootstrapOnboarding as jest.Mock).mockResolvedValue(undefined);
+    (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: null,
+    });
     (completeOnboarding as jest.Mock).mockResolvedValue(undefined);
   });
 
@@ -294,8 +298,12 @@ describe('Onboarding wizard', () => {
         count: 2,
       });
       (bootstrapOnboarding as jest.Mock).mockResolvedValue({
-        profileId: 'p1',
-        botId: 'b1',
+        ok: true,
+        status: 200,
+        data: {
+          profileId: 'p1',
+          botId: 'b1',
+        },
       });
 
       render(<OnboardingProtect />);
@@ -397,6 +405,34 @@ describe('Onboarding wizard', () => {
       expect(registerForPushNotificationsAsync).not.toHaveBeenCalled();
       expect(upsertDevice).not.toHaveBeenCalled();
       expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('shows an inline error and stays put when the student email is taken', async () => {
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 400,
+        data: {
+          studentEmail: ['That email is already used by another profile.'],
+        },
+      });
+
+      render(<OnboardingProtect />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      const banner = screen.getByTestId('onboarding-save-error');
+      expect(banner.props.children).toContain('already used');
+      expect(banner.props.children).toContain('Step 2');
+      // Nothing was saved: no profile/bot selection, no completion, no chat.
+      expect(completeOnboarding).not.toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'selectedProfile',
+        expect.anything()
+      );
+      expect(mockRouter.replace).not.toHaveBeenCalled();
     });
   });
 });

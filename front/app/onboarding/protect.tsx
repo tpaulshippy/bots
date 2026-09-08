@@ -17,6 +17,7 @@ import {
   bootstrapOnboarding,
   completeOnboarding,
 } from "@/api/account";
+import { fieldMessage } from "@/api/fieldErrors";
 import { fetchBots } from "@/api/bots";
 import {
   fetchDeviceByToken,
@@ -56,6 +57,9 @@ export default function OnboardingProtect() {
   const [notifyOnNewMessage, setNotifyOnNewMessage] = useState(false);
   const [notifyDigestOnly, setNotifyDigestOnly] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Field error from the last failed save (e.g. taken student email), shown
+  // inline so the user can go back and fix it instead of losing the wizard.
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Persist the chosen flags to this device. Never blocks finishing: push
   // registration throws on simulators/web and offline upserts return null.
@@ -106,9 +110,10 @@ export default function OnboardingProtect() {
       return;
     }
     setSaving(true);
+    setSaveError(null);
     try {
       await persistNotificationChoices();
-      const result = await bootstrapOnboarding({
+      const response = await bootstrapOnboarding({
         profileName: local.profileName ?? "",
         ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
         botName: local.botName || undefined,
@@ -118,6 +123,35 @@ export default function OnboardingProtect() {
         icon: local.icon || undefined,
         ...(pinValid ? { pin } : {}),
       });
+
+      if (!response || !response.ok) {
+        // The server rejected the wizard's choices (e.g. the Step 2 email
+        // is already used by another profile). Nothing was saved — stay on
+        // this step and say so, pointing back at Step 2 where the email
+        // lives. The stack keeps the earlier steps' inputs intact.
+        setSaving(false);
+        const fieldError = response
+          ? fieldMessage(response.data, "studentEmail") ??
+            fieldMessage(response.data, "profileName")
+          : null;
+        if (fieldError) {
+          setSaveError(
+            `${fieldError} Use the back arrow to fix it in Step 2 — your other choices are kept.`
+          );
+        } else {
+          Sentry.captureException?.(
+            new Error(
+              `Onboarding bootstrap failed (${response?.status ?? "offline"})`
+            )
+          );
+          Alert.alert(
+            "Something went wrong",
+            "We couldn't save your setup. Please try again."
+          );
+        }
+        return;
+      }
+      const result = response.data;
 
       // Select exactly the renamed default profile and first bot so the very
       // first chat needs no further setup (fixes "Please select a profile
@@ -235,6 +269,11 @@ export default function OnboardingProtect() {
       <ThemedText style={styles.optionalNote}>
         Optional — you can change these anytime in Settings → Notifications.
       </ThemedText>
+      {saveError ? (
+        <ThemedText testID="onboarding-save-error" style={styles.saveError}>
+          {saveError}
+        </ThemedText>
+      ) : null}
       {saving ? (
         <ActivityIndicator style={styles.saving} />
       ) : (
@@ -274,6 +313,12 @@ const styles = StyleSheet.create({
   },
   missing: {
     borderColor: "#E63946",
+  },
+  saveError: {
+    fontSize: 14,
+    color: "#E63946",
+    textAlign: "center",
+    marginTop: 12,
   },
   hint: {
     fontSize: 13,

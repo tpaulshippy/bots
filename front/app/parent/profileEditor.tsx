@@ -9,6 +9,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { Profile, fetchProfile, upsertProfile } from "@/api/profiles";
+import { fieldMessage } from "@/api/fieldErrors";
 import alert from "@/components/Alert";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -24,6 +25,7 @@ export default function ProfileEditor() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [nameMissing, setNameMissing] = useState(false);
   const [emailInvalid, setEmailInvalid] = useState(false);
+  const [emailTaken, setEmailTaken] = useState(false);
   const local = useLocalSearchParams();
   const iconColor = useThemeColor({}, "tint");
   const buttonIconColor = useThemeColor({}, "text");
@@ -69,12 +71,28 @@ export default function ProfileEditor() {
         return;
       }
       try {
-        await upsertProfile({
+        const response = await upsertProfile({
           ...profile,
           oauth_email: profile.oauth_email?.trim()
             ? profile.oauth_email.trim()
             : null,
         });
+        if (!response || !response.ok) {
+          // A taken teen sign-in email comes back as a 400 with an
+          // `oauth_email` body: stay on the screen and say so inline
+          // instead of backing out as if the save had worked.
+          if (response && fieldMessage(response.data, "oauth_email")) {
+            setEmailTaken(true);
+            return;
+          }
+          Sentry.captureException(
+            new Error(`Save profile failed (${response?.status ?? "offline"})`)
+          );
+          alert("Couldn't save profile", "Please try again.", [
+            { text: "OK", onPress: () => {} },
+          ]);
+          return;
+        }
         router.back();
       } catch (error) {
         Sentry.captureException(error);
@@ -148,12 +166,21 @@ export default function ProfileEditor() {
               keyboardType="email-address"
               autoCapitalize="none"
               placeholder="maya@school.edu"
-              style={[styles.input, emailInvalid ? styles.missing : {}]}
+              style={[styles.input, emailInvalid || emailTaken ? styles.missing : {}]}
               value={profile.oauth_email ?? ""}
-              onChangeText={(text) =>
-                setProfile({ ...profile, oauth_email: text })
-              }
+              onChangeText={(text) => {
+                setEmailTaken(false);
+                setProfile({ ...profile, oauth_email: text });
+              }}
             />
+            {emailTaken ? (
+              <ThemedText
+                testID="teen-signin-email-taken"
+                style={styles.takenText}
+              >
+                That email is already used by another profile.
+              </ThemedText>
+            ) : null}
             <ThemedText style={styles.helpText}>
               Your child can sign in with this Google or Apple email on their
               own device. They will only see their chats and flashcards — not
@@ -219,6 +246,11 @@ const styles = StyleSheet.create({
   helpText: {
     fontSize: 13,
     opacity: 0.7,
+    marginTop: 5,
+  },
+  takenText: {
+    fontSize: 13,
+    color: "#E63946",
     marginTop: 5,
   },
   removeButton: {

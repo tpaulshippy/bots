@@ -1,5 +1,5 @@
 import { request, requestRaw, PaginatedResponse } from './request';
-import { UnauthorizedError } from './apiClient';
+import { ApiResponse, UnauthorizedError } from './apiClient';
 
 export interface Profile {
     id: number;
@@ -31,15 +31,21 @@ export const fetchOwnProfile = async (): Promise<Profile | null> => {
     }
 };
 
-export const upsertProfile = async (profile: Profile): Promise<Profile | null> => {
+/**
+ * Create/update a profile. Returns the raw response (null only on transport
+ * failure) so callers can surface field errors — e.g. a taken teen sign-in
+ * email comes back as 400 with an `oauth_email` body — instead of treating
+ * a rejection as a success.
+ */
+export const upsertProfile = async (profile: Profile): Promise<ApiResponse<Profile> | null> => {
     if (profile.id === -1) {
-        return request<Profile | null>('/profiles.json', {
+        return requestRaw<Profile>('/profiles.json', {
             method: 'POST',
             body: JSON.stringify(profile),
-        }, null);
+        });
     }
-    return request<Profile | null>(`/profiles/${profile.id}.json`, {
+    return requestRaw<Profile>(`/profiles/${profile.id}.json`, {
         method: 'PUT',
         body: JSON.stringify(profile),
-    }, null);
+    });
 };
