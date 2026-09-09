@@ -54,6 +54,7 @@ export default function OnboardingNotifications() {
   const [notifyOnNewChat, setNotifyOnNewChat] = useState(false);
   const [notifyOnNewMessage, setNotifyOnNewMessage] = useState(false);
   const [notifyDigestOnly, setNotifyDigestOnly] = useState(false);
+  const [notifyStudyDue, setNotifyStudyDue] = useState(false);
   const [saving, setSaving] = useState(false);
   // Field error from the last failed save (e.g. taken student email), shown
   // inline so the user can go back and fix it instead of losing the wizard.
@@ -78,6 +79,7 @@ export default function OnboardingNotifications() {
           setNotifyOnNewChat(current.notify_on_new_chat);
           setNotifyOnNewMessage(current.notify_on_new_message);
           setNotifyDigestOnly(current.notify_digest_only);
+          setNotifyStudyDue(current.notify_study_due ?? false);
         }
       } catch {
         // Prefill is best-effort; the wizard still works all-off.
@@ -107,7 +109,12 @@ export default function OnboardingNotifications() {
   // Persist the chosen flags to this device. Never blocks finishing: push
   // registration throws on simulators/web and offline upserts return null.
   const persistNotificationChoices = async () => {
-    if (!notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly) {
+    if (
+      !notifyOnNewChat &&
+      !notifyOnNewMessage &&
+      !notifyDigestOnly &&
+      !notifyStudyDue
+    ) {
       return;
     }
     try {
@@ -127,6 +134,7 @@ export default function OnboardingNotifications() {
         notify_on_new_chat: notifyOnNewChat,
         notify_on_new_message: notifyOnNewMessage,
         notify_digest_only: notifyDigestOnly,
+        notify_study_due: notifyStudyDue,
       });
       if (saved) {
         await setDeviceIdInStorage(saved.device_id);
@@ -268,6 +276,22 @@ export default function OnboardingNotifications() {
           testID="onboarding-notify-digest-switch"
           value={notifyDigestOnly}
           onValueChange={setNotifyDigestOnly}
+        />
+      </ThemedView>
+      <ThemedView style={styles.notificationsRow}>
+        <View style={styles.digestLabelContainer}>
+          <ThemedText style={styles.notificationsLabel}>
+            Remind me when flashcards are due
+          </ThemedText>
+          <ThemedText style={styles.digestHint}>
+            A nudge when cards are ready to review
+          </ThemedText>
+        </View>
+        <Switch
+          testID="onboarding-notify-study-switch"
+          value={notifyStudyDue}
+          disabled={notifyDigestOnly}
+          onValueChange={setNotifyStudyDue}
         />
       </ThemedView>
       <ThemedText style={styles.optionalNote}>

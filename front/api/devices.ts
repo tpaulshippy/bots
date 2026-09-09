@@ -9,6 +9,7 @@ export interface Device {
   notify_on_new_chat: boolean;
   notify_on_new_message: boolean;
   notify_digest_only: boolean;
+  notify_study_due: boolean;
   deleted_at: Date | null;
 }
 
