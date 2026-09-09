@@ -1,0 +1,56 @@
+name: Preview OTA Update
+
+# JS-only path for testing on TestFlight: pushes an OTA update to the
+# `preview` branch. TestFlight builds made with the `testflight` eas.json
+# profile (channel `preview`) pick it up on next launch, provided the
+# runtimeVersion is unchanged (i.e. no native changes and no version bump).
+# For native changes, run the TestFlight Build workflow first.
+#
+# NOTE: uses the `preview` EAS environment, which mirrors `production`.
+# Mirrors the OTA Update workflow, which targets branch/environment
+# `production` for the App Store builds.
+
+on:
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  preview-ota:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Check out tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd front
+          npm ci --legacy-peer-deps
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Export and push preview OTA update
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: '1'
+          EXPO_PUBLIC_API_BASE_URL: https://syftlearning.app/api
+        run: |
+          cd front
+          rm -rf dist
+          npx expo export --platform ios --no-bytecode --output-dir dist --clear
+          npx eas update --branch preview --environment preview \
+            --input-dir dist --skip-bundler \
+            --message "${{ github.event.workflow_run.head_commit.message || github.event.head_commit.message || format('Preview OTA from {0}', github.ref_name) }}"

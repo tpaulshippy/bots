@@ -1,7 +1,7 @@
 {
   "name": "bots",
   "main": "expo-router/entry",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -34,7 +34,7 @@
     "expo-device": "^56.0.4",
     "expo-font": "^56.0.5",
     "expo-haptics": "^56.0.3",
-    "expo-image": "^56.0.9",
+    "expo-image": "~56.0.12",
     "expo-image-picker": "~56.0.15",
     "expo-linking": "~56.0.13",
     "expo-notifications": "~56.0.15",

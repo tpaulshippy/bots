@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bots', '0046_useraccount_onboarding_completed_at'),
+        ('bots', '0049_profile_photo_filename'),
     ]
 
     operations = [

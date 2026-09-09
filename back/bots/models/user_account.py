@@ -33,11 +33,18 @@ class UserAccount(models.Model):
 
     def onboarding_completed(self):
         """Prefer the explicit flag set by the onboarding wizard; fall back to a
-        heuristic for older accounts that will never run the wizard."""
+        heuristic for older accounts that will never run the wizard. A PIN
+        alone isn't proof (PINs are optional), so real use — any user-sent
+        message — counts too. Signup provisions only an assistant greeting,
+        so fresh accounts (even with the seeded welcome chat) still gate."""
         if self.onboarding_completed_at is not None:
             return True
-        return (self.pin_hash is not None
-                and self.user.profile_set.filter(deleted_at=None).count() >= 1)
+        if self.user.profile_set.filter(deleted_at=None).count() < 1:
+            return False
+        if self.pin_hash is not None:
+            return True
+        return Chat.objects.filter(
+            user=self.user, messages__role='user').exists()
 
     def over_limit(self):
         from .usage_limit_hit import UsageLimitHit

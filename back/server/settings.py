@@ -50,6 +50,10 @@ SECRET_KEY = env('SECRET_KEY', default='test-secret-key-for-development-only')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=False)
 
+# E2E/demo fake streaming client (`e2e-fake-stream*` AiModels) is only honored
+# when True. Defaults to DEBUG so it can never silently hijack prod traffic.
+ALLOW_E2E_FAKE_STREAM = env.bool('ALLOW_E2E_FAKE_STREAM', default=DEBUG)
+
 ALLOWED_HOSTS = [host.strip() for host in env('HOSTS', default='localhost').split(',')]
 
 CORS_ALLOW_ALL_ORIGINS = True

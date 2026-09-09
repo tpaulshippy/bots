@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { render, act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
@@ -163,5 +163,36 @@ describe('ProfileSwitcher', () => {
       'selectedProfile',
       expect.anything()
     );
+  });
+
+  it('syncs the menu chip when switching in the header chip', async () => {
+    render(
+      <>
+        <ProfileSwitcher />
+        <ProfileSwitcher />
+      </>
+    );
+    await waitFor(() =>
+      expect(screen.getAllByTestId('profile-switcher-chip')).toHaveLength(2)
+    );
+
+    fireEvent.press(screen.getAllByTestId('profile-switcher-chip')[0]);
+    await waitFor(() =>
+      expect(
+        screen.getAllByTestId('profile-switcher-option-Leo')[0]
+      ).toBeTruthy()
+    );
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getAllByTestId('profile-switcher-option-Leo')[0]
+      );
+    });
+
+    // The second chip rerendered without being tapped.
+    await waitFor(() => {
+      const chips = screen.getAllByTestId('profile-switcher-chip');
+      expect(within(chips[1]).getByText('Leo')).toBeTruthy();
+    });
   });
 });

@@ -2,7 +2,7 @@
  * 05 — First-Run Onboarding and Profile Switcher (docs/roadmap/05)
  *
  * Fresh-state walkthrough of the onboarding wizard
- * (welcome → kid name → first bot → PIN + notifications prompt) ending at a
+ * (welcome → kid name → first bot → PIN → notifications) ending at a
  * working chat, plus the header profile switcher flow.
  *
  * SEEDING (run before this suite):
@@ -104,15 +104,15 @@ describe('Onboarding E2E Flow (Real API)', () => {
       .withTimeout(15000);
   }, 120000);
 
-  it('walks through all four steps and lands in a working chat', async () => {
+  it('walks through all five steps and lands in a working chat', async () => {
     // Step 1: Welcome
     await element(by.id('onboarding-get-started')).tap();
     await waitFor(element(by.id('onboarding-profile-input')))
       .toBeVisible()
       .withTimeout(5000);
 
-    // Step 2: Kid name — pre-filled with the signal-created "Jordan".
-    await element(by.id('onboarding-profile-input')).replaceText(KID_NAME);
+    // Step 2: Kid name — blank with a "Student name" placeholder.
+    await element(by.id('onboarding-profile-input')).typeText(KID_NAME);
     await element(by.id('onboarding-profile-continue')).tap();
 
     // Step 3: First bot — defaults (Blank / Penelope) are already valid.
@@ -121,13 +121,19 @@ describe('Onboarding E2E Flow (Real API)', () => {
       .withTimeout(5000);
     await element(by.id('onboarding-bot-continue')).tap();
 
-    // Step 4: Protect — PIN required, notifications toggle optional/off.
+    // Step 4: Protect — PIN optional (PIN-less is supported).
     await waitFor(element(by.id('onboarding-pin-input')))
       .toBeVisible()
       .withTimeout(5000);
-    await expect(element(by.id('onboarding-notifications-switch'))).toBeVisible();
     await element(by.id('onboarding-pin-input')).typeText(PIN);
     await element(by.id('onboarding-pin-confirm')).typeText(PIN);
+    await element(by.id('onboarding-pin-continue')).tap();
+
+    // Step 5: Notifications — toggles (new chat / each message /
+    // digest-only, PR 46) optional/off.
+    await waitFor(element(by.id('onboarding-notifications-switch')))
+      .toBeVisible()
+      .withTimeout(5000);
     await element(by.id('onboarding-finish')).tap();
 
     // Finish → bootstrap → /chat with profile + bot pre-selected.
@@ -154,7 +160,7 @@ describe('Onboarding E2E Flow (Real API)', () => {
 
     const account = await authedFetch(tokens.access, '/user?timezone=UTC');
     expect(account.onboardingCompleted).toBe(true);
-    expect(String(account.pin)).toBe(PIN);
+    expect(account.hasPin).toBe(true);
   }, 180000);
 
   it('never shows the wizard again to returning users', async () => {

@@ -16,7 +16,9 @@ export interface Chat {
     bot: {
         name: string;
         bot_id: string;
-    }
+        color: string | null;
+        icon: string | null;
+    } | null
 }
 
 // Agent activity chips rendered inside an assistant bubble (roadmap doc 06).
@@ -187,10 +189,17 @@ export interface StreamChatParams {
     onEvent: (event: ChatStreamEvent) => void;
 }
 
-/** Only fall back to XHR when fetch failed outright on an image message
- * (RN FormData parts unsupported); text-only failures are surfaced as errors. */
-function shouldFallbackToXhr(status: number): boolean {
-    return status >= 400;
+/** XHR fallback is only for transport-level fetch failures on image messages
+ * (Expo fetch cannot encode RN's proprietary {uri,name,type} FormData parts
+ * and throws before the request reaches the server). HTTP error statuses mean
+ * the server was reached — retrying would double-write messages / spend
+ * tokens — so they are never retried here. */
+function isTransportFailure(error: unknown, signal: AbortSignal): boolean {
+    if (signal.aborted) return false;
+    if (error instanceof DOMException && error.name === 'AbortError') return false;
+    if (error instanceof UnauthorizedError) return false;
+    if (error instanceof Error && error.message.startsWith('Request to ')) return false;
+    return true;
 }
 
 function buildStreamFormData({ message, image, profileId, botId }: StreamChatParams): FormData {
@@ -270,6 +279,9 @@ export const streamChatMessage = async ({
     signal,
     onEvent,
 }: StreamChatParams): Promise<void> => {
+    if (!BASE_URL) {
+        throw new Error("EXPO_PUBLIC_API_BASE_URL is not configured");
+    }
     const params: StreamChatParams = { chatId, message, image, profileId, botId, signal, onEvent };
     const url = `${BASE_URL}/chats/${chatId || 'new'}/stream`;
     const formData = buildStreamFormData(params);
@@ -278,7 +290,7 @@ export const streamChatMessage = async ({
 
     // One parser per attempt: chunks can split frames (or carry several), so
     // all bytes of an attempt flow through the same buffering instance.
-    const run = async (): Promise<void> => {
+    const runFetchAttempt = async (): Promise<void> => {
         const parser = createSseParser((eventType, data) => emitFrame(onEvent, eventType, data));
 
         const response = await fetch(url, {
@@ -294,44 +306,52 @@ export const streamChatMessage = async ({
         if (response.status === 401) {
             throw new UnauthorizedError();
         }
-        if (!response.ok && !(image && shouldFallbackToXhr(response.status))) {
+        if (!response.ok) {
             throw new Error(`Request to ${url} failed with status ${response.status}`);
         }
 
-        if (response.ok) {
-            if (response.body && typeof response.body.getReader === 'function') {
-                // Preferred transport: fetch + ReadableStream (doc 06 §1).
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                for (;;) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    parser.push(decoder.decode(value, { stream: true }));
-                }
-                parser.flush();
-                return;
+        if (response.body && typeof response.body.getReader === 'function') {
+            // Preferred transport: fetch + ReadableStream (doc 06 §1).
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                parser.push(decoder.decode(value, { stream: true }));
             }
-            // Response OK but no streaming body support: the full SSE payload
-            // arrived as text; parse it in one go (no second request needed).
-            parser.push(await response.text());
             parser.flush();
             return;
         }
+        // Response OK but no streaming body support: the full SSE payload
+        // arrived as text; parse it in one go (no second request needed).
+        parser.push(await response.text());
+        parser.flush();
+    };
 
-        // Fetch failed outright — on some runtimes that is because Expo's
-        // fetch cannot send RN's proprietary {uri,name,type} FormData parts
-        // (i.e. image messages). Retry once over XHR, which handles both.
+    const runXhrAttempt = async (): Promise<void> => {
+        const parser = createSseParser((eventType, data) => emitFrame(onEvent, eventType, data));
+        // XHR fallback for environments without ReadableStream responses and
+        // for RN's proprietary FormData image parts, which Expo fetch cannot
+        // encode. Only called when fetch threw before reaching the server.
         await xhrStream(url, formData, tokens?.access, signal, (chunk) => parser.push(chunk));
         parser.flush();
     };
 
     try {
-        await run();
+        await runFetchAttempt();
     } catch (error) {
         if (error instanceof UnauthorizedError && tokens?.refresh) {
             await refreshWithRefreshToken(tokens);
             tokens = await getTokens();
-            await run();
+            await runFetchAttempt();
+            return;
+        }
+        // Fetch threw before the server responded (e.g. unsupported FormData
+        // on image messages) — retry once over XHR. HTTP error statuses
+        // already threw above as `Request to ...` errors and are never
+        // retried, avoiding double message writes / token spend.
+        if (image && isTransportFailure(error, signal)) {
+            await runXhrAttempt();
             return;
         }
         throw error;

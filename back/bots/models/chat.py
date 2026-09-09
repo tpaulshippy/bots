@@ -12,7 +12,6 @@ from bots.services import fake_ai
 from bots.services.chat_agent import ChatAgentService
 from bots.services.safety import (
     SafetyPolicy,
-    build_system_prompt,
     evaluate_text,
     record_safety_event,
     refusal_for_verdict,
@@ -32,9 +31,19 @@ class AiClientWrapper:
         self.model_id = model_id
         if client:
             self.client = client
-        elif model_id.startswith(fake_ai.FAKE_MODEL_PREFIX):
-            # Deterministic fake streaming client for e2e/demo — no AWS creds.
-            self.client = fake_ai.FakeStreamingClient()
+        elif (model_id or "").startswith(fake_ai.FAKE_MODEL_PREFIX):
+            # E2E/demo fake client — never in prod. Gated behind
+            # ALLOW_E2E_FAKE_STREAM (defaults to DEBUG) so a stray
+            # `e2e-fake-stream*` AiModel row can't hijack prod traffic.
+            if not getattr(settings, 'ALLOW_E2E_FAKE_STREAM', settings.DEBUG):
+                logger.warning(
+                    "Refusing e2e fake model %r in prod; using Bedrock.",
+                    model_id,
+                )
+                self.client = ChatBedrock(model_id=model_id)
+            else:
+                # Deterministic fake streaming client for e2e/demo — no AWS creds.
+                self.client = fake_ai.FakeStreamingClient()
         else:
             self.client = ChatBedrock(model_id=model_id)
 
@@ -72,7 +81,7 @@ class Chat(models.Model):
         
         self.ai = AiClientWrapper(model_id=default_model.model_id, client=ai)
 
-    def _input_refusal(self, user_message=None):
+    def _input_refusal(self, user_message=None, message_id=None):
         """Evaluate input safety BEFORE any model setup or quota check.
 
         Returns the fixed refusal text when the latest user turn is blocked
@@ -82,33 +91,34 @@ class Chat(models.Model):
         """
         policy = SafetyPolicy.for_bot(self.bot)
         subject = user_message or self.messages.filter(role='user').order_by('-id').first()
-        if subject is None:
-            return None
-        verdict = evaluate_text(subject.text, policy, source='INPUT')
-        if not verdict.blocked:
-            return None
-        # Short transaction only for the state change; external calls
-        # (moderation, Bedrock, Tavily) are never made while a row
-        # lock is held, so the DB connection is not held for tens of
-        # seconds.
-        with transaction.atomic():
-            Chat.objects.select_for_update().get(pk=self.pk)
-            if not subject.safety_blocked:
-                subject.safety_blocked = True
-                subject.save(update_fields=['safety_blocked', 'modified_at'])
-            refusal = refusal_for_verdict(verdict)
-            self.messages.create(
-                text=refusal,
-                role='assistant',
-                order=self.messages.count(),
-            )
-            record_safety_event(
-                stage='input',
-                verdict=verdict,
-                chat=self,
-                snippet=subject.text,
-            )
-        return refusal
+        if subject is not None:
+            verdict = evaluate_text(subject.text, policy, source='INPUT')
+            if verdict.blocked:
+                # Short transaction only for the state change; external calls
+                # (moderation, Bedrock, Tavily) are never made while a row
+                # lock is held, so the DB connection is not held for tens of
+                # seconds. The message is marked so later turns exclude it via
+                # get_input().
+                with transaction.atomic():
+                    Chat.objects.select_for_update().get(pk=self.pk)
+                    if not subject.safety_blocked:
+                        subject.safety_blocked = True
+                        subject.save(update_fields=['safety_blocked', 'modified_at'])
+                    refusal = refusal_for_verdict(verdict)
+                    self.messages.create(
+                        text=refusal,
+                        role='assistant',
+                        order=self.messages.count(),
+                        **({'message_id': message_id} if message_id is not None else {}),
+                    )
+                    record_safety_event(
+                        stage='input',
+                        verdict=verdict,
+                        chat=self,
+                        snippet=subject.text,
+                        message=subject,
+                    )
+                return refusal
 
     def resolve_ai_client(self, ai=None, contains_image=False):
         if self.bot and self.bot.ai_model:
@@ -119,22 +129,24 @@ class Chat(models.Model):
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
 
-    def _persist_assistant_message(self, text, usage_metadata):
+    def _persist_assistant_message(self, text, usage_metadata, message_id=None):
         message_order = self.messages.count()
 
         input_tokens = usage_metadata.get('input_tokens', 0)
         output_tokens = usage_metadata.get('output_tokens', 0)
 
-        self.messages.create(
+        assistant_message = self.messages.create(
             text=text,
             role='assistant',
             order=message_order,
             input_tokens=input_tokens,
-            output_tokens=output_tokens
+            output_tokens=output_tokens,
+            **({'message_id': message_id} if message_id is not None else {}),
         )
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
         self.save()
+        return assistant_message
 
     def get_response(self, ai=None, user_message=None):
         # Input safety is evaluated BEFORE any model setup or quota check so
@@ -175,7 +187,7 @@ class Chat(models.Model):
             message_order = self.messages.count()
             input_tokens = usage_metadata.get('input_tokens', 0)
             output_tokens = usage_metadata.get('output_tokens', 0)
-            self.messages.create(
+            assistant_message = self.messages.create(
                 text=response_text,
                 role='assistant',
                 order=message_order,
@@ -186,7 +198,13 @@ class Chat(models.Model):
             self.output_tokens += output_tokens
             self.save()
             if output_verdict.blocked:
-                record_safety_event(stage='output', verdict=output_verdict, chat=self, snippet=flagged_output)
+                record_safety_event(
+                    stage='output',
+                    verdict=output_verdict,
+                    chat=self,
+                    snippet=flagged_output,
+                    message=assistant_message,
+                )
         return response_text
 
     def stream_response(self, ai=None, message_id=None):
@@ -196,15 +214,24 @@ class Chat(models.Model):
         exit (client disconnect / abort mid-stream) the partial text is saved
         so history matches what the kid saw (roadmap doc 06 §2 "prefer save
         partial"). Partial saves carry the usage accumulated so far.
+
+        Output safety mirrors the legacy path: the streamed text is evaluated
+        before persist and replaced with the fixed refusal when flagged, so
+        raw completions are never stored or replayed as history.
+
+        When `message_id` is given (the SSE view's `meta` id), the persisted
+        row reuses it so clients can correlate streamed frames with the saved
+        assistant message.
         """
         # Blocked input short-circuits the stream with the fixed refusal,
         # already persisted by _input_refusal — never streamed to the model.
-        refusal = self._input_refusal()
+        refusal = self._input_refusal(message_id=message_id)
         if refusal is not None:
             yield {"type": "token", "text": refusal}
             yield {"type": "done", "input_tokens": 0, "output_tokens": 0}
             return
 
+        policy = SafetyPolicy.for_bot(self.bot)
         message_list, contains_image = self.get_input()
         self.resolve_ai_client(ai=ai, contains_image=contains_image)
 
@@ -213,14 +240,27 @@ class Chat(models.Model):
                    "message": "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."}
             return
 
-        service = ChatAgentService(self, self.ai.client)
+        service = ChatAgentService(self, self.ai.client, policy=policy)
         self.last_client_events = service.client_events
 
         streamed_text = []
         usage_totals = {"input_tokens": 0, "output_tokens": 0}
 
         def persist(text):
-            self._persist_assistant_message(text, usage_totals)
+            output_verdict = evaluate_text(text, policy, source='OUTPUT')
+            flagged_output = None
+            if output_verdict.blocked:
+                flagged_output = text
+                text = refusal_for_verdict(output_verdict)
+            assistant_message = self._persist_assistant_message(text, usage_totals, message_id=message_id)
+            if output_verdict.blocked:
+                record_safety_event(
+                    stage='output',
+                    verdict=output_verdict,
+                    chat=self,
+                    snippet=flagged_output,
+                    message=assistant_message,
+                )
 
         try:
             for event in service.respond_events(message_list):
@@ -277,22 +317,17 @@ class Chat(models.Model):
                 if len(message_list) > 0: # need to start with a user message
                     message_list.append(AIMessage(content=message.text))
 
-        system_message = SystemMessage(content=self.get_system_message())
-        message_list.insert(0, system_message)
+        system_prompt = self.get_system_message()
+        if system_prompt:
+            system_message = SystemMessage(content=system_prompt)
+            message_list.insert(0, system_message)
 
         return message_list, contains_image
     
     def get_system_message(self):
-        """Server-owned layered prompt: preamble + parent customization + policy suffix.
-
-        The flags are restated here every turn so a custom (advanced-editor)
-        system_prompt cannot strip the safety layers, and the client is never
-        the control plane for policy text.
-        """
-        policy = SafetyPolicy.for_bot(self.bot)
-        bot_prompt = self.bot.system_prompt if self.bot else None
-        response_length = self.bot.response_length if self.bot else None
-        return build_system_prompt(bot_prompt, policy, response_length)
+        if self.bot and self.bot.system_prompt:
+            return self.bot.system_prompt
+        return ""
 
     def get_image_data(self, filename):
         try:

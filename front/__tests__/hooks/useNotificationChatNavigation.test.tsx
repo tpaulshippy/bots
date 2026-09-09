@@ -152,6 +152,18 @@ describe('useNotificationChatNavigation', () => {
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
+  it('ignores unknown targets without a chat_id', async () => {
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(makeResponse(undefined, 'response-1', 'kid_chat'));
+    });
+
+    expect(fetchChat).not.toHaveBeenCalled();
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
   it('opens the parent transcript when the push targets parent_activity with a chat_id', async () => {
     render(<Harness />);
 

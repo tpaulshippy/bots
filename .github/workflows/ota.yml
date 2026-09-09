@@ -1,8 +1,7 @@
 name: OTA Update
 
 on:
-  push:
-    branches: ['main']
+  workflow_dispatch:
 
 jobs:
   ota:

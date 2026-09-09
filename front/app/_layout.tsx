@@ -179,6 +179,14 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="onboarding/notifications"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+                headerBackVisible: false,
+              }}
+            />
+            <Stack.Screen
               name="flashcards"
               options={{
                 headerShown: true,

@@ -21,7 +21,6 @@ import * as Haptics from 'expo-haptics';
 
 import {
   fetchChatMessages,
-  sendChat,
   streamChatMessage,
   ChatMessage as ApiChatMessage,
   ChatStreamEvent,
@@ -67,6 +66,7 @@ export default function Chat() {
   const abortRef = useRef<AbortController | null>(null);
   const lastPayloadRef = useRef<PendingPayload | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listRef = useRef<FlatList<ApiChatMessage> | null>(null);
   const inputBorderColor = useThemeColor({}, "border");
   const placeholderColor = useThemeColor({}, "icon");
   const busy = phase === "sending" || phase === "streaming";
@@ -75,6 +75,15 @@ export default function Chat() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     abortRef.current?.abort();
   }, []);
+
+  // The deck toast is an absolute overlay pinned above the input, so it
+  // would cover the newest messages at the visual bottom of the inverted
+  // list. Pin the list to the newest end when it appears.
+  useEffect(() => {
+    if (deckToast) {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [deckToast]);
 
   const refresh = useCallback(async (nextPage: number) => {
     const chatIdQueryString = local.chatId?.toString();
@@ -314,7 +323,7 @@ export default function Chat() {
       text: "",
     };
 
-    setMessages([...messages, newUserMessage, loadingMessage]);
+    setMessages(prev => [...prev, newUserMessage, loadingMessage]);
     await runStream({ text: inputText, image });
   };
 
@@ -327,7 +336,7 @@ export default function Chat() {
       isLoading: true,
       text: "",
     };
-    setMessages([...messages, loadingMessage]);
+    setMessages(prev => [...prev, loadingMessage]);
     await runStream(payload);
   };
 
@@ -370,7 +379,12 @@ export default function Chat() {
         <ThemedView style={[styles.container, { paddingBottom: 0 }]}>
           <FlatList
             inverted
+            ref={listRef}
             style={styles.list}
+            // Inverted lists flip vertically, so paddingTop lands at the
+            // visual bottom: reserve room for the deck-toast overlay while
+            // it is shown so the newest bubble is never hidden behind it.
+            contentContainerStyle={deckToast ? { paddingTop: 96 } : undefined}
             data={[...messages].reverse()}
             keyExtractor={(item, index) => index.toString()}
             renderItem={({ item, index }) => (
@@ -380,8 +394,8 @@ export default function Chat() {
                 isStreaming={phase === "streaming" && index === 0 && item.role === "assistant"}
               />
             )}
-                onStartReached={handleLoadMore}
-                onStartReachedThreshold={0.5}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5}
                 ListHeaderComponent={loadingMore ? <ActivityIndicator /> : null}
               />
               {deckToast && (

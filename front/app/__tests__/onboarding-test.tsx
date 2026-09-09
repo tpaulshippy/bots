@@ -7,8 +7,15 @@ import OnboardingWelcome from '../onboarding';
 import OnboardingProfile from '../onboarding/profile';
 import OnboardingBot from '../onboarding/bot';
 import OnboardingProtect from '../onboarding/protect';
+import OnboardingNotifications from '../onboarding/notifications';
 import { fetchProfiles } from '@/api/profiles';
 import { fetchBots } from '@/api/bots';
+import {
+  fetchDeviceByToken,
+  setDeviceIdInStorage,
+  upsertDevice,
+} from '@/api/devices';
+import { registerForPushNotificationsAsync } from '../parent/notifications';
 import {
   bootstrapOnboarding,
   completeOnboarding,
@@ -25,6 +32,12 @@ jest.mock('@/api/profiles', () => ({
 
 jest.mock('@/api/bots', () => ({
   fetchBots: jest.fn(),
+}));
+
+jest.mock('@/api/devices', () => ({
+  fetchDeviceByToken: jest.fn(),
+  setDeviceIdInStorage: jest.fn(),
+  upsertDevice: jest.fn(),
 }));
 
 jest.mock('@/api/account', () => ({
@@ -53,7 +66,11 @@ describe('Onboarding wizard', () => {
       results: [{ bot_id: 'b1', name: 'Penelope' }],
       count: 1,
     });
-    (bootstrapOnboarding as jest.Mock).mockResolvedValue(undefined);
+    (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: null,
+    });
     (completeOnboarding as jest.Mock).mockResolvedValue(undefined);
   });
 
@@ -71,29 +88,63 @@ describe('Onboarding wizard', () => {
   });
 
   describe('Kid profile step', () => {
-    it('pre-fills the existing first profile name and renames via params', async () => {
+    it('starts blank with a Student name placeholder and forwards the typed name', async () => {
       render(<OnboardingProfile />);
       await act(async () => {});
 
       const input = screen.getByTestId('onboarding-profile-input');
-      expect(input.props.value).toBe('Jordan');
+      expect(input.props.value).toBe('');
+      expect(input.props.placeholder).toBe('Student name');
 
+      fireEvent.changeText(input, 'Alex');
       fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
 
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/onboarding/bot',
-        params: { profileName: 'Jordan' },
+        params: { profileName: 'Alex' },
       });
     });
 
     it('blocks Continue without a name', async () => {
-      (fetchProfiles as jest.Mock).mockResolvedValue({ results: [], count: 0 });
       render(<OnboardingProfile />);
       await act(async () => {});
 
       const button = screen.getByTestId('onboarding-profile-continue');
       expect(button.props.accessibilityState.disabled).toBe(true);
       expect(mockRouter.push).not.toHaveBeenCalled();
+    });
+
+    it('forwards the student email so teens can log in as themselves', async () => {
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-profile-input'),
+        'Alex'
+      );
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-student-email-input'),
+        'Maya@School.edu'
+      );
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: { profileName: 'Alex', studentEmail: 'maya@school.edu' },
+      });
+    });
+
+    it('blocks Continue with an invalid student email', async () => {
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-student-email-input'),
+        'not-an-email'
+      );
+
+      const button = screen.getByTestId('onboarding-profile-continue');
+      expect(button.props.accessibilityState.disabled).toBe(true);
     });
 
     it('goes back to the previous step', async () => {
@@ -157,9 +208,16 @@ describe('Onboarding wizard', () => {
       });
     });
 
-    it('requires matching PINs before Finish is enabled', async () => {
+    it('allows PIN-less continue but blocks mismatched PINs', async () => {
       render(<OnboardingProtect />);
       await act(async () => {});
+
+      // Empty PIN fields = PIN-less: Continue stays enabled with clear label.
+      expect(
+        screen.getByTestId('onboarding-pin-continue').props.accessibilityState
+          .disabled
+      ).toBe(false);
+      expect(screen.getByTestId('onboarding-pinless-hint')).toBeTruthy();
 
       fireEvent.changeText(screen.getByTestId('onboarding-pin-input'), '1234');
       fireEvent.changeText(
@@ -167,7 +225,7 @@ describe('Onboarding wizard', () => {
         '9999'
       );
       expect(
-        screen.getByTestId('onboarding-finish').props.accessibilityState
+        screen.getByTestId('onboarding-pin-continue').props.accessibilityState
           .disabled
       ).toBe(true);
 
@@ -179,12 +237,12 @@ describe('Onboarding wizard', () => {
       });
 
       expect(
-        screen.getByTestId('onboarding-finish').props.accessibilityState
+        screen.getByTestId('onboarding-pin-continue').props.accessibilityState
           .disabled
       ).toBe(false);
     });
 
-    it('bootstraps the account, selects the renamed profile and lands on chat', async () => {
+    it('carries a matching PIN to the notifications step', async () => {
       render(<OnboardingProtect />);
       await act(async () => {});
 
@@ -193,6 +251,53 @@ describe('Onboarding wizard', () => {
         screen.getByTestId('onboarding-pin-confirm'),
         '1234'
       );
+      fireEvent.press(screen.getByTestId('onboarding-pin-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/notifications',
+        params: expect.objectContaining({
+          profileName: 'Maya',
+          botName: 'Penelope',
+          templateName: 'Blank',
+          pin: '1234',
+        }),
+      });
+    });
+
+    it('continues PIN-less without sending a PIN', async () => {
+      render(<OnboardingProtect />);
+      await act(async () => {});
+
+      fireEvent.press(screen.getByTestId('onboarding-pin-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/notifications',
+        params: expect.not.objectContaining({ pin: expect.anything() }),
+      });
+    });
+
+    it('goes back to the previous step', async () => {
+      render(<OnboardingProtect />);
+
+      fireEvent.press(screen.getByTestId('onboarding-back'));
+      expect(mockRouter.back).toHaveBeenCalled();
+    });
+  });
+
+  describe('Notifications step', () => {
+    beforeEach(() => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        pin: '1234',
+      });
+    });
+
+    it('bootstraps the account, selects the renamed profile and lands on chat', async () => {
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
       await act(async () => {
         fireEvent.press(screen.getByTestId('onboarding-finish'));
       });
@@ -218,8 +323,27 @@ describe('Onboarding wizard', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
 
-    it('selects the configured profile even when it is not listed first', async () => {
-      // Listings are name-ordered; "Zoe" sorts after "Maya".
+    it('finishes PIN-less without sending a PIN', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(bootstrapOnboarding).toHaveBeenCalledWith(
+        expect.not.objectContaining({ pin: expect.anything() })
+      );
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('selects the configured profile even when it is not listed first', async () => {      // Listings are name-ordered; "Zoe" sorts after "Maya".
       (fetchProfiles as jest.Mock).mockResolvedValue({
         results: [
           { profile_id: 'p2', name: 'Maya' },
@@ -228,18 +352,17 @@ describe('Onboarding wizard', () => {
         count: 2,
       });
       (bootstrapOnboarding as jest.Mock).mockResolvedValue({
-        profileId: 'p1',
-        botId: 'b1',
+        ok: true,
+        status: 200,
+        data: {
+          profileId: 'p1',
+          botId: 'b1',
+        },
       });
 
-      render(<OnboardingProtect />);
+      render(<OnboardingNotifications />);
       await act(async () => {});
 
-      fireEvent.changeText(screen.getByTestId('onboarding-pin-input'), '1234');
-      fireEvent.changeText(
-        screen.getByTestId('onboarding-pin-confirm'),
-        '1234'
-      );
       await act(async () => {
         fireEvent.press(screen.getByTestId('onboarding-finish'));
       });
@@ -248,6 +371,117 @@ describe('Onboarding wizard', () => {
         'selectedProfile',
         JSON.stringify({ profile_id: 'p1', name: 'Zoe' })
       );
+    });
+
+    it('offers the PR46 notification options and persists the chosen flags', async () => {
+      (registerForPushNotificationsAsync as jest.Mock).mockResolvedValue(
+        'ExponentPushToken[test]'
+      );
+      (fetchDeviceByToken as jest.Mock).mockResolvedValue(null);
+      (upsertDevice as jest.Mock).mockResolvedValue({
+        device_id: 'd1',
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      // All three PR46 options are visible; the legacy testID stays on the
+      // new-chat toggle.
+      expect(screen.getByTestId('onboarding-notifications-switch')).toBeTruthy();
+      expect(screen.getByTestId('onboarding-notify-message-switch')).toBeTruthy();
+      expect(screen.getByTestId('onboarding-notify-digest-switch')).toBeTruthy();
+
+      fireEvent(screen.getByTestId('onboarding-notifications-switch'), 'onValueChange', true);
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: -1,
+          notification_token: 'ExponentPushToken[test]',
+          notify_on_new_chat: true,
+          notify_on_new_message: false,
+          notify_digest_only: false,
+        })
+      );
+      expect(setDeviceIdInStorage).toHaveBeenCalledWith('d1');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('digest-only disables the immediate pushes and skips them on save', async () => {
+      (registerForPushNotificationsAsync as jest.Mock).mockResolvedValue(
+        'ExponentPushToken[test]'
+      );
+      (fetchDeviceByToken as jest.Mock).mockResolvedValue(null);
+      (upsertDevice as jest.Mock).mockResolvedValue({
+        device_id: 'd1',
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      fireEvent(screen.getByTestId('onboarding-notify-digest-switch'), 'onValueChange', true);
+
+      expect(
+        screen.getByTestId('onboarding-notifications-switch').props.disabled
+      ).toBe(true);
+      expect(
+        screen.getByTestId('onboarding-notify-message-switch').props.disabled
+      ).toBe(true);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notify_on_new_chat: false,
+          notify_on_new_message: false,
+          notify_digest_only: true,
+        })
+      );
+    });
+
+    it('skips device registration when all notifications are off', async () => {
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(registerForPushNotificationsAsync).not.toHaveBeenCalled();
+      expect(upsertDevice).not.toHaveBeenCalled();
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('shows an inline error and stays put when the student email is taken', async () => {
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 400,
+        data: {
+          studentEmail: ['That email is already used by another profile.'],
+        },
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      const banner = screen.getByTestId('onboarding-save-error');
+      expect(banner.props.children).toContain('already used');
+      expect(banner.props.children).toContain('Step 2');
+      // Nothing was saved: no profile/bot selection, no completion, no chat.
+      expect(completeOnboarding).not.toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'selectedProfile',
+        expect.anything()
+      );
+      expect(mockRouter.replace).not.toHaveBeenCalled();
     });
   });
 });

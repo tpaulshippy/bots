@@ -29,7 +29,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_authenticated:
             return Deck.objects.none()
         queryset = Deck.objects.filter(profile__user=self.request.user)
-        delegated_profile = delegated_profile_from_auth(self.request.auth)
+        delegated_profile = delegated_profile_from_auth(self.request.auth, self.request.user)
         if delegated_profile is not None:
             queryset = queryset.filter(profile=delegated_profile)
         elif is_teen_delegated(self.request.auth):
@@ -108,7 +108,7 @@ class DeckViewSet(viewsets.ModelViewSet):
 
         # Teen-delegated sessions are locked to their claimed profile: any
         # client-sent profileId is ignored and the claim is enforced instead.
-        delegated_profile = delegated_profile_from_auth(self.request.auth)
+        delegated_profile = delegated_profile_from_auth(self.request.auth, user)
         if delegated_profile is not None:
             queryset = Deck.objects.filter(profile=delegated_profile)
         elif is_teen_delegated(self.request.auth):
@@ -149,7 +149,7 @@ class DeckViewSet(viewsets.ModelViewSet):
         # Teen-delegated sessions always write decks for their claimed profile
         # (client-sent profile/chat are ignored).
         if is_teen_delegated(self.request.auth):
-            delegated_profile = delegated_profile_from_auth(self.request.auth)
+            delegated_profile = delegated_profile_from_auth(self.request.auth, user)
             if delegated_profile is None:
                 raise drf_serializers.ValidationError("Invalid or unauthorized profile ID")
             serializer.save(profile=delegated_profile, chat=None)

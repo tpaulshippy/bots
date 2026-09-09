@@ -89,14 +89,30 @@ class ChatAgentService:
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
         messages = list(message_list)
         usage_totals = {"input_tokens": 0, "output_tokens": 0}
+        yielded_text = ""
+        after_tool = False
 
         for iteration in range(1, self.MAX_ITERATIONS + 1):
             logger.info(f"🤖 AGENT_STREAM_ITERATION: {iteration}")
 
             merged_chunk = None
             for chunk in model_with_tools.stream(messages):
-                delta = self._message_text(chunk)
+                # Per-chunk deltas must keep their whitespace: Bedrock streams
+                # list content blocks like {"type": "text", "text": " Hey"},
+                # where the leading space separates words. Stripping here
+                # glues words together ("Heythere"). Final-message callers use
+                # the default strip=True.
+                delta = self._message_text(chunk, strip=False)
                 if delta:
+                    # Separate responses across a tool call: iteration N can end
+                    # with "you:" and iteration N+1 start with "Done!" — neither
+                    # side carries the space, so abutting them yields "you:Done!".
+                    # Only at tool boundaries, never between raw chunks (which
+                    # can split mid-word, e.g. "Hel"+"lo").
+                    if after_tool and yielded_text and not yielded_text[-1].isspace() and not delta[0].isspace():
+                        delta = " " + delta
+                    after_tool = False
+                    yielded_text += delta
                     yield {"type": "token", "text": delta}
                 merged_chunk = chunk if merged_chunk is None else merged_chunk + chunk
 
@@ -115,17 +131,22 @@ class ChatAgentService:
 
                 yield {"type": "tool_start", "tool": tool_name, "args": tool_args or {}}
 
+                events_before = len(self.client_events)
                 tool_result = self._execute_tool(tool_name, tool_args, tools, has_web_search)
                 logger.info(f"🔍 AGENT_TOOL_RESULT: {tool_result[:100]}")
 
                 tool_end = {"type": "tool_end", "tool": tool_name}
-                # Flatten extras from the recorded client_event (deck_id, name,
-                # card_count, result_preview, ...) onto the tool_end payload.
-                for event in reversed(self.client_events):
+                # Flatten extras from the client_event recorded BY THIS CALL
+                # (deck_id, name, card_count, result_preview, ...) onto the
+                # tool_end payload. Snapshotting the event count first avoids
+                # merging a previous success's extras when this call errored
+                # or was blocked (no new event recorded).
+                for event in reversed(self.client_events[events_before:]):
                     if event.get("tool") == tool_name:
                         tool_end.update({k: v for k, v in event.items() if k != "tool"})
                         break
                 yield tool_end
+                after_tool = True
 
                 messages.append(ToolMessage(
                     content=tool_result,
@@ -227,7 +248,7 @@ class ChatAgentService:
         return response_text, usage_metadata
 
     @staticmethod
-    def _message_text(message):
+    def _message_text(message, strip=True):
         if isinstance(message.content, str):
             return message.content
         if isinstance(message.content, list):
@@ -237,7 +258,8 @@ class ChatAgentService:
                     text_parts.append(item.get('text', ''))
                 elif isinstance(item, str):
                     text_parts.append(item)
-            return "".join(text_parts).strip()
+            text = "".join(text_parts)
+            return text.strip() if strip else text
         return ""
 
     def _create_flashcard_deck_tool(self):

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from bots.models import Bot, Profile
+from bots.models import Bot, Profile, SafetyEvent
 
 
 class ActivityProfileSerializer(serializers.ModelSerializer):
@@ -20,7 +20,7 @@ class ActivityChatListSerializer(serializers.Serializer):
 
     chat_id = serializers.UUIDField()
     title = serializers.CharField()
-    profile = ActivityProfileSerializer()
+    profile = ActivityProfileSerializer(allow_null=True)
     bot = ActivityBotSerializer(allow_null=True)
     message_count = serializers.IntegerField()
     last_message_preview = serializers.CharField(allow_null=True, allow_blank=True)
@@ -31,6 +31,31 @@ class ActivityChatListSerializer(serializers.Serializer):
 class ActivityBotCountSerializer(serializers.Serializer):
     name = serializers.CharField(allow_null=True)
     count = serializers.IntegerField()
+
+
+class ActivitySafetyEventSerializer(serializers.ModelSerializer):
+    """Redacted-by-construction: the model never stores raw matched text.
+
+    message_order anchors the marker above the blocked turn in the parent
+    transcript; it is null for tool/web stages (no single message) and
+    pre-link rows.
+    """
+
+    message_order = serializers.SerializerMethodField()
+    summary = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SafetyEvent
+        fields = [
+            'event_id', 'stage', 'reason_code', 'snippet_redacted',
+            'created_at', 'message_order', 'summary',
+        ]
+
+    def get_message_order(self, obj):
+        return obj.message.order if obj.message else None
+
+    def get_summary(self, obj):
+        return f"Safety flag: {obj.reason_code or obj.stage}"
 
 
 class ActivityProfileSummarySerializer(serializers.Serializer):

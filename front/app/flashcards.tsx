@@ -15,11 +15,11 @@ import { FormModal } from "@/components/FormModal";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import * as Haptics from "expo-haptics";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import { fetchDecks, createDeck, DeckListItem } from "@/api/flashcards";
-import { getSelectedProfileId } from "@/hooks/useSelectedProfile";
+import { getSelectedProfileId, subscribeToSelectedProfile } from "@/hooks/useSelectedProfile";
 import { ThemedButton } from "@/components/ThemedButton";
 import { formatDistanceToNowStrict } from "date-fns";
 
@@ -41,6 +41,7 @@ export default function Flashcards() {
     try {
       const profileId = await getSelectedProfileId();
       if (!profileId) {
+        setDecks([]);
         setRefreshing(false);
         return;
       }
@@ -53,6 +54,10 @@ export default function Flashcards() {
       setLoading(false);
     }
   }, []);
+
+  // Same staleness as the chat list had: the header/drawer switcher doesn't
+  // blur/focus this screen, so refetch when the selected profile changes.
+  useEffect(() => subscribeToSelectedProfile(() => refresh()), [refresh]);
 
   useFocusEffect(
     useCallback(() => {

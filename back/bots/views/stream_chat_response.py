@@ -22,9 +22,11 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.request import Request
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from bots.models import Bot, Chat, Profile
+from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 from bots.views.get_chat_response import (
     allowed_file,
     compress_and_upload_image,
@@ -40,19 +42,22 @@ def _sse_frame(event_type, payload):
 def _authenticate(request):
     """Run DRF authenticators against a plain HttpRequest.
 
-    JWTAuthentication reads only request.headers and SessionAuthentication
-    reads request._request.user, so neither needs the DRF Request wrapper.
+    Authenticators expect a DRF Request (SessionAuthentication reads
+    request._request.user), so the plain Django request is wrapped first.
+    Returns (user, auth) so callers can enforce teen-delegation guards,
+    mirroring the legacy blocking endpoint.
     """
+    drf_request = Request(request)
     for authenticator in (JWTAuthentication(), SessionAuthentication()):
         try:
-            result = authenticator.authenticate(request)
+            result = authenticator.authenticate(drf_request)
         except Exception:
             result = None
         if result is not None:
-            user, _auth = result
+            user, auth = result
             if user and user.is_active:
-                return user
-    return None
+                return user, auth
+    return None, None
 
 
 def _json_body(request):
@@ -69,9 +74,15 @@ def _json_body(request):
 @csrf_exempt
 @require_POST
 def stream_chat_response(request, chat_id):
-    user = _authenticate(request)
+    user, auth = _authenticate(request)
     if user is None:
         return HttpResponse(status=401)
+
+    # Teen-delegated sessions are locked to their claimed profile: a
+    # client-sent profile id is ignored and the claim is enforced instead.
+    delegated_profile = delegated_profile_from_auth(auth, user)
+    if is_teen_delegated(auth) and delegated_profile is None:
+        return JsonResponse({'error': 'No active profile for this session'}, status=403)
 
     body, error_response = _json_body(request)
     if error_response is not None:
@@ -84,17 +95,22 @@ def stream_chat_response(request, chat_id):
     if chat_id == 'new':
         profile = None
         bot = None
-        if body.get('profile'):
+        if delegated_profile is not None:
+            profile = delegated_profile
+        elif body.get('profile'):
             profile = get_object_or_404(Profile, profile_id=body['profile'], user=user)
         if body.get('bot'):
             bot = get_object_or_404(Bot, bot_id=body['bot'], user=user)
         chat = Chat.objects.create(title=user_input, profile=profile, bot=bot, user=user)
+        # Parent-controlled prompt only; store it when present.
         system_prompt = chat.get_system_message()
-        if bot and bot.system_prompt:
-            system_prompt = bot.system_prompt
-        chat.messages.create(text=system_prompt, role='system', order=0)
+        if system_prompt:
+            chat.messages.create(text=system_prompt, role='system', order=0)
     else:
         chat = get_object_or_404(Chat, chat_id=chat_id, user=user)
+        # Teens may only post to chats belonging to their own profile.
+        if delegated_profile is not None and chat.profile != delegated_profile:
+            return JsonResponse({'error': 'Chat not found'}, status=404)
 
     filename = None
     if request.FILES:
@@ -115,6 +131,9 @@ def stream_chat_response(request, chat_id):
     )
 
     assistant_message_id = uuid.uuid4()
+    # The same id is used for the SSE meta/done frames and the persisted
+    # assistant row (via stream_response(message_id=...)) so clients can
+    # correlate the streamed bubble with the saved message.
     event_generator = chat.stream_response(message_id=assistant_message_id)
 
     def sse():
