@@ -125,43 +125,46 @@ export default function Study() {
   const handleRating = async (rating: FlashcardRating) => {
     if (ratingInProgress || !deckId) return;
     setRatingInProgress(true);
-
-    if (process.env.EXPO_OS === "ios") {
-      if (rating === "again") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      } else {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    }
-
-    const currentCard = cards[currentIndex];
-    let nextDueAt: string | null = null;
     try {
-      const updated = await reviewFlashcard(
-        deckId,
-        currentCard.flashcard_id,
-        rating
-      );
-      nextDueAt = updated?.due_at ?? null;
-    } catch (error) {
-      Sentry.captureException(error);
-      Alert.alert("Error", "Failed to save your review");
-    }
+      if (process.env.EXPO_OS === "ios") {
+        if (rating === "again") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        } else {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }
 
-    if (rating === "again") {
-      setAgainCount(againCount + 1);
-    }
-    if (nextDueAt) {
-      setReviewedDues((prev) => [...prev, nextDueAt as string]);
-    }
+      const currentCard = cards[currentIndex];
+      let updated;
+      try {
+        updated = await reviewFlashcard(
+          deckId,
+          currentCard.flashcard_id,
+          rating
+        );
+      } catch (error) {
+        Sentry.captureException(error);
+        Alert.alert("Error", "Failed to save your review");
+        return;
+      }
+      const nextDueAt: string | null = updated?.due_at ?? null;
 
-    if (currentIndex < cards.length - 1) {
-      resetFlip();
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      setCompleted(true);
+      if (rating === "again") {
+        setAgainCount((c) => c + 1);
+      }
+      if (nextDueAt) {
+        setReviewedDues((prev) => [...prev, nextDueAt as string]);
+      }
+
+      if (currentIndex < cards.length - 1) {
+        resetFlip();
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        setCompleted(true);
+      }
+    } finally {
+      setRatingInProgress(false);
     }
-    setRatingInProgress(false);
   };
 
   const earliestNextDue = (): string | null => {

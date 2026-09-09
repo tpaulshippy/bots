@@ -45,7 +45,7 @@ def apply_sm2(card, rating, now=None):
     Sketch:
         again: reset reps, bump lapses, short same-day interval,
                ease down (floored at MIN_EASE)
-        hard:  interval = max(1, interval * 1.2), ease down
+        hard:  interval = max(1, interval * 1.2), ease down, reps += 1
         good:  1 day -> 6 days -> interval * ease; reps += 1
         easy:  like good * 1.3, ease up; reps += 1
     """
@@ -66,6 +66,7 @@ def apply_sm2(card, rating, now=None):
         interval_days = LAPSE_INTERVAL_DAYS
     elif rating == 'hard':
         interval_days = max(FIRST_INTERVAL_DAYS, interval_days * HARD_MULTIPLIER)
+        reps += 1
     elif rating == 'good':
         if reps == 0:
             interval_days = FIRST_INTERVAL_DAYS

@@ -53,7 +53,7 @@ class TestApplySm2NewCard:
     def test_new_card_hard_gets_minimum_one_day(self):
         fields = apply_sm2(FakeCard(), 'hard', NOW)
         assert fields['interval_days'] == 1  # max(1, 0 * 1.2)
-        assert fields['reps'] == 0
+        assert fields['reps'] == 1
         assert fields['ease'] == pytest.approx(DEFAULT_EASE - 0.15)
 
     def test_new_card_again_lapses(self):
@@ -92,10 +92,22 @@ class TestApplySm2Progression:
         fields = apply_sm2(card, 'hard', NOW)
         assert fields['interval_days'] == 10 * 1.2
 
-    def test_hard_does_not_increment_reps(self):
+    def test_hard_increments_reps(self):
         card = FakeCard(interval_days=10, reps=3)
         fields = apply_sm2(card, 'hard', NOW)
-        assert fields['reps'] == 3
+        assert fields['reps'] == 4
+
+    def test_hard_then_good_leaves_learning_steps(self):
+        first = apply_sm2(FakeCard(), 'hard', NOW)
+        assert first['reps'] == 1
+        second = apply_sm2(FakeCard(**{
+            'interval_days': first['interval_days'],
+            'ease': first['ease'],
+            'reps': first['reps'],
+            'lapses': 0,
+        }), 'good', NOW)
+        assert second['interval_days'] == SECOND_INTERVAL_DAYS
+        assert second['reps'] == 2
 
 
 class TestApplySm2Lapse:

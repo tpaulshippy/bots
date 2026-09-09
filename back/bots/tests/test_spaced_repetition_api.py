@@ -223,6 +223,12 @@ class TestStudyQueue:
         response = auth_client.get(f'/api/decks/{deck.deck_id}/study_queue/?mode=bogus')
         assert response.status_code == 400
 
+    def test_invalid_limit_returns_400(self, auth_client, deck):
+        make_card(deck)
+        for bad in ('0', '-5', 'abc'):
+            response = auth_client.get(f'/api/decks/{deck.deck_id}/study_queue/?limit={bad}')
+            assert response.status_code == 400
+
     def test_queue_due_filter_respects_timezone(self, auth_client, deck):
         """due_at values are timezone-aware (stored UTC); the due filter must
         compare correctly no matter which zone was used to construct them.
@@ -298,4 +304,16 @@ class TestDeckAnnotations:
         response = auth_client.get(f'/api/decks/{deck.deck_id}/')
         data = response.json()
         assert data['due_count'] == 1
+        assert data['last_studied_at'] is None
+
+    def test_deck_create_returns_annotation_defaults(self, auth_client, test_profile):
+        response = auth_client.post(
+            '/api/decks.json',
+            {'name': 'Fresh', 'profile': str(test_profile.profile_id)},
+            format='json',
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data['card_count'] == 0
+        assert data['due_count'] == 0
         assert data['last_studied_at'] is None

@@ -193,7 +193,7 @@ jest.mock('../../api/apiClient', () => ({
             due_at: '2024-01-04T00:00:00Z',
             interval_days: intervals[body.rating as string] ?? 0,
             ease: body.rating === 'again' ? 2.3 : body.rating === 'easy' ? 2.65 : 2.5,
-            reps: body.rating === 'again' || body.rating === 'hard' ? 0 : 1,
+            reps: body.rating === 'again' ? 0 : 1,
             lapses: body.rating === 'again' ? 1 : 0,
             last_reviewed_at: '2024-01-03T09:00:00Z',
             created_at: '2024-01-01T00:00:00Z',

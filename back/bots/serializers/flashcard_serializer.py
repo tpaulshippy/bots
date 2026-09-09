@@ -23,9 +23,9 @@ class FlashcardSerializer(serializers.ModelSerializer):
 
 class DeckSerializer(serializers.ModelSerializer):
     flashcards = FlashcardSerializer(many=True, read_only=True)
-    card_count = serializers.IntegerField(read_only=True, source='flashcard_count')
-    due_count = serializers.IntegerField(read_only=True)
-    last_studied_at = serializers.DateTimeField(read_only=True)
+    card_count = serializers.IntegerField(read_only=True, source='flashcard_count', default=0)
+    due_count = serializers.IntegerField(read_only=True, default=0)
+    last_studied_at = serializers.DateTimeField(read_only=True, allow_null=True, default=None)
     profile = serializers.SlugRelatedField(
         queryset=Profile.objects.all(),
         slug_field='profile_id',
@@ -47,9 +47,9 @@ class DeckSerializer(serializers.ModelSerializer):
 
 
 class DeckListSerializer(serializers.ModelSerializer):
-    card_count = serializers.IntegerField(read_only=True, source='flashcard_count')
-    due_count = serializers.IntegerField(read_only=True)
-    last_studied_at = serializers.DateTimeField(read_only=True)
+    card_count = serializers.IntegerField(read_only=True, source='flashcard_count', default=0)
+    due_count = serializers.IntegerField(read_only=True, default=0)
+    last_studied_at = serializers.DateTimeField(read_only=True, allow_null=True, default=None)
 
     class Meta:
         model = Deck

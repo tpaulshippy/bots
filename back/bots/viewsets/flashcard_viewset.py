@@ -215,7 +215,9 @@ class DeckViewSet(viewsets.ModelViewSet):
             limit = int(request.query_params.get('limit', 50))
         except (TypeError, ValueError):
             return Response({'limit': 'Invalid limit'}, status=status.HTTP_400_BAD_REQUEST)
-        limit = max(1, min(limit, 200))
+        if limit < 1:
+            return Response({'limit': 'Invalid limit'}, status=status.HTTP_400_BAD_REQUEST)
+        limit = min(limit, 200)
         queryset = queryset[:limit]
 
         serializer = FlashcardSerializer(queryset, many=True)
