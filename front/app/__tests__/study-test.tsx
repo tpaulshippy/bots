@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import Study from '../flashcards/study';
-import { fetchFlashcards } from '@/api/flashcards';
+import { fetchStudyQueue, reviewFlashcard } from '@/api/flashcards';
 
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
@@ -11,12 +11,15 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/api/flashcards', () => ({
-  fetchFlashcards: jest.fn(),
+  fetchStudyQueue: jest.fn(),
+  reviewFlashcard: jest.fn(),
 }));
 
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(),
+  notificationAsync: jest.fn(),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
+  NotificationFeedbackType: { Warning: 'warning' },
 }));
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
@@ -28,6 +31,12 @@ const card = (id: string, front: string, back: string) => ({
   front,
   back,
   order: 0,
+  due_at: '2026-08-25T10:00:00Z',
+  interval_days: 0,
+  ease: 2.5,
+  reps: 0,
+  lapses: 0,
+  last_reviewed_at: null,
   created_at: '2026-08-25T10:00:00Z',
   updated_at: '2026-08-25T10:00:00Z',
 });
@@ -37,49 +46,56 @@ describe('Study', () => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
     (useLocalSearchParams as jest.Mock).mockReturnValue({ deckId: 'deck-1' });
-    (fetchFlashcards as jest.Mock).mockResolvedValue({
-      results: [card('c1', 'Q1', 'A1'), card('c2', 'Q2', 'A2')],
-      count: 2,
-    });
+    (fetchStudyQueue as jest.Mock).mockResolvedValue([
+      card('c1', 'Q1', 'A1'),
+      card('c2', 'Q2', 'A2'),
+    ]);
+    (reviewFlashcard as jest.Mock).mockImplementation(
+      async (_deckId: string, flashcardId: string, _rating: string) => ({
+        ...card(flashcardId, 'Q', 'A'),
+        due_at: '2026-08-26T10:00:00Z',
+      })
+    );
   });
 
   it('renders the first card with progress', async () => {
     render(<Study />);
 
     await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
-    expect(screen.getByText('1 / 2')).toBeTruthy();
+    expect(screen.getByText('0 / 2')).toBeTruthy();
   });
 
-  it('advances to the next card', async () => {
+  it('advances to the next card after flip + rating', async () => {
     render(<Study />);
 
     await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('study-next'));
+    fireEvent.press(screen.getByTestId('study-card'));
+    fireEvent.press(screen.getByTestId('study-rating-good'));
 
     await waitFor(() => expect(screen.getByText('Q2')).toBeTruthy());
-    expect(screen.getByText('2 / 2')).toBeTruthy();
+    expect(screen.getByText('1 / 2')).toBeTruthy();
   });
 
-  it('completes the deck on the last card and restarts', async () => {
+  it('completes the deck on the last card', async () => {
     render(<Study />);
 
     await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('study-next'));
+    fireEvent.press(screen.getByTestId('study-card'));
+    fireEvent.press(screen.getByTestId('study-rating-good'));
     await waitFor(() => expect(screen.getByText('Q2')).toBeTruthy());
-    fireEvent.press(screen.getByTestId('study-next'));
+    fireEvent.press(screen.getByTestId('study-card'));
+    fireEvent.press(screen.getByTestId('study-rating-good'));
 
-    await waitFor(() => expect(screen.getByText('Done! 🎉')).toBeTruthy());
-    expect(screen.getByText('You studied all 2 cards.')).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('study-restart'));
-    await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
-    expect(screen.getByText('1 / 2')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId('study-session-complete')).toBeTruthy()
+    );
+    expect(screen.getByText('You reviewed 2 cards.')).toBeTruthy();
   });
 
   it('shows the empty state when there are no cards', async () => {
-    (fetchFlashcards as jest.Mock).mockResolvedValue({ results: [], count: 0 });
+    (fetchStudyQueue as jest.Mock).mockResolvedValue([]);
     render(<Study />);
 
-    await waitFor(() => expect(screen.getByText('No cards to study')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Nothing due 🎉')).toBeTruthy());
   });
 });
