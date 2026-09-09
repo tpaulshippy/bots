@@ -262,6 +262,11 @@ class TestStudyQueue:
         response = api_client.get(f'/api/decks/{deck.deck_id}/study_queue/')
         assert response.status_code == 404
 
+    def test_study_queue_requires_authentication(self, api_client, deck):
+        make_card(deck)
+        response = api_client.get(f'/api/decks/{deck.deck_id}/study_queue/')
+        assert response.status_code == 401
+
     def test_study_queue_includes_scheduling_fields(self, auth_client, deck):
         make_card(deck, ease=2.1, reps=4, lapses=1, interval_days=12.5)
         results = auth_client.get(f'/api/decks/{deck.deck_id}/study_queue/').json()

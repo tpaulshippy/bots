@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -97,5 +98,40 @@ describe('Study', () => {
     render(<Study />);
 
     await waitFor(() => expect(screen.getByText('Nothing due 🎉')).toBeTruthy());
+  });
+
+  it('shows truthful per-card interval hints (new card: Again→4h, Good→1d)', async () => {
+    render(<Study />);
+
+    await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('study-card'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('study-rating-again')).toBeTruthy()
+    );
+    expect(screen.getByText('4h')).toBeTruthy();
+    // Hard/Good/Easy all preview 1d for a brand-new card (reps=0).
+    expect(screen.getAllByText('1d').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('stays on the card and alerts when the review fails to save', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    (reviewFlashcard as jest.Mock).mockResolvedValue(null);
+    render(<Study />);
+
+    await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('study-card'));
+    fireEvent.press(screen.getByTestId('study-rating-good'));
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Error',
+        'Failed to save your review'
+      )
+    );
+    // Still on the first card — the failed review must not be skipped.
+    expect(screen.getByText('Q1')).toBeTruthy();
+    expect(screen.getByText('0 / 2')).toBeTruthy();
+    alertSpy.mockRestore();
   });
 });

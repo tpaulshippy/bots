@@ -28,17 +28,55 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - 40;
 
-// Rating buttons shown after the flip. Interval hints mirror the SM-2
-// defaults for an early card (<1d for Again's same-day relearn step).
-const RATINGS: { rating: FlashcardRating; label: string; hint: string }[] = [
-  { rating: "again", label: "Again", hint: "<1d" },
-  { rating: "hard", label: "Hard", hint: "1d" },
-  { rating: "good", label: "Good", hint: "3d" },
-  { rating: "easy", label: "Easy", hint: "7d" },
+// Interval preview mirroring back/bots/services/srs.py so the hint under
+// each rating button shows the truthful next interval for THIS card
+// (a static 1d/3d/7d legend would lie for new vs. mature cards).
+const SM2_FIRST_INTERVAL = 1;
+const SM2_SECOND_INTERVAL = 6;
+const SM2_LAPSE_INTERVAL = 1 / 6;
+const SM2_EASY_BONUS = 1.3;
+const SM2_HARD_MULTIPLIER = 1.2;
+
+const previewIntervalDays = (
+  card: Flashcard,
+  rating: FlashcardRating
+): number => {
+  const interval = card.interval_days ?? 0;
+  const ease = card.ease ?? 2.5;
+  const reps = card.reps ?? 0;
+  if (rating === "again") return SM2_LAPSE_INTERVAL;
+  if (rating === "hard") return Math.max(SM2_FIRST_INTERVAL, interval * SM2_HARD_MULTIPLIER);
+  const base =
+    reps === 0
+      ? SM2_FIRST_INTERVAL
+      : reps === 1
+        ? SM2_SECOND_INTERVAL
+        : interval * ease;
+  return rating === "easy" ? base * SM2_EASY_BONUS : base;
+};
+
+const formatIntervalHint = (days: number): string => {
+  if (days < 1) {
+    const hours = Math.max(1, Math.round(days * 24));
+    return `${hours}h`;
+  }
+  if (days < 30) return `${Math.round(days)}d`;
+  if (days < 365) return `${Math.round(days / 30)}mo`;
+  return `${Math.round(days / 365)}y`;
+};
+
+const RATINGS: { rating: FlashcardRating; label: string }[] = [
+  { rating: "again", label: "Again" },
+  { rating: "hard", label: "Hard" },
+  { rating: "good", label: "Good" },
+  { rating: "easy", label: "Easy" },
 ];
 
 export default function Study() {
-  const { deckId } = useLocalSearchParams<{ deckId: string }>();
+  const { deckId, mode } = useLocalSearchParams<{
+    deckId: string;
+    mode?: string;
+  }>();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<Flashcard[]>([]);
@@ -48,7 +86,9 @@ export default function Study() {
   const [againCount, setAgainCount] = useState(0);
   const [reviewedDues, setReviewedDues] = useState<string[]>([]);
   const [ratingInProgress, setRatingInProgress] = useState(false);
-  const [now] = useState(() => Date.now());
+  // Wall-clock time the session completed, captured in the rating event
+  // handler (render must stay pure) so "Next due in …" never goes stale.
+  const [completedAt, setCompletedAt] = useState<number | null>(null);
 
   const [flipAnim] = useState(() => new Animated.Value(0));
 
@@ -68,7 +108,8 @@ export default function Study() {
       }
       try {
         // Default study queue: only cards that are due right now.
-        const dueCards = await fetchStudyQueue(deckId, "due");
+        const initialMode = mode === "all" ? "all" : "due";
+        const dueCards = await fetchStudyQueue(deckId, initialMode);
         setCards(dueCards);
       } catch (error) {
         Sentry.captureException(error);
@@ -78,7 +119,7 @@ export default function Study() {
       }
     };
     loadQueue();
-  }, [deckId, router]);
+  }, [deckId, mode, router]);
 
   const frontRotate = flipAnim.interpolate({
     inputRange: [0, 1],
@@ -114,6 +155,12 @@ export default function Study() {
     setLoading(true);
     try {
       const allCards = await fetchStudyQueue(deckId, "all");
+      resetFlip();
+      setCurrentIndex(0);
+      setCompleted(false);
+      setCompletedAt(null);
+      setAgainCount(0);
+      setReviewedDues([]);
       setCards(allCards);
     } catch (error) {
       Sentry.captureException(error);
@@ -147,7 +194,19 @@ export default function Study() {
         Alert.alert("Error", "Failed to save your review");
         return;
       }
-      const nextDueAt: string | null = updated?.due_at ?? null;
+      // request() resolves to the null fallback on network/server failure
+      // instead of throwing — treat that as a failure and stay on the card
+      // so the review isn't silently skipped.
+      if (!updated) {
+        Sentry.captureException(
+          new Error(
+            `reviewFlashcard returned null for card ${currentCard.flashcard_id}`
+          )
+        );
+        Alert.alert("Error", "Failed to save your review");
+        return;
+      }
+      const nextDueAt: string | null = updated.due_at ?? null;
 
       if (rating === "again") {
         setAgainCount((c) => c + 1);
@@ -160,6 +219,7 @@ export default function Study() {
         resetFlip();
         setCurrentIndex(currentIndex + 1);
       } else {
+        setCompletedAt(Date.now());
         setCompleted(true);
       }
     } finally {
@@ -167,14 +227,16 @@ export default function Study() {
     }
   };
 
+  // Earliest next-due across reviewed cards, measured from the moment the
+  // session completed. Pure: reads only state, so it is safe to call at render.
   const earliestNextDue = (): string | null => {
-    if (reviewedDues.length === 0) return null;
+    if (reviewedDues.length === 0 || completedAt === null) return null;
     const times = reviewedDues
       .map((iso) => new Date(iso).getTime())
       .filter((t) => !Number.isNaN(t));
     if (times.length === 0) return null;
     const earliest = new Date(Math.min(...times));
-    const diffMs = earliest.getTime() - now;
+    const diffMs = earliest.getTime() - completedAt;
     if (diffMs <= 0) return "now";
     const minutes = Math.round(diffMs / 60000);
     if (minutes < 60) return `${minutes} min`;
@@ -315,7 +377,7 @@ export default function Study() {
 
       <View style={styles.ratingRow}>
         {isFlipped ? (
-          RATINGS.map(({ rating, label, hint }) => (
+          RATINGS.map(({ rating, label }) => (
             <Pressable
               key={rating}
               testID={`study-rating-${rating}`}
@@ -329,7 +391,9 @@ export default function Study() {
               disabled={ratingInProgress}
             >
               <ThemedText style={styles.ratingButtonText}>{label}</ThemedText>
-              <ThemedText style={styles.ratingHint}>{hint}</ThemedText>
+              <ThemedText style={styles.ratingHint}>
+                {formatIntervalHint(previewIntervalDays(currentCard, rating))}
+              </ThemedText>
             </Pressable>
           ))
         ) : (

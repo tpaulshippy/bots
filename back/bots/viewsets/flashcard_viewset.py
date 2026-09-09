@@ -1,5 +1,6 @@
 import uuid
 
+from django.db import transaction
 from django.db.models import Count, F, Max, Q
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -81,22 +82,23 @@ class FlashcardViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        updates = srs.apply_sm2(flashcard, rating)
-        for field, value in updates.items():
-            setattr(flashcard, field, value)
-        flashcard.save(update_fields=list(updates.keys()) + ['updated_at'])
+        with transaction.atomic():
+            updates = srs.apply_sm2(flashcard, rating)
+            for field, value in updates.items():
+                setattr(flashcard, field, value)
+            flashcard.save(update_fields=list(updates.keys()) + ['updated_at'])
 
-        FlashcardReview.objects.create(
-            flashcard=flashcard,
-            profile=flashcard.deck.profile,
-            rating=rating,
-        )
+            FlashcardReview.objects.create(
+                flashcard=flashcard,
+                profile=flashcard.deck.profile,
+                rating=rating,
+            )
 
         return Response(FlashcardSerializer(flashcard).data)
 
 
 class DeckViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsOwner]
+    permission_classes = [IsAuthenticated, IsOwner]
     serializer_class = DeckSerializer
     queryset = Deck.objects.all()
 
