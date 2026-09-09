@@ -24,7 +24,7 @@ export function useNotificationChatNavigation() {
   const handleResponse = useCallback(
     async (response: Notifications.NotificationResponse | null) => {
       const data = response?.notification.request.content.data as
-        | { chat_id?: string; target?: string }
+        | { chat_id?: string; target?: string; deck_id?: string }
         | undefined;
       if (!response || (!data?.chat_id && !data?.target)) {
         return;
@@ -46,6 +46,20 @@ export function useNotificationChatNavigation() {
             } as const)
           : ({ pathname: "/parent/activity" } as const);
         router.push(route);
+        return;
+      }
+
+      // Study reminders open the due study session directly when the push
+      // names a single deck, otherwise the deck list (due badges show where).
+      if (data.target === "study_due") {
+        if (data.deck_id) {
+          router.push({
+            pathname: "/flashcards/study",
+            params: { deckId: data.deck_id, mode: "due" },
+          });
+        } else {
+          router.push({ pathname: "/flashcards" });
+        }
         return;
       }
 

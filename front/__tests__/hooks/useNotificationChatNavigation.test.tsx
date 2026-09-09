@@ -39,7 +39,8 @@ const CHAT = {
 const makeResponse = (
   chatId: string | undefined,
   identifier = 'response-1',
-  target?: string
+  target?: string,
+  deckId?: string
 ): Notifications.NotificationResponse =>
   ({
     notification: {
@@ -49,6 +50,7 @@ const makeResponse = (
           data: {
             ...(chatId ? { chat_id: chatId } : {}),
             ...(target ? { target } : {}),
+            ...(deckId ? { deck_id: deckId } : {}),
           },
         },
       },
@@ -189,6 +191,35 @@ describe('useNotificationChatNavigation', () => {
     expect(fetchChat).not.toHaveBeenCalled();
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/parent/activity',
+    });
+  });
+
+  it('opens the due study session when the reminder names a single deck', async () => {
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(
+        makeResponse(undefined, 'response-1', 'study_due', 'deck-1')
+      );
+    });
+
+    expect(fetchChat).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards/study',
+      params: { deckId: 'deck-1', mode: 'due' },
+    });
+  });
+
+  it('opens the deck list when the reminder spans several decks', async () => {
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(makeResponse(undefined, 'response-1', 'study_due'));
+    });
+
+    expect(fetchChat).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards',
     });
   });
 

@@ -157,7 +157,7 @@ describe('Spaced Repetition Study E2E Flow (Real API)', () => {
   it('should reflect next-due state afterwards', async () => {
     // All rated cards are scheduled >= 4h out, so the due queue empties.
     const tokens = await getTestTokens();
-    const response = await fetch(`${API_BASE}/decks/${deckId}/study_queue/.json?mode=due`, {
+    const response = await fetch(`${API_BASE}/decks/${deckId}/study_queue.json?mode=due`, {
       headers: { Authorization: `Bearer ${tokens.access}` },
     });
     const queue = await response.json();

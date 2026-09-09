@@ -13,6 +13,7 @@ class DeviceSerializer(serializers.HyperlinkedModelSerializer):
             'notify_on_new_chat',
             'notify_on_new_message',
             'notify_digest_only',
+            'notify_study_due',
             'deleted_at',
             'created_at',
             'modified_at',
