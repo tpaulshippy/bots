@@ -162,102 +162,6 @@ def describe_html_page_tool():
         result = svc._execute_tool("x", {}, {"x": boom}, False)
         assert "failed" in result
 
-    def it_saves_a_fenced_html_block_when_the_tool_is_not_called():
-        from langchain_core.messages import AIMessage
-        chat = _chat()
-        svc = ChatAgentService(chat, MagicMock())
-        body = (
-            "Here is your page:\n```html\n"
-            "<html><head><title>Minecraft Guide</title></head>"
-            "<body><h1>Minecraft</h1></body></html>\n```\nEnjoy!"
-        )
-        svc.ai_client.bind_tools.return_value.invoke.return_value = AIMessage(
-            content=body,
-            usage_metadata={"input_tokens": 5, "output_tokens": 50, "total_tokens": 55},
-        )
-        text, _ = svc.respond([])
-        page = HtmlPage.objects.get()
-        assert page.title == "Minecraft Guide"
-        assert "Saved page 'Minecraft Guide'" in text
-        assert "```html" not in text
-        assert svc.client_events[0]["tool"] == "save_html_page"
-
-    def it_skips_fence_fallback_after_a_tool_save():
-        from langchain_core.messages import AIMessage
-        chat = _chat()
-        svc = ChatAgentService(chat, MagicMock())
-        save = svc._create_html_page_tool()
-        save.invoke({"title": "Dino", "html": "<html><body>hi</body></html>"})
-        body = "```html\n<html><body><h1>Other</h1></body></html>\n```"
-        svc.ai_client.bind_tools.return_value.invoke.return_value = AIMessage(content=body)
-        text, _ = svc.respond([])
-        assert HtmlPage.objects.count() == 1
-        assert "Saved page" not in text
-
-    def it_rejects_fenced_pages_with_external_resources():
-        from langchain_core.messages import AIMessage
-        chat = _chat()
-        svc = ChatAgentService(chat, MagicMock())
-        body = '```html\n<html><script src="https://e.test/x.js"></script></html>\n```'
-        svc.ai_client.bind_tools.return_value.invoke.return_value = AIMessage(content=body)
-        svc.respond([])
-        assert HtmlPage.objects.count() == 0
-
-    def it_emits_page_chip_for_streamed_fenced_pages():
-        from langchain_core.messages import AIMessageChunk
-        chat = _chat()
-        svc = ChatAgentService(chat, MagicMock())
-        body = (
-            "Hi:\n```html\n<html><head><title>MC</title></head>"
-            "<body><h1>MC</h1></body></html>\n```\n"
-        )
-        svc.ai_client.bind_tools.return_value.stream.return_value = iter([
-            AIMessageChunk(content=body),
-        ])
-        events = list(svc.respond_events([]))
-        tool_ends = [e for e in events if e.get("type") == "tool_end"]
-        assert tool_ends and tool_ends[0]["tool"] == "save_html_page"
-        assert tool_ends[0]["page_id"]
-        assert HtmlPage.objects.count() == 1
-        texts = "".join(e.get("text", "") for e in events if e.get("type") == "token")
-        assert "Saved page 'MC'" in texts
-
-    def it_strips_fences_from_streamed_storage():
-        from django.contrib.auth.models import User as AuthUser
-        from langchain_core.messages import AIMessageChunk
-
-        from bots.models import AiModel
-
-        user = AuthUser.objects.create(username="streamer")
-        profile = Profile.objects.create(user=user, name="Kid")
-        model = AiModel.objects.create(
-            model_id="stream-vision", name="SV",
-            supported_input_modalities=["text", "image"],
-        )
-        bot = Bot.objects.create(
-            user=user, name="Web", ai_model=model, enable_html_pages=True,
-        )
-        chat = Chat.objects.create(user=user, profile=profile, bot=bot)
-        chat.messages.create(text="make a page", role="user", order=0)
-
-        class FenceStreamClient:
-            def bind_tools(self, tools):
-                return self
-
-            def stream(self, messages):
-                yield AIMessageChunk(
-                    content=(
-                        "Here:\n```html\n<html><head><title>MC</title></head>"
-                        "<body><h1>MC</h1></body></html>\n```\n"
-                    )
-                )
-
-        list(chat.stream_response(ai=FenceStreamClient()))
-        saved = chat.messages.filter(role="assistant").last()
-        assert "Saved page 'MC'" in saved.text
-        assert "```html" not in saved.text
-        assert HtmlPage.objects.count() == 1
-
     def it_lists_chat_pages_for_iteration():
         from langchain_core.messages import SystemMessage
         chat = _chat()
@@ -299,7 +203,7 @@ def describe_html_page_tool():
     def it_includes_guidance_before_any_page_exists():
         # Guidance rides in the system message itself (stored row, visible
         # in admin) — not merged at call time — so first turns know the
-        # fenced path with zero pages existing.
+        # tool path with zero pages existing.
         from langchain_core.messages import SystemMessage
         chat = _chat()
         chat.bot.system_prompt = "You are a tutor."
@@ -309,8 +213,25 @@ def describe_html_page_tool():
         systems = [m for m in message_list if isinstance(m, SystemMessage)]
         assert len(systems) == 1
         assert "You are a tutor." in systems[0].content
-        assert "```html" in systems[0].content
         assert "save_html_page" in systems[0].content
+
+    def it_exempts_page_builds_from_word_limits():
+        # Prod: Fred's prompt caps replies at 200 words, so the model
+        # obeyed it by emitting title-only tool calls. The guidance must
+        # explicitly lift any length limit for the page document itself.
+        from bots.services.chat_agent import ChatAgentService as Svc
+        lowered = Svc.HTML_GUIDANCE.lower()
+        assert "word" in lowered
+        assert "complete" in lowered
+
+    def it_teaches_tool_calls_not_message_dumps():
+        # Direction: the model calls the tool; HTML never goes in chat.
+        from bots.services.chat_agent import ChatAgentService as Svc
+        assert "```" not in Svc.HTML_GUIDANCE
+        chat = _chat()
+        svc = ChatAgentService(chat, MagicMock())
+        desc = svc._create_html_page_tool().description
+        assert "word" in desc.lower()
 
     def it_stores_guidance_in_the_system_message_like_web_search():
         chat = _chat()
@@ -318,8 +239,8 @@ def describe_html_page_tool():
         chat.bot.save()
         system_text = chat.get_system_message()
         assert "You are Fred." in system_text
-        assert "```html" in system_text
         assert "save_html_page" in system_text
+        assert "word" in system_text.lower()
 
     def it_leaves_messages_alone_when_the_flag_is_off():
         from langchain_core.messages import HumanMessage
@@ -330,17 +251,15 @@ def describe_html_page_tool():
         original = [HumanMessage(content="hi")]
         assert svc._with_catalog(original) is original
 
-    def it_strips_saved_fences_from_model_context_only():
+    def it_leaves_assistant_history_verbatim_for_the_model():
+        # No output post-processing: what the model wrote is what later
+        # turns see (tool calls are the only write path for pages).
         chat = _chat()
         body = "Done:\n```html\n<html><body>hi</body></html>\n```\nBye"
         chat.messages.create(text="make a page", role="user", order=0)
         chat.messages.create(text=body, role="assistant", order=1)
         message_list, _ = chat.get_input()
-        assert "```html" not in message_list[-1].content
-        assert "[page html saved separately]" in message_list[-1].content
-        assert "Bye" in message_list[-1].content
-        # Storage keeps the full reply for the app.
-        assert "```html" in chat.messages.last().text
+        assert message_list[-1].content == body
 
 
 @pytest.mark.django_db
