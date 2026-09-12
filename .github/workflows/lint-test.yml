@@ -65,9 +65,17 @@ jobs:
       # instead so the author assigns the new file to a shard.
       - name: Verify every test file is assigned to exactly one shard
         run: |
-          assigned=$(grep -o 'bots/tests/test_[a-z0-9_]*\.py' .github/workflows/lint-test.yml | sort -u)
+          # Only values under a matrix `paths:` block count as assigned;
+          # a filename mentioned in a comment must not satisfy the guard.
+          shard_paths=$(awk '
+            /^[[:space:]]*#/ { next }
+            /^[[:space:]]*paths: >-[[:space:]]*$/ { in_paths=1; next }
+            in_paths && $1 ~ /^bots\/tests\/test_[a-z0-9_]*\.py$/ { print $1; next }
+            { in_paths=0 }
+          ' .github/workflows/lint-test.yml)
+          assigned=$(echo "$shard_paths" | sort -u)
           all=$(cd back && ls bots/tests/test_*.py | sort -u)
-          duplicates=$(grep -o 'bots/tests/test_[a-z0-9_]*\.py' .github/workflows/lint-test.yml | sort | uniq -d)
+          duplicates=$(echo "$shard_paths" | sort | uniq -d)
           if [ -n "$duplicates" ]; then
             echo "Test files assigned to multiple shards:"; echo "$duplicates"; exit 1
           fi
