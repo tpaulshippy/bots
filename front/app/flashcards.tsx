@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import { fetchDecks, createDeck, DeckListItem } from "@/api/flashcards";
+import { fetchStats, ProfileStats } from "@/api/stats";
 import { getSelectedProfileId, subscribeToSelectedProfile } from "@/hooks/useSelectedProfile";
 import { ThemedButton } from "@/components/ThemedButton";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -36,9 +37,21 @@ const formatLastStudied = (iso: string | null | undefined): string | null => {
   }
 };
 
+// Single-letter weekday for the 7-day activity bars (UTC, matching the API).
+const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+
+const weekdayLetter = (isoDate: string): string => {
+  const day = new Date(`${isoDate}T12:00:00Z`).getUTCDay();
+  return WEEKDAY_LETTERS[Number.isNaN(day) ? 0 : day] ?? "";
+};
+
+const pluralize = (count: number, singular: string): string =>
+  `${count} ${singular}${count === 1 ? "" : "s"}`;
+
 export default function Flashcards() {
   const router = useRouter();
   const [decks, setDecks] = useState<DeckListItem[]>([]);
+  const [stats, setStats] = useState<ProfileStats | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -55,11 +68,13 @@ export default function Flashcards() {
       const profileId = await getSelectedProfileId();
       if (!profileId) {
         setDecks([]);
+        setStats(null);
         setRefreshing(false);
         return;
       }
       const data = await fetchDecks(profileId);
       setDecks(data.results || []);
+      setStats(await fetchStats(profileId));
     } catch (error) {
       Sentry.captureException(error);
     } finally {
@@ -151,7 +166,17 @@ export default function Flashcards() {
       {loading ? (
         <ActivityIndicator style={styles.activityIndicator} />
       ) : (
-        <FlatList
+        <>
+          {stats ? (
+            <StatsCard
+              stats={stats}
+              cardBackground={cardBackground}
+              borderColor={borderColor}
+              iconColor={iconColor}
+              accentColor={accentColor}
+            />
+          ) : null}
+          <FlatList
           style={styles.list}
           data={decks}
           keyExtractor={(item) => item.deck_id}
@@ -244,8 +269,97 @@ export default function Flashcards() {
             </View>
           }
         />
+        </>
       )}
     </ThemedView>
+  );
+}
+
+const MAX_BAR_HEIGHT = 36;
+
+function StatsCard({
+  stats,
+  cardBackground,
+  borderColor,
+  iconColor,
+  accentColor,
+}: {
+  stats: ProfileStats;
+  cardBackground: string;
+  borderColor: string;
+  iconColor: string;
+  accentColor: string;
+}) {
+  const todayStatus = stats.studied_today
+    ? stats.chatted_today
+      ? "Chatted + studied today 🎉"
+      : "Studied today ✓"
+    : stats.chatted_today
+      ? "Chatted today ✓"
+      : "Chat or study today to start one!";
+  const totals = stats.week.map((d) => d.messages + d.reviews);
+  const maxTotal = Math.max(1, ...totals);
+
+  return (
+    <View
+      testID="stats-card"
+      style={[
+        styles.statsCard,
+        { backgroundColor: cardBackground, borderColor },
+      ]}
+    >
+      <View style={styles.statsTopRow}>
+        <ThemedText testID="stats-streak" style={styles.statsStreak}>
+          🔥{" "}
+          {stats.current_streak > 0
+            ? `${stats.current_streak}-day streak`
+            : "No streak yet"}
+        </ThemedText>
+        <ThemedText
+          testID="stats-today-badge"
+          style={[styles.statsToday, { color: iconColor }]}
+        >
+          {todayStatus}
+        </ThemedText>
+      </View>
+      <ThemedText testID="stats-totals" style={[styles.statsTotals, { color: iconColor }]}>
+        {pluralize(stats.total_reviews, "review")} ·{" "}
+        {pluralize(stats.total_chats, "chat")} ·{" "}
+        {pluralize(stats.total_messages, "message")}
+        {stats.longest_streak > stats.current_streak
+          ? ` · best ${stats.longest_streak}`
+          : ""}
+      </ThemedText>
+      <View testID="stats-week" style={styles.statsWeek}>
+        {stats.week.map((day, index) => {
+          const total = totals[index] ?? 0;
+          const isToday = index === stats.week.length - 1;
+          return (
+            <View key={day.date} style={styles.statsDay}>
+              <View
+                style={[
+                  styles.statsBar,
+                  {
+                    height: 4 + (total / maxTotal) * MAX_BAR_HEIGHT,
+                    backgroundColor: accentColor,
+                    opacity: total > 0 ? (isToday ? 1 : 0.55) : 0.18,
+                  },
+                ]}
+              />
+              <ThemedText
+                style={[
+                  styles.statsDayLetter,
+                  { color: iconColor },
+                  isToday && { fontWeight: "700" as const },
+                ]}
+              >
+                {weekdayLetter(day.date)}
+              </ThemedText>
+            </View>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -256,6 +370,53 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
     marginHorizontal: 10,
+  },
+  statsCard: {
+    marginHorizontal: 10,
+    marginTop: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  statsTopRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+  },
+  statsStreak: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  statsToday: {
+    fontSize: 12,
+  },
+  statsTotals: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  statsWeek: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginTop: 12,
+  },
+  statsDay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  statsBar: {
+    width: 14,
+    borderRadius: 4,
+  },
+  statsDayLetter: {
+    fontSize: 11,
+    marginTop: 4,
   },
   itemContainer: {
     flexDirection: "row",

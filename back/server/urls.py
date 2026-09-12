@@ -46,6 +46,7 @@ from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
 from bots.viewsets.device_viewset import DeviceViewSet
 from bots.viewsets.flashcard_viewset import DeckViewSet, FlashcardViewSet
 from bots.viewsets.profile_viewset import ProfileViewSet
+from bots.viewsets.stats_viewset import StatsViewSet
 
 from .views import MarketingPageView, TutorialView, web_app
 
@@ -58,6 +59,7 @@ router.register(r'devices', DeviceViewSet)
 router.register(r'decks', DeckViewSet)
 router.register(r'activity/chats', ActivityChatViewSet, basename='activity-chats')
 router.register(r'activity/summary', ActivitySummaryViewSet, basename='activity-summary')
+router.register(r'stats', StatsViewSet, basename='stats')
 
 chats_router = NestedDefaultRouter(router, r'chats', lookup='chat')
 chats_router.register(r'messages', MessageViewSet, basename='chat-messages')
