@@ -107,6 +107,25 @@ class ChatAgentService:
         except Exception:
             return False
 
+    HTML_GUIDANCE = (
+        "HTML pages are enabled: you can build single-file web pages for the kid.\n"
+        "To create a page, write the COMPLETE page in your reply inside one "
+        "```html fenced block — it is saved automatically. (You may instead call "
+        "save_html_page, but then title AND the complete html document are both "
+        "required in ONE call; never call it with title alone.)\n"
+        "To change an existing page from the catalog below, call update_html_page "
+        "with its page_id and the full replacement html.\n"
+        "After saving, call preview_page to look at the render and fix issues.\n"
+        "Always mention the page title in your reply so the kid can reference it later."
+    )
+
+    def _html_enabled(self):
+        return bool(
+            self.chat.bot
+            and getattr(self.chat.bot, "enable_html_pages", False)
+            and self.chat.profile is not None
+        )
+
     def _page_catalog_message(self):
         """Recent pages for this profile across chats, so later turns — even
         in a new chat ("update my dino page") — can iterate.
@@ -118,9 +137,7 @@ class ChatAgentService:
         """
         from langchain_core.messages import SystemMessage
 
-        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
-            return None
-        if self.chat.profile is None:
+        if not self._html_enabled():
             return None
         try:
             from bots.models.html_page import HtmlPage
@@ -132,7 +149,7 @@ class ChatAgentService:
             if not pages:
                 return None
             lines = [
-                "The kid's saved HTML pages (prefer update_html_page over save_html_page when they refine one; always mention the page title in your reply so they can reference it later):",
+                "The kid's saved HTML pages (prefer update_html_page over save_html_page when they refine one):",
             ]
             for p in reversed(list(pages)):
                 chat_title = getattr(p.chat, "title", "") or "this chat"
@@ -144,24 +161,32 @@ class ChatAgentService:
             return None
 
     def _with_catalog(self, message_list):
-        """Fold the page catalog into the leading SystemMessage.
+        """Fold HTML guidance (+ page catalog when pages exist) into the
+        leading SystemMessage.
 
-        Anthropic (via Bedrock Converse) rejects multiple non-consecutive
-        system messages, so the catalog must never be appended as its own
-        SystemMessage after the prompt (prod crash). Merging keeps one.
+        The guidance is always present while the flag is on — like the
+        web_search sentence in bot prompts — so first turns know the fenced
+        path without any pages existing yet. Anthropic (via Bedrock Converse)
+        rejects multiple non-consecutive system messages, so this must never
+        be appended as its own SystemMessage after the prompt (prod crash).
+        Merging keeps one.
         """
         from langchain_core.messages import SystemMessage
 
-        catalog = self._page_catalog_message()
-        if catalog is None:
+        if not self._html_enabled():
             return message_list
+        parts = [self.HTML_GUIDANCE]
+        catalog = self._page_catalog_message()
+        if catalog is not None:
+            parts.append(catalog.content)
+        suffix = "\n\n".join(parts)
         messages = list(message_list)
         if messages and isinstance(messages[0], SystemMessage):
             first = messages[0]
             content = first.content if isinstance(first.content, str) else ""
-            messages[0] = SystemMessage(content=content + "\n\n" + catalog.content)
+            messages[0] = SystemMessage(content=content + "\n\n" + suffix)
         else:
-            messages.insert(0, catalog)
+            messages.insert(0, SystemMessage(content=suffix))
         return messages
 
     def respond(self, message_list):

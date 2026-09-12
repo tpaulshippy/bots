@@ -259,6 +259,40 @@ def describe_html_page_tool():
         assert "You are a tutor." in systems[0].content
         assert "Dino" in systems[0].content
 
+    def it_includes_guidance_before_any_page_exists():
+        from langchain_core.messages import HumanMessage, SystemMessage
+        chat = _chat()
+        svc = ChatAgentService(chat, MagicMock())
+        merged = svc._with_catalog([
+            SystemMessage(content="You are a tutor."),
+            HumanMessage(content="make a page"),
+        ])
+        systems = [m for m in merged if isinstance(m, SystemMessage)]
+        assert len(systems) == 1
+        assert "```html" in systems[0].content
+        assert "save_html_page" in systems[0].content
+
+    def it_leaves_messages_alone_when_the_flag_is_off():
+        from langchain_core.messages import HumanMessage
+        chat = _chat()
+        chat.bot.enable_html_pages = False
+        chat.bot.save()
+        svc = ChatAgentService(chat, MagicMock())
+        original = [HumanMessage(content="hi")]
+        assert svc._with_catalog(original) is original
+
+    def it_strips_saved_fences_from_model_context_only():
+        chat = _chat()
+        body = "Done:\n```html\n<html><body>hi</body></html>\n```\nBye"
+        chat.messages.create(text="make a page", role="user", order=0)
+        chat.messages.create(text=body, role="assistant", order=1)
+        message_list, _ = chat.get_input()
+        assert "```html" not in message_list[-1].content
+        assert "[page html saved separately]" in message_list[-1].content
+        assert "Bye" in message_list[-1].content
+        # Storage keeps the full reply for the app.
+        assert "```html" in chat.messages.last().text
+
 
 @pytest.mark.django_db
 def describe_html_page_raw_view():
