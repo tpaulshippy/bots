@@ -25,7 +25,9 @@ export interface Chat {
 export type AgentActivity =
     | { kind: 'tool_start'; label: string }
     | { kind: 'sources'; label: string }
-    | { kind: 'deck'; deckId: string; name: string; cardCount: number };
+    | { kind: 'preview'; label: string }
+    | { kind: 'deck'; deckId: string; name: string; cardCount: number }
+    | { kind: 'page'; pageId: string; name: string };
 
 export interface ChatMessage {
     text: string;
@@ -89,6 +91,7 @@ export interface ChatStreamEvent {
     tool?: string;
     resultPreview?: string;
     deckId?: string;
+    pageId?: string;
     name?: string;
     cardCount?: number;
     inputTokens?: number;
@@ -160,6 +163,7 @@ export function normalizeStreamEvent(eventType: string, dataJson: string): ChatS
                     tool: (data.tool as string) ?? '',
                     resultPreview: data.result_preview as string | undefined,
                     deckId: data.deck_id as string | undefined,
+                    pageId: data.page_id as string | undefined,
                     name: data.name as string | undefined,
                     cardCount: data.card_count as number | undefined,
                 };
