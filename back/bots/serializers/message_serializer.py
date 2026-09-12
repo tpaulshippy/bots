@@ -7,6 +7,7 @@ from bots.models import Message
 
 class MessageSerializer(serializers.HyperlinkedModelSerializer):
     image_url = serializers.SerializerMethodField()
+    agent_events = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -21,8 +22,14 @@ class MessageSerializer(serializers.HyperlinkedModelSerializer):
             'output_tokens',
             'created_at', 
             'modified_at',
-            'image_url'
+            'image_url',
+            'agent_events'
         ]
+
+    def get_agent_events(self, obj):
+        # Already stored frontend-ready by Chat persist (see
+        # client_events_to_agent_events); pre-fix rows default to [].
+        return getattr(obj, 'agent_events', None) or []
 
     def get_image_url(self, obj):
         if obj.image_filename:

@@ -35,6 +35,8 @@ export interface ActivityTranscriptMessage {
     text: string;
     created_at: string;
     image_url: string | null;
+    agent_events?: import('./chats').AgentActivity[];
+    agentEvents?: import('./chats').AgentActivity[];
 }
 
 // Safety marker behind a flagged turn (GET /api/activity/chats/{id}/).

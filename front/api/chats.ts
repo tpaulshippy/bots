@@ -38,7 +38,13 @@ export interface ChatMessage {
     failed?: boolean;
     /** Tool activity (searching… / creating flashcards…) for this turn. */
     agentEvents?: AgentActivity[];
+    /** Persisted tool activity from the API (snake_case). Normalized to agentEvents on fetch. */
+    agent_events?: AgentActivity[];
 }
+
+/** Prefer the live camelCase field, fall back to the persisted snake_case field. */
+export const getMessageAgentEvents = (message: ChatMessage): AgentActivity[] =>
+    message.agentEvents ?? message.agent_events ?? [];
 
 export const fetchChat = async (chatId: string): Promise<Chat | null> =>
     request<Chat | null>(`/chats/${chatId}.json`, {}, null);
@@ -60,7 +66,15 @@ export const fetchChatMessages = async (chatId: string, page: number | null): Pr
     if (page) {
         endpoint += `?page=${page}`;
     }
-    return request<PaginatedResponse<ChatMessage> | null>(endpoint, {}, { results: [], count: 0 });
+    const data = await request<PaginatedResponse<ChatMessage> | null>(endpoint, {}, { results: [], count: 0 });
+    if (data) {
+        // Normalize persisted history so bubbles render the same chips as live streams.
+        data.results = data.results.map((message) => ({
+            ...message,
+            agentEvents: getMessageAgentEvents(message),
+        }));
+    }
+    return data;
 }
 
 export interface ChatResponse {
