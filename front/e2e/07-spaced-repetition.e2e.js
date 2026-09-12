@@ -69,9 +69,11 @@ async function getSeedState(accessToken) {
   const decks = await deckRes.json();
   const deck = (decks.results || []).find((d) => d.name === DECK_NAME);
   if (!deck) throw new Error(`Seeded deck "${DECK_NAME}" not found — run the seed command`);
+  const bot = (bots.results || []).find((b) => b.name === 'E2E Test Bot');
+  if (!bot) throw new Error('Seeded bot "E2E Test Bot" not found — run the seed command');
   return {
     profile: JSON.stringify(profile),
-    bot: JSON.stringify(bots.results[0]),
+    bot: JSON.stringify(bot),
     deckId: deck.deck_id,
     deckDueCount: deck.due_count,
   };

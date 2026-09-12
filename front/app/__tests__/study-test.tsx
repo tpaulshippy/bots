@@ -90,6 +90,27 @@ describe('Study', () => {
       expect(screen.getByTestId('study-session-complete')).toBeTruthy()
     );
     expect(screen.getByText('You reviewed 2 cards.')).toBeTruthy();
+    expect(screen.getByTestId('study-correct-rate')).toHaveTextContent(
+      '100% correct (2 of 2).'
+    );
+  });
+
+  it('reports the correct rate excluding Again ratings', async () => {
+    render(<Study />);
+
+    await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('study-card'));
+    fireEvent.press(screen.getByTestId('study-rating-again'));
+    await waitFor(() => expect(screen.getByText('Q2')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('study-card'));
+    fireEvent.press(screen.getByTestId('study-rating-good'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('study-session-complete')).toBeTruthy()
+    );
+    expect(screen.getByTestId('study-correct-rate')).toHaveTextContent(
+      '50% correct (1 of 2).'
+    );
   });
 
   it('shows the empty state when there are no cards', async () => {
@@ -120,8 +141,10 @@ describe('Study', () => {
     fireEvent.press(screen.getByTestId('study-rating-good'));
 
     await waitFor(() => expect(reviewFlashcard).toHaveBeenCalled());
-    // The failed review is not counted: still on Q1, session not complete.
-    expect(screen.getByText('Q1')).toBeTruthy();
+    // The failed review is not counted: progress unchanged, still flipped
+    // on the first card (answer visible), session not complete.
+    expect(screen.getByText('0 / 2')).toBeTruthy();
+    expect(screen.getByText('A1')).toBeTruthy();
     expect(screen.queryByTestId('study-session-complete')).toBeNull();
   });
 });

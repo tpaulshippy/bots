@@ -157,6 +157,17 @@ class TestReviewEndpoint:
         assert review.profile == test_profile
         assert review.reviewed_at is not None
 
+    def test_review_json_format_suffix(self, auth_client, deck):
+        # The frontend calls the .json routes; cover them directly.
+        card = make_card(deck)
+        response = auth_client.post(
+            f'/api/decks/{deck.deck_id}/flashcards/{card.flashcard_id}/review.json',
+            {'rating': 'good'},
+        )
+        assert response.status_code == 200
+        assert response.json()['reps'] == 1
+        assert FlashcardReview.objects.filter(flashcard=card).count() == 1
+
 
 @pytest.mark.django_db
 class TestStudyQueue:
@@ -310,6 +321,15 @@ class TestSchedulingFieldsReadOnly:
             assert field in card
         assert card['ease'] == 2.1
         assert card['reps'] == 4
+
+    def test_study_queue_json_format_suffix_with_params(self, auth_client, deck):
+        for i in range(3):
+            make_card(deck, order=i, due_at=timezone.now() - timedelta(days=1))
+        response = auth_client.get(
+            f'/api/decks/{deck.deck_id}/study_queue.json?mode=all&limit=2'
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 2
 
 
 @pytest.mark.django_db

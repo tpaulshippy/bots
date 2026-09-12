@@ -84,6 +84,8 @@ export default function Study() {
   const iconColor = useThemeColor({}, "icon");
   const tintColor = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
+  const ratingButtonBg = useThemeColor({}, "studyRating");
+  const againButtonBg = useThemeColor({}, "studyAgain");
 
   useEffect(() => {
     // Loader lives inside the effect and touches state only after the
@@ -245,7 +247,7 @@ export default function Study() {
           </ThemedText>
           <Pressable
             testID="study-load-retry"
-            style={[styles.studyAllButton, { backgroundColor: tintColor }]}
+            style={[styles.studyAllButton, { backgroundColor: ratingButtonBg }]}
             onPress={retryLoad}
           >
             <ThemedText style={styles.ratingButtonText}>
@@ -267,7 +269,7 @@ export default function Study() {
           </ThemedText>
           <Pressable
             testID="study-all-anyway"
-            style={[styles.studyAllButton, { backgroundColor: tintColor }]}
+            style={[styles.studyAllButton, { backgroundColor: ratingButtonBg }]}
             onPress={handleStudyAllAnyway}
           >
             <ThemedText style={styles.ratingButtonText}>
@@ -281,6 +283,10 @@ export default function Study() {
 
   if (completed) {
     const nextDueIn = earliestNextDue();
+    // "Correct" = any rating other than Again (issue #59 success criteria).
+    const correctCount = cards.length - againCount;
+    const correctPct =
+      cards.length > 0 ? Math.round((correctCount / cards.length) * 100) : 0;
     return (
       <ThemedView style={styles.container}>
         <View style={styles.completion}>
@@ -289,6 +295,9 @@ export default function Study() {
           </ThemedText>
           <ThemedText style={styles.completionSubtitle}>
             You reviewed {cards.length} card{cards.length === 1 ? "" : "s"}.
+          </ThemedText>
+          <ThemedText testID="study-correct-rate" style={[styles.completionStat, { color: iconColor }]}>
+            {correctPct}% correct ({correctCount} of {cards.length}).
           </ThemedText>
           {againCount > 0 ? (
             <ThemedText style={[styles.completionStat, { color: iconColor }]}>
@@ -302,7 +311,7 @@ export default function Study() {
           ) : null}
           <Pressable
             testID="study-complete-done"
-            style={[styles.doneButton, { backgroundColor: tintColor }]}
+            style={[styles.doneButton, { backgroundColor: ratingButtonBg }]}
             onPress={() => router.back()}
           >
             <ThemedText style={styles.ratingButtonText}>Done</ThemedText>
@@ -347,6 +356,10 @@ export default function Study() {
             styles.cardFace,
             { transform: [{ rotateY: frontRotate }] },
           ]}
+          // The front face is visually hidden after the flip; keep screen
+          // readers in sync so the question isn't announced twice.
+          accessibilityElementsHidden={isFlipped}
+          importantForAccessibility={isFlipped ? 'no-hide-descendants' : 'yes'}
         >
           <View
             style={[
@@ -367,6 +380,10 @@ export default function Study() {
             styles.cardFace,
             { transform: [{ rotateY: backRotate }] },
           ]}
+          // backfaceVisibility only hides pixels: keep the answer away from
+          // VoiceOver/TalkBack until the user flips the card.
+          accessibilityElementsHidden={!isFlipped}
+          importantForAccessibility={isFlipped ? 'yes' : 'no-hide-descendants'}
         >
           <View
             style={[
@@ -389,7 +406,7 @@ export default function Study() {
               testID={`study-rating-${rating}`}
               style={({ pressed }) => [
                 styles.ratingButton,
-                { backgroundColor: rating === "again" ? "#d9534f" : tintColor },
+                { backgroundColor: rating === "again" ? againButtonBg : ratingButtonBg },
                 pressed && styles.ratingButtonPressed,
                 ratingInProgress && styles.ratingButtonDisabled,
               ]}

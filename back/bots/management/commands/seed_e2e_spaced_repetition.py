@@ -52,13 +52,23 @@ class Command(BaseCommand):
             user.set_password(PASSWORD)
             user.save()
 
-        profile, _ = Profile.objects.get_or_create(user=user, name='E2E Test Profile')
+        profile, _ = Profile.objects.update_or_create(
+            user=user,
+            name='E2E Test Profile',
+            # A previous run may have soft-deleted this profile; the
+            # profiles API hides deleted rows, so reactivate it.
+            defaults={'deleted_at': None},
+        )
 
         ai_model = AiModel.objects.order_by('pk').first()
-        bot, _ = Bot.objects.get_or_create(
+        bot_defaults = {'deleted_at': None}
+        if ai_model is not None:
+            bot_defaults['ai_model'] = ai_model
+        bot, _ = Bot.objects.update_or_create(
             user=user,
             name='E2E Test Bot',
-            defaults={'ai_model': ai_model},
+            # Same soft-delete reactivation as the profile above.
+            defaults=bot_defaults,
         )
 
         deck, _ = Deck.objects.get_or_create(
@@ -68,41 +78,36 @@ class Command(BaseCommand):
         )
 
         now = timezone.now()
-        # Delete cards from earlier runs/sessions that are not part of this
-        # layout, so reruns converge to exactly these eight cards.
-        Flashcard.objects.filter(deck=deck).exclude(
-            front__in=[front for front, _, _ in CARDS]
-        ).delete()
-        created_cards = 0
+        # Recreate the deck's cards from scratch every run: this removes
+        # stale/duplicate cards (front is not unique, so upserting cannot
+        # converge) and cascades to the cards' FlashcardReview rows, so
+        # repeated seeds converge to exactly these eight cards with no
+        # leftover activity.
+        Flashcard.objects.filter(deck=deck).delete()
         for order, (front, back, state) in enumerate(CARDS):
-            card, card_created = Flashcard.objects.get_or_create(
-                deck=deck,
-                front=front,
-                defaults={'back': back, 'order': order},
-            )
-            if card_created:
-                created_cards += 1
-
-            # Reset scheduling every run so repeated seeds converge.
-            card.back = back
-            card.order = order
-            card.ease = 2.5
-            card.interval_days = 0
-            card.reps = 0
-            card.lapses = 0
-            card.last_reviewed_at = None
+            card_kwargs = {
+                'deck': deck,
+                'front': front,
+                'back': back,
+                'order': order,
+                'ease': 2.5,
+                'interval_days': 0,
+                'reps': 0,
+                'lapses': 0,
+                'last_reviewed_at': None,
+            }
             if state == 'due':
-                card.due_at = now - timedelta(days=1)
+                card_kwargs['due_at'] = now - timedelta(days=1)
             elif state == 'future':
-                card.due_at = now + timedelta(days=7)
+                card_kwargs['due_at'] = now + timedelta(days=7)
             else:  # new
-                card.due_at = now
-            card.save()
+                card_kwargs['due_at'] = now
+            Flashcard.objects.create(**card_kwargs)
 
         due_count = Flashcard.objects.filter(deck=deck, due_at__lte=now).count()
         self.stdout.write(self.style.SUCCESS(
             f"E2E seed complete: user={user.username} (created={user_created}) "
             f"profile_id={profile.profile_id} bot_id={bot.bot_id} "
             f"deck_id={deck.deck_id} cards={Flashcard.objects.filter(deck=deck).count()} "
-            f"(new={created_cards}) due_now={due_count}"
+            f"due_now={due_count}"
         ))
