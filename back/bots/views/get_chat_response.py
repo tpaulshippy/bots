@@ -84,8 +84,17 @@ def get_chat_response(request, chat_id):
         for event in getattr(chat, 'last_client_events', [])
         if event.get("tool") == "create_flashcard_deck"
     ]
-    if deck_events:
-        data['events'] = deck_events
+    page_events = [
+        {
+            "type": "html_page_created",
+            "page_id": event["page_id"],
+            "name": event.get("name", "page"),
+        }
+        for event in getattr(chat, 'last_client_events', [])
+        if event.get("tool") in ("save_html_page", "update_html_page")
+    ]
+    if deck_events or page_events:
+        data['events'] = deck_events + page_events
 
     return Response(data)
 

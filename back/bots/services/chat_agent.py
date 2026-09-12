@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 WEB_SEARCH_UNAVAILABLE = "Web search is not available."
 WEB_QUERY_BLOCKED = "This search query was blocked by the safety policy. Please try a different question."
 NO_SAFE_RESULTS = "No safe results found."
+HTML_PAGE_BLOCKED = (
+    "I can't save that page because it didn't pass the safety check. "
+    "Please adjust the wording and try again."
+)
+HTML_PAGE_DISABLED = "HTML pages are not enabled for this bot."
+HTML_PAGE_TOO_LARGE = "That page is too large. Please keep pages under 200KB."
 FLASHCARD_BLOCKED = (
     "I can't save that flashcard because it didn't pass the safety check. "
     "Please adjust the wording and try again."
@@ -38,16 +44,93 @@ class ChatAgentService:
         # Structured tool results the API can surface to clients (SSE status
         # payloads and the legacy `events[]` array). Roadmap doc 06 §3.
         self.client_events = []
+        # Image observations queued by tools (e.g. page screenshots) to be
+        # appended as HumanMessages right after their ToolMessage.
+        self._pending_observations = []
+        self._preview_count = 0
+
+    def _html_tools(self):
+        """save + update tools when the parent-enabled flag is on.
+
+        Both write DB rows (never host files). Update keeps the same page_id
+        so the local raw URL / download stays stable across iterations.
+        """
+        save_tool = self._create_html_page_tool()
+        if not save_tool:
+            return {}
+        tools = {
+            "save_html_page": save_tool,
+            "update_html_page": self._create_html_page_update_tool(),
+        }
+        preview_tool = self._create_preview_page_tool()
+        if preview_tool:
+            tools["preview_page"] = preview_tool
+        return tools
+
+    def _vision_capable(self):
+        """True when the resolved model accepts image input.
+
+        Mirrors Chat.resolve_ai_client: the bot's model when set, else the
+        default model. Unresolvable (no rows) -> False so image observations
+        are never sent to a text-only model.
+        """
+        try:
+            from bots.models.ai_model import AiModel
+            model = None
+            bot = self.chat.bot
+            if bot is not None and getattr(bot, "ai_model_id", None):
+                model = AiModel.objects.filter(pk=bot.ai_model_id).first()
+            if model is None:
+                model = AiModel.objects.filter(is_default=True).first()
+            if model is None:
+                return False
+            return "image" in (model.supported_input_modalities or [])
+        except Exception:
+            return False
+
+    def _page_catalog_message(self):
+        """Existing pages in THIS chat so later turns can iterate.
+
+        Tool calls are not persisted as chat messages, so without this the
+        agent cannot discover page_ids from history on follow-up turns
+        ("make the background blue").
+        """
+        from langchain_core.messages import SystemMessage
+
+        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
+            return None
+        try:
+            from bots.models.html_page import HtmlPage
+            pages = (
+                HtmlPage.objects.filter(chat=self.chat)
+                .order_by("-updated_at")[:10]
+            )
+            if not pages:
+                return None
+            lines = [
+                "Existing HTML pages in this chat (prefer update_html_page over save_html_page when the user refines one):",
+            ]
+            for p in reversed(list(pages)):
+                lines.append(f"- '{p.title}' page_id={p.page_id} updated={p.updated_at:%Y-%m-%d %H:%M}")
+            return SystemMessage(content="\n".join(lines))
+        except Exception:
+            logger.exception("🌐 PAGE_CATALOG_FAILED")
+            return None
 
     def respond(self, message_list):
         tools = {
             "create_flashcard_deck": self._create_flashcard_deck_tool(),
             "create_flashcard": self._create_flashcard_tool(),
         }
+        self._preview_count = 0
 
         web_search = self._create_web_search_tool()
         if web_search:
             tools["web_search"] = web_search
+        tools.update(self._html_tools())
+        catalog = self._page_catalog_message()
+        if catalog is not None:
+            message_list = [*message_list, catalog]
             logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
             logger.info("🤖 AGENT_INVOKE_START: web_search and flashcard tools available")
         else:
@@ -80,14 +163,19 @@ class ChatAgentService:
             "create_flashcard_deck": self._create_flashcard_deck_tool(),
             "create_flashcard": self._create_flashcard_tool(),
         }
+        self._preview_count = 0
         web_search = self._create_web_search_tool()
         has_web_search = False
         if web_search:
             tools["web_search"] = web_search
             has_web_search = True
+        tools.update(self._html_tools())
 
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
         messages = list(message_list)
+        catalog = self._page_catalog_message()
+        if catalog is not None:
+            messages.append(catalog)
         usage_totals = {"input_tokens": 0, "output_tokens": 0}
         yielded_text = ""
         after_tool = False
@@ -153,6 +241,7 @@ class ChatAgentService:
                     tool_call_id=tool_call["id"],
                     name=tool_name
                 ))
+                messages.extend(self._drain_observations())
 
         yield {"type": "done", **usage_totals}
 
@@ -191,8 +280,26 @@ class ChatAgentService:
                     tool_call_id=tool_call["id"],
                     name=tool_name
                 ))
+                messages.extend(self._drain_observations())
 
         return messages
+
+    def _drain_observations(self):
+        """Image observations queued by tools as follow-up HumanMessages.
+
+        Same base64 data-URL shape as user uploads in Chat.get_input, so the
+        Bedrock image path needs no changes.
+        """
+        from langchain_core.messages import HumanMessage
+
+        pending, self._pending_observations = self._pending_observations, []
+        return [
+            HumanMessage(content=[
+                {"type": "text", "text": "Page render screenshot:"},
+                obs,
+            ])
+            for obs in pending
+        ]
 
     def _execute_tool(self, tool_name, tool_args, tools, has_web_search):
         if tool_name == "web_search" and not has_web_search:
@@ -398,6 +505,218 @@ class ChatAgentService:
                 return f"Error creating flashcard: {e!s}"
 
         return create_flashcard
+
+    def _create_html_page_tool(self):
+        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
+            return None
+        if self.chat.profile is None:
+            return None
+
+        from bots.serializers.html_page_serializer import (
+            MAX_HTML_BYTES,
+            html_to_text,
+            is_single_file_html,
+        )
+
+        @tool
+        def save_html_page(title: str, html: str) -> str:
+            """Build a NEW single-file HTML page the kid can open in their browser.
+
+            Use this for a fresh page. When the user refines an existing page
+            listed in the chat catalog, call update_html_page instead.
+            After saving, call preview_page to look at the render when available.
+            Args:
+                title: Short page title shown in chat.
+                html: Complete single-file HTML document (inline CSS/JS allowed).
+            """
+            from bots.models.html_page import HtmlPage
+
+            logger.info(f"🌐 SAVE_HTML_PAGE_INVOKED: title='{title}' bytes={len((html or '').encode('utf-8'))}")
+            clean_title = (title or "").strip()[:255]
+            if not clean_title or not (html or "").strip():
+                return "Title and html are both required."
+            if len(html.encode("utf-8")) > MAX_HTML_BYTES:
+                return HTML_PAGE_TOO_LARGE
+            if not is_single_file_html(html):
+                return "HTML must be a single self-contained page."
+            verdict = evaluate_text(f"{clean_title} {html_to_text(html)}", self.policy, source="OUTPUT")
+            if verdict.blocked:
+                record_safety_event(
+                    stage="tool_html_page",
+                    verdict=verdict,
+                    chat=self.chat,
+                    snippet=f"{clean_title} {html_to_text(html)[:200]}",
+                )
+                return HTML_PAGE_BLOCKED
+            try:
+                with transaction.atomic():
+                    page = HtmlPage.objects.create(
+                        profile=self.chat.profile,
+                        chat=self.chat,
+                        bot=self.chat.bot,
+                        title=clean_title,
+                        html=html,
+                    )
+                    self._record_event({
+                        "tool": "save_html_page",
+                        "page_id": str(page.page_id),
+                        "name": clean_title,
+                    })
+                    return (
+                        f"Saved page '{clean_title}'. Open it in the browser with "
+                        f"/api/html-pages/{page.page_id}/raw"
+                    )
+            except Exception as e:
+                logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
+                return f"Error saving page: {e!s}"
+
+        return save_html_page
+
+    def _create_html_page_update_tool(self):
+        from bots.serializers.html_page_serializer import (
+            MAX_HTML_BYTES,
+            html_to_text,
+            is_single_file_html,
+        )
+
+        @tool
+        def update_html_page(page_id: str, html: str, title: str = "") -> str:
+            """Update an EXISTING page in place (same URL). Use when the user
+            iterates ("change X", "make it blue", "add Y").
+
+            Args:
+                page_id: The page_id from the chat catalog or a prior save.
+                html: Complete replacement single-file HTML document.
+                title: Optional new title.
+            """
+            import uuid as uuid_lib
+
+            from bots.models.html_page import HtmlPage
+
+            logger.info(f"🌐 UPDATE_HTML_PAGE_INVOKED: page_id='{page_id}'")
+            try:
+                page_uuid = uuid_lib.UUID(str(page_id))
+            except (ValueError, AttributeError):
+                return "Unknown page. Ask which page to update or save a new one."
+            try:
+                page = HtmlPage.objects.get(
+                    page_id=page_uuid,
+                    profile=self.chat.profile,
+                )
+            except HtmlPage.DoesNotExist:
+                return "Unknown page. Ask which page to update or save a new one."
+            if not (html or "").strip():
+                return "html is required."
+            if len(html.encode("utf-8")) > MAX_HTML_BYTES:
+                return HTML_PAGE_TOO_LARGE
+            if not is_single_file_html(html):
+                return "HTML must be a single self-contained page."
+            new_title = (title or "").strip()[:255] or page.title
+            verdict = evaluate_text(f"{new_title} {html_to_text(html)}", self.policy, source="OUTPUT")
+            if verdict.blocked:
+                record_safety_event(
+                    stage="tool_html_page",
+                    verdict=verdict,
+                    chat=self.chat,
+                    snippet=f"{new_title} {html_to_text(html)[:200]}",
+                )
+                return HTML_PAGE_BLOCKED
+            try:
+                with transaction.atomic():
+                    page = HtmlPage.objects.select_for_update().get(pk=page.pk)
+                    page.html = html
+                    page.title = new_title
+                    page.save(update_fields=["html", "title", "updated_at"])
+                    self._record_event({
+                        "tool": "update_html_page",
+                        "page_id": str(page.page_id),
+                        "name": page.title,
+                    })
+                    return (
+                        f"Updated page '{page.title}'. Reopen "
+                        f"/api/html-pages/{page.page_id}/raw/ to see the changes"
+                    )
+            except Exception as e:
+                logger.error(f"🌐 UPDATE_HTML_PAGE_ERROR: {e!s}")
+                return f"Error updating page: {e!s}"
+
+        return update_html_page
+
+    def _create_preview_page_tool(self):
+        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
+            return None
+        if self.chat.profile is None:
+            return None
+        if not self._vision_capable():
+            return None
+        from bots.services.page_render import render_available
+        if not render_available():
+            return None
+
+        from bots.services.page_render import MAX_PREVIEWS_PER_TURN, render_page_shot
+
+        @tool
+        def preview_page(page_id: str) -> str:
+            """Render an existing page headlessly and LOOK at the screenshot.
+
+            Use after save_html_page/update_html_page to check layout and JS
+            errors, then fix with update_html_page if needed. Max two previews
+            per turn. Only accepts page_ids from this chat's catalog.
+            Args:
+                page_id: The page_id from the chat catalog or a prior save.
+            """
+            import base64
+            import uuid as uuid_lib
+
+            from bots.models.html_page import HtmlPage
+
+            logger.info(f"👁 PREVIEW_PAGE_INVOKED: page_id='{page_id}'")
+            if self._preview_count >= MAX_PREVIEWS_PER_TURN:
+                return "Render already checked twice this turn; proceed with fixes."
+            try:
+                page_uuid = uuid_lib.UUID(str(page_id))
+            except (ValueError, AttributeError):
+                return "Unknown page. Ask which page to preview or save a new one."
+            try:
+                page = HtmlPage.objects.get(
+                    page_id=page_uuid,
+                    profile=self.chat.profile,
+                )
+            except HtmlPage.DoesNotExist:
+                return "Unknown page. Ask which page to preview or save a new one."
+            shot = render_page_shot(page.html)
+            if shot is None:
+                return "Render preview is not available on this server."
+            self._preview_count += 1
+            png_bytes = shot.get("png_bytes")
+            if png_bytes:
+                b64 = base64.b64encode(png_bytes).decode("ascii")
+                self._pending_observations.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{b64}"},
+                })
+            console_errors = shot.get("console_errors") or []
+            page_errors = shot.get("page_errors") or []
+            self._record_event({
+                "tool": "preview_page",
+                "page_id": str(page.page_id),
+                "name": page.title,
+                "console_errors": len(console_errors) + len(page_errors),
+            })
+            parts = [f"Rendered '{page.title}'."]
+            if console_errors:
+                parts.append("Console errors:\n" + "\n".join(f"- {e}" for e in console_errors[:5]))
+            if page_errors:
+                parts.append("Page errors:\n" + "\n".join(f"- {e}" for e in page_errors[:5]))
+            if not console_errors and not page_errors:
+                parts.append("No JS errors.")
+            if png_bytes:
+                parts.append("The screenshot follows as an image; inspect the layout and fix issues with update_html_page if needed.")
+            else:
+                parts.append("No screenshot captured.")
+            return "\n".join(parts)
+
+        return preview_page
 
     def _create_web_search_tool(self):
         if not (self.chat.bot and self.chat.bot.enable_web_search and settings.TAVILY_API_KEY):

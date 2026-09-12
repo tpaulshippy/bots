@@ -157,4 +157,30 @@ describe('Chat streaming', () => {
       expect.objectContaining({ message: 'hello' })
     );
   });
+
+  it('shows page and preview chips for html tool events', async () => {
+    (streamChatMessage as jest.Mock).mockImplementation(async ({ onEvent }: any) => {
+      emit([
+        { type: 'meta', chatId: 'chat-7' },
+        { type: 'tool_start', tool: 'save_html_page' },
+        { type: 'tool_end', tool: 'save_html_page', pageId: 'p-1', name: 'Dino' },
+        { type: 'tool_start', tool: 'preview_page' },
+        { type: 'tool_end', tool: 'preview_page' },
+        { type: 'token', text: 'done' },
+        { type: 'done' },
+      ]);
+    });
+
+    const { getByTestId, getAllByTestId } = render(<Chat />);
+    await act(async () => {});
+
+    fireEvent.changeText(getByTestId('chat-input'), 'make a page');
+    await act(async () => {
+      fireEvent.press(getByTestId('send-button'));
+    });
+    await act(async () => {});
+
+    // tool_start chips + page + preview all render as "other" in the mock.
+    expect(getAllByTestId('agent-chip-other').length).toBe(4);
+  });
 });
