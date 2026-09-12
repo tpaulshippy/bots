@@ -117,6 +117,20 @@ class Chat(models.Model):
             self.use_default_model(ai)
 
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
+            self._upgrade_to_vision_model(ai)
+
+    def _upgrade_to_vision_model(self, ai=None):
+        """Upgrade to a vision-capable model when the bot model lacks image
+        support (roadmap 10); fall back to the default model if none exists."""
+        current = self.bot.ai_model.model_id if self.bot and self.bot.ai_model else ''
+        vision_model = AiModel.objects.filter(
+            supported_input_modalities__contains=['image']
+        ).exclude(model_id=current).first()
+        if vision_model:
+            self.ai = AiClientWrapper(model_id=vision_model.model_id, client=ai)
+            logger.info(f"Vision model override: {vision_model.model_id} (reason: vision_required)")
+        else:
+            logger.warning("No vision-capable model available for image message")
             self.use_default_model(ai)
 
     def _persist_assistant_message(self, text, usage_metadata):
