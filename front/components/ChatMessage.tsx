@@ -83,8 +83,11 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
                     onPress={() => {
                       // Open synchronously in the click handler: navigating
                       // only after the link promise resolves loses transient
-                      // user activation and browsers block the popup.
-                      const win = window.open("about:blank", "_blank", "noopener");
+                      // user activation and browsers block the popup. No
+                      // "noopener" feature: it nulls the returned reference
+                      // in some browsers, so sever the opener manually.
+                      const win = window.open("about:blank", "_blank");
+                      if (win) win.opener = null;
                       getPageLink(event.pageId)
                         .then((url) => {
                           if (url && win) win.location.href = url;

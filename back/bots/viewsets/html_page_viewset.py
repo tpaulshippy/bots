@@ -2,7 +2,8 @@ import uuid
 
 from django.core import signing
 from django.http import HttpResponse
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -79,6 +80,17 @@ class HtmlPageViewSet(viewsets.ModelViewSet):
         page = self.get_object()
         return Response({"url": sign_raw_url(request.user.pk, page.page_id)})
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="sig",
+                type=str,
+                required=False,
+                description="Short-lived signed handoff token from the link action.",
+            )
+        ],
+        responses={(200, "text/html"): OpenApiTypes.STR},
+    )
     @action(detail=True, methods=['get'], url_path='raw', permission_classes=[])
     def raw(self, request, page_id=None):
         """Serve stored HTML for viewing on the local machine's browser.
@@ -121,12 +133,14 @@ class HtmlPageViewSet(viewsets.ModelViewSet):
                 return HttpResponse(status=401)
             return HttpResponse(status=404)
 
-        # Teen-delegated sessions stay locked to their claimed profile.
-        delegated_profile = delegated_profile_from_auth(
-            getattr(request, "auth", None), page.profile.user
-        )
-        if delegated_profile is not None and page.profile != delegated_profile:
-            return HttpResponse(status=404)
+        # Teen-delegated sessions stay locked to their claimed profile —
+        # including when the claim itself is invalid (helper returns None),
+        # in which case nothing is served at all.
+        auth = getattr(request, "auth", None)
+        if is_teen_delegated(auth):
+            delegated_profile = delegated_profile_from_auth(auth, page.profile.user)
+            if delegated_profile is None or page.profile != delegated_profile:
+                return HttpResponse(status=404)
 
         response = HttpResponse(page.html, content_type="text/html; charset=utf-8")
         response["Content-Security-Policy"] = RAW_CSP

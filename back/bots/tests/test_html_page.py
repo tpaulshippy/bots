@@ -246,3 +246,21 @@ def describe_html_page_raw_view():
         teen.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
         assert teen.get(f"/api/html-pages/{page_b.page_id}/raw/").status_code == 404
         assert teen.get("/api/html-pages/").data["results"] == []
+
+    def it_serves_nothing_to_teens_with_an_invalid_claim():
+        from rest_framework.test import APIClient
+        from rest_framework_simplejwt.tokens import RefreshToken
+        user = User.objects.create(username="teenparent2")
+        kid_a = Profile.objects.create(user=user, name="KidA")
+        page_a = HtmlPage.objects.create(
+            profile=kid_a, title="A", html="<html><body>a</body></html>",
+        )
+        refresh = RefreshToken.for_user(user)
+        refresh["is_teen_delegated"] = True
+        refresh["session_type"] = "teen"
+        refresh["active_profile_id"] = "00000000-0000-0000-0000-000000000000"
+        teen = APIClient()
+        teen.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+        # Claimed profile does not exist: the helper returns None, and the
+        # raw view must fail closed instead of serving parent-owned pages.
+        assert teen.get(f"/api/html-pages/{page_a.page_id}/raw/").status_code == 404

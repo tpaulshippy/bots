@@ -1094,6 +1094,11 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: sig
+        schema:
+          type: string
+        description: Short-lived signed handoff token from the link action.
       tags:
       - html-pages
       security:
@@ -1102,9 +1107,9 @@ paths:
       responses:
         '200':
           content:
-            application/json:
+            text/html:
               schema:
-                $ref: '#/components/schemas/HtmlPage'
+                type: string
           description: ''
   /api/login:
     get:
