@@ -4,6 +4,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import Study from '../flashcards/study';
 import { fetchStudyQueue, reviewFlashcard } from '@/api/flashcards';
+import { UnauthorizedError } from '@/api/apiClient';
+import { handleUnauthorized } from '@/hooks/useSelectedProfile';
 
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
@@ -13,6 +15,10 @@ jest.mock('expo-router', () => ({
 jest.mock('@/api/flashcards', () => ({
   fetchStudyQueue: jest.fn(),
   reviewFlashcard: jest.fn(),
+}));
+
+jest.mock('@/hooks/useSelectedProfile', () => ({
+  handleUnauthorized: jest.fn(() => Promise.resolve(false)),
 }));
 
 jest.mock('expo-haptics', () => ({
@@ -141,10 +147,22 @@ describe('Study', () => {
     fireEvent.press(screen.getByTestId('study-rating-good'));
 
     await waitFor(() => expect(reviewFlashcard).toHaveBeenCalled());
-    // The failed review is not counted: progress unchanged, still flipped
+    // Still on the first card: progress unchanged, still flipped
     // on the first card (answer visible), session not complete.
     expect(screen.getByText('0 / 2')).toBeTruthy();
     expect(screen.getByText('A1')).toBeTruthy();
     expect(screen.queryByTestId('study-session-complete')).toBeNull();
+  });
+
+  it('delegates expired sessions to the logout flow instead of load error', async () => {
+    const authError = new UnauthorizedError();
+    (handleUnauthorized as jest.Mock).mockResolvedValueOnce(true);
+    (fetchStudyQueue as jest.Mock).mockRejectedValueOnce(authError);
+    render(<Study />);
+
+    await waitFor(() =>
+      expect(handleUnauthorized).toHaveBeenCalledWith(authError, mockRouter)
+    );
+    expect(screen.queryByTestId('study-load-error')).toBeNull();
   });
 });

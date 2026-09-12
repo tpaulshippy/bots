@@ -23,6 +23,7 @@ import {
   Flashcard,
   FlashcardRating,
 } from "@/api/flashcards";
+import { handleUnauthorized } from "@/hooks/useSelectedProfile";
 import { useThemeColor } from "@/hooks/useThemeColor";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -103,6 +104,10 @@ export default function Study() {
         const dueCards = await fetchStudyQueue(deckId, "due");
         setCards(dueCards);
       } catch (error) {
+        // Expired sessions take the app's logout flow, not the error card.
+        if (await handleUnauthorized(error, router)) {
+          return;
+        }
         Sentry.captureException(error);
         setLoadError(true);
       } finally {
@@ -142,6 +147,9 @@ export default function Study() {
   };
 
   const resetFlip = () => {
+    // Stop the flip spring first: setValue alone leaves an in-flight
+    // animation running, which could show the next card already flipped.
+    flipAnim.stopAnimation();
     flipAnim.setValue(0);
     setIsFlipped(false);
   };
@@ -156,6 +164,9 @@ export default function Study() {
       const allCards = await fetchStudyQueue(deckId, "all");
       setCards(allCards);
     } catch (error) {
+      if (await handleUnauthorized(error, router)) {
+        return;
+      }
       Sentry.captureException(error);
       // Surface the failure instead of falling back to "Nothing due":
       // retry reloads the due queue, the primary study flow.
@@ -187,6 +198,11 @@ export default function Study() {
           rating
         );
       } catch (error) {
+        // Expired sessions take the app's logout flow; anything else stays
+        // on the card with a save error.
+        if (await handleUnauthorized(error, router)) {
+          return;
+        }
         Sentry.captureException(error);
         Alert.alert("Error", "Failed to save your review");
         return;
