@@ -24,7 +24,7 @@ def _vision_chat():
     return Chat.objects.create(user=user, profile=profile, bot=bot)
 
 
-def _install_fake_playwright(monkeypatch, png=b"fakepng", console=None, page_err=None):
+def _install_fake_playwright(monkeypatch, png=b"fakepng", console=None, page_err=None, rendered="Dino fun page"):
     """Fake sync_playwright: set_content records HTML, blocks nothing real."""
     state = {}
 
@@ -44,6 +44,9 @@ def _install_fake_playwright(monkeypatch, png=b"fakepng", console=None, page_err
 
         def wait_for_timeout(self, ms):
             pass
+
+        def inner_text(self, selector):
+            return rendered
 
         def screenshot(self):
             return png
@@ -232,3 +235,22 @@ def describe_preview_tool():
         assert "No screenshot captured" in result
         assert len(svc.client_events) == events_before
         assert svc._pending_observations == []
+
+    def it_blocks_runtime_generated_unsafe_text(monkeypatch):
+        # Static source has no blocked term; the JS writes it at runtime.
+        _install_fake_playwright(
+            monkeypatch, rendered="click for porn xxx movies here"
+        )
+        chat = _vision_chat()
+        svc = ChatAgentService(chat, MagicMock())
+        page_id = svc._create_html_page_tool().invoke({
+            "title": "Game",
+            "html": "<html><body><script>document.write('clean')</script></body></html>",
+        }).split("/api/html-pages/")[1].split("/raw")[0]
+        from bots.models import SafetyEvent
+        events_before = len(svc.client_events)
+        result = svc._create_preview_page_tool().invoke({"page_id": page_id})
+        assert "didn't pass the safety check" in result
+        assert len(svc.client_events) == events_before
+        assert svc._pending_observations == []
+        assert SafetyEvent.objects.filter(stage="tool_html_page").exists()

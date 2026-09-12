@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 VIEWPORT = {"width": 1280, "height": 800}
 RENDER_TIMEOUT_MS = 10_000
 MAX_PREVIEWS_PER_TURN = 2
+MAX_RENDERED_TEXT_CHARS = 5_000
 
 
 def render_available() -> bool:
@@ -37,7 +38,11 @@ def render_available() -> bool:
 
 
 def render_page_shot(html: str) -> dict | None:
-    """Render HTML string, return {"png_bytes", "console_errors", "page_errors"}.
+    """Render HTML string, return render artifact dict.
+
+    Keys: png_bytes, console_errors, page_errors, rendered_text (visible
+    body text after JS runs, capped — lets the agent safety-check what the
+    page actually displays, which static source filtering cannot see).
 
     Returns None when rendering is unavailable. Raises nothing: Playwright
     failures are logged and returned as error text so the agent can continue.
@@ -51,6 +56,7 @@ def render_page_shot(html: str) -> dict | None:
 
     console_errors: list[str] = []
     page_errors: list[str] = []
+    rendered_text = ""
     png_bytes: bytes | None = None
     try:
         with sync_playwright() as p:
@@ -69,6 +75,10 @@ def render_page_shot(html: str) -> dict | None:
                 page.on("pageerror", lambda err: page_errors.append(str(err)[:500]))
                 page.set_content(html, wait_until="load", timeout=RENDER_TIMEOUT_MS)
                 page.wait_for_timeout(500)
+                try:
+                    rendered_text = (page.inner_text("body") or "")[:MAX_RENDERED_TEXT_CHARS]
+                except Exception:
+                    rendered_text = ""
                 png_bytes = page.screenshot()
                 context.close()
             finally:
@@ -84,9 +94,11 @@ def render_page_shot(html: str) -> dict | None:
             "png_bytes": None,
             "console_errors": console_errors,
             "page_errors": [*page_errors, str(e)[:500]],
+            "rendered_text": rendered_text,
         }
     return {
         "png_bytes": png_bytes,
         "console_errors": console_errors,
         "page_errors": page_errors,
+        "rendered_text": rendered_text,
     }

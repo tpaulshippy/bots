@@ -700,6 +700,24 @@ class ChatAgentService:
             if shot is None:
                 return "Render preview is not available on this server."
             self._preview_count += 1
+            # Runtime safety gate: static source filtering cannot see text
+            # the page's own JS writes into the DOM, so the rendered text
+            # gets the same policy check before anything is shown or kept.
+            rendered_text = shot.get("rendered_text") or ""
+            if rendered_text.strip():
+                render_verdict = evaluate_text(rendered_text, self.policy, source="OUTPUT")
+                if render_verdict.blocked:
+                    record_safety_event(
+                        stage="tool_html_page",
+                        verdict=render_verdict,
+                        chat=self.chat,
+                        snippet=rendered_text[:200],
+                    )
+                    return (
+                        "I can't show that render because the finished page "
+                        "didn't pass the safety check. Fix the page with "
+                        "update_html_page and try previewing again."
+                    )
             png_bytes = shot.get("png_bytes")
             if png_bytes:
                 b64 = base64.b64encode(png_bytes).decode("ascii")

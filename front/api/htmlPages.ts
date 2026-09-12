@@ -28,9 +28,9 @@ export const fetchHtmlPage = async (pageId: string): Promise<HtmlPage | null> =>
 
 /**
  * Resource restrictions mirrored into downloads. The raw view's CSP is an
- * HTTP header and does not travel with the file; `sandbox` is forbidden in
- * <meta> policies, but the remaining directives still block network/beacon
- * exfiltration from agent-generated inline JS in the saved file.
+ * HTTP header and does not travel with the file, so the inner document
+ * carries an equivalent meta policy (resource loads, fetch/beacon).
+ * Top-level navigation/exfiltration is contained by the sandbox wrapper.
  */
 export const DOWNLOAD_CSP =
   "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
@@ -38,13 +38,36 @@ export const DOWNLOAD_CSP =
   "connect-src 'none'; frame-src 'none'; object-src 'none'; " +
   "base-uri 'none'; form-action 'none'";
 
-export function withDownloadCsp(html: string): string {
-  const meta =
-    `<meta http-equiv="Content-Security-Policy" content="${DOWNLOAD_CSP}">`;
-  if (/<head[^>]*>/i.test(html)) {
-    return html.replace(/<head[^>]*>/i, (match) => `${match}${meta}`);
-  }
-  return meta + html;
+/** Escape a full document for embedding in a double-quoted srcdoc attribute. */
+export function escapeSrcdoc(html: string): string {
+  return html.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Build the downloaded file: a minimal wrapper that frames the page in
+ * `<iframe sandbox="allow-scripts">`. The sandbox (opaque origin, no
+ * top-navigation, no forms, no same-origin access) is enforced by the
+ * browser regardless of file:// vs https://, unlike header CSP.
+ * Parsed with DOMParser so a `<head>` string inside page JS/comments can
+ * never misplace the inner meta policy (no regex over raw source).
+ */
+export function withDownloadSandbox(html: string, title: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const meta = doc.createElement("meta");
+  meta.setAttribute("http-equiv", "Content-Security-Policy");
+  meta.setAttribute("content", DOWNLOAD_CSP);
+  const head = doc.head ?? doc.documentElement;
+  head.insertBefore(meta, head.firstChild);
+  const inner = "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+  const safeTitle = (title || "page").replace(/[<>&]/g, "");
+  return (
+    "<!DOCTYPE html><html><head><meta charset=\"utf-8\">" +
+    `<title>${safeTitle}</title></head>` +
+    '<body style="margin:0">' +
+    `<iframe sandbox="allow-scripts" title="${safeTitle}" ` +
+    'style="border:0;width:100vw;height:100vh" ' +
+    `srcdoc="${escapeSrcdoc(inner)}"></iframe></body></html>`
+  );
 }
 
 /** Web-only download via the signed URL (no auth header needed). */
@@ -57,7 +80,7 @@ export async function downloadHtmlPage(pageId: string, title: string): Promise<v
   if (tokens?.access) headers["Authorization"] = `Bearer ${tokens.access}`;
   const response = await fetch(url, { headers });
   if (!response.ok) throw new Error(`Download failed with status ${response.status}`);
-  const html = withDownloadCsp(await response.text());
+  const html = withDownloadSandbox(await response.text(), title);
   const blob = new Blob([html], { type: "text/html" });
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
