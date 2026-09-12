@@ -12,6 +12,7 @@ export interface Bot {
   restrict_language: boolean;
   restrict_adult_topics: boolean;
   enable_web_search: boolean;
+  enable_voice: boolean;
   color: string | null;
   icon: string | null;
   deleted_at: Date | null;

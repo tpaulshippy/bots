@@ -255,6 +255,13 @@ TAVILY_API_KEY = env('TAVILY_API_KEY', default='')
 # mode. With a key configured, failed checks fail closed.
 OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
 
+NOVA_SONIC_MODEL_ID = env('NOVA_SONIC_MODEL_ID', default='amazon.nova-sonic-v1:0')
+NOVA_SONIC_REGION = env('NOVA_SONIC_REGION', default='us-east-1')
+NOVA_SONIC_VOICE_ID = env('NOVA_SONIC_VOICE_ID', default='matthew')
+
+VOICE_STT_COST_PER_MINUTE = env('VOICE_STT_COST_PER_MINUTE', default=0.05)
+VOICE_TTS_COST_PER_MINUTE = env('VOICE_TTS_COST_PER_MINUTE', default=0.15)
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Bots API',
     'DESCRIPTION': 'API for the Bots application',

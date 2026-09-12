@@ -21,7 +21,8 @@ class MessageSerializer(serializers.HyperlinkedModelSerializer):
             'output_tokens',
             'created_at', 
             'modified_at',
-            'image_url'
+            'image_url',
+            'meta',
         ]
 
     def get_image_url(self, obj):
