@@ -7,6 +7,7 @@ import { downloadHtmlPage, getPageLink } from "@/api/htmlPages";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import { useRouter } from "expo-router";
 import { format } from "date-fns";
 
 interface ChatMessageProps {
@@ -35,6 +36,7 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
   const userColor = useThemeColor({ light: "#03465b", dark: "#0a7ea4" }, "tint");
   const timestampColor = useThemeColor({}, "icon");
   const isUser = message.role === "user";
+  const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState('');
 
@@ -107,7 +109,14 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
                 </ThemedView>
               )}
               {event.kind === "page" && Platform.OS !== "web" && (
-                <ThemedText style={styles.agentChipText}>Open on web to view</ThemedText>
+                <TouchableOpacity
+                  testID={`view-page-${index}`}
+                  onPress={() =>
+                    router.push({ pathname: "/pageViewer", params: { pageId: event.pageId, title: event.name } })
+                  }
+                >
+                  <ThemedText style={styles.pageActionText}>View page ↗</ThemedText>
+                </TouchableOpacity>
               )}
             </ThemedView>
           ))}

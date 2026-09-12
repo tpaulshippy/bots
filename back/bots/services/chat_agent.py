@@ -329,7 +329,7 @@ class ChatAgentService:
     # Chunked page builds (save + several appends + preview + fixes) need
     # more turns than single-shot tools. The loop still exits early when
     # the model stops calling tools, so this only raises the ceiling.
-    MAX_ITERATIONS = 8
+    MAX_ITERATIONS = 10
 
     def _run_agent_loop(self, model_with_tools, messages, tools):
         iteration = 0
