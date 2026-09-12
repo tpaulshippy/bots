@@ -179,6 +179,7 @@ def describe_html_page_tool():
         page = HtmlPage.objects.get()
         assert page.title == "Minecraft Guide"
         assert "Saved page 'Minecraft Guide'" in text
+        assert "```html" not in text
         assert svc.client_events[0]["tool"] == "save_html_page"
 
     def it_skips_fence_fallback_after_a_tool_save():
@@ -221,6 +222,42 @@ def describe_html_page_tool():
         texts = "".join(e.get("text", "") for e in events if e.get("type") == "token")
         assert "Saved page 'MC'" in texts
 
+    def it_strips_fences_from_streamed_storage():
+        from django.contrib.auth.models import User as AuthUser
+        from langchain_core.messages import AIMessageChunk
+
+        from bots.models import AiModel
+
+        user = AuthUser.objects.create(username="streamer")
+        profile = Profile.objects.create(user=user, name="Kid")
+        model = AiModel.objects.create(
+            model_id="stream-vision", name="SV",
+            supported_input_modalities=["text", "image"],
+        )
+        bot = Bot.objects.create(
+            user=user, name="Web", ai_model=model, enable_html_pages=True,
+        )
+        chat = Chat.objects.create(user=user, profile=profile, bot=bot)
+        chat.messages.create(text="make a page", role="user", order=0)
+
+        class FenceStreamClient:
+            def bind_tools(self, tools):
+                return self
+
+            def stream(self, messages):
+                yield AIMessageChunk(
+                    content=(
+                        "Here:\n```html\n<html><head><title>MC</title></head>"
+                        "<body><h1>MC</h1></body></html>\n```\n"
+                    )
+                )
+
+        list(chat.stream_response(ai=FenceStreamClient()))
+        saved = chat.messages.filter(role="assistant").last()
+        assert "Saved page 'MC'" in saved.text
+        assert "```html" not in saved.text
+        assert HtmlPage.objects.count() == 1
+
     def it_lists_chat_pages_for_iteration():
         from langchain_core.messages import SystemMessage
         chat = _chat()
@@ -260,17 +297,29 @@ def describe_html_page_tool():
         assert "Dino" in systems[0].content
 
     def it_includes_guidance_before_any_page_exists():
-        from langchain_core.messages import HumanMessage, SystemMessage
+        # Guidance rides in the system message itself (stored row, visible
+        # in admin) — not merged at call time — so first turns know the
+        # fenced path with zero pages existing.
+        from langchain_core.messages import SystemMessage
         chat = _chat()
-        svc = ChatAgentService(chat, MagicMock())
-        merged = svc._with_catalog([
-            SystemMessage(content="You are a tutor."),
-            HumanMessage(content="make a page"),
-        ])
-        systems = [m for m in merged if isinstance(m, SystemMessage)]
+        chat.bot.system_prompt = "You are a tutor."
+        chat.bot.save()
+        chat.messages.create(text="make a page", role="user", order=0)
+        message_list, _ = chat.get_input()
+        systems = [m for m in message_list if isinstance(m, SystemMessage)]
         assert len(systems) == 1
+        assert "You are a tutor." in systems[0].content
         assert "```html" in systems[0].content
         assert "save_html_page" in systems[0].content
+
+    def it_stores_guidance_in_the_system_message_like_web_search():
+        chat = _chat()
+        chat.bot.system_prompt = "You are Fred."
+        chat.bot.save()
+        system_text = chat.get_system_message()
+        assert "You are Fred." in system_text
+        assert "```html" in system_text
+        assert "save_html_page" in system_text
 
     def it_leaves_messages_alone_when_the_flag_is_off():
         from langchain_core.messages import HumanMessage

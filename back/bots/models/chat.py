@@ -247,6 +247,11 @@ class Chat(models.Model):
         usage_totals = {"input_tokens": 0, "output_tokens": 0}
 
         def persist(text):
+            # Fence-saved pages: the kid saw the note + chip, so store the
+            # bubble without kilobytes of raw HTML (same rule as respond()).
+            if any(e.get("tool") == "save_html_page" for e in self.last_client_events):
+                import re
+                text = re.sub(r"```html\s*\n.*?```", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
             output_verdict = evaluate_text(text, policy, source='OUTPUT')
             flagged_output = None
             if output_verdict.blocked:
@@ -326,8 +331,16 @@ class Chat(models.Model):
     
     def get_system_message(self):
         if self.bot and self.bot.system_prompt:
-            return self.bot.system_prompt
-        return ""
+            prompt = self.bot.system_prompt
+        else:
+            prompt = ""
+        # HTML guidance lives here — not merged at call time — so it is
+        # stored in the system row (visible in admin) and sent verbatim,
+        # exactly like the web_search sentence in bot prompts.
+        if self.bot and getattr(self.bot, "enable_html_pages", False):
+            from bots.services.chat_agent import ChatAgentService
+            prompt = (prompt + "\n\n" + ChatAgentService.HTML_GUIDANCE).strip()
+        return prompt
 
     @staticmethod
     def _strip_saved_fences(text):

@@ -161,32 +161,28 @@ class ChatAgentService:
             return None
 
     def _with_catalog(self, message_list):
-        """Fold HTML guidance (+ page catalog when pages exist) into the
-        leading SystemMessage.
+        """Fold the page catalog into the leading SystemMessage.
 
-        The guidance is always present while the flag is on — like the
-        web_search sentence in bot prompts — so first turns know the fenced
-        path without any pages existing yet. Anthropic (via Bedrock Converse)
-        rejects multiple non-consecutive system messages, so this must never
-        be appended as its own SystemMessage after the prompt (prod crash).
-        Merging keeps one.
+        The HTML guidance itself lives in get_system_message() (stored row,
+        visible in admin); only the per-turn catalog list merges here.
+        Anthropic (via Bedrock Converse) rejects multiple non-consecutive
+        system messages, so this must never be appended as its own
+        SystemMessage after the prompt (prod crash). Merging keeps one.
         """
         from langchain_core.messages import SystemMessage
 
         if not self._html_enabled():
             return message_list
-        parts = [self.HTML_GUIDANCE]
         catalog = self._page_catalog_message()
-        if catalog is not None:
-            parts.append(catalog.content)
-        suffix = "\n\n".join(parts)
+        if catalog is None:
+            return message_list
         messages = list(message_list)
         if messages and isinstance(messages[0], SystemMessage):
             first = messages[0]
             content = first.content if isinstance(first.content, str) else ""
-            messages[0] = SystemMessage(content=content + "\n\n" + suffix)
+            messages[0] = SystemMessage(content=content + "\n\n" + catalog.content)
         else:
-            messages.insert(0, SystemMessage(content=suffix))
+            messages.insert(0, catalog)
         return messages
 
     def respond(self, message_list):
@@ -212,7 +208,9 @@ class ChatAgentService:
         response_text, usage_metadata = self._extract_response(messages)
         fence_note = self._save_fenced_page(messages)
         if fence_note:
-            response_text = response_text + fence_note
+            # The kid gets the page button + note, not kilobytes of raw
+            # HTML in the bubble (or the stored history).
+            response_text = _HTML_FENCE_RE.sub("", response_text).strip() + fence_note
         return response_text, usage_metadata
 
     def respond_events(self, message_list):
