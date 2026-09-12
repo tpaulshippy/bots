@@ -1,5 +1,4 @@
 import logging
-import re
 
 from django.conf import settings
 from django.db import transaction
@@ -47,7 +46,6 @@ HTML_PAGE_BLOCKED = (
 )
 HTML_PAGE_DISABLED = "HTML pages are not enabled for this bot."
 HTML_PAGE_TOO_LARGE = "That page is too large. Please keep pages under 200KB."
-_HTML_FENCE_RE = re.compile(r"```html\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
 FLASHCARD_BLOCKED = (
     "I can't save that flashcard because it didn't pass the safety check. "
     "Please adjust the wording and try again."
@@ -110,6 +108,7 @@ class ChatAgentService:
         # appended as HumanMessages right after their ToolMessage.
         self._pending_observations = []
         self._preview_count = 0
+        self._created_page_ids = []
 
     def _html_tools(self):
         """save + update tools when the parent-enabled flag is on.
@@ -122,6 +121,7 @@ class ChatAgentService:
             return {}
         tools = {
             "save_html_page": save_tool,
+            "append_html_page": self._create_html_append_tool(),
             "update_html_page": self._create_html_page_update_tool(),
         }
         preview_tool = self._create_preview_page_tool()
@@ -152,13 +152,12 @@ class ChatAgentService:
 
     HTML_GUIDANCE = (
         "HTML pages are enabled: you can build single-file web pages for the kid.\n"
-        "To create a page, write the COMPLETE page in your reply inside one "
-        "```html fenced block — it is saved automatically. (You may instead call "
-        "save_html_page, but then title AND the complete html document are both "
-        "required in ONE call; never call it with title alone.)\n"
-        "To change an existing page from the catalog below, call update_html_page "
-        "with its page_id and the full replacement html.\n"
-        "After saving, call preview_page to look at the render and fix issues.\n"
+        "Large single responses get cut off, so build in small pieces:\n"
+        "1. Call save_html_page with the title (html may be empty) to start.\n"
+        "2. Send the page with append_html_page calls, a couple of sections each.\n"
+        "3. Call preview_page to check the render and fix issues.\n"
+        "Small pages may be saved in one save_html_page call with BOTH title and html.\n"
+        "Ignore reply length or word-count limits while emitting page content.\n"
         "Always mention the page title in your reply so the kid can reference it later."
     )
 
@@ -204,32 +203,28 @@ class ChatAgentService:
             return None
 
     def _with_catalog(self, message_list):
-        """Fold HTML guidance (+ page catalog when pages exist) into the
-        leading SystemMessage.
+        """Fold the page catalog into the leading SystemMessage.
 
-        The guidance is always present while the flag is on — like the
-        web_search sentence in bot prompts — so first turns know the fenced
-        path without any pages existing yet. Anthropic (via Bedrock Converse)
-        rejects multiple non-consecutive system messages, so this must never
-        be appended as its own SystemMessage after the prompt (prod crash).
-        Merging keeps one.
+        The HTML guidance itself lives in get_system_message() (stored row,
+        visible in admin); only the per-turn catalog list merges here.
+        Anthropic (via Bedrock Converse) rejects multiple non-consecutive
+        system messages, so this must never be appended as its own
+        SystemMessage after the prompt (prod crash). Merging keeps one.
         """
         from langchain_core.messages import SystemMessage
 
         if not self._html_enabled():
             return message_list
-        parts = [self.HTML_GUIDANCE]
         catalog = self._page_catalog_message()
-        if catalog is not None:
-            parts.append(catalog.content)
-        suffix = "\n\n".join(parts)
+        if catalog is None:
+            return message_list
         messages = list(message_list)
         if messages and isinstance(messages[0], SystemMessage):
             first = messages[0]
             content = first.content if isinstance(first.content, str) else ""
-            messages[0] = SystemMessage(content=content + "\n\n" + suffix)
+            messages[0] = SystemMessage(content=content + "\n\n" + catalog.content)
         else:
-            messages.insert(0, SystemMessage(content=suffix))
+            messages.insert(0, catalog)
         return messages
 
     def respond(self, message_list):
@@ -238,6 +233,7 @@ class ChatAgentService:
             "create_flashcard": self._create_flashcard_tool(),
         }
         self._preview_count = 0
+        self._created_page_ids = []
 
         web_search = self._create_web_search_tool()
         if web_search:
@@ -253,9 +249,9 @@ class ChatAgentService:
         logger.info("🤖 AGENT_LOOP_COMPLETE: extracting final response")
 
         response_text, usage_metadata = self._extract_response(messages)
-        fence_note = self._save_fenced_page(messages)
-        if fence_note:
-            response_text = response_text + fence_note
+        sweep_note = self._sweep_drafts()
+        if sweep_note:
+            response_text = response_text + sweep_note
         return response_text, usage_metadata
 
     def respond_events(self, message_list):
@@ -277,6 +273,7 @@ class ChatAgentService:
             "create_flashcard": self._create_flashcard_tool(),
         }
         self._preview_count = 0
+        self._created_page_ids = []
         web_search = self._create_web_search_tool()
         has_web_search = False
         if web_search:
@@ -356,25 +353,26 @@ class ChatAgentService:
             # contiguous, and a HumanMessage in the middle gets rejected.
             messages.extend(self._drain_observations())
 
-        # Fenced-code fallback: the reply text may carry the page when the
-        # model wouldn't emit it as a tool arg. The note joins the stream so
-        # clients persist it with the rest of the bubble; the tool_end chip
-        # is synthesized below from the recorded event.
-        fence_note = self._save_fenced_page(messages)
-        if fence_note:
-            for event in reversed(self.client_events):
-                if event.get("tool") == "save_html_page":
+        # Sweep unfinished drafts so chunked builds complete even when the
+        # model never calls preview_page. Chip events mirror the tool path
+        # so the frontend renders them identically.
+        events_before = len(self.client_events)
+        sweep_note = self._sweep_drafts()
+        if sweep_note:
+            for event in self.client_events[events_before:]:
+                if event.get("tool") == "save_html_page" and event.get("page_id"):
                     yield {"type": "tool_start", "tool": "save_html_page", "args": {"title": event.get("name", "")}}
                     tool_end = {"type": "tool_end", "tool": "save_html_page"}
                     tool_end.update({k: v for k, v in event.items() if k != "tool"})
                     yield tool_end
-                    break
-            yielded_text += fence_note
-            yield {"type": "token", "text": fence_note}
+            yield {"type": "token", "text": sweep_note}
 
         yield {"type": "done", **usage_totals}
 
-    MAX_ITERATIONS = 5
+    # Chunked page builds (save + several appends + preview + fixes) need
+    # more turns than single-shot tools. The loop still exits early when
+    # the model stops calling tools, so this only raises the ceiling.
+    MAX_ITERATIONS = 10
 
     def _run_agent_loop(self, model_with_tools, messages, tools):
         iteration = 0
@@ -652,32 +650,44 @@ class ChatAgentService:
             "'deck_name', 'front', and 'back'.",
         )
 
-    def _persist_html_page(self, title, html):
-        """Validate, safety-check, and store a new page. Shared by the save
-        tool and the fenced-code fallback. Returns (page, message)."""
-        from bots.models.html_page import HtmlPage
+    def _validate_full_html(self, title, html):
+        """Validate a complete document. Returns an error string or None.
+
+        Shared by save (one-shot), preview (gate before render), and the
+        turn-end sweep, so every path enforces the same contract.
+        """
         from bots.serializers.html_page_serializer import (
             MAX_HTML_BYTES,
             html_to_text,
             is_single_file_html,
         )
 
-        clean_title = (title or "").strip()[:255]
-        if not clean_title or not (html or "").strip():
-            return None, "Title and html are both required."
-        if len(html.encode("utf-8")) > MAX_HTML_BYTES:
-            return None, HTML_PAGE_TOO_LARGE
-        if not is_single_file_html(html):
-            return None, "HTML must be a single self-contained page."
-        verdict = evaluate_text(f"{clean_title} {html_to_text(html)}", self.policy, source="OUTPUT")
+        if len((html or "").encode("utf-8")) > MAX_HTML_BYTES:
+            return HTML_PAGE_TOO_LARGE
+        if not is_single_file_html(html or ""):
+            return "HTML must be a single self-contained page."
+        verdict = evaluate_text(f"{title} {html_to_text(html or '')}", self.policy, source="OUTPUT")
         if verdict.blocked:
             record_safety_event(
                 stage="tool_html_page",
                 verdict=verdict,
                 chat=self.chat,
-                snippet=f"{clean_title} {html_to_text(html)[:200]}",
+                snippet=f"{title} {html_to_text(html or '')[:200]}",
             )
-            return None, HTML_PAGE_BLOCKED
+            return HTML_PAGE_BLOCKED
+        return None
+
+    def _persist_html_page(self, title, html):
+        """Validate, safety-check, and store a new page. Shared by the save
+        tool and the turn-end sweep. Returns (page, message)."""
+        from bots.models.html_page import HtmlPage
+
+        clean_title = (title or "").strip()[:255]
+        if not clean_title or not (html or "").strip():
+            return None, "Title and html are both required."
+        error = self._validate_full_html(clean_title, html)
+        if error:
+            return None, error
         try:
             with transaction.atomic():
                 page = HtmlPage.objects.create(
@@ -700,43 +710,48 @@ class ChatAgentService:
             logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
             return None, f"Error saving page: {e!s}"
 
-    def _save_fenced_page(self, messages):
-        """Fallback when the model writes ```html instead of calling the tool.
+    def _sweep_drafts(self):
+        """Finish or discard pages started but never announced this turn.
 
-        Some models won't emit a multi-KB document as a single tool arg and
-        call save_html_page with title alone instead. A fenced block in
-        prose is the same content through a path they use reliably, so a
-        trailing fence is saved with the identical validation as the tool.
-        Returns note text to append, or None.
+        Models sometimes append all chunks yet never call preview_page.
+        Anything created this turn without a success event gets validated:
+        complete pages are announced (chip + note), empty or invalid ones
+        are deleted so broken drafts never leak into the catalog. Returns
+        note text to append, or None.
         """
-        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
-            return None
-        if self.chat.profile is None:
-            return None
-        if any(e.get("tool") in ("save_html_page", "update_html_page") for e in self.client_events):
-            return None
-        fence_html = None
-        for msg in reversed(messages):
-            if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
-                text = msg.content if isinstance(msg.content, str) else ""
-                matches = _HTML_FENCE_RE.findall(text or "")
-                if matches:
-                    fence_html = matches[-1].strip()
-                    break
-        if not fence_html:
-            return None
-        title_match = re.search(r"<title[^>]*>(.*?)</title>", fence_html, re.DOTALL | re.IGNORECASE)
-        if title_match:
-            title = re.sub(r"\s+", " ", title_match.group(1)).strip()
-        else:
-            h1_match = re.search(r"<h1[^>]*>(.*?)</h1>", fence_html, re.DOTALL | re.IGNORECASE)
-            title = re.sub(r"<[^>]+>", "", h1_match.group(1)).strip() if h1_match else ""
-        page, message = self._persist_html_page(title or "Untitled page", fence_html)
-        if page is None:
-            logger.info(f"🌐 FENCED_PAGE_REJECTED: {message[:80]}")
-            return None
-        logger.info(f"🌐 FENCED_PAGE_SAVED: '{page.title}'")
-        return f"\n\nSaved page '{page.title}' — open it from the page button above."
+        from bots.models.html_page import HtmlPage
+
+        notes = []
+        announced = {
+            e.get("page_id") for e in self.client_events if e.get("page_id")
+        }
+        for page_id in dict.fromkeys(self._created_page_ids):
+            if page_id in announced:
+                continue
+            try:
+                page = HtmlPage.objects.get(
+                    page_id=page_id, profile=self.chat.profile,
+                )
+            except (HtmlPage.DoesNotExist, ValueError, AttributeError):
+                continue
+            if not (page.html or "").strip():
+                page.delete()
+                continue
+            error = self._validate_full_html(page.title, page.html)
+            if error is None:
+                self._record_event({
+                    "tool": "save_html_page",
+                    "page_id": str(page.page_id),
+                    "name": page.title,
+                })
+                notes.append(f"\n\nSaved page '{page.title}' — open it from the page button above.")
+            else:
+                page.delete()
+                logger.info(f"🌐 DRAFT_SWEEP_DISCARDED: {page.title} ({error[:60]})")
+                if error == HTML_PAGE_BLOCKED:
+                    notes.append(f"\n\n{HTML_PAGE_BLOCKED}")
+        self._created_page_ids = []
+        return "".join(notes) or None
 
     def _create_html_page_tool(self):
         if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
@@ -745,26 +760,103 @@ class ChatAgentService:
             return None
 
         @tool
-        def save_html_page(title: str, html: str) -> str:
-            """Build a NEW single-file HTML page the kid can open in their browser.
+        def save_html_page(title: str, html: str = "") -> str:
+            """Start or save a single-file HTML page for the kid.
 
-            Use this for a fresh page. When the user refines an existing page
-            listed in the chat catalog, call update_html_page instead.
-            After saving, call preview_page to look at the render when available.
-            Both arguments are always required: never call with title alone.
+            Large documents get cut off, so build in small pieces: call with
+            just the title to start a draft, add content with append_html_page
+            (a couple of sections per call), then preview_page when done.
+            Small pages may be saved in one call with BOTH title and html.
+            Ignore reply length or word-count limits while emitting page content.
             Args:
                 title: Short page title shown in chat.
-                html: Complete single-file HTML document (inline CSS/JS allowed).
+                html: Complete page for one-shot saves; empty to start a draft.
             """
-            logger.info(f"🌐 SAVE_HTML_PAGE_INVOKED: title='{title}' bytes={len((html or '').encode('utf-8'))}")
-            _, message = self._persist_html_page(title, html)
-            return message
+            from bots.models.html_page import HtmlPage
+
+            clean_title = (title or "").strip()[:255]
+            if not clean_title:
+                return "Title is required."
+            logger.info(f"🌐 SAVE_HTML_PAGE_INVOKED: title='{clean_title}' bytes={len((html or '').encode('utf-8'))}")
+            if (html or "").strip():
+                _, message = self._persist_html_page(clean_title, html)
+                return message
+            try:
+                with transaction.atomic():
+                    page = HtmlPage.objects.create(
+                        profile=self.chat.profile,
+                        chat=self.chat,
+                        bot=self.chat.bot,
+                        title=clean_title,
+                        html="",
+                    )
+                    self._created_page_ids.append(str(page.page_id))
+                    return (
+                        f"Draft page '{clean_title}' started (page_id={page.page_id}). "
+                        "Send the page in small pieces with append_html_page, "
+                        "then call preview_page when complete."
+                    )
+            except Exception as e:
+                logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
+                return f"Error saving page: {e!s}"
 
         return _harden_tool(
             save_html_page,
-            "Missing required arguments. Call save_html_page again with BOTH "
-            "'title' AND the complete single-file 'html' document. Never call "
-            "it with title alone.",
+            "Missing required arguments. Call save_html_page with at least "
+            "'title' (html may be empty to start a draft).",
+        )
+
+    def _create_html_append_tool(self):
+        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
+            return None
+        if self.chat.profile is None:
+            return None
+
+        @tool
+        def append_html_page(page_id: str, chunk: str) -> str:
+            """Append one small piece to a draft page (a couple of sections).
+
+            Keep each chunk small. Call preview_page when the page is complete.
+            Args:
+                page_id: The page_id from save_html_page.
+                chunk: Raw HTML to append verbatim.
+            """
+            import uuid as uuid_lib
+
+            from bots.models.html_page import HtmlPage
+
+            try:
+                page_uuid = uuid_lib.UUID(str(page_id))
+            except (ValueError, AttributeError):
+                return "Unknown page. Start one with save_html_page first."
+            try:
+                page = HtmlPage.objects.get(
+                    page_id=page_uuid, profile=self.chat.profile,
+                )
+            except HtmlPage.DoesNotExist:
+                return "Unknown page. Start one with save_html_page first."
+            if not (chunk or "").strip():
+                return "chunk is required."
+            try:
+                with transaction.atomic():
+                    page = HtmlPage.objects.select_for_update().get(pk=page.pk)
+                    page.html = (page.html or "") + chunk
+                    page.save(update_fields=["html", "updated_at"])
+                    if str(page.page_id) not in self._created_page_ids:
+                        self._created_page_ids.append(str(page.page_id))
+                    total = len(page.html.encode("utf-8"))
+                    return (
+                        f"Added ({total} chars total). Send the next piece, "
+                        "or call preview_page when the page is complete."
+                    )
+            except Exception as e:
+                logger.error(f"🌐 APPEND_HTML_PAGE_ERROR: {e!s}")
+                return f"Error appending: {e!s}"
+
+        return _harden_tool(
+            append_html_page,
+            "Missing required arguments. Call append_html_page with "
+            "'page_id' and 'chunk'.",
         )
 
     def _create_html_page_update_tool(self):
@@ -883,6 +975,16 @@ class ChatAgentService:
                 )
             except HtmlPage.DoesNotExist:
                 return "Unknown page. Ask which page to preview or save a new one."
+            # Gate before render: drafts under construction fail here until
+            # complete, and unsafe content never reaches the browser.
+            error = self._validate_full_html(page.title, page.html or "")
+            if error:
+                if "self-contained" in error:
+                    return (
+                        "The page is not complete yet. Keep appending "
+                        "the remaining sections with append_html_page, then preview again."
+                    )
+                return error
             shot = render_page_shot(page.html)
             if shot is None:
                 return "Render preview is not available on this server."

@@ -323,7 +323,7 @@ class Chat(models.Model):
                 message_list.append(HumanMessage(content=human_message_content))
             elif message.role == "assistant":
                 if len(message_list) > 0: # need to start with a user message
-                    message_list.append(AIMessage(content=self._strip_saved_fences(message.text)))
+                    message_list.append(AIMessage(content=message.text))
 
         system_prompt = self.get_system_message()
         if system_prompt:
@@ -334,26 +334,16 @@ class Chat(models.Model):
     
     def get_system_message(self):
         if self.bot and self.bot.system_prompt:
-            return self.bot.system_prompt
-        return ""
-
-    @staticmethod
-    def _strip_saved_fences(text):
-        """Replace saved ```html blocks with a placeholder in model context.
-
-        Fence-first page building stores the full document in chat history;
-        resending kilobytes of HTML every future turn would bloat context
-        (and cost). The page itself lives in the DB and the catalog carries
-        its page_id, so later turns lose nothing. Storage is untouched —
-        the kid still sees the full reply in the app.
-        """
-        import re
-        return re.sub(
-            r"```html\s*\n.*?```",
-            "[page html saved separately]",
-            text or "",
-            flags=re.DOTALL | re.IGNORECASE,
-        )
+            prompt = self.bot.system_prompt
+        else:
+            prompt = ""
+        # HTML guidance lives here — not merged at call time — so it is
+        # stored in the system row (visible in admin) and sent verbatim,
+        # exactly like the web_search sentence in bot prompts.
+        if self.bot and getattr(self.bot, "enable_html_pages", False):
+            from bots.services.chat_agent import ChatAgentService
+            prompt = (prompt + "\n\n" + ChatAgentService.HTML_GUIDANCE).strip()
+        return prompt
 
     def get_image_data(self, filename):
         try:

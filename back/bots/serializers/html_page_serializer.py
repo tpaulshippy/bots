@@ -64,6 +64,10 @@ def is_single_file_html(html: str) -> bool:
     lowered = (html or "").lower()
     if not ("<html" in lowered or "<!doctype html" in lowered or "<body" in lowered):
         return False
+    # A truncated stream also has an opening tag: require the closing tag
+    # so half-emitted drafts fail validation until complete.
+    if "</html" not in lowered and "</body" not in lowered:
+        return False
     return not has_external_resource(html or "")
 
 
