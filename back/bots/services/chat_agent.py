@@ -54,6 +54,49 @@ FLASHCARD_BLOCKED = (
 )
 
 
+def client_events_to_agent_events(client_events):
+    """Map backend tool results to frontend AgentActivity chips for history.
+
+    Live SSE streams build these chips client-side from tool_end frames;
+    history replays them from Message.agent_events so a revisit shows the
+    same chips. Transient tool_start states are intentionally omitted —
+    only completed tool results with an id to act on are persisted.
+    """
+    agent_events = []
+    for event in client_events or []:
+        tool = event.get("tool")
+        if tool == "create_flashcard_deck" and event.get("deck_id"):
+            agent_events.append({
+                "kind": "deck",
+                "deckId": event["deck_id"],
+                "name": event.get("name", "deck"),
+                "cardCount": event.get("card_count", 0),
+            })
+        elif tool == "create_flashcard" and event.get("deck_id"):
+            agent_events.append({
+                "kind": "sources",
+                "label": "📇 Card added",
+            })
+        elif tool == "web_search":
+            preview = event.get("result_preview")
+            agent_events.append({
+                "kind": "sources",
+                "label": f"🌐 {preview}" if preview else "🌐 Sources used",
+            })
+        elif tool in ("save_html_page", "update_html_page") and event.get("page_id"):
+            agent_events.append({
+                "kind": "page",
+                "pageId": event["page_id"],
+                "name": event.get("name", "page"),
+            })
+        elif tool == "preview_page" and event.get("page_id"):
+            agent_events.append({
+                "kind": "preview",
+                "label": "👁 Checked render",
+            })
+    return agent_events
+
+
 class ChatAgentService:
     def __init__(self, chat, ai_client, policy=None):
         self.chat = chat

@@ -69,6 +69,7 @@ export default function ActivityChatScreen() {
           image_url: item.image_url,
           role: item.role,
           created_at: item.created_at,
+          agentEvents: item.agentEvents ?? item.agent_events ?? [],
         }}
       />
     </ThemedView>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ActivityIndicator, FlexAlignType, Image, Modal, Platform, TouchableOpacity } from "react-native";
-import { AgentActivity, ChatMessage as ApiChatMessage } from "@/api/chats";
+import { AgentActivity, ChatMessage as ApiChatMessage, getMessageAgentEvents } from "@/api/chats";
 import { downloadHtmlPage, getPageLink } from "@/api/htmlPages";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -35,6 +35,7 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
   const userColor = useThemeColor({ light: "#03465b", dark: "#0a7ea4" }, "tint");
   const timestampColor = useThemeColor({}, "icon");
   const isUser = message.role === "user";
+  const agentEvents = getMessageAgentEvents(message);
   const [modalVisible, setModalVisible] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState('');
 
@@ -67,9 +68,9 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
         </TouchableOpacity>
       )}
       {message.isLoading && <ActivityIndicator style={styles.loading} />}
-      {!isUser && (message.agentEvents?.length ?? 0) > 0 && (
+      {!isUser && agentEvents.length > 0 && (
         <ThemedView style={styles.agentChips}>
-          {message.agentEvents!.map((event, index) => (
+          {agentEvents.map((event, index) => (
             <ThemedView
               key={`${event.kind}-${index}`}
               testID={`agent-chip-${event.kind === "deck" ? "deck" : event.kind === "sources" ? "search" : event.kind === "page" ? "page" : event.kind === "preview" ? "preview" : "tool"}`}

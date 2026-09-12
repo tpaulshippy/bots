@@ -129,7 +129,7 @@ class Chat(models.Model):
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
 
-    def _persist_assistant_message(self, text, usage_metadata, message_id=None):
+    def _persist_assistant_message(self, text, usage_metadata, message_id=None, agent_events=None):
         message_order = self.messages.count()
 
         input_tokens = usage_metadata.get('input_tokens', 0)
@@ -141,6 +141,7 @@ class Chat(models.Model):
             order=message_order,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            agent_events=agent_events or [],
             **({'message_id': message_id} if message_id is not None else {}),
         )
         self.input_tokens += input_tokens
@@ -172,6 +173,8 @@ class Chat(models.Model):
         response_text, usage_metadata = service.respond(message_list)
         # Structured tool results for the legacy `events[]` payload (doc 06 §3).
         self.last_client_events = service.client_events
+        from bots.services.chat_agent import client_events_to_agent_events
+        agent_events = client_events_to_agent_events(service.client_events)
 
         # Post-model output filter: replace flagged completions before save.
         output_verdict = evaluate_text(response_text, policy, source='OUTPUT')
@@ -193,6 +196,7 @@ class Chat(models.Model):
                 order=message_order,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                agent_events=agent_events,
             )
             self.input_tokens += input_tokens
             self.output_tokens += output_tokens
@@ -252,7 +256,11 @@ class Chat(models.Model):
             if output_verdict.blocked:
                 flagged_output = text
                 text = refusal_for_verdict(output_verdict)
-            assistant_message = self._persist_assistant_message(text, usage_totals, message_id=message_id)
+            from bots.services.chat_agent import client_events_to_agent_events
+            agent_events = client_events_to_agent_events(service.client_events)
+            assistant_message = self._persist_assistant_message(
+                text, usage_totals, message_id=message_id, agent_events=agent_events
+            )
             if output_verdict.blocked:
                 record_safety_event(
                     stage='output',
