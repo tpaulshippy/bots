@@ -14,12 +14,25 @@ class FlashcardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Flashcard
-        fields = ['id', 'flashcard_id', 'deck', 'front', 'back', 'order', 'created_at', 'updated_at']
+        fields = [
+            'id', 'flashcard_id', 'deck', 'front', 'back', 'order',
+            'due_at', 'interval_days', 'ease', 'reps', 'lapses',
+            'last_reviewed_at', 'created_at', 'updated_at',
+        ]
+        # Scheduling is owned by the review endpoint: POST/PATCH payloads
+        # cannot set these directly, so every schedule change has a
+        # FlashcardReview log row. Still serialized on output.
+        read_only_fields = [
+            'due_at', 'interval_days', 'ease', 'reps', 'lapses',
+            'last_reviewed_at',
+        ]
 
 
 class DeckSerializer(serializers.ModelSerializer):
     flashcards = FlashcardSerializer(many=True, read_only=True)
-    card_count = serializers.IntegerField(read_only=True, source='flashcard_count')
+    card_count = serializers.IntegerField(read_only=True, source='flashcard_count', default=0)
+    due_count = serializers.IntegerField(read_only=True, default=0)
+    last_studied_at = serializers.DateTimeField(read_only=True, allow_null=True, default=None)
     profile = serializers.SlugRelatedField(
         queryset=Profile.objects.all(),
         slug_field='profile_id',
@@ -33,12 +46,21 @@ class DeckSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Deck
-        fields = ['id', 'deck_id', 'profile', 'chat', 'name', 'description', 'flashcards', 'card_count', 'created_at', 'updated_at']
+        fields = [
+            'id', 'deck_id', 'profile', 'chat', 'name', 'description',
+            'flashcards', 'card_count', 'due_count', 'last_studied_at',
+            'created_at', 'updated_at',
+        ]
 
 
 class DeckListSerializer(serializers.ModelSerializer):
-    card_count = serializers.IntegerField(read_only=True, source='flashcard_count')
+    card_count = serializers.IntegerField(read_only=True, source='flashcard_count', default=0)
+    due_count = serializers.IntegerField(read_only=True, default=0)
+    last_studied_at = serializers.DateTimeField(read_only=True, allow_null=True, default=None)
 
     class Meta:
         model = Deck
-        fields = ['id', 'deck_id', 'name', 'description', 'card_count', 'created_at', 'updated_at']
+        fields = [
+            'id', 'deck_id', 'name', 'description', 'card_count',
+            'due_count', 'last_studied_at', 'created_at', 'updated_at',
+        ]
