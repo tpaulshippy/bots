@@ -192,7 +192,8 @@ export default function DeckDetail() {
   const handleStudyPress = () => {
     router.push({
       pathname: "/flashcards/study",
-      params: { deckId, title: deck?.name },
+      // Default study queue is due-only (see study.tsx).
+      params: { deckId, title: deck?.name, mode: "due" },
     });
   };
 
@@ -278,10 +279,13 @@ export default function DeckDetail() {
       ) : null}
 
       <Pressable
+        testID="study-button"
         style={[styles.studyButton, { backgroundColor: tintColor }]}
         onPress={handleStudyPress}
       >
-        <ThemedText style={styles.studyButtonText}>Study</ThemedText>
+        <ThemedText style={styles.studyButtonText}>
+          {(deck?.due_count ?? 0) > 0 ? `Study (${deck?.due_count})` : "Study"}
+        </ThemedText>
       </Pressable>
 
       <FAB icon="plus" onPress={() => setShowAddCard(true)} />

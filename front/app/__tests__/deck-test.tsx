@@ -89,7 +89,7 @@ describe('DeckDetail', () => {
 
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/flashcards/study',
-      params: { deckId: 'deck-1', title: 'Spanish' },
+      params: { deckId: 'deck-1', title: 'Spanish', mode: 'due' },
     });
   });
 

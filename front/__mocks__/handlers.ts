@@ -129,6 +129,51 @@ export const handlers = [
     return HttpResponse.json({}, { status: 204 });
   }),
 
+  // Spaced repetition study queue + review
+  http.get('/api/decks/:deck_pk/study_queue.json', async () => {
+    await delay(200);
+    return HttpResponse.json([
+      {
+        id: 10,
+        flashcard_id: '660e8400-e29b-41d4-a716-446655440010',
+        deck: '550e8400-e29b-41d4-a716-446655440001',
+        front: 'What is anaphase?',
+        back: 'Sister chromatids separate',
+        order: 0,
+        due_at: '2024-01-01T00:00:00Z',
+        interval_days: 0,
+        ease: 2.5,
+        reps: 0,
+        lapses: 0,
+        last_reviewed_at: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      },
+    ]);
+  }),
+
+  http.post('/api/decks/:deck_pk/flashcards/:id/review.json', async ({ request, params }) => {
+    await delay(200);
+    const body = (await request.json()) as Record<string, any>;
+    const id = params.id as string;
+    return HttpResponse.json({
+      id: 10,
+      flashcard_id: id,
+      deck: '550e8400-e29b-41d4-a716-446655440001',
+      front: 'What is anaphase?',
+      back: 'Sister chromatids separate',
+      order: 0,
+      due_at: '2024-01-04T00:00:00Z',
+      interval_days: body.rating === 'again' ? 0.1667 : 1,
+      ease: 2.5,
+      reps: body.rating === 'again' ? 0 : 1,
+      lapses: body.rating === 'again' ? 1 : 0,
+      last_reviewed_at: '2024-01-03T09:00:00Z',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-03T09:00:00Z',
+    });
+  }),
+
   // Profile endpoints
   http.get('/api/profiles.json', async () => {
     await delay(200);
