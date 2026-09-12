@@ -89,29 +89,36 @@ class ChatAgentService:
             return False
 
     def _page_catalog_message(self):
-        """Existing pages in THIS chat so later turns can iterate.
+        """Recent pages for this profile across chats, so later turns — even
+        in a new chat ("update my dino page") — can iterate.
 
         Tool calls are not persisted as chat messages, so without this the
-        agent cannot discover page_ids from history on follow-up turns
-        ("make the background blue").
+        agent cannot discover page_ids from history on follow-up turns.
+        Ownership is enforced by the profile scope; updates still require
+        the exact page_id from this catalog.
         """
         from langchain_core.messages import SystemMessage
 
         if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
             return None
+        if self.chat.profile is None:
+            return None
         try:
             from bots.models.html_page import HtmlPage
             pages = (
-                HtmlPage.objects.filter(chat=self.chat)
+                HtmlPage.objects.filter(profile=self.chat.profile)
+                .select_related("chat")
                 .order_by("-updated_at")[:10]
             )
             if not pages:
                 return None
             lines = [
-                "Existing HTML pages in this chat (prefer update_html_page over save_html_page when the user refines one):",
+                "The kid's saved HTML pages (prefer update_html_page over save_html_page when they refine one; always mention the page title in your reply so they can reference it later):",
             ]
             for p in reversed(list(pages)):
-                lines.append(f"- '{p.title}' page_id={p.page_id} updated={p.updated_at:%Y-%m-%d %H:%M}")
+                chat_title = getattr(p.chat, "title", "") or "this chat"
+                marker = " (this chat)" if p.chat_id == self.chat.pk else f" (from chat '{chat_title}')"
+                lines.append(f"- '{p.title}' page_id={p.page_id} updated={p.updated_at:%Y-%m-%d %H:%M}{marker}")
             return SystemMessage(content="\n".join(lines))
         except Exception:
             logger.exception("🌐 PAGE_CATALOG_FAILED")
@@ -607,7 +614,6 @@ class ChatAgentService:
                 page = HtmlPage.objects.get(
                     page_id=page_uuid,
                     profile=self.chat.profile,
-                    chat=self.chat,
                 )
             except HtmlPage.DoesNotExist:
                 return "Unknown page. Ask which page to update or save a new one."
@@ -687,7 +693,6 @@ class ChatAgentService:
                 page = HtmlPage.objects.get(
                     page_id=page_uuid,
                     profile=self.chat.profile,
-                    chat=self.chat,
                 )
             except HtmlPage.DoesNotExist:
                 return "Unknown page. Ask which page to preview or save a new one."

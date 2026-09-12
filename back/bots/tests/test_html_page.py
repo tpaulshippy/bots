@@ -109,7 +109,7 @@ def describe_html_page_tool():
             "html": "<html><body>hi</body></html>",
         })
 
-    def it_rejects_pages_from_other_chats():
+    def it_updates_pages_from_other_chats_of_the_same_profile():
         chat = _chat()
         other = Chat.objects.create(user=chat.user, profile=chat.profile, bot=chat.bot)
         svc = ChatAgentService(chat, MagicMock())
@@ -118,7 +118,27 @@ def describe_html_page_tool():
         })
         page = HtmlPage.objects.get()
         other_svc = ChatAgentService(other, MagicMock())
-        assert "Unknown page" in other_svc._create_html_page_update_tool().invoke({
+        result = other_svc._create_html_page_update_tool().invoke({
+            "page_id": str(page.page_id),
+            "html": "<html><body>blue</body></html>",
+        })
+        assert "Updated page" in result
+        page.refresh_from_db()
+        assert "blue" in page.html
+
+    def it_rejects_pages_from_other_profiles():
+        from django.contrib.auth.models import User as AuthUser
+        chat = _chat()
+        svc = ChatAgentService(chat, MagicMock())
+        svc._create_html_page_tool().invoke({
+            "title": "Dino", "html": "<html><body>hi</body></html>",
+        })
+        page = HtmlPage.objects.get()
+        stranger = AuthUser.objects.create(username="stranger")
+        stranger_profile = Profile.objects.create(user=stranger, name="S")
+        stranger_chat = Chat.objects.create(user=stranger, profile=stranger_profile, bot=chat.bot)
+        stranger_svc = ChatAgentService(stranger_chat, MagicMock())
+        assert "Unknown page" in stranger_svc._create_html_page_update_tool().invoke({
             "page_id": str(page.page_id),
             "html": "<html><body>hijack</body></html>",
         })
@@ -136,6 +156,12 @@ def describe_html_page_tool():
         catalog = ChatAgentService(chat, MagicMock())._page_catalog_message()
         assert isinstance(catalog, SystemMessage)
         assert "update_html_page" in catalog.content
+        assert "Dino" in catalog.content
+        # A new chat for the same profile still sees the page (by title).
+        new_chat = Chat.objects.create(user=chat.user, profile=chat.profile, bot=chat.bot)
+        new_catalog = ChatAgentService(new_chat, MagicMock())._page_catalog_message()
+        assert new_catalog is not None
+        assert "Dino" in new_catalog.content
 
 
 @pytest.mark.django_db
