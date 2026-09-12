@@ -68,6 +68,11 @@ class Command(BaseCommand):
         )
 
         now = timezone.now()
+        # Delete cards from earlier runs/sessions that are not part of this
+        # layout, so reruns converge to exactly these eight cards.
+        Flashcard.objects.filter(deck=deck).exclude(
+            front__in=[front for front, _, _ in CARDS]
+        ).delete()
         created_cards = 0
         for order, (front, back, state) in enumerate(CARDS):
             card, card_created = Flashcard.objects.get_or_create(

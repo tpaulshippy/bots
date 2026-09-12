@@ -98,4 +98,30 @@ describe('Study', () => {
 
     await waitFor(() => expect(screen.getByText('Nothing due 🎉')).toBeTruthy());
   });
+
+  it('shows an error with retry when the queue fails to load', async () => {
+    (fetchStudyQueue as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+    render(<Study />);
+
+    await waitFor(() => expect(screen.getByTestId('study-load-error')).toBeTruthy());
+    // A failed load must not render as an empty queue.
+    expect(screen.queryByText('Nothing due 🎉')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('study-load-retry'));
+    await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
+  });
+
+  it('stays on the same card when saving the review fails', async () => {
+    (reviewFlashcard as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+    render(<Study />);
+
+    await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('study-card'));
+    fireEvent.press(screen.getByTestId('study-rating-good'));
+
+    await waitFor(() => expect(reviewFlashcard).toHaveBeenCalled());
+    // The failed review is not counted: still on Q1, session not complete.
+    expect(screen.getByText('Q1')).toBeTruthy();
+    expect(screen.queryByTestId('study-session-complete')).toBeNull();
+  });
 });

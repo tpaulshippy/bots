@@ -7,6 +7,7 @@ import {
   fetchStudyQueue,
   reviewFlashcard,
 } from '../../api/flashcards';
+import { apiClient } from '../../api/apiClient';
 
 // Mock the apiClient to return paginated responses matching OpenAPI schema
 jest.mock('../../api/apiClient', () => ({
@@ -328,6 +329,12 @@ describe('Flashcards API', () => {
       expect(queue[0].reps).toBe(0);
       expect(queue[1].reps).toBe(1);
     });
+
+    it('should throw instead of resolving to [] when the request fails', async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500, data: null });
+
+      await expect(fetchStudyQueue(testDeckId)).rejects.toThrow();
+    });
   });
 
   describe('reviewFlashcard', () => {
@@ -352,6 +359,14 @@ describe('Flashcards API', () => {
 
       expect(updated?.lapses).toBe(1);
       expect(updated?.reps).toBe(0);
+    });
+
+    it('should throw instead of resolving to null when the request fails', async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500, data: null });
+
+      await expect(
+        reviewFlashcard(testDeckId, '660e8400-e29b-41d4-a716-446655440010', 'good')
+      ).rejects.toThrow();
     });
   });
 });

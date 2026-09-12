@@ -19,6 +19,13 @@ class FlashcardSerializer(serializers.ModelSerializer):
             'due_at', 'interval_days', 'ease', 'reps', 'lapses',
             'last_reviewed_at', 'created_at', 'updated_at',
         ]
+        # Scheduling is owned by the review endpoint: POST/PATCH payloads
+        # cannot set these directly, so every schedule change has a
+        # FlashcardReview log row. Still serialized on output.
+        read_only_fields = [
+            'due_at', 'interval_days', 'ease', 'reps', 'lapses',
+            'last_reviewed_at',
+        ]
 
 
 class DeckSerializer(serializers.ModelSerializer):

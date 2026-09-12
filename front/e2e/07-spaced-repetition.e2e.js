@@ -64,8 +64,12 @@ async function getSeedState(accessToken) {
   const decks = await deckRes.json();
   const deck = (decks.results || []).find((d) => d.name === DECK_NAME);
   if (!deck) throw new Error(`Seeded deck "${DECK_NAME}" not found — run the seed command`);
+  // Other e2e seeds reuse e2e-test-user, so profiles[0] is not guaranteed
+  // to be this seed's profile — and the deck list is profile-filtered.
+  const profile = (profiles.results || []).find((p) => p.name === 'E2E Test Profile');
+  if (!profile) throw new Error('Seeded profile "E2E Test Profile" not found — run the seed command');
   return {
-    profile: JSON.stringify(profiles.results[0]),
+    profile: JSON.stringify(profile),
     bot: JSON.stringify(bots.results[0]),
     deckId: deck.deck_id,
     deckDueCount: deck.due_count,
@@ -160,8 +164,10 @@ describe('Spaced Repetition Study E2E Flow (Real API)', () => {
     const response = await fetch(`${API_BASE}/decks/${deckId}/study_queue.json?mode=due`, {
       headers: { Authorization: `Bearer ${tokens.access}` },
     });
+    expect(response.ok).toBe(true);
     const queue = await response.json();
-    expect(Array.isArray(queue) ? queue : []).toEqual([]);
+    expect(Array.isArray(queue)).toBe(true);
+    expect(queue).toEqual([]);
 
     // We are back on the deck detail after Done; studying again shows the
     // "nothing due" state instead of cards.

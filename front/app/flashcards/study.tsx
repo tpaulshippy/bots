@@ -28,13 +28,37 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - 40;
 
-// Rating buttons shown after the flip. Interval hints mirror the SM-2
-// defaults for an early card (<1d for Again's same-day relearn step).
-const RATINGS: { rating: FlashcardRating; label: string; hint: string }[] = [
-  { rating: "again", label: "Again", hint: "<1d" },
-  { rating: "hard", label: "Hard", hint: "1d" },
-  { rating: "good", label: "Good", hint: "3d" },
-  { rating: "easy", label: "Easy", hint: "7d" },
+// Interval preview shown under each rating button, derived from the current
+// card's scheduling state (mirrors back/bots/services/srs.py) so the hint
+// stays correct as the card progresses past the early learning steps.
+const LAPSE_HINT = "<1d";
+
+function previewHint(card: Flashcard | undefined, rating: FlashcardRating): string {
+  const interval = card?.interval_days ?? 0;
+  const ease = card?.ease ?? 2.5;
+  const reps = card?.reps ?? 0;
+  let days: number;
+  switch (rating) {
+    case "again":
+      return LAPSE_HINT;
+    case "hard":
+      days = Math.max(1, interval * 1.2);
+      break;
+    case "good":
+      days = reps === 0 ? 1 : reps === 1 ? 6 : interval * ease;
+      break;
+    case "easy":
+      days = (reps === 0 ? 1 : reps === 1 ? 6 : interval * ease) * 1.3;
+      break;
+  }
+  return days < 1 ? LAPSE_HINT : `${Math.round(days)}d`;
+}
+
+const RATINGS: { rating: FlashcardRating; label: string }[] = [
+  { rating: "again", label: "Again" },
+  { rating: "hard", label: "Hard" },
+  { rating: "good", label: "Good" },
+  { rating: "easy", label: "Easy" },
 ];
 
 export default function Study() {
@@ -48,6 +72,7 @@ export default function Study() {
   const [againCount, setAgainCount] = useState(0);
   const [reviewedDues, setReviewedDues] = useState<string[]>([]);
   const [ratingInProgress, setRatingInProgress] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [now] = useState(() => Date.now());
 
   const [flipAnim] = useState(() => new Animated.Value(0));
@@ -59,24 +84,29 @@ export default function Study() {
   const tintColor = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
 
+  const loadQueue = async () => {
+    if (!deckId) {
+      Alert.alert("Error", "Invalid deck");
+      router.back();
+      return;
+    }
+    setLoading(true);
+    setLoadError(false);
+    try {
+      // Default study queue: only cards that are due right now.
+      // fetchStudyQueue throws on failure, so a network/server error lands
+      // in the error state below instead of rendering as "Nothing due".
+      const dueCards = await fetchStudyQueue(deckId, "due");
+      setCards(dueCards);
+    } catch (error) {
+      Sentry.captureException(error);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadQueue = async () => {
-      if (!deckId) {
-        Alert.alert("Error", "Invalid deck");
-        router.back();
-        return;
-      }
-      try {
-        // Default study queue: only cards that are due right now.
-        const dueCards = await fetchStudyQueue(deckId, "due");
-        setCards(dueCards);
-      } catch (error) {
-        Sentry.captureException(error);
-        setCards([]);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadQueue();
   }, [deckId, router]);
 
@@ -117,6 +147,7 @@ export default function Study() {
       setCards(allCards);
     } catch (error) {
       Sentry.captureException(error);
+      Alert.alert("Error", "Failed to load cards");
     } finally {
       setLoading(false);
     }
@@ -135,7 +166,7 @@ export default function Study() {
       }
 
       const currentCard = cards[currentIndex];
-      let updated;
+      let updated: Flashcard;
       try {
         updated = await reviewFlashcard(
           deckId,
@@ -147,7 +178,9 @@ export default function Study() {
         Alert.alert("Error", "Failed to save your review");
         return;
       }
-      const nextDueAt: string | null = updated?.due_at ?? null;
+      // reviewFlashcard throws on failure, so reaching here means the
+      // review was persisted; only then do we advance the session.
+      const nextDueAt: string | null = updated.due_at ?? null;
 
       if (rating === "again") {
         setAgainCount((c) => c + 1);
@@ -185,6 +218,30 @@ export default function Study() {
     return (
       <ThemedView style={styles.container}>
         <ActivityIndicator style={styles.activityIndicator} />
+      </ThemedView>
+    );
+  }
+
+  if (!loading && loadError) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <ThemedText testID="study-load-error" style={styles.emptyText}>
+            Couldn&apos;t load your cards
+          </ThemedText>
+          <ThemedText style={[styles.emptySubtext, { color: iconColor }]}>
+            Check your connection and try again.
+          </ThemedText>
+          <Pressable
+            testID="study-load-retry"
+            style={[styles.studyAllButton, { backgroundColor: tintColor }]}
+            onPress={loadQueue}
+          >
+            <ThemedText style={styles.ratingButtonText}>
+              Retry
+            </ThemedText>
+          </Pressable>
+        </View>
       </ThemedView>
     );
   }
@@ -315,7 +372,7 @@ export default function Study() {
 
       <View style={styles.ratingRow}>
         {isFlipped ? (
-          RATINGS.map(({ rating, label, hint }) => (
+          RATINGS.map(({ rating, label }) => (
             <Pressable
               key={rating}
               testID={`study-rating-${rating}`}
@@ -329,7 +386,7 @@ export default function Study() {
               disabled={ratingInProgress}
             >
               <ThemedText style={styles.ratingButtonText}>{label}</ThemedText>
-              <ThemedText style={styles.ratingHint}>{hint}</ThemedText>
+              <ThemedText style={styles.ratingHint}>{previewHint(currentCard, rating)}</ThemedText>
             </Pressable>
           ))
         ) : (

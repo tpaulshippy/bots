@@ -147,28 +147,40 @@ export const deleteFlashcard = async (
 };
 
 // Cards to study for this deck, ordered by due_at ascending.
+//
+// Throws on failure (instead of resolving to []) so callers can tell an
+// empty queue apart from a network/server error.
 export const fetchStudyQueue = async (
   deckId: string,
   mode: StudyQueueMode = "due",
   limit = 50
-): Promise<Flashcard[]> =>
-  request<Flashcard[]>(
+): Promise<Flashcard[]> => {
+  const response = await requestRaw<Flashcard[]>(
     `/decks/${deckId}/study_queue.json?mode=${mode}&limit=${limit}`,
-    { method: "GET" },
-    []
+    { method: "GET" }
   );
+  if (!response?.ok || !response.data) {
+    throw new Error(`Study queue request failed for deck ${deckId}`);
+  }
+  return response.data;
+};
 
 // Rate a card during study; returns the rescheduled flashcard.
+// Throws on failure so a failed review can never be counted as done.
 export const reviewFlashcard = async (
   deckId: string,
   flashcardId: string,
   rating: FlashcardRating
-): Promise<Flashcard | null> =>
-  request<Flashcard | null>(
+): Promise<Flashcard> => {
+  const response = await requestRaw<Flashcard>(
     `/decks/${deckId}/flashcards/${flashcardId}/review.json`,
     {
       method: "POST",
       body: JSON.stringify({ rating }),
-    },
-    null
+    }
   );
+  if (!response?.ok || !response.data) {
+    throw new Error(`Review request failed for card ${flashcardId}`);
+  }
+  return response.data;
+};

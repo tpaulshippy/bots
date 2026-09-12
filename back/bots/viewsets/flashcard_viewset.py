@@ -1,5 +1,6 @@
 import uuid
 
+from django.db import transaction
 from django.db.models import Count, F, Max, Q
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -72,8 +73,6 @@ class FlashcardViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='review')
     def review(self, request, deck_pk=None, flashcardId=None, format=None):
         """Rate a card (again|hard|good|easy) and reschedule it via SM-2."""
-        flashcard = self.get_object()
-
         rating = request.data.get('rating')
         if rating not in srs.RATINGS:
             return Response(
@@ -81,16 +80,23 @@ class FlashcardViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        updates = srs.apply_sm2(flashcard, rating)
-        for field, value in updates.items():
-            setattr(flashcard, field, value)
-        flashcard.save(update_fields=list(updates.keys()) + ['updated_at'])
+        with transaction.atomic():
+            flashcard = self.get_object()
+            # Lock the row so concurrent reviews serialize: without this,
+            # two simultaneous POSTs could both schedule from the same
+            # reps/ease and the later save would silently drop the first.
+            flashcard = Flashcard.objects.select_for_update().get(pk=flashcard.pk)
 
-        FlashcardReview.objects.create(
-            flashcard=flashcard,
-            profile=flashcard.deck.profile,
-            rating=rating,
-        )
+            updates = srs.apply_sm2(flashcard, rating)
+            for field, value in updates.items():
+                setattr(flashcard, field, value)
+            flashcard.save(update_fields=list(updates.keys()) + ['updated_at'])
+
+            FlashcardReview.objects.create(
+                flashcard=flashcard,
+                profile=flashcard.deck.profile,
+                rating=rating,
+            )
 
         return Response(FlashcardSerializer(flashcard).data)
 
