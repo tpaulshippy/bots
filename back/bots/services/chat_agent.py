@@ -1,4 +1,5 @@
 import logging
+import re
 
 from django.conf import settings
 from django.db import transaction
@@ -46,6 +47,7 @@ HTML_PAGE_BLOCKED = (
 )
 HTML_PAGE_DISABLED = "HTML pages are not enabled for this bot."
 HTML_PAGE_TOO_LARGE = "That page is too large. Please keep pages under 200KB."
+_HTML_FENCE_RE = re.compile(r"```html\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
 FLASHCARD_BLOCKED = (
     "I can't save that flashcard because it didn't pass the safety check. "
     "Please adjust the wording and try again."
@@ -167,7 +169,11 @@ class ChatAgentService:
 
         logger.info("🤖 AGENT_LOOP_COMPLETE: extracting final response")
 
-        return self._extract_response(messages)
+        response_text, usage_metadata = self._extract_response(messages)
+        fence_note = self._save_fenced_page(messages)
+        if fence_note:
+            response_text = response_text + fence_note
+        return response_text, usage_metadata
 
     def respond_events(self, message_list):
         """Streaming variant of respond(): yields agent events for SSE.
@@ -269,6 +275,22 @@ class ChatAgentService:
             # require all ToolMessages for one assistant message to stay
             # contiguous, and a HumanMessage in the middle gets rejected.
             messages.extend(self._drain_observations())
+
+        # Fenced-code fallback: the reply text may carry the page when the
+        # model wouldn't emit it as a tool arg. The note joins the stream so
+        # clients persist it with the rest of the bubble; the tool_end chip
+        # is synthesized below from the recorded event.
+        fence_note = self._save_fenced_page(messages)
+        if fence_note:
+            for event in reversed(self.client_events):
+                if event.get("tool") == "save_html_page":
+                    yield {"type": "tool_start", "tool": "save_html_page", "args": {"title": event.get("name", "")}}
+                    tool_end = {"type": "tool_end", "tool": "save_html_page"}
+                    tool_end.update({k: v for k, v in event.items() if k != "tool"})
+                    yield tool_end
+                    break
+            yielded_text += fence_note
+            yield {"type": "token", "text": fence_note}
 
         yield {"type": "done", **usage_totals}
 
@@ -550,17 +572,97 @@ class ChatAgentService:
             "'deck_name', 'front', and 'back'.",
         )
 
-    def _create_html_page_tool(self):
-        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
-            return None
-        if self.chat.profile is None:
-            return None
-
+    def _persist_html_page(self, title, html):
+        """Validate, safety-check, and store a new page. Shared by the save
+        tool and the fenced-code fallback. Returns (page, message)."""
+        from bots.models.html_page import HtmlPage
         from bots.serializers.html_page_serializer import (
             MAX_HTML_BYTES,
             html_to_text,
             is_single_file_html,
         )
+
+        clean_title = (title or "").strip()[:255]
+        if not clean_title or not (html or "").strip():
+            return None, "Title and html are both required."
+        if len(html.encode("utf-8")) > MAX_HTML_BYTES:
+            return None, HTML_PAGE_TOO_LARGE
+        if not is_single_file_html(html):
+            return None, "HTML must be a single self-contained page."
+        verdict = evaluate_text(f"{clean_title} {html_to_text(html)}", self.policy, source="OUTPUT")
+        if verdict.blocked:
+            record_safety_event(
+                stage="tool_html_page",
+                verdict=verdict,
+                chat=self.chat,
+                snippet=f"{clean_title} {html_to_text(html)[:200]}",
+            )
+            return None, HTML_PAGE_BLOCKED
+        try:
+            with transaction.atomic():
+                page = HtmlPage.objects.create(
+                    profile=self.chat.profile,
+                    chat=self.chat,
+                    bot=self.chat.bot,
+                    title=clean_title,
+                    html=html,
+                )
+                self._record_event({
+                    "tool": "save_html_page",
+                    "page_id": str(page.page_id),
+                    "name": clean_title,
+                })
+                return page, (
+                    f"Saved page '{clean_title}'. Open it in the browser with "
+                    f"/api/html-pages/{page.page_id}/raw"
+                )
+        except Exception as e:
+            logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
+            return None, f"Error saving page: {e!s}"
+
+    def _save_fenced_page(self, messages):
+        """Fallback when the model writes ```html instead of calling the tool.
+
+        Some models won't emit a multi-KB document as a single tool arg and
+        call save_html_page with title alone instead. A fenced block in
+        prose is the same content through a path they use reliably, so a
+        trailing fence is saved with the identical validation as the tool.
+        Returns note text to append, or None.
+        """
+        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
+            return None
+        if self.chat.profile is None:
+            return None
+        if any(e.get("tool") in ("save_html_page", "update_html_page") for e in self.client_events):
+            return None
+        fence_html = None
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
+                text = msg.content if isinstance(msg.content, str) else ""
+                matches = _HTML_FENCE_RE.findall(text or "")
+                if matches:
+                    fence_html = matches[-1].strip()
+                    break
+        if not fence_html:
+            return None
+        title_match = re.search(r"<title[^>]*>(.*?)</title>", fence_html, re.DOTALL | re.IGNORECASE)
+        if title_match:
+            title = re.sub(r"\s+", " ", title_match.group(1)).strip()
+        else:
+            h1_match = re.search(r"<h1[^>]*>(.*?)</h1>", fence_html, re.DOTALL | re.IGNORECASE)
+            title = re.sub(r"<[^>]+>", "", h1_match.group(1)).strip() if h1_match else ""
+        page, message = self._persist_html_page(title or "Untitled page", fence_html)
+        if page is None:
+            logger.info(f"🌐 FENCED_PAGE_REJECTED: {message[:80]}")
+            return None
+        logger.info(f"🌐 FENCED_PAGE_SAVED: '{page.title}'")
+        return f"\n\nSaved page '{page.title}' — open it from the page button above."
+
+    def _create_html_page_tool(self):
+        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
+            return None
+        if self.chat.profile is None:
+            return None
 
         @tool
         def save_html_page(title: str, html: str) -> str:
@@ -574,46 +676,9 @@ class ChatAgentService:
                 title: Short page title shown in chat.
                 html: Complete single-file HTML document (inline CSS/JS allowed).
             """
-            from bots.models.html_page import HtmlPage
-
             logger.info(f"🌐 SAVE_HTML_PAGE_INVOKED: title='{title}' bytes={len((html or '').encode('utf-8'))}")
-            clean_title = (title or "").strip()[:255]
-            if not clean_title or not (html or "").strip():
-                return "Title and html are both required."
-            if len(html.encode("utf-8")) > MAX_HTML_BYTES:
-                return HTML_PAGE_TOO_LARGE
-            if not is_single_file_html(html):
-                return "HTML must be a single self-contained page."
-            verdict = evaluate_text(f"{clean_title} {html_to_text(html)}", self.policy, source="OUTPUT")
-            if verdict.blocked:
-                record_safety_event(
-                    stage="tool_html_page",
-                    verdict=verdict,
-                    chat=self.chat,
-                    snippet=f"{clean_title} {html_to_text(html)[:200]}",
-                )
-                return HTML_PAGE_BLOCKED
-            try:
-                with transaction.atomic():
-                    page = HtmlPage.objects.create(
-                        profile=self.chat.profile,
-                        chat=self.chat,
-                        bot=self.chat.bot,
-                        title=clean_title,
-                        html=html,
-                    )
-                    self._record_event({
-                        "tool": "save_html_page",
-                        "page_id": str(page.page_id),
-                        "name": clean_title,
-                    })
-                    return (
-                        f"Saved page '{clean_title}'. Open it in the browser with "
-                        f"/api/html-pages/{page.page_id}/raw"
-                    )
-            except Exception as e:
-                logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
-                return f"Error saving page: {e!s}"
+            _, message = self._persist_html_page(title, html)
+            return message
 
         return _harden_tool(
             save_html_page,
