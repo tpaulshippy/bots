@@ -227,7 +227,7 @@ export default function Chat() {
               { kind: "page", pageId: event.pageId!, name: event.name ?? "page" },
             ],
           }));
-        } else if (event.tool === "preview_page") {
+        } else if (event.tool === "preview_page" && event.pageId) {
           patchStreamingAssistant(message => ({
             ...message,
             agentEvents: [

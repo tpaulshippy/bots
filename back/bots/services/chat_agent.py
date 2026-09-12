@@ -241,7 +241,10 @@ class ChatAgentService:
                     tool_call_id=tool_call["id"],
                     name=tool_name
                 ))
-                messages.extend(self._drain_observations())
+            # Drain once per assistant turn, not per tool call: providers
+            # require all ToolMessages for one assistant message to stay
+            # contiguous, and a HumanMessage in the middle gets rejected.
+            messages.extend(self._drain_observations())
 
         yield {"type": "done", **usage_totals}
 
@@ -280,7 +283,9 @@ class ChatAgentService:
                     tool_call_id=tool_call["id"],
                     name=tool_name
                 ))
-                messages.extend(self._drain_observations())
+            # Drained once per assistant turn (see streaming loop): a
+            # HumanMessage between ToolMessages breaks tool-calling providers.
+            messages.extend(self._drain_observations())
 
         return messages
 
@@ -602,6 +607,7 @@ class ChatAgentService:
                 page = HtmlPage.objects.get(
                     page_id=page_uuid,
                     profile=self.chat.profile,
+                    chat=self.chat,
                 )
             except HtmlPage.DoesNotExist:
                 return "Unknown page. Ask which page to update or save a new one."
@@ -681,6 +687,7 @@ class ChatAgentService:
                 page = HtmlPage.objects.get(
                     page_id=page_uuid,
                     profile=self.chat.profile,
+                    chat=self.chat,
                 )
             except HtmlPage.DoesNotExist:
                 return "Unknown page. Ask which page to preview or save a new one."

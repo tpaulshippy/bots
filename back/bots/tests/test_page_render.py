@@ -191,3 +191,31 @@ def describe_preview_tool():
         assert "Unknown page" in svc._create_preview_page_tool().invoke({
             "page_id": "00000000-0000-0000-0000-000000000000",
         })
+
+    def it_keeps_tool_messages_contiguous_when_preview_is_not_last(monkeypatch):
+        from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+        _install_fake_playwright(monkeypatch)
+        chat = _vision_chat()
+        svc = ChatAgentService(chat, MagicMock())
+        save = svc._create_html_page_tool()
+        preview = svc._create_preview_page_tool()
+        page_id = save.invoke({
+            "title": "Dino", "html": "<html><body>hi</body></html>",
+        }).split("/api/html-pages/")[1].split("/raw")[0]
+        first = AIMessage(
+            content="",
+            tool_calls=[
+                {"name": "preview_page", "args": {"page_id": page_id}, "id": "c1", "type": "tool_call"},
+                {"name": "save_html_page", "args": {"title": "Second", "html": "<html><body>two</body></html>"}, "id": "c2", "type": "tool_call"},
+            ],
+        )
+        bound = MagicMock()
+        bound.invoke.side_effect = [first, AIMessage(content="done")]
+        messages = svc._run_agent_loop(
+            bound, [], {"preview_page": preview, "save_html_page": save}
+        )
+        tool_idx = [i for i, m in enumerate(messages) if isinstance(m, ToolMessage)]
+        human_idx = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
+        assert tool_idx == [1, 2]
+        assert human_idx == [3]
+        assert isinstance(messages[3].content[1]["image_url"], dict)

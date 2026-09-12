@@ -165,7 +165,7 @@ describe('Chat streaming', () => {
         { type: 'tool_start', tool: 'save_html_page' },
         { type: 'tool_end', tool: 'save_html_page', pageId: 'p-1', name: 'Dino' },
         { type: 'tool_start', tool: 'preview_page' },
-        { type: 'tool_end', tool: 'preview_page' },
+        { type: 'tool_end', tool: 'preview_page', pageId: 'p-1', name: 'Dino' },
         { type: 'token', text: 'done' },
         { type: 'done' },
       ]);
@@ -182,5 +182,29 @@ describe('Chat streaming', () => {
 
     // tool_start chips + page + preview all render as "other" in the mock.
     expect(getAllByTestId('agent-chip-other').length).toBe(4);
+  });
+
+  it('skips the preview chip when the render did not succeed', async () => {
+    (streamChatMessage as jest.Mock).mockImplementation(async ({ onEvent }: any) => {
+      emit([
+        { type: 'meta', chatId: 'chat-7' },
+        { type: 'tool_start', tool: 'preview_page' },
+        { type: 'tool_end', tool: 'preview_page' },
+        { type: 'token', text: 'done' },
+        { type: 'done' },
+      ]);
+    });
+
+    const { getByTestId, getAllByTestId } = render(<Chat />);
+    await act(async () => {});
+
+    fireEvent.changeText(getByTestId('chat-input'), 'make a page');
+    await act(async () => {
+      fireEvent.press(getByTestId('send-button'));
+    });
+    await act(async () => {});
+
+    // Only the tool_start chip; no preview chip without a pageId.
+    expect(getAllByTestId('agent-chip-other').length).toBe(1);
   });
 });

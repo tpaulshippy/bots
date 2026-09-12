@@ -170,6 +170,20 @@ export default function SimpleBotEditor({
           }
         />
       </ThemedView>
+      <ThemedView
+        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+      >
+        <ThemedText style={styles.checkboxLabel}>
+          Enable HTML Pages
+        </ThemedText>
+
+        <Switch
+          value={bot.enable_html_pages ?? false}
+          onValueChange={(value) =>
+            setBotProperty({ enable_html_pages: value })
+          }
+        />
+      </ThemedView>
     </ThemedView>
   );
 }

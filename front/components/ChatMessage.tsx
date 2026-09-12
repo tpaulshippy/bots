@@ -3,7 +3,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ActivityIndicator, FlexAlignType, Image, Modal, Platform, TouchableOpacity } from "react-native";
 import { AgentActivity, ChatMessage as ApiChatMessage } from "@/api/chats";
-import { downloadHtmlPage, htmlPageUrl } from "@/api/htmlPages";
+import { downloadHtmlPage, getPageLink } from "@/api/htmlPages";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
@@ -80,7 +80,11 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
                 <ThemedView style={styles.pageActions}>
                   <TouchableOpacity
                     testID={`open-page-${index}`}
-                    onPress={() => window.open(htmlPageUrl(event.pageId), "_blank", "noopener")}
+                    onPress={() =>
+                      getPageLink(event.pageId)
+                        .then((url) => { if (url) window.open(url, "_blank", "noopener"); })
+                        .catch(() => null)
+                    }
                   >
                     <ThemedText style={styles.pageActionText}>Open in browser ↗</ThemedText>
                   </TouchableOpacity>

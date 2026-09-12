@@ -1,3 +1,4 @@
+import html as html_lib
 import re
 
 from rest_framework import serializers
@@ -7,17 +8,63 @@ from bots.models import HtmlPage
 MAX_HTML_BYTES = 200_000
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
+# Resource-loading attributes whose values must stay offline: pages are
+# single-file, so any remote/scriptable URL is rejected. `data:` images and
+# `#` fragment links are allowed.
+_EXTERNAL_URL_ATTRS = (
+    "src", "href", "srcset", "action", "formaction", "cite",
+    "data", "poster", "codebase",
+)
+_EXTERNAL_URL_RE = re.compile(
+    r"(?i)\b(?:src|href|srcset|action|formaction|cite|data|poster|codebase)"
+    r"\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))"
+)
+
+
+def _is_remote_url(value: str) -> bool:
+    v = (value or "").strip().lower()
+    if not v or v.startswith("#"):
+        return False
+    if v.startswith(("http:", "https:", "//", "javascript:", "vbscript:")):
+        return True
+    # data: is only allowed for images/media/fonts, never executable HTML.
+    # Checked before comma-splitting since data URIs contain commas.
+    if v.startswith("data:"):
+        return not v.startswith(("data:image/", "data:audio/", "data:video/", "data:font/"))
+    # srcset lists mix candidates: "a.png 1x, https://evil/x.js 2x".
+    if "," in v:
+        return any(
+            _is_remote_url(part.split()[0])
+            for part in v.split(",") if part.strip()
+        )
+    return False
+
+
+def has_external_resource(html: str) -> bool:
+    """True when the document references any off-page resource."""
+    for match in _EXTERNAL_URL_RE.finditer(html or ""):
+        value = next((g for g in match.groups() if g is not None), "")
+        if _is_remote_url(value):
+            return True
+    return False
 
 
 def html_to_text(html: str) -> str:
-    """Strip tags so safety text checks see rendered words, not markup."""
+    """Strip tags then decode entities so safety checks see rendered words.
+
+    Without unescaping, `p&#111;rn` looks innocent to the text filter while
+    the browser renders `porn`.
+    """
     text = _HTML_TAG_RE.sub(" ", html or "")
+    text = html_lib.unescape(text)
     return re.sub(r"\s+", " ", text).strip()
 
 
 def is_single_file_html(html: str) -> bool:
     lowered = (html or "").lower()
-    return "<html" in lowered or "<!doctype html" in lowered or "<body" in lowered
+    if not ("<html" in lowered or "<!doctype html" in lowered or "<body" in lowered):
+        return False
+    return not has_external_resource(html or "")
 
 
 class HtmlPageSerializer(serializers.ModelSerializer):

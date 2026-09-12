@@ -1,5 +1,6 @@
-import { htmlPageUrl } from '../htmlPages';
+import { getPageLink } from '../htmlPages';
 import { normalizeStreamEvent } from '../chats';
+import * as requestModule from '../request';
 
 describe('html pages', () => {
   it('maps save_html_page tool_end to pageId', () => {
@@ -19,8 +20,19 @@ describe('html pages', () => {
     });
   });
 
-  it('builds raw url for local browser viewing', () => {
-    process.env.EXPO_PUBLIC_API_BASE_URL = 'http://localhost:8000/api';
-    expect(htmlPageUrl('p-1')).toBe('http://localhost:8000/api/html-pages/p-1/raw/');
+  it('builds absolute signed link URLs from the link endpoint', async () => {
+    const spy = jest.spyOn(requestModule, 'request').mockResolvedValue({
+      url: '/html-pages/p-1/raw/?sig=abc',
+    });
+    const url = await getPageLink('p-1');
+    expect(spy).toHaveBeenCalledWith('/html-pages/p-1/link/', {}, null);
+    expect(url).toMatch(/\/html-pages\/p-1\/raw\/\?sig=abc$/);
+    spy.mockRestore();
+  });
+
+  it('returns null when the link endpoint has no url', async () => {
+    const spy = jest.spyOn(requestModule, 'request').mockResolvedValue(null);
+    await expect(getPageLink('p-1')).resolves.toBeNull();
+    spy.mockRestore();
   });
 });

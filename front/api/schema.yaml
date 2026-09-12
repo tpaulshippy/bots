@@ -971,6 +971,141 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/html-pages/:
+    get:
+      operationId: html_pages_list
+      description: |-
+        Read API for agent-built pages (plus owner DELETE).
+
+        Writes are disabled here on purpose: creation/updates happen only
+        through the agent tools, where the bot opt-in flag and the title/text
+        safety filter are enforced. Direct POST/PUT/PATCH would bypass both.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedHtmlPageList'
+          description: ''
+  /api/html-pages/{page_id}/:
+    get:
+      operationId: html_pages_retrieve
+      description: |-
+        Read API for agent-built pages (plus owner DELETE).
+
+        Writes are disabled here on purpose: creation/updates happen only
+        through the agent tools, where the bot opt-in flag and the title/text
+        safety filter are enforced. Direct POST/PUT/PATCH would bypass both.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HtmlPage'
+          description: ''
+    delete:
+      operationId: html_pages_destroy
+      description: |-
+        Read API for agent-built pages (plus owner DELETE).
+
+        Writes are disabled here on purpose: creation/updates happen only
+        through the agent tools, where the bot opt-in flag and the title/text
+        safety filter are enforced. Direct POST/PUT/PATCH would bypass both.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/html-pages/{page_id}/link/:
+    get:
+      operationId: html_pages_link_retrieve
+      description: Signed raw URL for window.open(), which cannot send the JWT.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HtmlPage'
+          description: ''
+  /api/html-pages/{page_id}/raw/:
+    get:
+      operationId: html_pages_raw_retrieve
+      description: |-
+        Serve stored HTML for viewing on the local machine's browser.
+
+        Same Django origin as /app/ (no extra host), but CSP `sandbox`
+        without `allow-same-origin` puts it in an opaque origin: page JS
+        cannot read Syft cookies, localStorage, or parent DOM, and
+        `connect-src 'none'` blocks exfiltration.
+
+        Auth: session/JWT as usual, or a short-lived `?sig=` from `link`
+        for browser handoffs that cannot attach headers. Either way the
+        page must belong to the caller's profile.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HtmlPage'
+          description: ''
   /api/login:
     get:
       operationId: login_retrieve
@@ -1460,6 +1595,8 @@ components:
           type: boolean
         enable_web_search:
           type: boolean
+        enable_html_pages:
+          type: boolean
         color:
           type: string
           nullable: true
@@ -1802,6 +1939,40 @@ components:
       - last_reviewed_at
       - reps
       - updated_at
+    HtmlPage:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        page_id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        html:
+          type: string
+        raw_url:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - html
+      - id
+      - page_id
+      - raw_url
+      - title
+      - updated_at
     Message:
       type: object
       properties:
@@ -2015,6 +2186,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Flashcard'
+    PaginatedHtmlPageList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/HtmlPage'
     PaginatedMessageList:
       type: object
       required:
@@ -2095,6 +2289,8 @@ components:
         restrict_language:
           type: boolean
         enable_web_search:
+          type: boolean
+        enable_html_pages:
           type: boolean
         color:
           type: string

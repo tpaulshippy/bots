@@ -75,6 +75,11 @@ def render_page_shot(html: str) -> dict | None:
                 browser.close()
     except Exception as e:
         logger.exception("🌐 PAGE_RENDER_FAILED")
+        # No browser executable (deploy without `playwright install
+        # chromium`): report unavailable so the tool stays unbound instead
+        # of spamming render errors every turn.
+        if "Executable doesn't exist" in str(e) or "Browser" in type(e).__name__:
+            return None
         return {
             "png_bytes": None,
             "console_errors": console_errors,

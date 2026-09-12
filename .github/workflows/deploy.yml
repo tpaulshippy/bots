@@ -53,6 +53,7 @@ jobs:
             mv front/dist.deploy front/dist
             cd back
             ../venv/bin/pip install -r requirements.txt
+            ../venv/bin/python -m playwright install chromium || true
             ../venv/bin/python manage.py migrate --noinput || true
             sudo systemctl restart bots
           EOF
