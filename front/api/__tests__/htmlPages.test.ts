@@ -1,4 +1,4 @@
-import { escapeSrcdoc, getPageLink } from '../htmlPages';
+import { getPageLink } from '../htmlPages';
 import { normalizeStreamEvent } from '../chats';
 import * as requestModule from '../request';
 
@@ -34,11 +34,5 @@ describe('html pages', () => {
     const spy = jest.spyOn(requestModule, 'request').mockResolvedValue(null);
     await expect(getPageLink('p-1')).resolves.toBeNull();
     spy.mockRestore();
-  });
-
-  it('escapes srcdoc attribute breakouts', () => {
-    // & first, then quotes; a literal </iframe> inside a script string
-    // stays inert inside the quoted attribute value.
-    expect(escapeSrcdoc('a"b&c</iframe>')).toBe('a&quot;b&amp;c</iframe>');
   });
 });

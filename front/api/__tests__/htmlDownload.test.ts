@@ -1,45 +1,33 @@
 /**
  * @jest-environment jsdom
  */
-import { withDownloadSandbox } from '../htmlPages';
+import { withDownloadCsp } from '../htmlPages';
 
-describe('withDownloadSandbox', () => {
+describe('withDownloadCsp', () => {
   const page =
     '<!DOCTYPE html><html><head><title>Dino</title></head>' +
     '<body><h1>hi</h1><script>const s = "<head> trap"; console.log(s);</script></body></html>';
 
-  it('frames the page in a script-only sandbox with no top navigation', () => {
-    const out = withDownloadSandbox(page, 'Dino');
-    expect(out).toContain('<iframe sandbox="allow-scripts"');
-    expect(out).not.toContain('allow-top-navigation');
-    expect(out).not.toContain('allow-same-origin');
-    expect(out).not.toContain('allow-forms');
+  it('injects a network-blocking meta CSP as the first head child', () => {
+    const doc = new DOMParser().parseFromString(withDownloadCsp(page), 'text/html');
+    expect(doc.querySelectorAll('head').length).toBe(1);
+    const meta = doc.head.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    expect(meta).not.toBeNull();
+    expect(doc.head.firstElementChild).toBe(meta);
+    expect(meta?.getAttribute('content')).toContain("connect-src 'none'");
   });
 
-  it('keeps the inner meta CSP and page content inside srcdoc', () => {
-    const out = withDownloadSandbox(page, 'Dino');
-    const srcdoc = out.split('srcdoc="')[1].split('"></iframe>')[0];
-    // Unescape once to inspect what the framed document actually is.
-    const inner = srcdoc.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
-    expect(inner).toContain('http-equiv="Content-Security-Policy"');
-    expect(inner).toContain("connect-src 'none'");
-    expect(inner).toContain('<h1>hi</h1>');
-    // The "<head> trap" string inside page JS did not create a second head:
-    // the meta policy sits in the real head, ahead of page content.
-    const doc = new DOMParser().parseFromString(out, 'text/html');
-    const iframe = doc.querySelector('iframe');
-    expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts');
-    const innerDoc = new DOMParser().parseFromString(inner, 'text/html');
-    expect(innerDoc.querySelectorAll('head').length).toBe(1);
-    const metaEl = innerDoc.head.querySelector('meta[http-equiv="Content-Security-Policy"]');
-    expect(metaEl).not.toBeNull();
-    // Meta policy is first in head, ahead of the page's own title element.
-    expect(innerDoc.head.firstElementChild).toBe(metaEl);
+  it('keeps the page itself a bare, view-source friendly document', () => {
+    const out = withDownloadCsp(page);
+    expect(out).not.toContain('<iframe');
+    expect(out).toContain('<h1>hi</h1>');
+    expect(out).toContain('<title>Dino</title>');
   });
 
-  it('uses the page title for wrapper and frame', () => {
-    const out = withDownloadSandbox(page, 'Dino Fun');
-    expect(out).toContain('<title>Dino Fun</title>');
-    expect(out).toContain('title="Dino Fun"');
+  it('is not fooled by a <head> string inside page JS', () => {
+    const doc = new DOMParser().parseFromString(withDownloadCsp(page), 'text/html');
+    // Still exactly one head: the trap string never became an element.
+    expect(doc.querySelectorAll('head').length).toBe(1);
+    expect(doc.body.textContent).toContain('hi');
   });
 });
