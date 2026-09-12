@@ -73,6 +73,7 @@ export default function Study() {
   const [reviewedDues, setReviewedDues] = useState<string[]>([]);
   const [ratingInProgress, setRatingInProgress] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [now] = useState(() => Date.now());
 
   const [flipAnim] = useState(() => new Animated.Value(0));
@@ -84,31 +85,38 @@ export default function Study() {
   const tintColor = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
 
-  const loadQueue = async () => {
-    if (!deckId) {
-      Alert.alert("Error", "Invalid deck");
-      router.back();
-      return;
-    }
+  useEffect(() => {
+    // Loader lives inside the effect and touches state only after the
+    // first await, so the effect itself performs no synchronous setState.
+    const loadQueue = async () => {
+      if (!deckId) {
+        Alert.alert("Error", "Invalid deck");
+        router.back();
+        return;
+      }
+      try {
+        // Default study queue: only cards that are due right now.
+        // fetchStudyQueue throws on failure, so a network/server error lands
+        // in the error state below instead of rendering as "Nothing due".
+        const dueCards = await fetchStudyQueue(deckId, "due");
+        setCards(dueCards);
+      } catch (error) {
+        Sentry.captureException(error);
+        setLoadError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadQueue();
+  }, [deckId, router, reloadKey]);
+
+  // Retry resets the flags here (event handler, not the effect) and
+  // re-runs the loader above via reloadKey.
+  const retryLoad = () => {
     setLoading(true);
     setLoadError(false);
-    try {
-      // Default study queue: only cards that are due right now.
-      // fetchStudyQueue throws on failure, so a network/server error lands
-      // in the error state below instead of rendering as "Nothing due".
-      const dueCards = await fetchStudyQueue(deckId, "due");
-      setCards(dueCards);
-    } catch (error) {
-      Sentry.captureException(error);
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
+    setReloadKey((k) => k + 1);
   };
-
-  useEffect(() => {
-    loadQueue();
-  }, [deckId, router]);
 
   const frontRotate = flipAnim.interpolate({
     inputRange: [0, 1],
@@ -235,7 +243,7 @@ export default function Study() {
           <Pressable
             testID="study-load-retry"
             style={[styles.studyAllButton, { backgroundColor: tintColor }]}
-            onPress={loadQueue}
+            onPress={retryLoad}
           >
             <ThemedText style={styles.ratingButtonText}>
               Retry
