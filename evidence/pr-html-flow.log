@@ -1,9 +1,0 @@
-TURN1 reply: Built your dino page! Open it in the browser to stomp around.
-TURN1 events: [{'tool': 'save_html_page', 'page_id': 'f508abaf-a7b7-4db6-ac9d-e0db11698a9b', 'name': 'Dino Fun'}, {'tool': 'preview_page', 'page_id': 'f508abaf-a7b7-4db6-ac9d-e0db11698a9b', 'name': 'Dino Fun', 'console_errors': 0}]
-TURN2 reply: Done — ocean blue background, same link!
-TURN2 events: [{'tool': 'update_html_page', 'page_id': 'f508abaf-a7b7-4db6-ac9d-e0db11698a9b', 'name': 'Dino Fun'}, {'tool': 'preview_page', 'page_id': 'f508abaf-a7b7-4db6-ac9d-e0db11698a9b', 'name': 'Dino Fun', 'console_errors': 0}]
-RAW status: 200
-RAW CSP: sandbox allow-scripts; object-src 'none'; base-uri 'none'; form-action 'none'
-RAW X-Content-Type-Options: nosniff
-shot1 bytes: 14583 errors: []
-shot2 bytes: 14567 errors: []
