@@ -5,6 +5,7 @@ from .deck import Deck
 from .device import Device
 from .flashcard import Flashcard
 from .flashcard_review import FlashcardReview
+from .html_page import HtmlPage
 from .message import Message
 from .profile import Profile
 from .safety_event import SafetyEvent
@@ -19,6 +20,7 @@ __all__ = [
     'Device',
     'Flashcard',
     'FlashcardReview',
+    'HtmlPage',
     'Message',
     'Profile',
     'RevenueCatWebhookEvent',

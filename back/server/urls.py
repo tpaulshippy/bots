@@ -45,6 +45,7 @@ from bots.viewsets.bot_viewset import BotViewSet
 from bots.viewsets.chat_viewset import ChatViewSet, MessageViewSet
 from bots.viewsets.device_viewset import DeviceViewSet
 from bots.viewsets.flashcard_viewset import DeckViewSet, FlashcardViewSet
+from bots.viewsets.html_page_viewset import HtmlPageViewSet
 from bots.viewsets.profile_viewset import ProfileViewSet
 
 from .views import MarketingPageView, TutorialView, web_app
@@ -56,6 +57,7 @@ router.register(r'bots', BotViewSet)
 router.register(r'ai_models', AiModelViewSet)
 router.register(r'devices', DeviceViewSet)
 router.register(r'decks', DeckViewSet)
+router.register(r'html-pages', HtmlPageViewSet, basename='html-pages')
 router.register(r'activity/chats', ActivityChatViewSet, basename='activity-chats')
 router.register(r'activity/summary', ActivitySummaryViewSet, basename='activity-summary')
 

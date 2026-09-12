@@ -177,6 +177,20 @@ export default function AdvancedBotEditor({
         />
       </ThemedView>
 
+      <ThemedView
+        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+      >
+        <ThemedText style={styles.checkboxLabel}>
+          Enable HTML Pages
+        </ThemedText>
+        <Switch
+          value={bot.enable_html_pages ?? false}
+          onValueChange={(value) =>
+            setBot({ ...bot, enable_html_pages: value })
+          }
+        />
+      </ThemedView>
+
       <ThemedView style={styles.buttons}>
         <ThemedButton onPress={() => deleteBot()} style={styles.button}>
           <IconSymbol
