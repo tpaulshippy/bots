@@ -145,6 +145,23 @@ def describe_html_page_tool():
         page.refresh_from_db()
         assert "hijack" not in page.html
 
+    def it_returns_guidance_instead_of_raising_on_title_only_call():
+        # Prod incident: model called save_html_page with title alone;
+        # pydantic ValidationError aborted the whole turn (Retry buttons).
+        chat = _chat()
+        svc = ChatAgentService(chat, MagicMock())
+        result = svc._create_html_page_tool().invoke({"title": "Minecraft Guide"})
+        assert "BOTH" in result and "html" in result
+        assert HtmlPage.objects.count() == 0
+
+    def it_converts_unexpected_tool_errors_to_text():
+        chat = _chat()
+        svc = ChatAgentService(chat, MagicMock())
+        boom = MagicMock()
+        boom.invoke.side_effect = RuntimeError("kablam")
+        result = svc._execute_tool("x", {}, {"x": boom}, False)
+        assert "failed" in result
+
     def it_lists_chat_pages_for_iteration():
         from langchain_core.messages import SystemMessage
         chat = _chat()

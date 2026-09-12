@@ -20,6 +20,23 @@ from bots.services.safety import (
 
 logger = logging.getLogger(__name__)
 
+def _harden_tool(tool, retry_hint: str):
+    """Never let arg-validation or tool errors kill the turn.
+
+    Without this, a model call missing a required arg raises ValidationError
+    out of tool.invoke() and aborts the whole response (prod incident:
+    save_html_page called with title-only). With it, the model gets the
+    hint back as a ToolMessage and can retry correctly.
+    """
+    tool.handle_validation_error = retry_hint
+    tool.handle_tool_error = (
+        "That tool call failed. Fix the arguments and try again, "
+        "or explain what you were trying to do."
+    )
+    return tool
+
+
+
 WEB_SEARCH_UNAVAILABLE = "Web search is not available."
 WEB_QUERY_BLOCKED = "This search query was blocked by the safety policy. Please try a different question."
 NO_SAFE_RESULTS = "No safe results found."
@@ -317,7 +334,14 @@ class ChatAgentService:
         if tool_name == "web_search" and not has_web_search:
             return WEB_SEARCH_UNAVAILABLE
         elif tool_name in tools:
-            return tools[tool_name].invoke(tool_args)
+            try:
+                return tools[tool_name].invoke(tool_args)
+            except Exception as e:
+                # Last resort: tool-level handlers should already convert
+                # arg/validation failures to text, but never let an
+                # unexpected tool exception abort the whole turn.
+                logger.exception("🔍 AGENT_TOOL_FAILED: %s", tool_name)
+                return f"The {tool_name} tool failed ({e!s}). Fix the arguments and try again."
         return f"Unknown tool: {tool_name}"
 
     @staticmethod
@@ -451,7 +475,11 @@ class ChatAgentService:
                 logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {e!s}")
                 return f"Error creating deck: {e!s}"
 
-        return create_flashcard_deck
+        return _harden_tool(
+            create_flashcard_deck,
+            "Missing required arguments. Call create_flashcard_deck again with "
+            "'name' and a non-empty 'flashcards' list.",
+        )
 
     def _create_flashcard_tool(self):
         chat = self.chat
@@ -516,7 +544,11 @@ class ChatAgentService:
                 logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {e!s}")
                 return f"Error creating flashcard: {e!s}"
 
-        return create_flashcard
+        return _harden_tool(
+            create_flashcard,
+            "Missing required arguments. Call create_flashcard again with "
+            "'deck_name', 'front', and 'back'.",
+        )
 
     def _create_html_page_tool(self):
         if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
@@ -537,6 +569,7 @@ class ChatAgentService:
             Use this for a fresh page. When the user refines an existing page
             listed in the chat catalog, call update_html_page instead.
             After saving, call preview_page to look at the render when available.
+            Both arguments are always required: never call with title alone.
             Args:
                 title: Short page title shown in chat.
                 html: Complete single-file HTML document (inline CSS/JS allowed).
@@ -582,7 +615,12 @@ class ChatAgentService:
                 logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
                 return f"Error saving page: {e!s}"
 
-        return save_html_page
+        return _harden_tool(
+            save_html_page,
+            "Missing required arguments. Call save_html_page again with BOTH "
+            "'title' AND the complete single-file 'html' document. Never call "
+            "it with title alone.",
+        )
 
     def _create_html_page_update_tool(self):
         from bots.serializers.html_page_serializer import (
@@ -652,7 +690,11 @@ class ChatAgentService:
                 logger.error(f"🌐 UPDATE_HTML_PAGE_ERROR: {e!s}")
                 return f"Error updating page: {e!s}"
 
-        return update_html_page
+        return _harden_tool(
+            update_html_page,
+            "Missing required arguments. Call update_html_page again with "
+            "'page_id' AND the complete replacement 'html' document.",
+        )
 
     def _create_preview_page_tool(self):
         if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
@@ -749,7 +791,10 @@ class ChatAgentService:
                 parts.append("No screenshot captured.")
             return "\n".join(parts)
 
-        return preview_page
+        return _harden_tool(
+            preview_page,
+            "Missing required arguments. Call preview_page again with 'page_id'.",
+        )
 
     def _create_web_search_tool(self):
         if not (self.chat.bot and self.chat.bot.enable_web_search and settings.TAVILY_API_KEY):
@@ -816,4 +861,7 @@ class ChatAgentService:
                 logger.error(f"🔍 WEB_SEARCH_ERROR: {e!s}")
                 return f"Error during search: {e!s}"
 
-        return web_search
+        return _harden_tool(
+            web_search,
+            "Missing required arguments. Call web_search again with 'query'.",
+        )
