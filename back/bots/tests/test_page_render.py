@@ -219,3 +219,16 @@ def describe_preview_tool():
         assert tool_idx == [1, 2]
         assert human_idx == [3]
         assert isinstance(messages[3].content[1]["image_url"], dict)
+
+    def it_records_no_event_when_no_screenshot_captured(monkeypatch):
+        _install_fake_playwright(monkeypatch, png=None)
+        chat = _vision_chat()
+        svc = ChatAgentService(chat, MagicMock())
+        page_id = svc._create_html_page_tool().invoke({
+            "title": "Dino", "html": "<html><body>hi</body></html>",
+        }).split("/api/html-pages/")[1].split("/raw")[0]
+        events_before = len(svc.client_events)
+        result = svc._create_preview_page_tool().invoke({"page_id": page_id})
+        assert "No screenshot captured" in result
+        assert len(svc.client_events) == events_before
+        assert svc._pending_observations == []

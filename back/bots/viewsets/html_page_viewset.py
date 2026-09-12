@@ -2,6 +2,7 @@ import uuid
 
 from django.core import signing
 from django.http import HttpResponse
+from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -9,7 +10,7 @@ from rest_framework.response import Response
 
 from bots.models import HtmlPage
 from bots.permissions import IsOwner
-from bots.serializers import HtmlPageSerializer
+from bots.serializers import HtmlPageLinkSerializer, HtmlPageSerializer
 from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 from bots.viewsets.mixins import get_object_by_uuid_or_id
 
@@ -71,6 +72,7 @@ class HtmlPageViewSet(viewsets.ModelViewSet):
         self.check_object_permissions(self.request, obj)
         return obj
 
+    @extend_schema(responses=HtmlPageLinkSerializer)
     @action(detail=True, methods=['get'], url_path='link')
     def link(self, request, page_id=None):
         """Signed raw URL for window.open(), which cannot send the JWT."""

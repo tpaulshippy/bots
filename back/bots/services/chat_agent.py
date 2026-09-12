@@ -704,12 +704,15 @@ class ChatAgentService:
                 })
             console_errors = shot.get("console_errors") or []
             page_errors = shot.get("page_errors") or []
-            self._record_event({
-                "tool": "preview_page",
-                "page_id": str(page.page_id),
-                "name": page.title,
-                "console_errors": len(console_errors) + len(page_errors),
-            })
+            # Claim "checked render" only when a screenshot was captured:
+            # without page_id the frontend shows no chip (and shouldn't).
+            if png_bytes:
+                self._record_event({
+                    "tool": "preview_page",
+                    "page_id": str(page.page_id),
+                    "name": page.title,
+                    "console_errors": len(console_errors) + len(page_errors),
+                })
             parts = [f"Rendered '{page.title}'."]
             if console_errors:
                 parts.append("Console errors:\n" + "\n".join(f"- {e}" for e in console_errors[:5]))

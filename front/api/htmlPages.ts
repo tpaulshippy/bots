@@ -26,6 +26,27 @@ export async function getPageLink(pageId: string): Promise<string | null> {
 export const fetchHtmlPage = async (pageId: string): Promise<HtmlPage | null> =>
   request<HtmlPage | null>(`/html-pages/${pageId}.json`, {}, null);
 
+/**
+ * Resource restrictions mirrored into downloads. The raw view's CSP is an
+ * HTTP header and does not travel with the file; `sandbox` is forbidden in
+ * <meta> policies, but the remaining directives still block network/beacon
+ * exfiltration from agent-generated inline JS in the saved file.
+ */
+export const DOWNLOAD_CSP =
+  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
+  "img-src data: blob:; media-src data: blob:; font-src data:; " +
+  "connect-src 'none'; frame-src 'none'; object-src 'none'; " +
+  "base-uri 'none'; form-action 'none'";
+
+export function withDownloadCsp(html: string): string {
+  const meta =
+    `<meta http-equiv="Content-Security-Policy" content="${DOWNLOAD_CSP}">`;
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head[^>]*>/i, (match) => `${match}${meta}`);
+  }
+  return meta + html;
+}
+
 /** Web-only download via the signed URL (no auth header needed). */
 export async function downloadHtmlPage(pageId: string, title: string): Promise<void> {
   const url = await getPageLink(pageId);
@@ -36,7 +57,7 @@ export async function downloadHtmlPage(pageId: string, title: string): Promise<v
   if (tokens?.access) headers["Authorization"] = `Bearer ${tokens.access}`;
   const response = await fetch(url, { headers });
   if (!response.ok) throw new Error(`Download failed with status ${response.status}`);
-  const html = await response.text();
+  const html = withDownloadCsp(await response.text());
   const blob = new Blob([html], { type: "text/html" });
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

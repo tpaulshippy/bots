@@ -80,11 +80,18 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
                 <ThemedView style={styles.pageActions}>
                   <TouchableOpacity
                     testID={`open-page-${index}`}
-                    onPress={() =>
+                    onPress={() => {
+                      // Open synchronously in the click handler: navigating
+                      // only after the link promise resolves loses transient
+                      // user activation and browsers block the popup.
+                      const win = window.open("about:blank", "_blank", "noopener");
                       getPageLink(event.pageId)
-                        .then((url) => { if (url) window.open(url, "_blank", "noopener"); })
-                        .catch(() => null)
-                    }
+                        .then((url) => {
+                          if (url && win) win.location.href = url;
+                          else win?.close();
+                        })
+                        .catch(() => win?.close());
+                    }}
                   >
                     <ThemedText style={styles.pageActionText}>Open in browser ↗</ThemedText>
                   </TouchableOpacity>

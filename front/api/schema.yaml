@@ -1071,7 +1071,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HtmlPage'
+                $ref: '#/components/schemas/HtmlPageLink'
           description: ''
   /api/html-pages/{page_id}/raw/:
     get:
@@ -1973,6 +1973,14 @@ components:
       - raw_url
       - title
       - updated_at
+    HtmlPageLink:
+      type: object
+      description: Response shape of the signed browser-handoff link action.
+      properties:
+        url:
+          type: string
+      required:
+      - url
     Message:
       type: object
       properties:

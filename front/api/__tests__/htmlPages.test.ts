@@ -1,4 +1,4 @@
-import { getPageLink } from '../htmlPages';
+import { getPageLink, withDownloadCsp } from '../htmlPages';
 import { normalizeStreamEvent } from '../chats';
 import * as requestModule from '../request';
 
@@ -34,5 +34,18 @@ describe('html pages', () => {
     const spy = jest.spyOn(requestModule, 'request').mockResolvedValue(null);
     await expect(getPageLink('p-1')).resolves.toBeNull();
     spy.mockRestore();
+  });
+
+  it('injects a network-blocking meta CSP into downloads', () => {
+    const out = withDownloadCsp('<html><head><title>T</title></head><body>hi</body></html>');
+    expect(out).toContain('<meta http-equiv="Content-Security-Policy"');
+    expect(out).toContain("connect-src 'none'");
+    expect(out).toContain("script-src 'unsafe-inline'");
+    expect(out.indexOf('<meta')).toBeGreaterThan(out.indexOf('<head>'));
+  });
+
+  it('prepends the meta CSP when there is no head element', () => {
+    const out = withDownloadCsp('<html><body>hi</body></html>');
+    expect(out.startsWith('<meta http-equiv="Content-Security-Policy"')).toBe(true);
   });
 });

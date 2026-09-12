@@ -67,6 +67,12 @@ def is_single_file_html(html: str) -> bool:
     return not has_external_resource(html or "")
 
 
+class HtmlPageLinkSerializer(serializers.Serializer):
+    """Response shape of the signed browser-handoff link action."""
+
+    url = serializers.CharField()
+
+
 class HtmlPageSerializer(serializers.ModelSerializer):
     raw_url = serializers.SerializerMethodField()
 
