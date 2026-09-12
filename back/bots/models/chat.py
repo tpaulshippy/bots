@@ -282,8 +282,11 @@ class Chat(models.Model):
         finally:
             # Runs both after normal completion and on GeneratorExit when the
             # client disconnects mid-stream: whatever the kid saw gets saved.
+            # A disconnect after a tool call but before any token must still
+            # persist the tool chip, so persist on tool events too — not just
+            # non-empty text.
             text = "".join(streamed_text)
-            if text.strip():
+            if text.strip() or service.client_events:
                 persist(text)
 
 

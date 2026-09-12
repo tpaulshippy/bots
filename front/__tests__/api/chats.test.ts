@@ -1,4 +1,5 @@
-import { fetchChats } from '../../api/chats';
+import { fetchChats, fetchChatMessages, getMessageAgentEvents } from '../../api/chats';
+import { apiClient } from '../../api/apiClient';
 
 jest.mock('../../api/apiClient', () => ({
   apiClient: jest.fn(() =>
@@ -39,5 +40,26 @@ describe('Chats API', () => {
       color: '#FF5D8F',
       icon: 'text.bubble',
     });
+  });
+
+  it('normalizes persisted agent_events to agentEvents on history fetch', async () => {
+    const pageChip = { kind: 'page', pageId: 'p1', name: 'Minecraft Guide' };
+    (apiClient as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          { text: 'done', image_url: null, role: 'assistant', agent_events: [pageChip] },
+        ],
+      },
+    });
+
+    const response = await fetchChatMessages('chat-1', 1);
+
+    expect(response?.results).toHaveLength(1);
+    expect(response?.results[0].agentEvents).toEqual([pageChip]);
+    expect(getMessageAgentEvents(response!.results[0])).toEqual([pageChip]);
   });
 });

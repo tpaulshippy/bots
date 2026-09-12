@@ -553,3 +553,64 @@ def describe_stream_whitespace():
 
         tokens = "".join(e["text"] for e in events if e["type"] == "token")
         assert tokens == "Hello"
+
+
+@pytest.mark.django_db
+def describe_agent_events_history():
+    """Persisted history chips: mapper contract + Message.agent_events."""
+
+    def test_mapper_covers_deck_page_search_preview():
+        from bots.services.chat_agent import client_events_to_agent_events
+
+        mapped = client_events_to_agent_events([
+            {"tool": "create_flashcard_deck", "deck_id": "d1", "name": "Cell Bio", "card_count": 3},
+            {"tool": "create_flashcard", "deck_id": "d1", "name": "Cell Bio"},
+            {"tool": "web_search", "query": "mitosis", "result_preview": "2 results"},
+            {"tool": "save_html_page", "page_id": "p1", "name": "Minecraft Guide"},
+            {"tool": "update_html_page", "page_id": "p2", "name": "Dino"},
+            {"tool": "preview_page", "page_id": "p1", "name": "Minecraft Guide"},
+            {"tool": "create_flashcard_deck"},  # failed: no id -> no chip
+        ])
+
+        assert mapped[0] == {"kind": "deck", "deckId": "d1", "name": "Cell Bio", "cardCount": 3}
+        assert mapped[1] == {"kind": "sources", "label": "📇 Card added"}
+        assert mapped[2] == {"kind": "sources", "label": "🌐 2 results"}
+        assert mapped[3] == {"kind": "page", "pageId": "p1", "name": "Minecraft Guide"}
+        assert mapped[4] == {"kind": "page", "pageId": "p2", "name": "Dino"}
+        assert mapped[5] == {"kind": "preview", "label": "👁 Checked render"}
+        assert len(mapped) == 6
+
+    def test_stream_persists_deck_chip_on_assistant_message(chat):
+        chat.messages.create(text="hello", role="user")
+
+        list(chat.stream_response(ai=ScriptedStreamClient()))
+
+        assistant = chat.messages.filter(role="assistant").get()
+        assert assistant.agent_events
+        deck_chip = next(e for e in assistant.agent_events if e.get("kind") == "deck")
+        assert deck_chip["name"] == "Cell Bio"
+        assert deck_chip["deckId"]
+
+    def test_serializer_exposes_agent_events(chat):
+        from bots.serializers.message_serializer import MessageSerializer
+
+        chat.messages.create(text="hello", role="user")
+        list(chat.stream_response(ai=ScriptedStreamClient()))
+
+        assistant = chat.messages.filter(role="assistant").get()
+        assert MessageSerializer(assistant).data["agent_events"] == assistant.agent_events
+
+    def test_tool_only_disconnect_still_persists_chip(chat):
+        """Disconnect after tool_end but before any token still saves a row
+        so the chip is not lost on replay."""
+        chat.messages.create(text="hello", role="user")
+
+        generator = chat.stream_response(ai=ScriptedStreamClient())
+        for event in generator:
+            if event["type"] == "tool_end":
+                break  # disconnect before any token streams...
+        generator.close()
+
+        assistant = chat.messages.filter(role="assistant").get()
+        assert assistant.agent_events
+        assert any(e.get("kind") == "deck" for e in assistant.agent_events)
