@@ -143,6 +143,27 @@ class ChatAgentService:
             logger.exception("🌐 PAGE_CATALOG_FAILED")
             return None
 
+    def _with_catalog(self, message_list):
+        """Fold the page catalog into the leading SystemMessage.
+
+        Anthropic (via Bedrock Converse) rejects multiple non-consecutive
+        system messages, so the catalog must never be appended as its own
+        SystemMessage after the prompt (prod crash). Merging keeps one.
+        """
+        from langchain_core.messages import SystemMessage
+
+        catalog = self._page_catalog_message()
+        if catalog is None:
+            return message_list
+        messages = list(message_list)
+        if messages and isinstance(messages[0], SystemMessage):
+            first = messages[0]
+            content = first.content if isinstance(first.content, str) else ""
+            messages[0] = SystemMessage(content=content + "\n\n" + catalog.content)
+        else:
+            messages.insert(0, catalog)
+        return messages
+
     def respond(self, message_list):
         tools = {
             "create_flashcard_deck": self._create_flashcard_deck_tool(),
@@ -154,14 +175,8 @@ class ChatAgentService:
         if web_search:
             tools["web_search"] = web_search
         tools.update(self._html_tools())
-        catalog = self._page_catalog_message()
-        if catalog is not None:
-            message_list = [*message_list, catalog]
-            logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
-            logger.info("🤖 AGENT_INVOKE_START: web_search and flashcard tools available")
-        else:
-            logger.info(f"Invoking agent with flashcard tools only ({len(message_list)} messages)")
-            logger.info("🤖 AGENT_INVOKE_START: flashcard tools available (web_search disabled)")
+        message_list = self._with_catalog(message_list)
+        logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
 
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
 
@@ -202,10 +217,7 @@ class ChatAgentService:
         tools.update(self._html_tools())
 
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
-        messages = list(message_list)
-        catalog = self._page_catalog_message()
-        if catalog is not None:
-            messages.append(catalog)
+        messages = self._with_catalog(list(message_list))
         usage_totals = {"input_tokens": 0, "output_tokens": 0}
         yielded_text = ""
         after_tool = False

@@ -239,6 +239,26 @@ def describe_html_page_tool():
         assert new_catalog is not None
         assert "Dino" in new_catalog.content
 
+    def it_folds_the_catalog_into_the_system_prompt():
+        # Prod crash: appended catalog SystemMessage after the prompt made
+        # two non-consecutive system messages (Anthropic rejects those).
+        from langchain_core.messages import HumanMessage, SystemMessage
+        chat = _chat()
+        chat.bot.system_prompt = "You are a tutor."
+        chat.bot.save()
+        svc = ChatAgentService(chat, MagicMock())
+        svc._create_html_page_tool().invoke({
+            "title": "Dino", "html": "<html><body>hi</body></html>",
+        })
+        merged = svc._with_catalog([
+            SystemMessage(content="You are a tutor."),
+            HumanMessage(content="make it blue"),
+        ])
+        systems = [m for m in merged if isinstance(m, SystemMessage)]
+        assert len(systems) == 1
+        assert "You are a tutor." in systems[0].content
+        assert "Dino" in systems[0].content
+
 
 @pytest.mark.django_db
 def describe_html_page_raw_view():
