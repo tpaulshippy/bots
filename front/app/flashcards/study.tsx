@@ -155,6 +155,9 @@ export default function Study() {
       setCards(allCards);
     } catch (error) {
       Sentry.captureException(error);
+      // Surface the failure instead of falling back to "Nothing due":
+      // retry reloads the due queue, the primary study flow.
+      setLoadError(true);
       Alert.alert("Error", "Failed to load cards");
     } finally {
       setLoading(false);

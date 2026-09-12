@@ -48,26 +48,27 @@ async function getTestTokens() {
 }
 
 async function getSeedState(accessToken) {
-  const [profileRes, botRes, deckRes] = await Promise.all([
-    fetch(`${API_BASE}/profiles.json`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }),
-    fetch(`${API_BASE}/bots.json`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }),
-    fetch(`${API_BASE}/decks.json`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }),
+  const authHeaders = { Authorization: `Bearer ${accessToken}` };
+  const [profileRes, botRes] = await Promise.all([
+    fetch(`${API_BASE}/profiles.json`, { headers: authHeaders }),
+    fetch(`${API_BASE}/bots.json`, { headers: authHeaders }),
   ]);
   const profiles = await profileRes.json();
   const bots = await botRes.json();
-  const decks = await deckRes.json();
-  const deck = (decks.results || []).find((d) => d.name === DECK_NAME);
-  if (!deck) throw new Error(`Seeded deck "${DECK_NAME}" not found — run the seed command`);
   // Other e2e seeds reuse e2e-test-user, so profiles[0] is not guaranteed
   // to be this seed's profile — and the deck list is profile-filtered.
   const profile = (profiles.results || []).find((p) => p.name === 'E2E Test Profile');
   if (!profile) throw new Error('Seeded profile "E2E Test Profile" not found — run the seed command');
+  // Scope the deck lookup to that profile: another profile (e.g. from the
+  // streaming-chat seed) may own its own "Cell Bio" deck, which would not
+  // appear once the app selects E2E Test Profile.
+  const deckRes = await fetch(
+    `${API_BASE}/decks.json?profileId=${profile.profile_id}`,
+    { headers: authHeaders }
+  );
+  const decks = await deckRes.json();
+  const deck = (decks.results || []).find((d) => d.name === DECK_NAME);
+  if (!deck) throw new Error(`Seeded deck "${DECK_NAME}" not found — run the seed command`);
   return {
     profile: JSON.stringify(profile),
     bot: JSON.stringify(bots.results[0]),
@@ -176,9 +177,9 @@ describe('Spaced Repetition Study E2E Flow (Real API)', () => {
     await waitFor(element(by.id('study-all-anyway'))).toBeVisible().withTimeout(10000);
 
     // Leave the study screen, then go up to the deck list.
-    await element(by.id('back-button')).atIndex(0).tap();
+    await element(by.id('header-back-button')).tap();
     await waitFor(element(by.id('study-button'))).toBeVisible().withTimeout(10000);
-    await element(by.id('back-button')).atIndex(0).tap();
+    await element(by.id('header-back-button')).tap();
     await waitFor(element(by.id(`deck-row-${deckId}`))).toBeVisible().withTimeout(10000);
 
     // Deck list no longer shows a red due badge for this deck.
