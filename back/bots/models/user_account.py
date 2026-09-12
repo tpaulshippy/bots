@@ -28,6 +28,8 @@ class UserAccount(models.Model):
     # that predate it or have not finished onboarding yet.
     onboarding_completed_at = models.DateTimeField(null=True, blank=True)
 
+    memory_enabled = models.BooleanField(default=True)
+
     def __str__(self):
         return self.user.email
 

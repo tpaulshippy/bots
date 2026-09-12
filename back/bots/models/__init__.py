@@ -5,6 +5,7 @@ from .deck import Deck
 from .device import Device
 from .flashcard import Flashcard
 from .flashcard_review import FlashcardReview
+from .memory import ChatSummary, MemoryEvent, ProfileMemory
 from .message import Message
 from .profile import Profile
 from .safety_event import SafetyEvent
@@ -15,12 +16,15 @@ __all__ = [
     'AiModel',
     'Bot',
     'Chat',
+    'ChatSummary',
     'Deck',
     'Device',
     'Flashcard',
     'FlashcardReview',
+    'MemoryEvent',
     'Message',
     'Profile',
+    'ProfileMemory',
     'RevenueCatWebhookEvent',
     'SafetyEvent',
     'UsageLimitHit',
