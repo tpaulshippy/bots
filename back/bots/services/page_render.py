@@ -15,6 +15,7 @@ Safety properties:
 """
 
 import logging
+import os
 
 from django.conf import settings
 
@@ -24,6 +25,16 @@ VIEWPORT = {"width": 1280, "height": 800}
 RENDER_TIMEOUT_MS = 10_000
 MAX_PREVIEWS_PER_TURN = 2
 MAX_RENDERED_TEXT_CHARS = 5_000
+
+
+def _launch_args() -> list:
+    # Chromium refuses to start as root without --no-sandbox (prod Django
+    # runs as root via systemd → TargetClosedError at launch). The browser
+    # still gets a fresh profile, blocked network, no credentials, and a
+    # short lifetime, so this only drops the kernel-namespace layer.
+    if os.geteuid() == 0:
+        return ["--no-sandbox"]
+    return []
 
 
 def render_available() -> bool:
@@ -60,7 +71,15 @@ def render_page_shot(html: str) -> dict | None:
     png_bytes: bytes | None = None
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch()
+            try:
+                browser = p.chromium.launch(args=_launch_args())
+            except Exception:
+                # Launch failures (missing executable, sandbox refusal as
+                # root, OOM): the renderer is unavailable, so report None
+                # and let the tool stay unbound / report cleanly instead of
+                # burning iterations on renders that can never succeed.
+                logger.exception("🌐 PAGE_RENDER_LAUNCH_FAILED")
+                return None
             try:
                 context = browser.new_context(viewport=VIEWPORT)
                 # Block all external network: pages are single-file with
@@ -85,11 +104,6 @@ def render_page_shot(html: str) -> dict | None:
                 browser.close()
     except Exception as e:
         logger.exception("🌐 PAGE_RENDER_FAILED")
-        # No browser executable (deploy without `playwright install
-        # chromium`): report unavailable so the tool stays unbound instead
-        # of spamming render errors every turn.
-        if "Executable doesn't exist" in str(e) or "Browser" in type(e).__name__:
-            return None
         return {
             "png_bytes": None,
             "console_errors": console_errors,

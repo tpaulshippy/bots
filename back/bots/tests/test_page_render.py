@@ -80,7 +80,10 @@ def _install_fake_playwright(monkeypatch, png=b"fakepng", console=None, page_err
         def chromium(self):
             return self
 
-        def launch(self):
+        def launch(self, *args, **kwargs):
+            state["launch_args"] = kwargs.get("args", args[0] if args else None)
+            if state.get("fail_launch"):
+                raise state["fail_launch"]
             return FakeBrowser()
 
     module = types.ModuleType("playwright.sync_api")
@@ -116,6 +119,25 @@ def describe_render_available():
         assert state["html"] == "<html><body>hi</body></html>"
         assert state["route_pattern"] == "**/*"
         assert state["viewport"] == {"width": 1280, "height": 800}
+
+    def it_passes_no_sandbox_when_root(monkeypatch):
+        from unittest.mock import patch as _patch
+        state = _install_fake_playwright(monkeypatch)
+        with _patch.object(page_render.os, "geteuid", return_value=0):
+            assert page_render._launch_args() == ["--no-sandbox"]
+            page_render.render_page_shot("<html><body>hi</body></html>")
+        assert state["launch_args"] == ["--no-sandbox"]
+        with _patch.object(page_render.os, "geteuid", return_value=1000):
+            assert page_render._launch_args() == []
+
+    def it_reports_unavailable_when_launch_fails(monkeypatch):
+        # Prod: TargetClosedError at launch (root without --no-sandbox).
+        # Must be None (tool stays clean), never an error dict.
+        state = _install_fake_playwright(monkeypatch)
+        state["fail_launch"] = RuntimeError(
+            "Target page, context or browser has been closed"
+        )
+        assert page_render.render_page_shot("<html><body>hi</body></html>") is None
 
 
 @pytest.mark.django_db
