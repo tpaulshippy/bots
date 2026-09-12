@@ -262,6 +262,17 @@ class TestStudyQueue:
         response = api_client.get(f'/api/decks/{deck.deck_id}/study_queue/')
         assert response.status_code == 404
 
+    def test_study_queue_requires_authentication(self, api_client, deck):
+        response = api_client.get(f'/api/decks/{deck.deck_id}/study_queue/')
+        assert response.status_code == 401
+
+    def test_review_str_does_not_raise(self, deck):
+        card = make_card(deck)
+        review = FlashcardReview.objects.create(
+            flashcard=card, profile=deck.profile, rating='good'
+        )
+        assert str(review) == f"{card.pk}: good at {review.reviewed_at}"
+
     def test_study_queue_includes_scheduling_fields(self, auth_client, deck):
         make_card(deck, ease=2.1, reps=4, lapses=1, interval_days=12.5)
         results = auth_client.get(f'/api/decks/{deck.deck_id}/study_queue/').json()

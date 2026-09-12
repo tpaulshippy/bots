@@ -96,7 +96,7 @@ class FlashcardViewSet(viewsets.ModelViewSet):
 
 
 class DeckViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsOwner]
+    permission_classes = [IsAuthenticated, IsOwner]
     serializer_class = DeckSerializer
     queryset = Deck.objects.all()
 
