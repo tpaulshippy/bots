@@ -176,15 +176,61 @@ export default function ProfileEditor() {
             ) : null}
           </ThemedView>
           {profile.id > 0 ? (
-            <ThemedButton onPress={() => deleteProfile()} style={styles.button}>
-              <IconSymbol
-                name="trash"
-                color={buttonIconColor}
-                size={40}
-                style={styles.buttonIcon}
-              ></IconSymbol>
-              <ThemedText>Delete Profile</ThemedText>
-            </ThemedButton>
+            <>
+              <ThemedButton
+                testID="profile-access-btn"
+                onPress={() =>
+                  router.push({
+                    pathname: "/parent/profileAccess",
+                    params: {
+                      title: `${profile.name} · Tutors`,
+                      profileId: profile.profile_id,
+                    },
+                  })
+                }
+                style={styles.button}
+              >
+                <IconSymbol
+                  name="list.bullet"
+                  color={buttonIconColor}
+                  size={40}
+                  style={styles.buttonIcon}
+                />
+                <ThemedText>Tutor Access</ThemedText>
+              </ThemedButton>
+
+              <ThemedButton
+                testID="profile-schedule-btn"
+                onPress={() =>
+                  router.push({
+                    pathname: "/parent/profileSchedule",
+                    params: {
+                      title: `${profile.name} · Schedule`,
+                      profileId: profile.profile_id,
+                    },
+                  })
+                }
+                style={styles.button}
+              >
+                <IconSymbol
+                  name="clock"
+                  color={buttonIconColor}
+                  size={40}
+                  style={styles.buttonIcon}
+                />
+                <ThemedText>Schedule</ThemedText>
+              </ThemedButton>
+
+              <ThemedButton onPress={() => deleteProfile()} style={styles.button}>
+                <IconSymbol
+                  name="trash"
+                  color={buttonIconColor}
+                  size={40}
+                  style={styles.buttonIcon}
+                ></IconSymbol>
+                <ThemedText>Delete Profile</ThemedText>
+              </ThemedButton>
+            </>
           ) : null}
         </ThemedView>
       </ScrollView>
