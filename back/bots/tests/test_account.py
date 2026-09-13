@@ -165,6 +165,19 @@ def describe_account():
             ua.save()
             assert account.user_account.cost_for_today()[1:] == (10, 5)
 
+        def it_keeps_the_reset_version_readonly_in_admin(load_fixture):
+            # usage_reset_version is an internal compatibility marker: an
+            # operator hand-editing it could re-arm a stale baseline and
+            # zero out daily usage, so it must stay admin-readonly like the
+            # other reset columns.
+            from bots.admin import UserAccountAdmin
+            for field in (
+                'usage_reset_at', 'usage_reset_timezone', 'usage_reset_cost',
+                'usage_reset_input_tokens', 'usage_reset_output_tokens',
+                'usage_reset_version',
+            ):
+                assert field in UserAccountAdmin.readonly_fields
+
     def describe_model_attribution():
         def it_prices_stamped_history_by_stamp_after_a_bot_model_switch(load_fixture):
             # Prod incident: Fred moved Haiku -> Nova 2 Lite mid-day and the

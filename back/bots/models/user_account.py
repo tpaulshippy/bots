@@ -48,6 +48,13 @@ class UserAccount(models.Model):
     # subtracted from a total measured on a different basis. A stale
     # baseline could otherwise exceed the new raw total and clamp usage to
     # zero for the rest of the day.
+    # Rollout contract (explicit): a same-day reset performed before this
+    # deploy is forgotten, so pre-reset usage counts again until local
+    # midnight — conservative fail-closed, same precedent as a timezone
+    # change. Reconciling instead is rejected: old-basis and new-basis
+    # totals are incommensurable, and a data migration cannot reconstruct
+    # the old snapshot exactly. Keep this field admin-readonly so an
+    # operator cannot re-arm a stale baseline by hand.
     usage_reset_version = models.IntegerField(default=1)
     usage_reset_at = models.DateTimeField(null=True, blank=True)
     usage_reset_timezone = models.CharField(max_length=50, null=True, blank=True)
