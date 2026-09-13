@@ -620,6 +620,39 @@ describe('Onboarding wizard', () => {
           .disabled
       ).toBe(false);
     });
+
+    it('blocks Continue until review bot prefill finishes', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Dragon',
+                template_name: 'Blank',
+                color: '#222222',
+                icon: 'sparkles',
+                system_prompt: 'custom prompt',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockImplementation(
+        () =>
+          new Promise(() => {})
+      );
+
+      render(<OnboardingBot />);
+
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+    });
   });
 
   describe('Protect step', () => {
@@ -1001,7 +1034,7 @@ describe('Onboarding wizard', () => {
       );
     });
 
-    it('falls back to token lookup when clearing review notifications without a stored device id', async () => {
+    it('does not clear review notifications when current device settings were not loaded', async () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({
         profileName: 'Maya',
         botName: 'Penelope',
@@ -1009,21 +1042,6 @@ describe('Onboarding wizard', () => {
         review: 'true',
       });
       (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
-      (registerForPushNotificationsAsync as jest.Mock).mockResolvedValue(
-        'ExponentPushToken[test]'
-      );
-      (fetchDeviceByToken as jest.Mock).mockResolvedValue({
-        id: 5,
-        device_id: 'd1',
-        notification_token: 'ExponentPushToken[test]',
-        notify_on_new_chat: true,
-        notify_on_new_message: true,
-        notify_digest_only: false,
-        deleted_at: null,
-      });
-      (upsertDevice as jest.Mock).mockResolvedValue({
-        device_id: 'd1',
-      });
 
       render(<OnboardingNotifications />);
       await act(async () => {});
@@ -1032,16 +1050,9 @@ describe('Onboarding wizard', () => {
         fireEvent.press(screen.getByTestId('onboarding-finish'));
       });
 
-      expect(fetchDeviceByToken).toHaveBeenCalledWith('ExponentPushToken[test]');
-      expect(upsertDevice).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 5,
-          device_id: 'd1',
-          notify_on_new_chat: false,
-          notify_on_new_message: false,
-          notify_digest_only: false,
-        })
-      );
+      expect(registerForPushNotificationsAsync).not.toHaveBeenCalled();
+      expect(fetchDeviceByToken).not.toHaveBeenCalled();
+      expect(upsertDevice).not.toHaveBeenCalled();
     });
 
     it('does not persist review notification changes when bootstrap fails', async () => {

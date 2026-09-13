@@ -45,6 +45,7 @@ export default function OnboardingBot() {
   // Review mode targets the pre-filled bot on save (see bootstrap botId).
   const [botId, setBotId] = useState<string | null>(null);
   const [reviewBot, setReviewBot] = useState<Bot | null>(null);
+  const [reviewPrefillLoaded, setReviewPrefillLoaded] = useState(!isReview);
   const [reviewPromptSeed, setReviewPromptSeed] = useState<{
     name: string;
     templateName: string;
@@ -101,6 +102,10 @@ export default function OnboardingBot() {
         }
       } catch {
         // Prefill is best-effort; defaults still work.
+      } finally {
+        if (active) {
+          setReviewPrefillLoaded(true);
+        }
       }
     })();
     return () => {
@@ -117,6 +122,7 @@ export default function OnboardingBot() {
     templateName === reviewPromptSeed.templateName &&
     (templateName !== "Character" || trimmedStory === reviewPromptSeed.story);
   const canContinue =
+    (!isReview || reviewPrefillLoaded) &&
     trimmedBotName.length > 0 &&
     (templateName !== "Character" ||
       trimmedStory.length > 0 ||

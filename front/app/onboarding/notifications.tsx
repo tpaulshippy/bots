@@ -57,6 +57,10 @@ export default function OnboardingNotifications() {
   const [notifyOnNewMessage, setNotifyOnNewMessage] = useState(false);
   const [notifyDigestOnly, setNotifyDigestOnly] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [reviewDevice, setReviewDevice] = useState<Awaited<
+    ReturnType<typeof fetchDevice>
+  > | null>(null);
+  const [reviewDeviceLoaded, setReviewDeviceLoaded] = useState(!isReview);
   // Field error from the last failed save (e.g. taken student email), shown
   // inline so the user can go back and fix it instead of losing the wizard.
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -80,9 +84,14 @@ export default function OnboardingNotifications() {
           setNotifyOnNewChat(current.notify_on_new_chat);
           setNotifyOnNewMessage(current.notify_on_new_message);
           setNotifyDigestOnly(current.notify_digest_only);
+          setReviewDevice(current);
         }
       } catch {
         // Prefill is best-effort; the wizard still works all-off.
+      } finally {
+        if (active) {
+          setReviewDeviceLoaded(true);
+        }
       }
     })();
     return () => {
@@ -110,25 +119,12 @@ export default function OnboardingNotifications() {
   // registration throws on simulators/web and offline upserts return null.
   const persistNotificationChoices = async () => {
     if (!notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly) {
-      if (!isReview) {
+      if (!isReview || !reviewDeviceLoaded || !reviewDevice) {
         return;
       }
       try {
-        const deviceId = await getDeviceIdFromStorage().catch(() => null);
-        const existingById = deviceId
-          ? await fetchDevice(deviceId).catch(() => null)
-          : null;
-        const token = existingById
-          ? existingById.notification_token
-          : await registerForPushNotificationsAsync().catch(() => null);
-        const existing =
-          existingById ||
-          (token ? await fetchDeviceByToken(token).catch(() => null) : null);
-        if (!existing) {
-          return;
-        }
         const saved = await upsertDevice({
-          ...existing,
+          ...reviewDevice,
           notify_on_new_chat: false,
           notify_on_new_message: false,
           notify_digest_only: false,
