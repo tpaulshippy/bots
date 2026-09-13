@@ -17,7 +17,7 @@ import {
   completeOnboarding,
 } from "@/api/account";
 import { fieldMessage } from "@/api/fieldErrors";
-import { fetchBots } from "@/api/bots";
+import { fetchBot, fetchBots } from "@/api/bots";
 import {
   fetchDevice,
   fetchDeviceByToken,
@@ -25,7 +25,7 @@ import {
   setDeviceIdInStorage,
   upsertDevice,
 } from "@/api/devices";
-import { fetchProfiles } from "@/api/profiles";
+import { fetchProfile, fetchProfiles } from "@/api/profiles";
 import { setSelectedProfile } from "@/hooks/useSelectedProfile";
 import { registerForPushNotificationsAsync } from "../parent/notifications";
 import { WizardStep } from "./WizardStep";
@@ -233,21 +233,38 @@ export default function OnboardingNotifications() {
 
       // Select exactly the configured profile and bot so the very
       // first chat needs no further setup (fixes "Please select a profile
-      // first"). Listings are name-ordered, so match by id when we have one.
+      // first"). Listings are name-ordered and paginated, so match by id
+      // when we have one — resolving through the single-item endpoints on
+      // a page-one miss (the target may live on a later page), and only
+      // falling back to the first row when the target can't be resolved.
+      // Single lookups can return soft-deleted rows, which are never valid
+      // selections.
       const profiles = await fetchProfiles();
       const profilesList = profiles?.results ?? [];
-      const profile =
-        (profileId &&
-          profilesList.find((p) => p.profile_id === profileId)) ||
-        profilesList[0];
+      const listedProfile =
+        profileId && profilesList.find((p) => p.profile_id === profileId);
+      let fetchedProfile = null;
+      if (profileId && !listedProfile) {
+        const single = await fetchProfile(profileId).catch(() => null);
+        if (single && !single.deleted_at) {
+          fetchedProfile = single;
+        }
+      }
+      const profile = listedProfile || fetchedProfile || profilesList[0];
       if (profile) {
         await setSelectedProfile(profile);
       }
       const bots = await fetchBots();
       const botsList = bots?.results ?? [];
-      const bot =
-        (botId && botsList.find((b) => b.bot_id === botId)) ||
-        botsList[0];
+      const listedBot = botId && botsList.find((b) => b.bot_id === botId);
+      let fetchedBot = null;
+      if (botId && !listedBot) {
+        const single = await fetchBot(botId).catch(() => null);
+        if (single && !single.deleted_at) {
+          fetchedBot = single;
+        }
+      }
+      const bot = listedBot || fetchedBot || botsList[0];
       if (bot) {
         await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
       }

@@ -26,6 +26,22 @@ export const tryFetchProfiles = async (): Promise<PaginatedResponse<Profile> | n
 export const fetchProfile = async (id: string): Promise<Profile | null> =>
     request<Profile | null>(`/profiles/${id}.json`, {}, null);
 
+/** Failure-distinguishing single-profile lookup: the bot-side twin of
+ *  tryFetchBot (see bots.ts) — 'missing' only on a confirmed 404, null
+ *  when the lookup couldn't run. */
+export const tryFetchProfile = async (
+    id: string
+): Promise<Profile | 'missing' | null> => {
+    const response = await requestRaw<Profile>(`/profiles/${id}.json`).catch(() => null);
+    if (!response) {
+        return null;
+    }
+    if (response.ok) {
+        return response.data ?? null;
+    }
+    return response.status === 404 ? 'missing' : null;
+};
+
 /**
  * Read-self endpoint for teen-delegated sessions: returns only the profile
  * this session is locked to, redacted by the backend.

@@ -5,7 +5,7 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { fetchBot, fetchBots } from "@/api/bots";
+import { fetchBots, tryFetchBot } from "@/api/bots";
 import type { Bot } from "@/api/bots";
 import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
 import type { PaginatedResponse } from "@/api/request";
@@ -60,9 +60,10 @@ export function useAuthBootstrap(loaded: boolean) {
    * Same ownership repair as setProfile, for the selected bot: a stored
    * selection from another account (or a deleted bot) is dropped and
    * re-seeded from the live list. Two safeguards: the stored id is resolved
-   * with the single-bot endpoint before giving up (page one is not the
-   * whole account), and anything unverifiable — failed fetches, offline —
-   * keeps the stored selection.
+   * with a failure-distinguishing single-bot lookup before giving up (page
+   * one is not the whole account, and the detail endpoint can return
+   * soft-deleted rows), and anything unverifiable — failed fetches,
+   * offline, denied — keeps the stored selection.
    */
   const setBot = useCallback(
     async (prefetchedBots?: PaginatedResponse<Bot> | null) => {
@@ -85,14 +86,17 @@ export function useAuthBootstrap(loaded: boolean) {
       if (storedId && bots?.results.some((b) => b.bot_id === storedId)) {
         return;
       }
+      // Only a confirmed absence clears the selection: 'missing' on 404 or
+      // a soft-deleted detail row (both with a loaded list to reseed from).
+      let confirmedGone = !storedId;
       if (storedId) {
-        const owned = await fetchBot(storedId).catch(() => null);
-        if (owned) {
-          return;
-        }
-        if (!bots) {
-          return;
-        }
+        const lookup = await tryFetchBot(storedId).catch(() => null);
+        confirmedGone =
+          !!bots &&
+          (lookup === "missing" || (!!lookup && !!lookup.deleted_at));
+      }
+      if (!confirmedGone) {
+        return;
       }
       await AsyncStorage.removeItem("selectedBot");
       if (bots && bots.count > 0) {

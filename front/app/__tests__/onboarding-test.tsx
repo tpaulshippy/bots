@@ -8,8 +8,8 @@ import OnboardingProfile from '../onboarding/profile';
 import OnboardingBot from '../onboarding/bot';
 import OnboardingProtect from '../onboarding/protect';
 import OnboardingNotifications from '../onboarding/notifications';
-import { fetchProfiles, tryFetchProfiles } from '@/api/profiles';
-import { fetchBots } from '@/api/bots';
+import { fetchProfiles, tryFetchProfiles, fetchProfile } from '@/api/profiles';
+import { fetchBots, fetchBot } from '@/api/bots';
 import {
   fetchDevice,
   getDeviceIdFromStorage,
@@ -32,10 +32,12 @@ jest.mock('expo-router', () => ({
 jest.mock('@/api/profiles', () => ({
   fetchProfiles: jest.fn(),
   tryFetchProfiles: jest.fn(),
+  fetchProfile: jest.fn(),
 }));
 
 jest.mock('@/api/bots', () => ({
   fetchBots: jest.fn(),
+  fetchBot: jest.fn(),
 }));
 
 jest.mock('@/api/devices', () => ({
@@ -1175,6 +1177,59 @@ describe('Onboarding wizard', () => {
           botName: 'Dragon',
           botId: 'b2',
         })
+      );
+    });
+
+    it('resolves configured rows beyond the first list page instead of selecting row one', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Zed',
+        profileId: 'p9',
+        botName: 'Late Bot',
+        botId: 'b9',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Maya' }],
+        count: 2,
+      });
+      (fetchProfile as jest.Mock).mockResolvedValue({
+        profile_id: 'p9',
+        name: 'Zed',
+      });
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      (fetchBot as jest.Mock).mockResolvedValue({
+        bot_id: 'b9',
+        name: 'Late Bot',
+      });
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { profileId: 'p9', botId: 'b9' },
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      // Page-one misses resolve through the single-item endpoints so the
+      // wizard selects exactly what it configured, not the first rows.
+      expect(fetchProfile).toHaveBeenCalledWith('p9');
+      expect(fetchBot).toHaveBeenCalledWith('b9');
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'selectedProfile',
+        JSON.stringify({ profile_id: 'p9', name: 'Zed' })
+      );
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'selectedBot',
+        JSON.stringify({ bot_id: 'b9', name: 'Late Bot' })
       );
     });
 

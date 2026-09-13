@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
 import { useAuthBootstrap } from '../useAuthBootstrap';
-import { fetchBots, fetchBot } from '@/api/bots';
+import { fetchBots, tryFetchBot } from '@/api/bots';
 import { fetchOwnProfile, fetchProfiles } from '@/api/profiles';
 import { getSessionMode } from '@/api/tokens';
 
@@ -28,7 +28,7 @@ jest.mock('expo-web-browser', () => ({
 
 jest.mock('@/api/bots', () => ({
   fetchBots: jest.fn(),
-  fetchBot: jest.fn(),
+  tryFetchBot: jest.fn(),
 }));
 
 jest.mock('@/api/profiles', () => ({
@@ -72,7 +72,7 @@ describe('useAuthBootstrap bot selection repair', () => {
       results: [{ bot_id: 'b1', name: 'Penelope' }],
       count: 1,
     });
-    (fetchBot as jest.Mock).mockResolvedValue(null);
+    (tryFetchBot as jest.Mock).mockResolvedValue(null);
   });
 
   it('keeps a stored bot selection owned by the current account', async () => {
@@ -102,6 +102,8 @@ describe('useAuthBootstrap bot selection repair', () => {
           : null
       )
     );
+    // Confirmed 404 (not a transient failure): safe to clear and reseed.
+    (tryFetchBot as jest.Mock).mockResolvedValue('missing');
 
     await bootstrap();
 
@@ -136,7 +138,7 @@ describe('useAuthBootstrap bot selection repair', () => {
           : null
       )
     );
-    (fetchBot as jest.Mock).mockResolvedValue({
+    (tryFetchBot as jest.Mock).mockResolvedValue({
       bot_id: 'b51',
       name: 'Late Bot',
     });
@@ -144,7 +146,7 @@ describe('useAuthBootstrap bot selection repair', () => {
     await bootstrap();
 
     // Page one doesn't have it, but the single-bot lookup proves ownership.
-    expect(fetchBot).toHaveBeenCalledWith('b51');
+    expect(tryFetchBot).toHaveBeenCalledWith('b51');
     expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith('selectedBot');
   });
 
@@ -162,7 +164,46 @@ describe('useAuthBootstrap bot selection repair', () => {
             : null
       )
     );
-    (fetchBot as jest.Mock).mockResolvedValue(null);
+    (tryFetchBot as jest.Mock).mockResolvedValue('missing');
+
+    await bootstrap();
+
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('selectedBot');
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'selectedBot',
+      JSON.stringify({ bot_id: 'b1', name: 'Penelope' })
+    );
+  });
+
+  it('keeps an unverifiable selection when the single lookup fails', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'selectedBot'
+          ? JSON.stringify({ bot_id: 'bx', name: 'Maybe Mine' })
+          : null
+      )
+    );
+    // Transient failure (not a confirmed 404): must not clear.
+    (tryFetchBot as jest.Mock).mockResolvedValue(null);
+
+    await bootstrap();
+
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith('selectedBot');
+  });
+
+  it('drops a soft-deleted bot that the detail endpoint still returns', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'selectedBot'
+          ? JSON.stringify({ bot_id: 'b9', name: 'Old Bot' })
+          : null
+      )
+    );
+    (tryFetchBot as jest.Mock).mockResolvedValue({
+      bot_id: 'b9',
+      name: 'Old Bot',
+      deleted_at: '2026-01-01T00:00:00Z',
+    });
 
     await bootstrap();
 
