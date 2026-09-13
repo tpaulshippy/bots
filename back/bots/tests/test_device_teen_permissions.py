@@ -343,3 +343,34 @@ class TestDeletedDeviceReregistration:
 
         assert response.status_code == 400
         assert 'notification_token' in response.json()
+
+    def test_detail_route_hides_soft_deleted_rows(self, parent, teen_profile):
+        device = _device(parent, deleted_at=timezone.now())
+
+        assert parent_client(parent).get(f'/api/devices/{device.device_id}.json').status_code == 404
+        assert teen_client(teen_profile).get(f'/api/devices/{device.device_id}.json').status_code == 404
+
+        response = parent_client(parent).put(
+            f'/api/devices/{device.device_id}.json',
+            _full_payload(device, notify_study_due=True),
+            format='json',
+        )
+        assert response.status_code == 404
+        device.refresh_from_db()
+        assert device.deleted_at is not None
+        assert device.notify_study_due is False
+
+    def test_update_retargeting_another_live_token_is_400(self, parent):
+        first = _device(parent)
+        second = _device(parent)
+
+        response = parent_client(parent).put(
+            f'/api/devices/{first.id}.json',
+            _full_payload(first, notification_token=second.notification_token),
+            format='json',
+        )
+
+        assert response.status_code == 400
+        assert 'notification_token' in response.json()
+        first.refresh_from_db()
+        assert first.notification_token != second.notification_token

@@ -85,7 +85,13 @@ class DeviceViewSet(viewsets.ModelViewSet):
             except ValueError:
                 raise NotFound('Device not found')
 
-        device = get_object_by_uuid_or_id(Device.objects.all(), 'device_id', lookup_field_value)
+        # Soft-deleted rows are invisible here, as in the lists: otherwise a
+        # cached device_id could GET/PUT a dead row, preserving deleted_at
+        # while the device stays out of parent lists and delivery queries.
+        # Recovery is via create, which revives the row.
+        device = get_object_by_uuid_or_id(
+            Device.objects.filter(deleted_at=None), 'device_id', lookup_field_value
+        )
 
         self.check_object_permissions(self.request, device)
         return device
@@ -146,6 +152,20 @@ class DeviceViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         if is_teen_delegated(self.request.auth):
             self._enforce_teen_update(serializer.instance, self.request.data)
+        # The table-wide UniqueValidator was dropped from the serializer so
+        # creates can revive soft-deleted rows; the update path replaces it
+        # here so retargeting a live device onto another live device's
+        # token stays a clean 400 instead of a DB-constraint 500.
+        token = serializer.validated_data.get('notification_token')
+        if (
+            token
+            and Device.objects.filter(notification_token=token)
+            .exclude(pk=serializer.instance.pk)
+            .exists()
+        ):
+            raise ValidationError({
+                'notification_token': 'Device with this notification token already exists.'
+            })
         serializer.save()
 
     def perform_destroy(self, instance):
