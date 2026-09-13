@@ -155,6 +155,17 @@ class TestSendStudyReminders:
         mock_client.return_value.notify.assert_not_called()
 
     @patch('bots.models.device.NotificationClient')
+    def test_soft_deleted_profiles_contribute_nothing(self, mock_client, parent, profile):
+        profile.deleted_at = timezone.now()
+        profile.save(update_fields=['deleted_at', 'modified_at'])
+        _card(_deck(profile))
+        _device(parent, notify_study_due=True)
+
+        call_command('send_study_reminders')
+
+        mock_client.return_value.notify.assert_not_called()
+
+    @patch('bots.models.device.NotificationClient')
     def test_other_users_cards_do_not_leak(self, mock_client, parent, profile, db):
         other = User.objects.create_user(
             username='other', email='o@example.com', password=secrets.token_urlsafe()

@@ -23,8 +23,10 @@ class Command(BaseCommand):
         now = timezone.now()
         # Due cards per deck (only decks of users with opted-in devices matter,
         # but the grouping is cheap enough to compute globally first).
+        # Soft-deleted profiles are excluded like everywhere else: a removed
+        # profile must not contribute counts, payloads, or trigger pushes.
         due_rows = (
-            Flashcard.objects.filter(due_at__lte=now)
+            Flashcard.objects.filter(due_at__lte=now, deck__profile__deleted_at__isnull=True)
             .values(
                 'deck',
                 'deck__name',
