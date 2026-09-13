@@ -36,6 +36,33 @@ def _harden_tool(tool, retry_hint: str):
     return tool
 
 
+def _mark_system_cacheable(message_list, model_id):
+    """Tag the system prompt with a Bedrock cache breakpoint (Anthropic only).
+
+    Haiku 4.5 supports explicit caching on system/messages/tools with a
+    4,096-token minimum per checkpoint (verified e2e). The system prompt
+    plus tool schemas form the stable prefix across turns and agent
+    iterations, so one breakpoint buys cache hits (cache reads ~90%
+    cheaper) on every call after the first within the TTL. Shorter
+    prefixes simply don't cache — never an error. Other providers keep
+    the plain string form.
+    """
+    if "anthropic" not in str(model_id or "").lower():
+        return message_list
+    messages = list(message_list)
+    if messages:
+        from langchain_core.messages import SystemMessage
+
+        first = messages[0]
+        if isinstance(first, SystemMessage) and isinstance(first.content, str) and first.content:
+            messages[0] = SystemMessage(content=[{
+                "type": "text",
+                "text": first.content,
+                "cache_control": {"type": "ephemeral"},
+            }])
+    return messages
+
+
 
 WEB_SEARCH_UNAVAILABLE = "Web search is not available."
 WEB_QUERY_BLOCKED = "This search query was blocked by the safety policy. Please try a different question."
@@ -261,6 +288,9 @@ class ChatAgentService:
             tools["web_search"] = web_search
         tools.update(self._html_tools())
         message_list = self._with_catalog(message_list)
+        message_list = _mark_system_cacheable(
+            message_list, getattr(self.ai_client, "model_id", "")
+        )
         logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
 
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
@@ -300,6 +330,9 @@ class ChatAgentService:
 
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
         messages = self._with_catalog(list(message_list))
+        messages = _mark_system_cacheable(
+            messages, getattr(self.ai_client, "model_id", "")
+        )
         usage_totals = {"input_tokens": 0, "output_tokens": 0}
         yielded_text = ""
         after_tool = False
