@@ -35,9 +35,11 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   const textColor = useThemeColor({}, "text");
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
-  // Teen-delegated devices only get Chats + Flashcards: no parent surfaces.
+  // Teen-delegated devices only get Chats + Flashcards + the teen-safe
+  // Settings screen (/settings: study reminders only, no PIN gate). Parent
+  // surveillance flags stay behind the PIN at /parent/settings.
   // Unknown (still loading) fails closed to the teen view so a teen device
-  // never flashes Settings before the stored claims resolve.
+  // never flashes parent Settings before the stored claims resolve.
   const sessionMode = useSessionMode();
   const isTeenDelegated = sessionMode?.isTeenDelegated ?? true;
 
@@ -56,15 +58,13 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   const menuItems: MenuItem[] = [
     { label: "Chats", icon: "bubble.left.fill", path: "/chatHistory" },
     { label: "Flashcards", icon: "square.grid.2x2.fill", path: "/flashcards" },
-    ...(!isTeenDelegated
-      ? [
-          {
-            label: "Settings",
-            icon: "gear" as IconSymbolName,
-            path: "/parent/settings" as Extract<Href, string>,
-          },
-        ]
-      : []),
+    {
+      label: "Settings",
+      icon: "gear" as IconSymbolName,
+      path: (isTeenDelegated
+        ? "/settings"
+        : "/parent/settings") as Extract<Href, string>,
+    },
   ];
 
   const handleMenuPress = (path: MenuItem["path"]) => {
