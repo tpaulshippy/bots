@@ -166,3 +166,59 @@ class TestTeenDeviceWrites:
         assert device.notify_on_new_chat is False
         assert device.notify_digest_only is True
         assert device.notify_study_due is True
+
+
+@pytest.mark.django_db
+class TestTeenDeviceEnumeration:
+    """Teen-delegated sessions must not enumerate the parent account's
+    devices: an unfiltered list would leak every device id and notification
+    token (push targets). Token lookup (own physical device) and
+    retrieve-by-id (unguessable UUID, needed by the teen client) stay open."""
+
+    def test_teen_unfiltered_list_is_empty(self, parent, teen_profile):
+        _device(parent)
+        _device(parent)
+
+        response = teen_client(teen_profile).get('/api/devices.json')
+
+        assert response.status_code == 200
+        assert response.json()['results'] == []
+
+    def test_teen_token_lookup_returns_own_device(self, parent, teen_profile):
+        device = _device(parent)
+
+        response = teen_client(teen_profile).get(
+            f'/api/devices.json?notificationToken={device.notification_token}'
+        )
+
+        assert response.status_code == 200
+        results = response.json()['results']
+        assert len(results) == 1
+        assert results[0]['notification_token'] == device.notification_token
+
+    def test_teen_token_lookup_hides_unknown_tokens(self, parent, teen_profile):
+        _device(parent)
+
+        response = teen_client(teen_profile).get(
+            '/api/devices.json?notificationToken=no-such-token'
+        )
+
+        assert response.status_code == 200
+        assert response.json()['results'] == []
+
+    def test_teen_retrieve_by_id_still_works(self, parent, teen_profile):
+        device = _device(parent)
+
+        response = teen_client(teen_profile).get(f'/api/devices/{device.id}.json')
+
+        assert response.status_code == 200
+        assert response.json()['notification_token'] == device.notification_token
+
+    def test_parent_list_unchanged(self, parent, teen_profile):
+        _device(parent)
+        _device(parent)
+
+        response = parent_client(parent).get('/api/devices.json')
+
+        assert response.status_code == 200
+        assert response.json()['count'] == 2

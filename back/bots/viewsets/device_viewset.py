@@ -50,6 +50,15 @@ class DeviceViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_anonymous:
             return Device.objects.none()
+        if is_teen_delegated(self.request.auth):
+            # Teens may only look up their own physical device by its push
+            # token. An unfiltered list would enumerate every device id and
+            # notification token on the parent account (push targets); device
+            # UUIDs are the only other address, and both are unguessable, so
+            # token lookup plus retrieve-by-id is all a teen client needs.
+            if notification_token:
+                return Device.objects.filter(user=user, notification_token=notification_token)
+            return Device.objects.none()
         if notification_token:
             return Device.objects.filter(user=user, notification_token=notification_token)
         return Device.objects.filter(user=user, deleted_at=None)
