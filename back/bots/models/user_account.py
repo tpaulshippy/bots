@@ -210,13 +210,45 @@ class UserAccount(models.Model):
         ):
             return False
         # The baseline snapshots per-model rates at reset time. If pricing
-        # config changed since (rates edited, default switched), stamped
-        # rows may now reprice differently and the old snapshot could exceed
-        # the recomputed total, clamping usage to zero. Void the baseline
-        # (conservative recount, same precedent as a timezone change).
-        # Deletions leave no modified row behind; they void baselines via
-        # the post_delete signal in ai_model.py instead.
-        return not AiModel.objects.filter(modified_at__gt=self.usage_reset_at).exists()
+        # config changed since, stamped rows may now reprice differently
+        # and the old snapshot could exceed the recomputed total, clamping
+        # usage to zero. Void the baseline (conservative recount, same
+        # precedent as a timezone change). Both checks read live database
+        # state on every call, so no invalidation write can be missed by a
+        # stale in-memory account instance.
+        return not self._pricing_changed_since_reset()
+
+    def _pricing_changed_since_reset(self):
+        """True if model pricing changed after the reset snapshot.
+
+        Covers rate edits and default switches (any AiModel touched since
+        the reset) as well as deletions (a stamped model_id priced into the
+        baseline but no longer present). Only messages created before the
+        reset could have been priced into the baseline, so only those stamp
+        ids are compared. Pre-fix unstamped rows cannot be re-attributed
+        after their model is deleted and are an accepted corner (all new
+        rows are stamped).
+        """
+        if AiModel.objects.filter(modified_at__gt=self.usage_reset_at).exists():
+            return True
+        from .message import Message
+
+        priced_ids = set(
+            Message.objects.filter(
+                chat__user=self.user,
+                role='assistant',
+                created_at__gte=self.start_of_today_utc(),
+                created_at__lt=self.usage_reset_at,
+            )
+            .exclude(model_id__isnull=True)
+            .exclude(model_id='')
+            .values_list('model_id', flat=True)
+            .distinct()
+        )
+        if not priced_ids:
+            return False
+        live_ids = set(AiModel.objects.values_list('model_id', flat=True))
+        return bool(priced_ids - live_ids)
 
     def reset_daily_usage(self):
         """Clear today's rate limit without touching Chat token history."""

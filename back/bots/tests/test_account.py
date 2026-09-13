@@ -193,7 +193,8 @@ def describe_account():
             account.user_account.reset_daily_usage()
             assert account.user_account.cost_for_today() == (0.0, 0, 0)
             pricey.delete()
-            account.user_account.refresh_from_db()
+            # No refresh: the pricing guard reads live database state, so
+            # even this stale in-memory instance stops applying the baseline.
             assert account.user_account.cost_for_today()[1:] == (10, 5)
 
         def it_keeps_the_reset_version_readonly_in_admin(load_fixture):
