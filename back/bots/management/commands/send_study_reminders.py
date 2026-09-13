@@ -25,7 +25,13 @@ class Command(BaseCommand):
         # but the grouping is cheap enough to compute globally first).
         due_rows = (
             Flashcard.objects.filter(due_at__lte=now)
-            .values('deck', 'deck__name', 'deck__deck_id', 'deck__profile__user')
+            .values(
+                'deck',
+                'deck__name',
+                'deck__deck_id',
+                'deck__profile__user',
+                'deck__profile__profile_id',
+            )
             .annotate(due=Count('pk'))
             .order_by('deck__name')
         )
@@ -70,18 +76,28 @@ class Command(BaseCommand):
 
         A single due deck deep-links straight into its study session; several
         decks link to the deck list instead.
+
+        When every due deck belongs to one profile, the payload names that
+        profile so the tap target can switch selection first: the deck list
+        is scoped to the selected profile, so without it a reminder could
+        land on a list omitting the cards it counted. (Span several
+        profiles and there is no single right target — the generic deck
+        list stands.)
         """
         total = sum(row['due'] for row in rows)
+        profile_ids = {row['deck__profile__profile_id'] for row in rows}
+        data: dict = {'target': 'study_due'}
+        if len(profile_ids) == 1 and rows[0]['deck__profile__profile_id'] is not None:
+            data['profile_id'] = str(rows[0]['deck__profile__profile_id'])
         if len(rows) == 1:
             count = rows[0]['due']
             body = (
                 f"{count} card{'s' if count != 1 else ''} due "
                 f"\u2014 time to review!"
             )
-            data = {'target': 'study_due', 'deck_id': str(rows[0]['deck__deck_id'])}
+            data['deck_id'] = str(rows[0]['deck__deck_id'])
         else:
             body = (
                 f"{total} cards due across {len(rows)} decks \u2014 time to review!"
             )
-            data = {'target': 'study_due'}
         return ('Study reminder', body, data)

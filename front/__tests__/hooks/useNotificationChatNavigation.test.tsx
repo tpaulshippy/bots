@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, usePathname } from 'expo-router';
 import { useNotificationChatNavigation } from '@/hooks/useNotificationChatNavigation';
 import { fetchChat } from '@/api/chats';
+import { fetchProfiles } from '@/api/profiles';
 import { clearUser, getSessionMode } from '@/api/tokens';
 import { UnauthorizedError } from '@/api/apiClient';
 
@@ -24,6 +25,10 @@ jest.mock('@/api/chats', () => ({
   fetchChat: jest.fn(),
 }));
 
+jest.mock('@/api/profiles', () => ({
+  fetchProfiles: jest.fn(),
+}));
+
 jest.mock('@/api/tokens', () => ({
   clearUser: jest.fn(),
   getSessionMode: jest.fn(),
@@ -40,7 +45,8 @@ const makeResponse = (
   chatId: string | undefined,
   identifier = 'response-1',
   target?: string,
-  deckId?: string
+  deckId?: string,
+  profileId?: string
 ): Notifications.NotificationResponse =>
   ({
     notification: {
@@ -51,6 +57,7 @@ const makeResponse = (
             ...(chatId ? { chat_id: chatId } : {}),
             ...(target ? { target } : {}),
             ...(deckId ? { deck_id: deckId } : {}),
+            ...(profileId ? { profile_id: profileId } : {}),
           },
         },
       },
@@ -207,6 +214,68 @@ describe('useNotificationChatNavigation', () => {
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/flashcards/study',
       params: { deckId: 'deck-1', mode: 'due', source: 'reminder' },
+    });
+  });
+
+  it('switches to the reminder profile before opening the deck list', async () => {
+    (fetchProfiles as jest.Mock).mockResolvedValue({
+      count: 2,
+      results: [
+        { profile_id: 'kid-1', name: 'Maya' },
+        { profile_id: 'kid-2', name: 'Leo' },
+      ],
+    });
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(
+        makeResponse(undefined, 'response-1', 'study_due', undefined, 'kid-2')
+      );
+    });
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'selectedProfile',
+      JSON.stringify({ profile_id: 'kid-2', name: 'Leo' })
+    );
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards',
+    });
+  });
+
+  it('skips the switch when the reminder profile is already selected', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+      JSON.stringify({ profile_id: 'kid-2', name: 'Leo' })
+    );
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(
+        makeResponse(undefined, 'response-1', 'study_due', undefined, 'kid-2')
+      );
+    });
+
+    expect(fetchProfiles).not.toHaveBeenCalled();
+    expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+      'selectedProfile',
+      expect.anything()
+    );
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards',
+    });
+  });
+
+  it('still navigates when the reminder profile cannot be resolved', async () => {
+    (fetchProfiles as jest.Mock).mockResolvedValue(null);
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(
+        makeResponse(undefined, 'response-1', 'study_due', undefined, 'kid-9')
+      );
+    });
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards',
     });
   });
 

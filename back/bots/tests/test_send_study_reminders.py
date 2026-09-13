@@ -57,7 +57,11 @@ class TestSendStudyReminders:
         assert notification.to == device.notification_token
         assert notification.title == 'Study reminder'
         assert notification.body == '2 cards due — time to review!'
-        assert notification.data == {'target': 'study_due', 'deck_id': str(deck.deck_id)}
+        assert notification.data == {
+            'target': 'study_due',
+            'deck_id': str(deck.deck_id),
+            'profile_id': str(profile.profile_id),
+        }
 
     @patch('bots.models.device.NotificationClient')
     def test_single_due_deck_body_names_no_deck(self, mock_client, parent, profile):
@@ -87,6 +91,24 @@ class TestSendStudyReminders:
     def test_multiple_decks_aggregate_without_deep_link(self, mock_client, parent, profile):
         _card(_deck(profile, name='Cell Bio'))
         _card(_deck(profile, name='Spanish'))
+        _device(parent, notify_study_due=True)
+
+        call_command('send_study_reminders')
+
+        notification = mock_client.return_value.notify.call_args.args[0]
+        assert notification.body == '2 cards due across 2 decks — time to review!'
+        assert notification.data == {
+            'target': 'study_due',
+            'profile_id': str(profile.profile_id),
+        }
+
+    @patch('bots.models.device.NotificationClient')
+    def test_dues_spanning_profiles_name_no_profile(self, mock_client, parent, profile):
+        """Dues across two profiles have no single right tap target: the
+        payload carries no profile_id and the deck list stands."""
+        sibling = Profile.objects.create(user=parent, name='Leo')
+        _card(_deck(profile, name='Cell Bio'))
+        _card(_deck(sibling, name='Spanish'))
         _device(parent, notify_study_due=True)
 
         call_command('send_study_reminders')
