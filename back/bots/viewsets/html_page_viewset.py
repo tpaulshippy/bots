@@ -66,7 +66,7 @@ class HtmlPageViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(profile__profile_id=uuid.UUID(profile_id))
             except ValueError:
                 return HtmlPage.objects.none()
-        return queryset.order_by('-created_at')
+        return queryset.select_related('profile').order_by('-created_at')
 
     def get_object(self):
         obj = get_object_by_uuid_or_id(self.get_queryset(), 'page_id', self.kwargs[self.lookup_field])

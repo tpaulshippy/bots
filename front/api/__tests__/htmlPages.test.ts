@@ -1,4 +1,4 @@
-import { getPageLink } from '../htmlPages';
+import { fetchHtmlPages, getPageLink } from '../htmlPages';
 import { normalizeStreamEvent } from '../chats';
 import * as requestModule from '../request';
 
@@ -33,6 +33,20 @@ describe('html pages', () => {
   it('returns null when the link endpoint has no url', async () => {
     const spy = jest.spyOn(requestModule, 'request').mockResolvedValue(null);
     await expect(getPageLink('p-1')).resolves.toBeNull();
+    spy.mockRestore();
+  });
+
+  it('lists pages without a filter when no profile is given', async () => {
+    const spy = jest.spyOn(requestModule, 'request').mockResolvedValue({ results: [], count: 0 });
+    await fetchHtmlPages(null);
+    expect(spy).toHaveBeenCalledWith('/html-pages.json', { method: 'GET' }, { results: [], count: 0 });
+    spy.mockRestore();
+  });
+
+  it('filters pages by profile', async () => {
+    const spy = jest.spyOn(requestModule, 'request').mockResolvedValue({ results: [], count: 0 });
+    await fetchHtmlPages('p1');
+    expect(spy).toHaveBeenCalledWith('/html-pages.json?profileId=p1', { method: 'GET' }, { results: [], count: 0 });
     spy.mockRestore();
   });
 });

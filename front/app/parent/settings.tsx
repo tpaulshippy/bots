@@ -95,6 +95,7 @@ export default function SettingsScreen() {
       | "/parent/subscription"
       | "/parent/terms"
       | "/parent/deleteAccount"
+      | "/studyMaterials"
   ) => {
     if (process.env.EXPO_OS === "ios") {
       // Add a soft haptic feedback when pressing down on the tabs.
@@ -152,6 +153,12 @@ export default function SettingsScreen() {
           iconName="list.bullet"
           testID="settings-activity-item"
           onPress={() => goTo("/parent/activity")}
+        ></MenuItem>
+        <MenuItem
+          title="Study Materials"
+          iconName="book.fill"
+          testID="settings-study-materials-item"
+          onPress={() => goTo("/studyMaterials")}
         ></MenuItem>
         <MenuItem
           title="Subscription"

@@ -227,6 +227,26 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="studyMaterials"
+              options={{
+                headerShown: true,
+                title: "Study Materials",
+                headerTintColor: textColor,
+                headerLeft: () => (
+                  <DrawerMenuButton onOpen={() => setIsDrawerOpen(true)} />
+                ),
+              }}
+            />
+            <Stack.Screen
+              name="pageViewer"
+              options={{
+                headerShown: true,
+                title: "Page",
+                headerTintColor: textColor,
+                headerLeft: () => <BackButton onPress={() => router.back()} />,
+              }}
+            />
+            <Stack.Screen
               name="parent/settings"
               options={{
                 headerShown: true,
