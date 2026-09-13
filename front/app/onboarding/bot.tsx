@@ -23,6 +23,11 @@ const DEFAULTS = {
   icon: "sparkles",
 };
 
+const storyFromSystemPrompt = (prompt: string) => {
+  const match = prompt.match(/the character from (.+?)\. You speak with this character's voice and personality\./s);
+  return match?.[1]?.trim() ?? "";
+};
+
 export default function OnboardingBot() {
   const router = useRouter();
   const local = useLocalSearchParams<{
@@ -39,6 +44,12 @@ export default function OnboardingBot() {
   const [story, setStory] = useState("");
   // Review mode targets the pre-filled bot on save (see bootstrap botId).
   const [botId, setBotId] = useState<string | null>(null);
+  const [reviewPromptSeed, setReviewPromptSeed] = useState<{
+    name: string;
+    templateName: string;
+    story: string;
+    systemPrompt: string;
+  } | null>(null);
 
   // Review mode: pre-fill with the currently configured tutor so the wizard
   // shows what's set. Prefer the selected bot, fall back to the first bot.
@@ -65,13 +76,26 @@ export default function OnboardingBot() {
           bots?.results?.[0] ||
           null;
         if (current && active) {
-          setBotName(current.name || DEFAULTS.name);
+          const currentName = current.name || DEFAULTS.name;
+          const currentTemplateName = current.template_name || DEFAULTS.templateName;
+          const currentStory =
+            currentTemplateName === "Character"
+              ? storyFromSystemPrompt(current.system_prompt || "")
+              : "";
+          setBotName(currentName);
           if (typeof current.bot_id === "string" && current.bot_id) {
             setBotId(current.bot_id);
           }
-          setTemplateName(current.template_name || DEFAULTS.templateName);
+          setTemplateName(currentTemplateName);
           setColor(current.color || DEFAULTS.color);
           setIcon(current.icon || DEFAULTS.icon);
+          setStory(currentStory);
+          setReviewPromptSeed({
+            name: currentName,
+            templateName: currentTemplateName,
+            story: currentStory,
+            systemPrompt: current.system_prompt || "",
+          });
         }
       } catch {
         // Prefill is best-effort; defaults still work.
@@ -82,16 +106,26 @@ export default function OnboardingBot() {
     };
   }, [isReview]);
 
+  const trimmedBotName = botName.trim();
+  const trimmedStory = story.trim();
+  const canReuseReviewPrompt =
+    isReview &&
+    reviewPromptSeed !== null &&
+    trimmedBotName === reviewPromptSeed.name &&
+    templateName === reviewPromptSeed.templateName &&
+    (templateName !== "Character" || trimmedStory === reviewPromptSeed.story);
   const canContinue =
-    botName.trim().length > 0 &&
-    (templateName !== "Character" || story.trim().length > 0);
+    trimmedBotName.length > 0 &&
+    (templateName !== "Character" ||
+      trimmedStory.length > 0 ||
+      canReuseReviewPrompt);
 
   // Minimal Bot shape so the shared prompt generator works unchanged.
   const draftBot: Bot = useMemo(
     () => ({
       id: -1,
       bot_id: "",
-      name: botName.trim(),
+      name: trimmedBotName,
       ai_model: "",
       system_prompt: "",
       simple_editor: true,
@@ -105,21 +139,25 @@ export default function OnboardingBot() {
       icon,
       deleted_at: null,
     }),
-    [botName, templateName, color, icon]
+    [trimmedBotName, templateName, color, icon]
   );
 
   const continueToProtect = () => {
-    const inputs: Record<string, string> = { Name: botName.trim(), Story: story.trim() };
+    const inputs: Record<string, string> = { Name: trimmedBotName, Story: trimmedStory };
     router.push({
       pathname: "/onboarding/protect",
       params: {
         profileName: local.profileName ?? "",
-        ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
+        ...(local.studentEmail !== undefined
+          ? { studentEmail: local.studentEmail }
+          : {}),
         ...(local.profileId ? { profileId: local.profileId } : {}),
-        botName: botName.trim(),
+        botName: trimmedBotName,
         ...(botId ? { botId } : {}),
         templateName,
-        systemPrompt: generateSystemPrompt(draftBot, inputs),
+        systemPrompt: canReuseReviewPrompt
+          ? reviewPromptSeed.systemPrompt
+          : generateSystemPrompt(draftBot, inputs),
         color,
         icon,
         ...(isReview ? { review: "true" } : {}),

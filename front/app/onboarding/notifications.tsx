@@ -110,6 +110,27 @@ export default function OnboardingNotifications() {
   // registration throws on simulators/web and offline upserts return null.
   const persistNotificationChoices = async () => {
     if (!notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly) {
+      try {
+        const deviceId = await getDeviceIdFromStorage().catch(() => null);
+        if (!deviceId) {
+          return;
+        }
+        const existing = await fetchDevice(deviceId).catch(() => null);
+        if (!existing) {
+          return;
+        }
+        const saved = await upsertDevice({
+          ...existing,
+          notify_on_new_chat: false,
+          notify_on_new_message: false,
+          notify_digest_only: false,
+        });
+        if (saved) {
+          await setDeviceIdInStorage(saved.device_id);
+        }
+      } catch (error) {
+        Sentry.captureException?.(error);
+      }
       return;
     }
     try {
@@ -148,7 +169,9 @@ export default function OnboardingNotifications() {
       await persistNotificationChoices();
       const response = await bootstrapOnboarding({
         profileName: local.profileName ?? "",
-        ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
+        ...(local.studentEmail !== undefined
+          ? { studentEmail: local.studentEmail }
+          : {}),
         ...(local.profileId ? { profileId: local.profileId } : {}),
         botName: local.botName || undefined,
         ...(local.botId ? { botId: local.botId } : {}),

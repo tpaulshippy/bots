@@ -64,7 +64,9 @@ export default function OnboardingProtect() {
       pathname: "/onboarding/notifications",
       params: {
         profileName: local.profileName ?? "",
-        ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
+        ...(local.studentEmail !== undefined
+          ? { studentEmail: local.studentEmail }
+          : {}),
         ...(local.profileId ? { profileId: local.profileId } : {}),
         ...(local.botName ? { botName: local.botName } : {}),
         ...(local.botId ? { botId: local.botId } : {}),

@@ -125,7 +125,9 @@ export default function OnboardingProfile() {
             pathname: "/onboarding/bot",
             params: {
               profileName: name.trim(),
-              ...(trimmedEmail ? { studentEmail: trimmedEmail.toLowerCase() } : {}),
+              ...(isReview || trimmedEmail
+                ? { studentEmail: trimmedEmail.toLowerCase() }
+                : {}),
               ...(isReview ? { review: "true" } : {}),
               ...(isReview && profileId ? { profileId } : {}),
             },
