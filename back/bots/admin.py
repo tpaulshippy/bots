@@ -43,7 +43,7 @@ class ChatAdmin(admin.ModelAdmin):
 
 class MessageAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
-        return ['created_at', 'modified_at', 'message_id']
+        return ['created_at', 'modified_at', 'message_id', 'model_id']
 
     def get_list_display(self, request):
         return ['message_id', 'created_at', 'modified_at'] + list(super().get_list_display(request))

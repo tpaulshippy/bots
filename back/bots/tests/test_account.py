@@ -201,7 +201,11 @@ def describe_account():
             # operator hand-editing it could re-arm a stale baseline and
             # zero out daily usage, so it must stay admin-readonly like the
             # other reset columns.
-            from bots.admin import UserAccountAdmin
+            from django.contrib import admin as django_admin
+
+            from bots.admin import MessageAdmin, UserAccountAdmin
+            from bots.models.message import Message
+            assert 'model_id' in MessageAdmin(Message, django_admin.site).get_readonly_fields(None)
             for field in (
                 'usage_reset_at', 'usage_reset_timezone', 'usage_reset_cost',
                 'usage_reset_input_tokens', 'usage_reset_output_tokens',
