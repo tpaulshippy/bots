@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 from .models import (
     AiModel,
@@ -118,10 +119,8 @@ class UserAccountAdmin(admin.ModelAdmin):
 
     @admin.action(description='Reset daily token usage for selected accounts')
     def reset_daily_token_usage(self, request, queryset):
-        total = 0
-        for account in queryset:
-            total += account.reset_daily_usage()
-        self.message_user(request, f'Reset daily token usage ({total} chats updated).')
+        updated = queryset.update(usage_reset_at=timezone.now())
+        self.message_user(request, f'Reset daily token usage for {updated} account(s).')
 
 class UserAdmin(BaseUserAdmin):
     list_display = ['username', 'email', 'first_name', 'last_name', 'date_joined']

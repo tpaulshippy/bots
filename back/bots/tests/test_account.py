@@ -61,3 +61,40 @@ def describe_account():
         expected_cost = (0.000000035 * 1) + (0.00000014 * 2)
         expected_cost += (0.00000006 * 3) + (0.00000024 * 4)
         assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
+
+    def describe_reset_daily_usage():
+        def it_clears_todays_cost_without_touching_chat_history(load_fixture):
+            account = User.objects.create()
+            chat = Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            assert account.user_account.cost_for_today()[1:] == (10, 5)
+            account.user_account.reset_daily_usage()
+            account.user_account.refresh_from_db()
+            assert account.user_account.usage_reset_at is not None
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+            chat.refresh_from_db()
+            assert (chat.input_tokens, chat.output_tokens) == (10, 5)
+
+        def it_counts_only_chats_after_reset(load_fixture):
+            account = User.objects.create()
+            Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            account.user_account.reset_daily_usage()
+            Chat.objects.create(user=account, input_tokens=3, output_tokens=4)
+            assert account.user_account.cost_for_today()[1:] == (3, 4)
+
+        def it_ignores_prior_day_chats(load_fixture, backdate_modified_at):
+            account = User.objects.create()
+            old = Chat.objects.create(user=account, input_tokens=50, output_tokens=25)
+            backdate_modified_at(old, timezone.now() - timezone.timedelta(days=1))
+            account.user_account.reset_daily_usage()
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+
+        def it_only_resets_the_selected_account(load_fixture):
+            one = User.objects.create(username='reset-one')
+            two = User.objects.create(username='reset-two')
+            Chat.objects.create(user=one, input_tokens=10, output_tokens=5)
+            Chat.objects.create(user=two, input_tokens=10, output_tokens=5)
+            one.user_account.reset_daily_usage()
+            one.user_account.refresh_from_db()
+            two.user_account.refresh_from_db()
+            assert one.user_account.cost_for_today() == (0.0, 0, 0)
+            assert two.user_account.cost_for_today()[1:] == (10, 5)

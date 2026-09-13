@@ -27,6 +27,10 @@ class UserAccount(models.Model):
     # Set by the first-run onboarding wizard (feature 05); null for accounts
     # that predate it or have not finished onboarding yet.
     onboarding_completed_at = models.DateTimeField(null=True, blank=True)
+    # When an admin resets daily token limits, set to now. Daily cost then
+    # counts only chats modified after max(start of day, this timestamp),
+    # preserving Chat token history instead of zeroing it.
+    usage_reset_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.user.email
@@ -90,7 +94,7 @@ class UserAccount(models.Model):
     def chats_today(self, model_id):
         return Chat.objects.filter(user=self.user,
                                     bot__ai_model__model_id=model_id,
-                                    modified_at__gte=self.start_of_today_utc())
+                                    modified_at__gte=self.usage_period_start_utc())
 
     def start_of_today_utc(self):
         user_timezone = pytz.timezone(self.timezone)
@@ -98,12 +102,16 @@ class UserAccount(models.Model):
         start_of_day = user_timezone.localize(datetime.combine(today, time.min))
         return start_of_day.astimezone(pytz.UTC)
 
+    def usage_period_start_utc(self):
+        start_of_day = self.start_of_today_utc()
+        if self.usage_reset_at is not None and self.usage_reset_at > start_of_day:
+            return self.usage_reset_at
+        return start_of_day
+
     def reset_daily_usage(self):
-        """Zero today's token counters so the account is no longer rate limited today."""
-        return Chat.objects.filter(
-            user=self.user,
-            modified_at__gte=self.start_of_today_utc(),
-        ).update(input_tokens=0, output_tokens=0)
+        """Clear today's rate limit without touching Chat token history."""
+        self.usage_reset_at = timezone.now()
+        self.save(update_fields=['usage_reset_at'])
 
 class RevenueCatWebhookEvent(models.Model):
     raw_event = models.JSONField()
