@@ -167,6 +167,21 @@ export default function OnboardingNotifications() {
     if (saving) {
       return;
     }
+    if (isReview && !reviewDeviceLoaded) {
+      return;
+    }
+    if (
+      isReview &&
+      !reviewDevice &&
+      !notifyOnNewChat &&
+      !notifyOnNewMessage &&
+      !notifyDigestOnly
+    ) {
+      setSaveError(
+        "We couldn't load your current notification settings. Please try again or change them later in Settings → Notifications."
+      );
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -316,6 +331,7 @@ export default function OnboardingNotifications() {
         <ThemedButton
           testID="onboarding-finish"
           style={styles.cta}
+          disabled={isReview && !reviewDeviceLoaded}
           onPress={finish}
         >
           <ThemedText lightColor="#fff" darkColor="#fff" style={styles.ctaText}>

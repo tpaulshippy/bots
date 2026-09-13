@@ -123,6 +123,7 @@ export default function OnboardingBot() {
     (templateName !== "Character" || trimmedStory === reviewPromptSeed.story);
   const canContinue =
     (!isReview || reviewPrefillLoaded) &&
+    (!isReview || botId !== null) &&
     trimmedBotName.length > 0 &&
     (templateName !== "Character" ||
       trimmedStory.length > 0 ||

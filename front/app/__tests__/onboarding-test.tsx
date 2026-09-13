@@ -653,6 +653,24 @@ describe('Onboarding wizard', () => {
           .disabled
       ).toBe(true);
     });
+
+    it('keeps Continue disabled when review bot prefill finds no target bot', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+      (fetchBots as jest.Mock).mockResolvedValue(null);
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+    });
   });
 
   describe('Protect step', () => {
@@ -974,6 +992,16 @@ describe('Onboarding wizard', () => {
         templateName: 'Blank',
         review: 'true',
       });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue({
+        id: 5,
+        device_id: 'd1',
+        notification_token: 'ExponentPushToken[test]',
+        notify_on_new_chat: false,
+        notify_on_new_message: false,
+        notify_digest_only: false,
+        deleted_at: null,
+      });
 
       render(<OnboardingNotifications />);
       await act(async () => {});
@@ -1053,6 +1081,10 @@ describe('Onboarding wizard', () => {
       expect(registerForPushNotificationsAsync).not.toHaveBeenCalled();
       expect(fetchDeviceByToken).not.toHaveBeenCalled();
       expect(upsertDevice).not.toHaveBeenCalled();
+      expect(mockRouter.replace).not.toHaveBeenCalled();
+      expect(screen.getByTestId('onboarding-save-error').props.children).toContain(
+        "couldn't load your current notification settings"
+      );
     });
 
     it('does not persist review notification changes when bootstrap fails', async () => {
