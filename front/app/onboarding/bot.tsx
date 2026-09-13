@@ -12,7 +12,8 @@ import {
   generateSystemPrompt,
 } from "@/api/botTemplates";
 import type { Bot } from "@/api/bots";
-import { fetchBot, fetchBots } from "@/api/bots";
+import { fetchBots, tryFetchBot } from "@/api/bots";
+import { handleUnauthorized } from "@/hooks/useSelectedProfile";
 import { WizardStep } from "./WizardStep";
 
 // Wizard defaults: Blank template, Penelope, teal, sparkles icon.
@@ -53,6 +54,10 @@ export default function OnboardingBot() {
     story: string;
     systemPrompt: string;
   } | null>(null);
+  // True when the selected id missed page one and the confirming lookup
+  // failed transiently: the cached snapshot may be stale, so Continue
+  // stays gated instead of submitting possibly-outdated fields.
+  const [reviewTargetUnverified, setReviewTargetUnverified] = useState(false);
 
   // Review mode: pre-fill with the currently configured tutor so the wizard
   // shows what's set. Prefer the selected bot, fall back to the first bot.
@@ -83,17 +88,33 @@ export default function OnboardingBot() {
         // Resolve the selected id against live data first: the cached
         // snapshot goes stale (the bot editor never refreshes it), so
         // submitting it for a correct botId would overwrite newer server
-        // state and break rerun idempotency. The cache remains only as an
-        // offline/stale fallback, and soft-deleted rows never prefill.
+        // state and break rerun idempotency. The cache remains only as a
+        // confirmed-missing/offline fallback, and soft-deleted rows never
+        // prefill. Auth errors propagate to the login redirect below.
         const liveMatch =
           (selectedId &&
             bots?.results?.find((bot) => bot.bot_id === selectedId)) ||
           null;
         let serverMatch = null;
-        if (selectedId && !liveMatch) {
-          const single = await fetchBot(selectedId).catch(() => null);
-          if (single && !single.deleted_at) {
-            serverMatch = single;
+        if (selectedId && !liveMatch && bots) {
+          let lookup = null;
+          try {
+            lookup = await tryFetchBot(selectedId);
+          } catch (error) {
+            if ((error as { name?: string })?.name === "UnauthorizedError") {
+              throw error;
+            }
+            lookup = null;
+          }
+          if (lookup && lookup !== "missing" && !lookup.deleted_at) {
+            serverMatch = lookup;
+          } else if (lookup !== "missing") {
+            // Transient failure with a loaded list: the cache may be
+            // stale, so prefill it but keep Continue gated. (No list at
+            // all means offline — the cache is the best source there.)
+            if (active) {
+              setReviewTargetUnverified(true);
+            }
           }
         }
         const current =
@@ -128,8 +149,12 @@ export default function OnboardingBot() {
         } else if (active) {
           setReviewCanCreateBot(Array.isArray(bots?.results));
         }
-      } catch {
-        // Prefill is best-effort; defaults still work.
+      } catch (error) {
+        // An expired session leaves the wizard for login; every other
+        // prefill failure is best-effort and the defaults still work.
+        if (await handleUnauthorized(error, router)) {
+          return;
+        }
       } finally {
         if (active) {
           setReviewPrefillLoaded(true);
@@ -139,7 +164,7 @@ export default function OnboardingBot() {
     return () => {
       active = false;
     };
-  }, [isReview]);
+  }, [isReview, router]);
 
   const trimmedBotName = botName.trim();
   const trimmedStory = story.trim();
@@ -152,6 +177,7 @@ export default function OnboardingBot() {
   const canContinue =
     (!isReview || reviewPrefillLoaded) &&
     (!isReview || botId !== null || reviewCanCreateBot) &&
+    (!isReview || !reviewTargetUnverified) &&
     trimmedBotName.length > 0 &&
     (templateName !== "Character" ||
       trimmedStory.length > 0 ||

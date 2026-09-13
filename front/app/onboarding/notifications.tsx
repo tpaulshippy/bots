@@ -26,7 +26,10 @@ import {
   upsertDevice,
 } from "@/api/devices";
 import { fetchProfile, fetchProfiles } from "@/api/profiles";
-import { setSelectedProfile } from "@/hooks/useSelectedProfile";
+import {
+  handleUnauthorized,
+  setSelectedProfile,
+} from "@/hooks/useSelectedProfile";
 import { registerForPushNotificationsAsync } from "../parent/notifications";
 import { WizardStep } from "./WizardStep";
 
@@ -254,7 +257,15 @@ export default function OnboardingNotifications() {
         profileId && profilesList.find((p) => p.profile_id === profileId);
       let fetchedProfile = null;
       if (profileId && !listedProfile) {
-        const single = await fetchProfile(profileId).catch(() => null);
+        // Auth errors propagate to the login redirect in the finish
+        // handler; anything else reads as unresolvable (prior selection
+        // is left intact rather than overwritten with row one).
+        const single = await fetchProfile(profileId).catch((error: unknown) => {
+          if ((error as { name?: string })?.name === "UnauthorizedError") {
+            throw error;
+          }
+          return null;
+        });
         if (single && !single.deleted_at) {
           fetchedProfile = single;
         }
@@ -273,7 +284,13 @@ export default function OnboardingNotifications() {
       const listedBot = botId && botsList.find((b) => b.bot_id === botId);
       let fetchedBot = null;
       if (botId && !listedBot) {
-        const single = await fetchBot(botId).catch(() => null);
+        // Same auth contract as the profile lookup above.
+        const single = await fetchBot(botId).catch((error: unknown) => {
+          if ((error as { name?: string })?.name === "UnauthorizedError") {
+            throw error;
+          }
+          return null;
+        });
         if (single && !single.deleted_at) {
           fetchedBot = single;
         }
@@ -287,6 +304,11 @@ export default function OnboardingNotifications() {
 
       router.replace("/chat");
     } catch (error) {
+      // An expired session leaves the wizard for login (the setup above
+      // already saved, so nothing is lost); anything else is surfaced.
+      if (await handleUnauthorized(error, router)) {
+        return;
+      }
       Sentry.captureException?.(error);
       setSaving(false);
       Alert.alert(

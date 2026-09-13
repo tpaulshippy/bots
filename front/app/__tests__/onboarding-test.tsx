@@ -9,7 +9,7 @@ import OnboardingBot from '../onboarding/bot';
 import OnboardingProtect from '../onboarding/protect';
 import OnboardingNotifications from '../onboarding/notifications';
 import { fetchProfiles, tryFetchProfiles, fetchProfile } from '@/api/profiles';
-import { fetchBots, fetchBot } from '@/api/bots';
+import { fetchBots, fetchBot, tryFetchBot } from '@/api/bots';
 import {
   fetchDevice,
   getDeviceIdFromStorage,
@@ -38,6 +38,7 @@ jest.mock('@/api/profiles', () => ({
 jest.mock('@/api/bots', () => ({
   fetchBots: jest.fn(),
   fetchBot: jest.fn(),
+  tryFetchBot: jest.fn(),
 }));
 
 jest.mock('@/api/devices', () => ({
@@ -82,7 +83,8 @@ describe('Onboarding wizard', () => {
       results: [{ bot_id: 'b1', name: 'Penelope' }],
       count: 1,
     });
-    // Single-bot lookups resolve null unless a test overrides them.
+    // Single-item lookups resolve null unless a test overrides them.
+    (tryFetchBot as jest.Mock).mockResolvedValue(null);
     (fetchBot as jest.Mock).mockResolvedValue(null);
     (bootstrapOnboarding as jest.Mock).mockResolvedValue({
       ok: true,
@@ -477,6 +479,9 @@ describe('Onboarding wizard', () => {
         results: [{ bot_id: 'b1', name: 'Penelope' }],
         count: 1,
       });
+      // Confirmed missing (not a transient failure): the cached snapshot
+      // stays usable for the recreate path.
+      (tryFetchBot as jest.Mock).mockResolvedValue('missing');
 
       render(<OnboardingBot />);
       await act(async () => {});
@@ -565,7 +570,7 @@ describe('Onboarding wizard', () => {
       });
       // The selected bot lives beyond page one; the server copy is newer
       // than the cache (the bot editor never refreshes selectedBot).
-      (fetchBot as jest.Mock).mockResolvedValue({
+      (tryFetchBot as jest.Mock).mockResolvedValue({
         bot_id: 'b9',
         name: 'Fresh Name',
         template_name: 'Blank',
@@ -591,6 +596,46 @@ describe('Onboarding wizard', () => {
           review: 'true',
         }),
       });
+    });
+
+    it('gates Continue when the confirming bot lookup fails transiently', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b9',
+                name: 'Maybe Stale',
+                template_name: 'Blank',
+                color: '#333333',
+                icon: 'sparkles',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      // List loaded but the single lookup flaked: the cache may be stale,
+      // so the step shows it but refuses to submit it.
+      (tryFetchBot as jest.Mock).mockResolvedValue(null);
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Maybe Stale'
+      );
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+      expect(mockRouter.push).not.toHaveBeenCalled();
     });
 
     it('resets missing live bot fields to defaults in review mode', async () => {
@@ -1316,6 +1361,7 @@ describe('Onboarding wizard', () => {
         results: [{ bot_id: 'b1', name: 'Penelope' }],
         count: 2,
       });
+      (tryFetchBot as jest.Mock).mockResolvedValue(null);
       (fetchBot as jest.Mock).mockResolvedValue({
         bot_id: 'b9',
         name: 'Late Bot',
@@ -1366,7 +1412,7 @@ describe('Onboarding wizard', () => {
         results: [{ bot_id: 'b1', name: 'Penelope' }],
         count: 2,
       });
-      (fetchBot as jest.Mock).mockResolvedValue(null);
+      (tryFetchBot as jest.Mock).mockResolvedValue(null);
       (bootstrapOnboarding as jest.Mock).mockResolvedValue({
         ok: true,
         status: 200,
@@ -1391,6 +1437,47 @@ describe('Onboarding wizard', () => {
         expect.anything()
       );
       expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('redirects to login when the finish lookups hit an expired session', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Alex',
+        profileId: 'p9',
+        botName: 'Dragon',
+        botId: 'b9',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Maya' }],
+        count: 2,
+      });
+      const { UnauthorizedError: RealUnauthorizedError } = jest.requireActual(
+        '@/api/apiClient'
+      );
+      (fetchProfile as jest.Mock).mockRejectedValue(
+        new RealUnauthorizedError()
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { profileId: 'p9', botId: 'b9' },
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(mockRouter.replace).toHaveBeenCalledWith('/login');
+      expect(mockRouter.replace).not.toHaveBeenCalledWith('/chat');
     });
 
     it('persists turning all notification toggles off in review mode', async () => {
