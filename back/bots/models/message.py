@@ -20,6 +20,11 @@ class Message(models.Model):
     # content is still visible in the chat history but must never re-enter
     # the model context on later turns (see Chat.get_input()).
     safety_blocked = models.BooleanField(default=False)
+    # Structured tool activity for this assistant turn (deck/page/search/
+    # preview chips). Populated at persist time from ChatAgentService
+    # client_events so chat history replays the same chips the live SSE
+    # stream showed. Empty for user messages and pre-fix rows.
+    agent_events = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         user_str = getattr(self.chat.user, 'email', 'unknown')

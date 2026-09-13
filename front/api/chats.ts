@@ -37,11 +37,61 @@ export interface ChatMessage {
     /** Send failed — the bubble offers a Retry action. */
     failed?: boolean;
     /** Tool activity (searching… / creating flashcards…) for this turn. */
-    agentEvents?: AgentActivity[];
+    agent_events?: AgentActivity[];
 }
 
-export const fetchChat = async (chatId: string): Promise<Chat | null> =>
-    request<Chat | null>(`/chats/${chatId}.json`, {}, null);
+/** Wire chip shape (snake_case, as stored/served). Converted at fetch like SSE frames. */
+type WireAgentChip = {
+    kind: string;
+    name?: string;
+    label?: string;
+    deck_id?: string;
+    page_id?: string;
+    card_count?: number;
+};
+
+/** Map one stored chip to the domain AgentActivity (mirrors normalizeStreamEvent). */
+export const normalizeAgentChip = (chip: WireAgentChip): AgentActivity => {
+    if (chip.kind === 'deck') {
+        return {
+            kind: 'deck',
+            deckId: chip.deck_id ?? '',
+            name: chip.name ?? 'deck',
+            cardCount: chip.card_count ?? 0,
+        };
+    }
+    if (chip.kind === 'page') {
+        return {
+            kind: 'page',
+            pageId: chip.page_id ?? '',
+            name: chip.name ?? 'page',
+        };
+    }
+    return chip as AgentActivity;
+};
+
+/** Wire message shape: chip id keys arrive as snake_case. */
+type ChatMessageDTO = Omit<ChatMessage, 'agent_events'> & {
+    agent_events?: WireAgentChip[];
+};
+
+/** Map one wire message to the domain ChatMessage. */
+const normalizeChatMessage = (message: ChatMessageDTO): ChatMessage => ({
+    ...message,
+    agent_events: (message.agent_events ?? []).map(normalizeAgentChip),
+});
+
+export const fetchChat = async (chatId: string): Promise<Chat | null> => {
+    const data = await request<Omit<Chat, 'messages'> & { messages: ChatMessageDTO[] } | null>(
+        `/chats/${chatId}.json`,
+        {},
+        null,
+    );
+    if (data) {
+        return { ...data, messages: data.messages.map(normalizeChatMessage) };
+    }
+    return data;
+};
 
 export const fetchChats = async (profileId: string | null, page: number | null): Promise<PaginatedResponse<Chat> | null> => {
     let endpoint = '/chats.json?1=1';
@@ -60,7 +110,12 @@ export const fetchChatMessages = async (chatId: string, page: number | null): Pr
     if (page) {
         endpoint += `?page=${page}`;
     }
-    return request<PaginatedResponse<ChatMessage> | null>(endpoint, {}, { results: [], count: 0 });
+    const data = await request<PaginatedResponse<ChatMessageDTO> | null>(endpoint, {}, { results: [], count: 0 });
+    if (data) {
+        // Convert stored chips so history renders the same as live streams.
+        return { ...data, results: data.results.map(normalizeChatMessage) };
+    }
+    return data as PaginatedResponse<ChatMessage> | null;
 }
 
 export interface ChatResponse {

@@ -2030,6 +2030,11 @@ components:
         image_url:
           type: string
           readOnly: true
+        agent_events:
+          type: array
+          items:
+            type: object
+          readOnly: true
       required:
       - chat_id
       - created_at

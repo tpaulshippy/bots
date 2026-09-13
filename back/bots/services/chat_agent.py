@@ -52,6 +52,78 @@ FLASHCARD_BLOCKED = (
 )
 
 
+def _deck_chip(event):
+    if not event.get("deck_id"):
+        return None
+    return {
+        "kind": "deck",
+        "deck_id": event["deck_id"],
+        "name": event.get("name", "deck"),
+        "card_count": event.get("card_count", 0),
+    }
+
+
+def _single_card_chip(event):
+    if not event.get("deck_id"):
+        return None
+    return {"kind": "sources", "label": "📇 Card added"}
+
+
+def _search_chip(event):
+    preview = event.get("result_preview")
+    return {
+        "kind": "sources",
+        "label": f"🌐 {preview}" if preview else "🌐 Sources used",
+    }
+
+
+def _page_chip(event):
+    if not event.get("page_id"):
+        return None
+    return {
+        "kind": "page",
+        "page_id": event["page_id"],
+        "name": event.get("name", "page"),
+    }
+
+
+def _preview_chip(event):
+    if not event.get("page_id"):
+        return None
+    return {"kind": "preview", "label": "👁 Checked render"}
+
+
+_AGENT_CHIP_BY_TOOL = {
+    "create_flashcard_deck": _deck_chip,
+    "create_flashcard": _single_card_chip,
+    "web_search": _search_chip,
+    "save_html_page": _page_chip,
+    "update_html_page": _page_chip,
+    "preview_page": _preview_chip,
+}
+
+
+def client_events_to_agent_events(client_events):
+    """Map backend tool results to frontend AgentActivity chips for history.
+
+    Live SSE streams build these chips client-side from tool_end frames;
+    history replays them from Message.agent_events so a revisit shows the
+    same chips. Transient tool_start states are intentionally omitted —
+    only completed tool results with an id to act on are persisted.
+
+    Chips are stored wire-shaped (snake_case, like every other API
+    payload); the frontend converts id keys to camelCase at fetch,
+    mirroring normalizeStreamEvent.
+    """
+    agent_events = []
+    for event in client_events or []:
+        event = event or {}
+        chip = _AGENT_CHIP_BY_TOOL.get(event.get("tool"), lambda e: None)(event)
+        if chip is not None:
+            agent_events.append(chip)
+    return agent_events
+
+
 class ChatAgentService:
     def __init__(self, chat, ai_client, policy=None):
         self.chat = chat

@@ -36,6 +36,7 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
   const userColor = useThemeColor({ light: "#03465b", dark: "#0a7ea4" }, "tint");
   const timestampColor = useThemeColor({}, "icon");
   const isUser = message.role === "user";
+  const events = message.agent_events ?? [];
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState('');
@@ -69,9 +70,9 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
         </TouchableOpacity>
       )}
       {message.isLoading && <ActivityIndicator style={styles.loading} />}
-      {!isUser && (message.agentEvents?.length ?? 0) > 0 && (
+      {!isUser && events.length > 0 && (
         <ThemedView style={styles.agentChips}>
-          {message.agentEvents!.map((event, index) => (
+          {events.map((event, index) => (
             <ThemedView
               key={`${event.kind}-${index}`}
               testID={`agent-chip-${event.kind === "deck" ? "deck" : event.kind === "sources" ? "search" : event.kind === "page" ? "page" : event.kind === "preview" ? "preview" : "tool"}`}
