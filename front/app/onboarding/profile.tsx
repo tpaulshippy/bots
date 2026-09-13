@@ -31,29 +31,21 @@ export default function OnboardingProfile() {
     (async () => {
       try {
         const selected = await getSelectedProfile().catch(() => null);
-        const selectedName =
-          selected && typeof selected.name === "string"
-            ? selected.name
-            : "";
-        const selectedEmail =
-          selected && typeof selected.oauth_email === "string"
-            ? selected.oauth_email
-            : "";
-        if (selectedName && active) {
-          setName(selectedName);
-          setStudentEmail(selectedEmail ?? "");
-          if (typeof selected.profile_id === "string") {
-            setProfileId(selected.profile_id);
-          }
-          return;
-        }
         const profiles = await fetchProfiles().catch(() => null);
-        const first = profiles?.results?.[0];
-        if (first && active) {
-          setName(first.name ?? "");
-          setStudentEmail(first.oauth_email ?? "");
-          if (typeof first.profile_id === "string") {
-            setProfileId(first.profile_id);
+        const selectedId =
+          selected && typeof selected.profile_id === "string"
+            ? selected.profile_id
+            : null;
+        const current =
+          (selectedId &&
+            profiles?.results?.find((profile) => profile.profile_id === selectedId)) ||
+          profiles?.results?.[0] ||
+          (selected && typeof selected.name === "string" ? selected : null);
+        if (current && active) {
+          setName(current.name ?? "");
+          setStudentEmail(current.oauth_email ?? "");
+          if (typeof current.profile_id === "string") {
+            setProfileId(current.profile_id);
           }
         }
       } catch {

@@ -20,6 +20,7 @@ import {
   bootstrapOnboarding,
   completeOnboarding,
 } from '@/api/account';
+import * as selectedProfileHooks from '@/hooks/useSelectedProfile';
 
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
@@ -58,6 +59,10 @@ describe('Onboarding wizard', () => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
     (useLocalSearchParams as jest.Mock).mockReturnValue({});
+    jest
+      .spyOn(selectedProfileHooks, 'getSelectedProfile')
+      .mockResolvedValue(null);
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
     (fetchProfiles as jest.Mock).mockResolvedValue({
       results: [{ profile_id: 'p1', name: 'Jordan' }],
       count: 1,
@@ -153,6 +158,46 @@ describe('Onboarding wizard', () => {
       fireEvent.press(screen.getByTestId('onboarding-back'));
       expect(mockRouter.back).toHaveBeenCalled();
     });
+
+    it('refreshes the selected profile from the live list in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({
+          profile_id: 'p2',
+          name: 'Old Maya',
+          oauth_email: 'old@school.edu',
+        });
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [
+          { profile_id: 'p1', name: 'Jordan' },
+          { profile_id: 'p2', name: 'Maya', oauth_email: 'new@school.edu' },
+        ],
+        count: 2,
+      });
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        'Maya'
+      );
+      expect(
+        screen.getByTestId('onboarding-student-email-input').props.value
+      ).toBe('new@school.edu');
+
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: {
+          profileName: 'Maya',
+          studentEmail: 'new@school.edu',
+          review: 'true',
+          profileId: 'p2',
+        },
+      });
+    });
   });
 
   describe('Bot step', () => {
@@ -194,6 +239,63 @@ describe('Onboarding wizard', () => {
         pathname: '/onboarding/protect',
         params: expect.objectContaining({
           templateName: 'Character',
+        }),
+      });
+    });
+
+    it('refreshes the selected bot from the live list in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Old Dragon',
+                template_name: 'Character',
+                color: '#111111',
+                icon: 'flame',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [
+          { bot_id: 'b1', name: 'Penelope' },
+          {
+            bot_id: 'b2',
+            name: 'Dragon',
+            template_name: 'Blank',
+            color: '#222222',
+            icon: 'sparkles',
+          },
+        ],
+        count: 2,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Dragon'
+      );
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          profileName: 'Maya',
+          profileId: 'p2',
+          botName: 'Dragon',
+          botId: 'b2',
+          templateName: 'Blank',
+          color: '#222222',
+          icon: 'sparkles',
+          review: 'true',
         }),
       });
     });

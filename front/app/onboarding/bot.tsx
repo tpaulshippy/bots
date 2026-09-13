@@ -53,32 +53,24 @@ export default function OnboardingBot() {
           () => null
         );
         const parsed = stored ? JSON.parse(stored) : null;
-        if (parsed && typeof parsed.name === "string" && active) {
-          setBotName(parsed.name || DEFAULTS.name);
-          if (typeof parsed.bot_id === "string" && parsed.bot_id) {
-            setBotId(parsed.bot_id);
-          }
-          if (typeof parsed.template_name === "string" && parsed.template_name) {
-            setTemplateName(parsed.template_name);
-          }
-          if (typeof parsed.color === "string" && parsed.color) {
-            setColor(parsed.color);
-          }
-          if (typeof parsed.icon === "string" && parsed.icon) {
-            setIcon(parsed.icon);
-          }
-          return;
-        }
         const bots = await fetchBots().catch(() => null);
-        const first = bots?.results?.[0];
-        if (first && active) {
-          setBotName(first.name || DEFAULTS.name);
-          if (typeof first.bot_id === "string" && first.bot_id) {
-            setBotId(first.bot_id);
+        const selectedId =
+          parsed && typeof parsed.bot_id === "string" && parsed.bot_id
+            ? parsed.bot_id
+            : null;
+        const current =
+          (selectedId &&
+            bots?.results?.find((bot) => bot.bot_id === selectedId)) ||
+          bots?.results?.[0] ||
+          (parsed && typeof parsed.name === "string" ? parsed : null);
+        if (current && active) {
+          setBotName(current.name || DEFAULTS.name);
+          if (typeof current.bot_id === "string" && current.bot_id) {
+            setBotId(current.bot_id);
           }
-          if (first.template_name) setTemplateName(first.template_name);
-          if (first.color) setColor(first.color);
-          if (first.icon) setIcon(first.icon);
+          if (current.template_name) setTemplateName(current.template_name);
+          if (current.color) setColor(current.color);
+          if (current.icon) setIcon(current.icon);
         }
       } catch {
         // Prefill is best-effort; defaults still work.
