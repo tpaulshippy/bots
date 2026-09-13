@@ -63,7 +63,10 @@ const RATINGS: { rating: FlashcardRating; label: string }[] = [
 ];
 
 export default function Study() {
-  const { deckId } = useLocalSearchParams<{ deckId: string }>();
+  const { deckId, source } = useLocalSearchParams<{
+    deckId: string;
+    source?: string;
+  }>();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<Flashcard[]>([]);
@@ -102,10 +105,29 @@ export default function Study() {
         // fetchStudyQueue throws on failure, so a network/server error lands
         // in the error state below instead of rendering as "Nothing due".
         const dueCards = await fetchStudyQueue(deckId, "due");
+        if (dueCards.length === 0 && source === "reminder") {
+          // Reminder tap, but nothing due for this profile (already studied):
+          // resolve to the deck list — whose due badges show what's actually
+          // due — instead of a "Nothing due" dead end for a push that
+          // promised cards. Plain navigation keeps the celebratory empty
+          // state. (Inaccessible decks 404, handled in the catch below.)
+          router.replace("/flashcards");
+          return;
+        }
         setCards(dueCards);
       } catch (error) {
         // Expired sessions take the app's logout flow, not the error card.
         if (await handleUnauthorized(error, router)) {
+          return;
+        }
+        if (
+          source === "reminder" &&
+          typeof (error as { status?: unknown } | null) === "object" &&
+          (error as { status?: unknown } | null)?.status === 404
+        ) {
+          // Reminder tap into a deck this profile can't load (e.g. a
+          // sibling's deck on a shared device): same deck-list fallback.
+          router.replace("/flashcards");
           return;
         }
         Sentry.captureException(error);
@@ -115,7 +137,7 @@ export default function Study() {
       }
     };
     loadQueue();
-  }, [deckId, router, reloadKey]);
+  }, [deckId, router, reloadKey, source]);
 
   // Retry resets the flags here (event handler, not the effect) and
   // re-runs the loader above via reloadKey.

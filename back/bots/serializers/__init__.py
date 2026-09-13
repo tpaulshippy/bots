@@ -27,6 +27,7 @@ from .profile_serializer import (
     ProfileIdSerializer,
     ProfileSerializer,
 )
+from .stats_serializer import StatsDaySerializer, StatsSerializer
 
 __all__ = [
     'ActivityBotCountSerializer',
@@ -51,4 +52,6 @@ __all__ = [
     'OwnProfileSerializer',
     'ProfileIdSerializer',
     'ProfileSerializer',
+    'StatsDaySerializer',
+    'StatsSerializer',
 ] 

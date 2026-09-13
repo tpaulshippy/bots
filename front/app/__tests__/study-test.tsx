@@ -165,4 +165,79 @@ describe('Study', () => {
     );
     expect(screen.queryByTestId('study-load-error')).toBeNull();
   });
+
+  it('resolves a reminder tap with nothing due to the deck list', async () => {
+    // A tapped push promised due cards but the queue is empty for this
+    // profile (already studied): land on the deck list — due badges show
+    // what's actually due — instead of a "Nothing due" dead end.
+    (useLocalSearchParams as jest.Mock).mockReturnValue({
+      deckId: 'deck-1',
+      source: 'reminder',
+    });
+    (fetchStudyQueue as jest.Mock).mockResolvedValue([]);
+    render(<Study />);
+
+    await waitFor(() =>
+      expect(mockRouter.replace).toHaveBeenCalledWith('/flashcards')
+    );
+  });
+
+  it('keeps the empty state (no redirect) for plain navigation', async () => {
+    (useLocalSearchParams as jest.Mock).mockReturnValue({ deckId: 'deck-1' });
+    (fetchStudyQueue as jest.Mock).mockResolvedValue([]);
+    render(<Study />);
+
+    await waitFor(() => expect(screen.getByText('Nothing due 🎉')).toBeTruthy());
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it('redirects a reminder tap into an inaccessible deck to the deck list', async () => {
+    // Sibling deck on a shared device: the queue 404s. Reminder taps
+    // resolve to the deck list instead of the load-error card.
+    (useLocalSearchParams as jest.Mock).mockReturnValue({
+      deckId: 'deck-1',
+      source: 'reminder',
+    });
+    (fetchStudyQueue as jest.Mock).mockRejectedValueOnce(
+      Object.assign(new Error('Study queue request failed'), { status: 404 })
+    );
+    render(<Study />);
+
+    await waitFor(() =>
+      expect(mockRouter.replace).toHaveBeenCalledWith('/flashcards')
+    );
+    expect(screen.queryByTestId('study-load-error')).toBeNull();
+  });
+
+  it('shows the error card (no redirect) when a reminder load fails', async () => {
+    // Offline/5xx on a reminder tap: a failed load must surface the error
+    // card, never silently redirect.
+    (useLocalSearchParams as jest.Mock).mockReturnValue({
+      deckId: 'deck-1',
+      source: 'reminder',
+    });
+    (fetchStudyQueue as jest.Mock).mockRejectedValueOnce(
+      Object.assign(new Error('Study queue request failed'), { status: 500 })
+    );
+    render(<Study />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('study-load-error')).toBeTruthy()
+    );
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it('shows truthful per-card interval hints (new card: Again→<1d, rest→1d)', async () => {
+    render(<Study />);
+
+    await waitFor(() => expect(screen.getByText('Q1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('study-card'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('study-rating-again')).toBeTruthy()
+    );
+    expect(screen.getByText('<1d')).toBeTruthy();
+    // Hard/Good/Easy all preview 1d for a brand-new card (reps=0).
+    expect(screen.getAllByText('1d').length).toBeGreaterThanOrEqual(2);
+  });
 });

@@ -274,6 +274,7 @@ class TestStudyQueue:
         assert response.status_code == 404
 
     def test_study_queue_requires_authentication(self, api_client, deck):
+        make_card(deck)
         response = api_client.get(f'/api/decks/{deck.deck_id}/study_queue/')
         assert response.status_code == 401
 

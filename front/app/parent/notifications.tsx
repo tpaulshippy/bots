@@ -82,6 +82,8 @@ export default function NotificationsScreen() {
   // Digest-only suppresses the two immediate flags at send time on the
   // backend; in the UI it disables them so the parent sees what wins.
   const [notifyDigestOnly, setNotifyDigestOnly] = useState(false);
+  // Opt-in flashcard study reminders, also suppressed by digest-only.
+  const [notifyStudyDue, setNotifyStudyDue] = useState(false);
   const deviceRef = useRef<DeviceData | null>(null);
 
   const updateDeviceState = (nextDevice: DeviceData | null) => {
@@ -99,6 +101,7 @@ export default function NotificationsScreen() {
         setNotifyOnNewChat(currentDevice.notify_on_new_chat);
         setNotifyOnNewMessage(currentDevice.notify_on_new_message);
         setNotifyDigestOnly(currentDevice.notify_digest_only);
+        setNotifyStudyDue(currentDevice.notify_study_due ?? false);
         updateDeviceState(currentDevice);
       }
     };
@@ -108,7 +111,10 @@ export default function NotificationsScreen() {
   const persistFlags = async (
     next: Pick<
       DeviceData,
-      "notify_on_new_chat" | "notify_on_new_message" | "notify_digest_only"
+      | "notify_on_new_chat"
+      | "notify_on_new_message"
+      | "notify_digest_only"
+      | "notify_study_due"
     >
   ) => {
     let current = deviceRef.current;
@@ -127,6 +133,7 @@ export default function NotificationsScreen() {
           notify_on_new_chat: false,
           notify_on_new_message: false,
           notify_digest_only: false,
+          notify_study_due: false,
           deleted_at: null,
         } as DeviceData);
     }
@@ -136,6 +143,7 @@ export default function NotificationsScreen() {
       notify_on_new_chat: next.notify_on_new_chat,
       notify_on_new_message: next.notify_on_new_message,
       notify_digest_only: next.notify_digest_only,
+      notify_study_due: next.notify_study_due,
     };
     const saved = await upsertDevice(updatedDevice);
     if (saved) {
@@ -150,6 +158,7 @@ export default function NotificationsScreen() {
       notify_on_new_chat: value,
       notify_on_new_message: notifyOnNewMessage,
       notify_digest_only: notifyDigestOnly,
+      notify_study_due: notifyStudyDue,
     });
   };
 
@@ -159,6 +168,7 @@ export default function NotificationsScreen() {
       notify_on_new_chat: notifyOnNewChat,
       notify_on_new_message: value,
       notify_digest_only: notifyDigestOnly,
+      notify_study_due: notifyStudyDue,
     });
   };
 
@@ -168,6 +178,17 @@ export default function NotificationsScreen() {
       notify_on_new_chat: notifyOnNewChat,
       notify_on_new_message: notifyOnNewMessage,
       notify_digest_only: value,
+      notify_study_due: notifyStudyDue,
+    });
+  };
+
+  const toggleStudyDue = (value: boolean) => {
+    setNotifyStudyDue(value);
+    void persistFlags({
+      notify_on_new_chat: notifyOnNewChat,
+      notify_on_new_message: notifyOnNewMessage,
+      notify_digest_only: notifyDigestOnly,
+      notify_study_due: value,
     });
   };
 
@@ -210,6 +231,22 @@ export default function NotificationsScreen() {
           testID="notify-digest-only-switch"
           value={notifyDigestOnly}
           onValueChange={toggleDigestOnly}
+        />
+      </ThemedView>
+      <ThemedView
+        style={[styles.formGroupCheckbox, { backgroundColor: bgColor }]}
+      >
+        <View style={styles.labelContainer}>
+          <ThemedText style={styles.checkboxLabel}>Study reminders</ThemedText>
+          <ThemedText style={styles.hintLabel}>
+            Nudge me when flashcards are due for review
+          </ThemedText>
+        </View>
+        <Switch
+          testID="notify-study-due-switch"
+          value={notifyStudyDue}
+          disabled={notifyDigestOnly}
+          onValueChange={toggleStudyDue}
         />
       </ThemedView>
     </ThemedView>
