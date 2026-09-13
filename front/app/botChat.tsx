@@ -219,7 +219,7 @@ export default function Chat() {
               { kind: "sources", label: "📇 Card added" },
             ],
           }));
-        } else if ((event.tool === "save_html_page" || event.tool === "update_html_page") && event.pageId) {
+        } else if (event.tool === "save_html_page" && event.pageId) {
           patchStreamingAssistant(message => ({
             ...message,
             agent_events: [

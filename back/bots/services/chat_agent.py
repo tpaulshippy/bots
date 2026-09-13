@@ -98,7 +98,6 @@ _AGENT_CHIP_BY_TOOL = {
     "create_flashcard": _single_card_chip,
     "web_search": _search_chip,
     "save_html_page": _page_chip,
-    "update_html_page": _page_chip,
     "preview_page": _preview_chip,
 }
 
@@ -137,22 +136,18 @@ class ChatAgentService:
         # appended as HumanMessages right after their ToolMessage.
         self._pending_observations = []
         self._preview_count = 0
-        self._created_page_ids = []
 
     def _html_tools(self):
-        """save + update tools when the parent-enabled flag is on.
+        """Single upsert tool (+ preview) when the parent-enabled flag is on.
 
-        Both write DB rows (never host files). Update keeps the same page_id
-        so the local raw URL / download stays stable across iterations.
+        One tool for create and update removes the save-vs-update confusion
+        that looped updates: omit page_id to create, pass it to replace in
+        place (same page_id, stable URL). Rows live in the DB, never files.
         """
         save_tool = self._create_html_page_tool()
         if not save_tool:
             return {}
-        tools = {
-            "save_html_page": save_tool,
-            "append_html_page": self._create_html_append_tool(),
-            "update_html_page": self._create_html_page_update_tool(),
-        }
+        tools = {"save_html_page": save_tool}
         preview_tool = self._create_preview_page_tool()
         if preview_tool:
             tools["preview_page"] = preview_tool
@@ -181,11 +176,8 @@ class ChatAgentService:
 
     HTML_GUIDANCE = (
         "HTML pages are enabled: you can build single-file web pages for the kid.\n"
-        "Large single responses get cut off, so build in small pieces:\n"
-        "1. Call save_html_page with the title (html may be empty) to start.\n"
-        "2. Send the page with append_html_page calls, a couple of sections each.\n"
-        "3. Call preview_page to check the render and fix issues.\n"
-        "Small pages may be saved in one save_html_page call with BOTH title and html.\n"
+        "Call save_html_page ONCE with the title AND the complete single-file html document.\n"
+        "To change a page, call save_html_page again with the SAME page_id and the full replacement html.\n"
         "Ignore reply length or word-count limits while emitting page content.\n"
         "Always mention the page title in your reply so the kid can reference it later."
     )
@@ -220,7 +212,7 @@ class ChatAgentService:
             if not pages:
                 return None
             lines = [
-                "The kid's saved HTML pages (prefer update_html_page over save_html_page when they refine one):",
+                "The kid's saved HTML pages (to refine one, call save_html_page with its page_id and the full replacement html):",
             ]
             for p in reversed(list(pages)):
                 chat_title = getattr(p.chat, "title", "") or "this chat"
@@ -262,7 +254,6 @@ class ChatAgentService:
             "create_flashcard": self._create_flashcard_tool(),
         }
         self._preview_count = 0
-        self._created_page_ids = []
 
         web_search = self._create_web_search_tool()
         if web_search:
@@ -278,9 +269,6 @@ class ChatAgentService:
         logger.info("🤖 AGENT_LOOP_COMPLETE: extracting final response")
 
         response_text, usage_metadata = self._extract_response(messages)
-        sweep_note = self._sweep_drafts()
-        if sweep_note:
-            response_text = response_text + sweep_note
         return response_text, usage_metadata
 
     def respond_events(self, message_list):
@@ -302,7 +290,6 @@ class ChatAgentService:
             "create_flashcard": self._create_flashcard_tool(),
         }
         self._preview_count = 0
-        self._created_page_ids = []
         web_search = self._create_web_search_tool()
         has_web_search = False
         if web_search:
@@ -382,26 +369,13 @@ class ChatAgentService:
             # contiguous, and a HumanMessage in the middle gets rejected.
             messages.extend(self._drain_observations())
 
-        # Sweep unfinished drafts so chunked builds complete even when the
-        # model never calls preview_page. Chip events mirror the tool path
-        # so the frontend renders them identically.
-        events_before = len(self.client_events)
-        sweep_note = self._sweep_drafts()
-        if sweep_note:
-            for event in self.client_events[events_before:]:
-                if event.get("tool") == "save_html_page" and event.get("page_id"):
-                    yield {"type": "tool_start", "tool": "save_html_page", "args": {"title": event.get("name", "")}}
-                    tool_end = {"type": "tool_end", "tool": "save_html_page"}
-                    tool_end.update({k: v for k, v in event.items() if k != "tool"})
-                    yield tool_end
-            yield {"type": "token", "text": sweep_note}
-
         yield {"type": "done", **usage_totals}
 
-    # Chunked page builds (save + several appends + preview + fixes) need
-    # more turns than single-shot tools. The loop still exits early when
-    # the model stops calling tools, so this only raises the ceiling.
-    MAX_ITERATIONS = 10
+    # Single-shot page saves (+ at most two previews) finish fast. The loop
+    # still exits early when the model stops calling tools; the ceiling only
+    # bounds worst-case retry loops so one stuck turn can't burn the day's
+    # quota (prod incident: update retry loop hit 26k in / 10k out).
+    MAX_ITERATIONS = 6
 
     def _run_agent_loop(self, model_with_tools, messages, tools):
         iteration = 0
@@ -706,110 +680,79 @@ class ChatAgentService:
             return HTML_PAGE_BLOCKED
         return None
 
-    def _persist_html_page(self, title, html):
-        """Validate, safety-check, and store a new page. Shared by the save
-        tool and the turn-end sweep. Returns (page, message)."""
-        from bots.models.html_page import HtmlPage
-
-        clean_title = (title or "").strip()[:255]
-        if not clean_title or not (html or "").strip():
-            return None, "Title and html are both required."
-        error = self._validate_full_html(clean_title, html)
-        if error:
-            return None, error
-        try:
-            with transaction.atomic():
-                page = HtmlPage.objects.create(
-                    profile=self.chat.profile,
-                    chat=self.chat,
-                    bot=self.chat.bot,
-                    title=clean_title,
-                    html=html,
-                )
-                self._record_event({
-                    "tool": "save_html_page",
-                    "page_id": str(page.page_id),
-                    "name": clean_title,
-                })
-                return page, (
-                    f"Saved page '{clean_title}'. Open it in the browser with "
-                    f"/api/html-pages/{page.page_id}/raw"
-                )
-        except Exception as e:
-            logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
-            return None, f"Error saving page: {e!s}"
-
-    def _sweep_drafts(self):
-        """Finish or discard pages started but never announced this turn.
-
-        Models sometimes append all chunks yet never call preview_page.
-        Anything created this turn without a success event gets validated:
-        complete pages are announced (chip + note), empty or invalid ones
-        are deleted so broken drafts never leak into the catalog. Returns
-        note text to append, or None.
-        """
-        from bots.models.html_page import HtmlPage
-
-        notes = []
-        announced = {
-            e.get("page_id") for e in self.client_events if e.get("page_id")
-        }
-        for page_id in dict.fromkeys(self._created_page_ids):
-            if page_id in announced:
-                continue
-            try:
-                page = HtmlPage.objects.get(
-                    page_id=page_id, profile=self.chat.profile,
-                )
-            except (HtmlPage.DoesNotExist, ValueError, AttributeError):
-                continue
-            if not (page.html or "").strip():
-                page.delete()
-                continue
-            error = self._validate_full_html(page.title, page.html)
-            if error is None:
-                self._record_event({
-                    "tool": "save_html_page",
-                    "page_id": str(page.page_id),
-                    "name": page.title,
-                })
-                notes.append(f"\n\nSaved page '{page.title}' — open it from the page button above.")
-            else:
-                page.delete()
-                logger.info(f"🌐 DRAFT_SWEEP_DISCARDED: {page.title} ({error[:60]})")
-                if error == HTML_PAGE_BLOCKED:
-                    notes.append(f"\n\n{HTML_PAGE_BLOCKED}")
-        self._created_page_ids = []
-        return "".join(notes) or None
-
     def _create_html_page_tool(self):
+        """Single upsert tool: omit page_id to create, pass it to replace.
+
+        Both html and (on create) title are required every call — no drafts,
+        no chunks, no second tool name to confuse. Updates keep the same
+        page_id so the raw URL stays stable.
+        """
         if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
             return None
         if self.chat.profile is None:
             return None
 
         @tool
-        def save_html_page(title: str, html: str = "") -> str:
-            """Start or save a single-file HTML page for the kid.
+        def save_html_page(title: str, html: str, page_id: str = "") -> str:
+            """Save a single-file HTML page for the kid (create or update).
 
-            Large documents get cut off, so build in small pieces: call with
-            just the title to start a draft, add content with append_html_page
-            (a couple of sections per call), then preview_page when done.
-            Small pages may be saved in one call with BOTH title and html.
+            Omit page_id to create a new page. To change an existing page,
+            pass its page_id with the FULL replacement html document.
             Ignore reply length or word-count limits while emitting page content.
             Args:
-                title: Short page title shown in chat.
-                html: Complete page for one-shot saves; empty to start a draft.
+                title: Short page title shown in chat (required for new pages).
+                html: Complete single-file HTML document (always required).
+                page_id: Existing page to replace in place; empty to create.
             """
+            import uuid as uuid_lib
+
             from bots.models.html_page import HtmlPage
 
+            if not (html or "").strip():
+                return "html is required: call save_html_page again with the complete HTML document."
+            logger.info(
+                f"🌐 SAVE_HTML_PAGE_INVOKED: title='{title}' "
+                f"page_id='{page_id}' bytes={len(html.encode('utf-8'))}"
+            )
+            if (page_id or "").strip():
+                try:
+                    page_uuid = uuid_lib.UUID(str(page_id).strip())
+                except (ValueError, AttributeError):
+                    return "Unknown page. Ask which page to update or save a new one without page_id."
+                try:
+                    page = HtmlPage.objects.get(
+                        page_id=page_uuid, profile=self.chat.profile,
+                    )
+                except HtmlPage.DoesNotExist:
+                    return "Unknown page. Ask which page to update or save a new one without page_id."
+                new_title = (title or "").strip()[:255] or page.title
+                error = self._validate_full_html(new_title, html)
+                if error:
+                    return error
+                try:
+                    with transaction.atomic():
+                        page = HtmlPage.objects.select_for_update().get(pk=page.pk)
+                        page.html = html
+                        page.title = new_title
+                        page.save(update_fields=["html", "title", "updated_at"])
+                        self._record_event({
+                            "tool": "save_html_page",
+                            "page_id": str(page.page_id),
+                            "name": page.title,
+                        })
+                        return (
+                            f"Updated page '{page.title}'. Reopen "
+                            f"/api/html-pages/{page.page_id}/raw/ to see the changes"
+                        )
+                except Exception as e:
+                    logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
+                    return f"Error saving page: {e!s}"
             clean_title = (title or "").strip()[:255]
             if not clean_title:
                 return "Title is required."
-            logger.info(f"🌐 SAVE_HTML_PAGE_INVOKED: title='{clean_title}' bytes={len((html or '').encode('utf-8'))}")
-            if (html or "").strip():
-                _, message = self._persist_html_page(clean_title, html)
-                return message
+            error = self._validate_full_html(clean_title, html)
+            if error:
+                return error
             try:
                 with transaction.atomic():
                     page = HtmlPage.objects.create(
@@ -817,13 +760,16 @@ class ChatAgentService:
                         chat=self.chat,
                         bot=self.chat.bot,
                         title=clean_title,
-                        html="",
+                        html=html,
                     )
-                    self._created_page_ids.append(str(page.page_id))
+                    self._record_event({
+                        "tool": "save_html_page",
+                        "page_id": str(page.page_id),
+                        "name": clean_title,
+                    })
                     return (
-                        f"Draft page '{clean_title}' started (page_id={page.page_id}). "
-                        "Send the page in small pieces with append_html_page, "
-                        "then call preview_page when complete."
+                        f"Saved page '{clean_title}'. Open it in the browser with "
+                        f"/api/html-pages/{page.page_id}/raw"
                     )
             except Exception as e:
                 logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
@@ -831,135 +777,9 @@ class ChatAgentService:
 
         return _harden_tool(
             save_html_page,
-            "Missing required arguments. Call save_html_page with at least "
-            "'title' (html may be empty to start a draft).",
-        )
-
-    def _create_html_append_tool(self):
-        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
-            return None
-        if self.chat.profile is None:
-            return None
-
-        @tool
-        def append_html_page(page_id: str, chunk: str) -> str:
-            """Append one small piece to a draft page (a couple of sections).
-
-            Keep each chunk small. Call preview_page when the page is complete.
-            Args:
-                page_id: The page_id from save_html_page.
-                chunk: Raw HTML to append verbatim.
-            """
-            import uuid as uuid_lib
-
-            from bots.models.html_page import HtmlPage
-
-            try:
-                page_uuid = uuid_lib.UUID(str(page_id))
-            except (ValueError, AttributeError):
-                return "Unknown page. Start one with save_html_page first."
-            try:
-                page = HtmlPage.objects.get(
-                    page_id=page_uuid, profile=self.chat.profile,
-                )
-            except HtmlPage.DoesNotExist:
-                return "Unknown page. Start one with save_html_page first."
-            if not (chunk or "").strip():
-                return "chunk is required."
-            try:
-                with transaction.atomic():
-                    page = HtmlPage.objects.select_for_update().get(pk=page.pk)
-                    page.html = (page.html or "") + chunk
-                    page.save(update_fields=["html", "updated_at"])
-                    if str(page.page_id) not in self._created_page_ids:
-                        self._created_page_ids.append(str(page.page_id))
-                    total = len(page.html.encode("utf-8"))
-                    return (
-                        f"Added ({total} chars total). Send the next piece, "
-                        "or call preview_page when the page is complete."
-                    )
-            except Exception as e:
-                logger.error(f"🌐 APPEND_HTML_PAGE_ERROR: {e!s}")
-                return f"Error appending: {e!s}"
-
-        return _harden_tool(
-            append_html_page,
-            "Missing required arguments. Call append_html_page with "
-            "'page_id' and 'chunk'.",
-        )
-
-    def _create_html_page_update_tool(self):
-        from bots.serializers.html_page_serializer import (
-            MAX_HTML_BYTES,
-            html_to_text,
-            is_single_file_html,
-        )
-
-        @tool
-        def update_html_page(page_id: str, html: str, title: str = "") -> str:
-            """Update an EXISTING page in place (same URL). Use when the user
-            iterates ("change X", "make it blue", "add Y").
-
-            Args:
-                page_id: The page_id from the chat catalog or a prior save.
-                html: Complete replacement single-file HTML document.
-                title: Optional new title.
-            """
-            import uuid as uuid_lib
-
-            from bots.models.html_page import HtmlPage
-
-            logger.info(f"🌐 UPDATE_HTML_PAGE_INVOKED: page_id='{page_id}'")
-            try:
-                page_uuid = uuid_lib.UUID(str(page_id))
-            except (ValueError, AttributeError):
-                return "Unknown page. Ask which page to update or save a new one."
-            try:
-                page = HtmlPage.objects.get(
-                    page_id=page_uuid,
-                    profile=self.chat.profile,
-                )
-            except HtmlPage.DoesNotExist:
-                return "Unknown page. Ask which page to update or save a new one."
-            if not (html or "").strip():
-                return "html is required."
-            if len(html.encode("utf-8")) > MAX_HTML_BYTES:
-                return HTML_PAGE_TOO_LARGE
-            if not is_single_file_html(html):
-                return "HTML must be a single self-contained page."
-            new_title = (title or "").strip()[:255] or page.title
-            verdict = evaluate_text(f"{new_title} {html_to_text(html)}", self.policy, source="OUTPUT")
-            if verdict.blocked:
-                record_safety_event(
-                    stage="tool_html_page",
-                    verdict=verdict,
-                    chat=self.chat,
-                    snippet=f"{new_title} {html_to_text(html)[:200]}",
-                )
-                return HTML_PAGE_BLOCKED
-            try:
-                with transaction.atomic():
-                    page = HtmlPage.objects.select_for_update().get(pk=page.pk)
-                    page.html = html
-                    page.title = new_title
-                    page.save(update_fields=["html", "title", "updated_at"])
-                    self._record_event({
-                        "tool": "update_html_page",
-                        "page_id": str(page.page_id),
-                        "name": page.title,
-                    })
-                    return (
-                        f"Updated page '{page.title}'. Reopen "
-                        f"/api/html-pages/{page.page_id}/raw/ to see the changes"
-                    )
-            except Exception as e:
-                logger.error(f"🌐 UPDATE_HTML_PAGE_ERROR: {e!s}")
-                return f"Error updating page: {e!s}"
-
-        return _harden_tool(
-            update_html_page,
-            "Missing required arguments. Call update_html_page again with "
-            "'page_id' AND the complete replacement 'html' document.",
+            "Missing required arguments. Call save_html_page again with "
+            "'title' AND the complete 'html' document "
+            "(add 'page_id' only when replacing an existing page).",
         )
 
     def _create_preview_page_tool(self):
@@ -979,8 +799,8 @@ class ChatAgentService:
         def preview_page(page_id: str) -> str:
             """Render an existing page headlessly and LOOK at the screenshot.
 
-            Use after save_html_page/update_html_page to check layout and JS
-            errors, then fix with update_html_page if needed. Max two previews
+            Use after save_html_page to check layout and JS
+            errors, then fix with save_html_page (same page_id) if needed. Max two previews
             per turn. Only accepts page_ids from this chat's catalog.
             Args:
                 page_id: The page_id from the chat catalog or a prior save.
@@ -1004,15 +824,10 @@ class ChatAgentService:
                 )
             except HtmlPage.DoesNotExist:
                 return "Unknown page. Ask which page to preview or save a new one."
-            # Gate before render: drafts under construction fail here until
-            # complete, and unsafe content never reaches the browser.
+            # Gate before render: incomplete saves fail here, and unsafe
+            # content never reaches the browser.
             error = self._validate_full_html(page.title, page.html or "")
             if error:
-                if "self-contained" in error:
-                    return (
-                        "The page is not complete yet. Keep appending "
-                        "the remaining sections with append_html_page, then preview again."
-                    )
                 return error
             shot = render_page_shot(page.html)
             if shot is None:
@@ -1034,7 +849,7 @@ class ChatAgentService:
                     return (
                         "I can't show that render because the finished page "
                         "didn't pass the safety check. Fix the page with "
-                        "update_html_page and try previewing again."
+                        "save_html_page (same page_id) and try previewing again."
                     )
             png_bytes = shot.get("png_bytes")
             if png_bytes:
@@ -1062,7 +877,7 @@ class ChatAgentService:
             if not console_errors and not page_errors:
                 parts.append("No JS errors.")
             if png_bytes:
-                parts.append("The screenshot follows as an image; inspect the layout and fix issues with update_html_page if needed.")
+                parts.append("The screenshot follows as an image; inspect the layout and fix issues with save_html_page (same page_id) if needed.")
             else:
                 parts.append("No screenshot captured.")
             return "\n".join(parts)

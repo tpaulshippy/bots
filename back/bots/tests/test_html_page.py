@@ -27,34 +27,25 @@ def describe_html_page_tool():
         assert HtmlPage.objects.count() == 1
         assert svc.client_events[0]["tool"] == "save_html_page"
 
-    def it_starts_a_draft_on_title_only_and_appends_in_pieces():
+    def it_requires_html_every_call_and_creates_nothing_without_it():
         chat = _chat()
         svc = ChatAgentService(chat, MagicMock())
         tools = svc._html_tools()
-        start = tools["save_html_page"].invoke({"title": "Dino"})
-        assert "append_html_page" in start
-        assert "page_id=" in start
-        assert HtmlPage.objects.count() == 1
-        # No chip yet: nothing valid to show.
+        assert set(tools) <= {"save_html_page", "preview_page"}
+        result = tools["save_html_page"].invoke({"title": "Dino"})
+        # Missing `html` fails arg validation, so the hardened retry hint
+        # (not the in-function message) comes back — either way, no page.
+        assert "html" in result
+        assert HtmlPage.objects.count() == 0
         assert svc.client_events == []
-        import re as _re
-        page_id = _re.search(r"page_id=([0-9a-f-]{36})", start).group(1)
-        r1 = tools["append_html_page"].invoke({
-            "page_id": page_id, "chunk": "<html><body><h1>Hi</h1>",
-        })
-        assert "chars total" in r1
-        r2 = tools["append_html_page"].invoke({
-            "page_id": page_id, "chunk": "</body></html>",
-        })
-        assert "chars total" in r2
-        page = HtmlPage.objects.get()
-        assert page.html == "<html><body><h1>Hi</h1></body></html>"
 
-    def it_rejects_appends_to_unknown_pages():
+    def it_rejects_upserts_to_unknown_pages():
         chat = _chat()
         svc = ChatAgentService(chat, MagicMock())
-        result = svc._create_html_append_tool().invoke({
-            "page_id": "00000000-0000-0000-0000-000000000000", "chunk": "x",
+        result = svc._create_html_page_tool().invoke({
+            "page_id": "00000000-0000-0000-0000-000000000000",
+            "title": "Dino",
+            "html": "<html><body>hi</body></html>",
         })
         assert "Unknown page" in result
 
@@ -68,71 +59,16 @@ def describe_html_page_tool():
         svc = ChatAgentService(chat, MagicMock())
         tools = svc._html_tools()
         assert "preview_page" in tools
-        start = tools["save_html_page"].invoke({"title": "Dino"})
-        import re as _re
-        page_id = _re.search(r"page_id=([0-9a-f-]{36})", start).group(1)
-        tools["append_html_page"].invoke({
-            "page_id": page_id, "chunk": "<html><body><h1>Hi</h1>",
-        })
-        # Incomplete: single-file check fails before any render is attempted.
-        result = tools["preview_page"].invoke({"page_id": page_id})
-        assert "not complete yet" in result
+        # Single-shot saves are complete by construction; an incomplete row
+        # can only exist via direct writes — preview must still refuse it.
+        from bots.models import HtmlPage as _HtmlPage
+        page = _HtmlPage.objects.create(
+            profile=chat.profile, chat=chat, bot=chat.bot,
+            title="Dino", html="<html><body><h1>Hi</h1>",
+        )
+        result = tools["preview_page"].invoke({"page_id": str(page.page_id)})
+        assert "self-contained" in result
         assert svc.client_events == []
-
-    def it_sweeps_abandoned_drafts_at_turn_end():
-        from langchain_core.messages import AIMessage
-        chat = _chat()
-        svc = ChatAgentService(chat, MagicMock())
-        save_id, append_id = "c-save", "c-append"
-        first = AIMessage(
-            content="",
-            tool_calls=[
-                {"name": "save_html_page", "args": {"title": "Dino"}, "id": save_id, "type": "tool_call"},
-                {"name": "append_html_page", "args": {"page_id": "LATEST", "chunk": "<html><body><h1>Hi</h1></body></html>"}, "id": append_id, "type": "tool_call"},
-            ],
-        )
-        final = AIMessage(
-            content="All done!",
-            usage_metadata={"input_tokens": 5, "output_tokens": 5, "total_tokens": 10},
-        )
-
-        real_execute = svc._execute_tool
-
-        def execute_with_latest(name, args, tools, has_search):
-            if args.get("page_id") == "LATEST":
-                latest = HtmlPage.objects.order_by("-id").first()
-                args = {**args, "page_id": str(latest.page_id)}
-            return real_execute(name, args, tools, has_search)
-
-        svc._execute_tool = execute_with_latest
-        bound = MagicMock()
-        bound.invoke.side_effect = [first, final]
-        svc.ai_client.bind_tools.return_value = bound
-        text, _ = svc.respond([])
-        assert "Saved page 'Dino'" in text
-        assert svc.client_events[-1]["tool"] == "save_html_page"
-        assert HtmlPage.objects.count() == 1
-
-    def it_discards_empty_drafts_at_turn_end():
-        from langchain_core.messages import AIMessage
-        chat = _chat()
-        svc = ChatAgentService(chat, MagicMock())
-        first = AIMessage(
-            content="",
-            tool_calls=[
-                {"name": "save_html_page", "args": {"title": "Dino"}, "id": "c1", "type": "tool_call"},
-            ],
-        )
-        final = AIMessage(
-            content="Never mind!",
-            usage_metadata={"input_tokens": 5, "output_tokens": 5, "total_tokens": 10},
-        )
-        bound = MagicMock()
-        bound.invoke.side_effect = [first, final]
-        svc.ai_client.bind_tools.return_value = bound
-        text, _ = svc.respond([])
-        assert "Saved page" not in text
-        assert HtmlPage.objects.count() == 0
 
     def it_blocks_unsafe_page_text():
         chat = _chat()
@@ -196,23 +132,24 @@ def describe_html_page_tool():
         save = svc._create_html_page_tool()
         save.invoke({"title": "Dino", "html": "<html><body><h1>v1</h1></body></html>"})
         page = HtmlPage.objects.get()
-        update = svc._create_html_page_update_tool()
-        result = update.invoke({
+        result = save.invoke({
             "page_id": str(page.page_id),
+            "title": "Dino",
             "html": "<html><body><h1>v2 blue</h1></body></html>",
         })
         assert "Updated page" in result
         page.refresh_from_db()
         assert "v2 blue" in page.html
         assert HtmlPage.objects.count() == 1
-        assert svc.client_events[-1]["tool"] == "update_html_page"
+        assert svc.client_events[-1]["tool"] == "save_html_page"
 
     def it_rejects_unknown_or_foreign_page_ids():
         chat = _chat()
         svc = ChatAgentService(chat, MagicMock())
-        update = svc._create_html_page_update_tool()
+        update = svc._create_html_page_tool()
         assert "Unknown page" in update.invoke({
             "page_id": "00000000-0000-0000-0000-000000000000",
+            "title": "Dino",
             "html": "<html><body>hi</body></html>",
         })
 
@@ -225,8 +162,9 @@ def describe_html_page_tool():
         })
         page = HtmlPage.objects.get()
         other_svc = ChatAgentService(other, MagicMock())
-        result = other_svc._create_html_page_update_tool().invoke({
+        result = other_svc._create_html_page_tool().invoke({
             "page_id": str(page.page_id),
+            "title": "Dino",
             "html": "<html><body>blue</body></html>",
         })
         assert "Updated page" in result
@@ -245,8 +183,9 @@ def describe_html_page_tool():
         stranger_profile = Profile.objects.create(user=stranger, name="S")
         stranger_chat = Chat.objects.create(user=stranger, profile=stranger_profile, bot=chat.bot)
         stranger_svc = ChatAgentService(stranger_chat, MagicMock())
-        assert "Unknown page" in stranger_svc._create_html_page_update_tool().invoke({
+        assert "Unknown page" in stranger_svc._create_html_page_tool().invoke({
             "page_id": str(page.page_id),
+            "title": "Dino",
             "html": "<html><body>hijack</body></html>",
         })
         page.refresh_from_db()
@@ -255,13 +194,13 @@ def describe_html_page_tool():
     def it_returns_guidance_instead_of_raising_on_title_only_call():
         # Prod incident: model called save_html_page with title alone;
         # pydantic ValidationError aborted the whole turn (Retry buttons).
-        # Title-only now starts a draft the model appends to (see the
-        # draft/append tests below); nothing raises either way.
+        # Title-only now returns a retry hint as text; nothing raises and
+        # nothing is stored.
         chat = _chat()
         svc = ChatAgentService(chat, MagicMock())
         result = svc._create_html_page_tool().invoke({"title": "Minecraft Guide"})
-        assert "append_html_page" in result
-        assert HtmlPage.objects.count() == 1
+        assert "html" in result
+        assert HtmlPage.objects.count() == 0
 
     def it_converts_unexpected_tool_errors_to_text():
         chat = _chat()
@@ -281,7 +220,7 @@ def describe_html_page_tool():
         })
         catalog = ChatAgentService(chat, MagicMock())._page_catalog_message()
         assert isinstance(catalog, SystemMessage)
-        assert "update_html_page" in catalog.content
+        assert "save_html_page" in catalog.content
         assert "Dino" in catalog.content
         # A new chat for the same profile still sees the page (by title).
         new_chat = Chat.objects.create(user=chat.user, profile=chat.profile, bot=chat.bot)
@@ -331,8 +270,8 @@ def describe_html_page_tool():
         from bots.services.chat_agent import ChatAgentService as Svc
         lowered = Svc.HTML_GUIDANCE.lower()
         assert "word" in lowered
-        assert "small pieces" in lowered
-        assert "append_html_page" in lowered
+        assert "complete" in lowered
+        assert "save_html_page" in lowered
 
     def it_teaches_tool_calls_not_message_dumps():
         # Direction: the model calls the tool; HTML never goes in chat.

@@ -567,7 +567,7 @@ def describe_agent_events_history():
             {"tool": "create_flashcard", "deck_id": "d1", "name": "Cell Bio"},
             {"tool": "web_search", "query": "mitosis", "result_preview": "2 results"},
             {"tool": "save_html_page", "page_id": "p1", "name": "Minecraft Guide"},
-            {"tool": "update_html_page", "page_id": "p2", "name": "Dino"},
+            {"tool": "save_html_page", "page_id": "p2", "name": "Dino"},
             {"tool": "preview_page", "page_id": "p1", "name": "Minecraft Guide"},
             {"tool": "create_flashcard_deck"},  # failed: no id -> no chip
         ])
@@ -592,7 +592,7 @@ def describe_agent_events_history():
             {"tool": "create_flashcard_deck"},  # no deck_id
             {"tool": "create_flashcard"},  # no deck_id
             {"tool": "save_html_page", "name": "No id"},
-            {"tool": "update_html_page", "name": "No id"},
+            {"tool": "save_html_page", "name": "No id"},
             {"tool": "preview_page", "name": "No id"},
         ]) == []
         assert client_events_to_agent_events([
