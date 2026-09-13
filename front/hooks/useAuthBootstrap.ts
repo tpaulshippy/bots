@@ -55,6 +55,42 @@ export function useAuthBootstrap(loaded: boolean) {
   }, []);
 
   /**
+   * Same ownership repair as setProfile, for the selected bot: a stored
+   * selection from another account (or a deleted bot) is dropped and
+   * re-seeded from the live list. Unlike setProfile, a failed fetch keeps
+   * the stored selection — offline must not strand the user with no bot.
+   */
+  const setBot = useCallback(async () => {
+    const botData = await AsyncStorage.getItem("selectedBot");
+    if (!botData) {
+      return;
+    }
+    const bots = await fetchBots().catch(() => null);
+    if (!bots) {
+      return;
+    }
+    let bot: { bot_id?: string } | null = null;
+    try {
+      bot = JSON.parse(botData);
+    } catch {
+      bot = null;
+    }
+    const botExists =
+      !!bot &&
+      typeof bot.bot_id === "string" &&
+      bots.results.some((b) => b.bot_id === bot.bot_id);
+    if (!botExists) {
+      await AsyncStorage.removeItem("selectedBot");
+      if (bots.count > 0) {
+        await AsyncStorage.setItem(
+          "selectedBot",
+          JSON.stringify(bots.results[0])
+        );
+      }
+    }
+  }, []);
+
+  /**
    * Teen-delegated sessions never see the profile picker: fetch only their
    * own redacted profile (the parent list endpoint denies them) and force
    * it as the selection.
@@ -88,6 +124,7 @@ export function useAuthBootstrap(loaded: boolean) {
         await setDelegatedProfile();
       } else {
         await setProfile();
+        await setBot();
       }
     } catch (error) {
       if (error instanceof UnauthorizedError) {
@@ -98,7 +135,7 @@ export function useAuthBootstrap(loaded: boolean) {
         Sentry.captureException?.(error);
       }
     }
-  }, [router, setDelegatedProfile, setProfile]);
+  }, [router, setBot, setDelegatedProfile, setProfile]);
 
   const getJWTFromLink = useCallback(async (event?: any): Promise<boolean> => {
     const url = event?.url;
