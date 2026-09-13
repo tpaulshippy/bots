@@ -227,6 +227,23 @@ def describe_account():
             lite.save()
             assert account.user_account.cost_for_today() == (0.0, 0, 0)
 
+        def it_voids_the_baseline_when_the_default_changes_under_fallback_rows(load_fixture):
+            # Bot-less rows bill at default rates. Switching the default
+            # after a reset reprices them, so the old snapshot must not be
+            # subtracted (it would clamp usage to zero).
+            account = User.objects.create()
+            add_turn(Chat.objects.create(user=account), 1000, 500)
+            account.user_account.reset_daily_usage()
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+            lite = AiModel.objects.get(model_id=LITE_ID)
+            micro = AiModel.objects.get(model_id='us.amazon.nova-micro-v1:0')
+            lite.is_default = False
+            lite.save()
+            micro.is_default = True
+            micro.save()
+            expected = (micro.input_token_cost * 1000) + (micro.output_token_cost * 500)
+            assert account.user_account.cost_for_today() == (pytest.approx(expected), 1000, 500)
+
         def it_voids_the_baseline_when_a_bot_switch_reprices_unstamped_rows(load_fixture):
             # Unstamped rows price from the live bot FK: switching the bot
             # after a reset reprices them, so the old snapshot must not be

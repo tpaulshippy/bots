@@ -109,7 +109,7 @@ class UserAccount(models.Model):
 
         return total, total_input_tokens, total_output_tokens
 
-    def _raw_cost_for_today(self):
+    def _raw_cost_for_today(self, as_of=None):
         models_by_id = {m.model_id: m for m in AiModel.objects.all()}
         default_model = next((m for m in models_by_id.values() if m.is_default), None)
 
@@ -123,7 +123,7 @@ class UserAccount(models.Model):
                 return (0.0, 0.0)
             return (model.input_token_cost, model.output_token_cost)
 
-        stamped, unstamped = self._message_buckets_today()
+        stamped, unstamped = self._message_buckets_today(before=as_of)
         total = 0.0
         total_input_tokens = 0
         total_output_tokens = 0
@@ -136,7 +136,7 @@ class UserAccount(models.Model):
 
         return total, total_input_tokens, total_output_tokens
 
-    def _message_buckets_today(self):
+    def _message_buckets_today(self, before=None):
         """Per-model (input, output) sums over today's assistant messages.
 
         Returns (stamped, unstamped) dicts mapping model_id -> [in, out].
@@ -148,9 +148,19 @@ class UserAccount(models.Model):
         Both buckets come from a single aggregate query: the effective key
         is computed per row with CASE, so a message committed mid-read
         cannot fall between two statements and be undercounted by a
-        concurrent quota check.
+        concurrent quota check. `before` bounds the window for reset
+        snapshots so the aggregate and the pricing snapshot share one
+        cutoff (see reset_daily_usage).
         """
         from .message import Message
+
+        message_filter = models.Q(
+            chat__user=self.user,
+            role='assistant',
+            created_at__gte=self.start_of_today_utc(),
+        )
+        if before is not None:
+            message_filter &= models.Q(created_at__lt=before)
 
         effective_model = models.Case(
             models.When(
@@ -169,11 +179,7 @@ class UserAccount(models.Model):
             output_field=models.BooleanField(),
         )
         rows = (
-            Message.objects.filter(
-                chat__user=self.user,
-                role='assistant',
-                created_at__gte=self.start_of_today_utc(),
-            )
+            Message.objects.filter(message_filter)
             .annotate(effective_model=effective_model, was_stamped=was_stamped)
             .values('effective_model', 'was_stamped')
             .annotate(
@@ -224,26 +230,29 @@ class UserAccount(models.Model):
         # recount, same precedent as a timezone change). The comparison
         # reads live database state on every call, so no invalidation can
         # be missed by a stale in-memory account instance, and changes to
-        # models no priced-in row depends on never void unrelated resets.
+        # models that price no baseline row never void unrelated resets.
         return self._baseline_pricing_snapshot() == (self.usage_reset_pricing or {})
 
-    def _baseline_pricing_snapshot(self):
+    def _baseline_pricing_snapshot(self, as_of=None):
         """Pricing basis of today's pre-reset usage.
 
         Rates per priced-in model plus the live model per chat holding
         pre-reset unstamped rows (those price from the live bot FK, so a
-        later bot switch or model delete reprices them). Only rows created
-        before the reset could have been priced into the baseline.
-        Cosmetic model edits (name, modalities) leave the snapshot equal.
+        later bot switch or model delete reprices them). Rows that fall
+        back to the default model (bot-less chats, stamps whose model row
+        is already gone) record the default too, so a later default switch
+        or rate edit voids the baseline. Cosmetic model edits (name,
+        modalities) leave the snapshot equal. `as_of` bounds the window so
+        the reset aggregate and this snapshot share one cutoff.
         """
         from .message import Message
 
-        start = self.start_of_today_utc()
+        cutoff = as_of if as_of is not None else self.usage_reset_at
         pre_reset = Message.objects.filter(
             chat__user=self.user,
             role='assistant',
-            created_at__gte=start,
-            created_at__lt=self.usage_reset_at,
+            created_at__gte=self.start_of_today_utc(),
+            created_at__lt=cutoff,
         )
         stamped_ids = set(
             pre_reset.exclude(model_id__isnull=True)
@@ -259,62 +268,37 @@ class UserAccount(models.Model):
         unstamped = {
             str(row['chat_id']): row['chat__bot__ai_model__model_id'] for row in unstamped_rows
         }
-        priced_ids = set(stamped_ids) | {mid for mid in unstamped.values() if mid is not None}
-        rates = {
+        all_models = {
             m.model_id: [m.input_token_cost, m.output_token_cost, m.is_default]
-            for m in AiModel.objects.filter(model_id__in=priced_ids)
+            for m in AiModel.objects.all()
         }
+        default_id = next((mid for mid, v in all_models.items() if v[2]), None)
+        fallback_used = any(mid is None or mid not in all_models for mid in list(unstamped.values()) + list(stamped_ids))
+        priced_ids = set(stamped_ids) | {mid for mid in unstamped.values() if mid is not None}
+        if fallback_used and default_id is not None:
+            priced_ids.add(default_id)
+        rates = {mid: all_models[mid] for mid in priced_ids if mid in all_models}
         return {'rates': rates, 'unstamped': unstamped}
-
-    def _pricing_changed_since_reset(self):
-        """True if model pricing changed after the reset snapshot.
-
-        Covers rate edits and default switches (any AiModel touched since
-        the reset) as well as deletions (a stamped model_id priced into the
-        baseline but no longer present). Only messages created before the
-        reset could have been priced into the baseline, so only those stamp
-        ids are compared. Pre-fix unstamped rows cannot be re-attributed
-        after their model is deleted and are an accepted corner (all new
-        rows are stamped).
-        """
-        if AiModel.objects.filter(modified_at__gt=self.usage_reset_at).exists():
-            return True
-        from .message import Message
-
-        priced_ids = set(
-            Message.objects.filter(
-                chat__user=self.user,
-                role='assistant',
-                created_at__gte=self.start_of_today_utc(),
-                created_at__lt=self.usage_reset_at,
-            )
-            .exclude(model_id__isnull=True)
-            .exclude(model_id='')
-            .values_list('model_id', flat=True)
-            .distinct()
-        )
-        if not priced_ids:
-            return False
-        live_ids = set(AiModel.objects.values_list('model_id', flat=True))
-        return bool(priced_ids - live_ids)
 
     def reset_daily_usage(self):
         """Clear today's rate limit without touching Chat token history."""
         with transaction.atomic():
             account = UserAccount.objects.select_for_update().get(pk=self.pk)
-            # Single timestamp captured before the snapshot: if local
-            # midnight falls during the snapshot, the stamp predates it and
-            # the baseline is conservatively ignored (never subtracted from
-            # the wrong day's usage).
+            # Single cutoff captured before the snapshot: the aggregate and
+            # the pricing snapshot both exclude rows created at/after it, so
+            # a turn committed mid-reset counts post-reset (never swallowed
+            # by the baseline). If local midnight falls during the snapshot,
+            # the stamp predates it and the baseline is conservatively
+            # ignored (never subtracted from the wrong day's usage).
             reset_at = timezone.now()
-            total, total_input_tokens, total_output_tokens = account._raw_cost_for_today()
+            total, total_input_tokens, total_output_tokens = account._raw_cost_for_today(as_of=reset_at)
             account.usage_reset_at = reset_at
             account.usage_reset_timezone = account.timezone
             account.usage_reset_cost = total
             account.usage_reset_input_tokens = total_input_tokens
             account.usage_reset_output_tokens = total_output_tokens
             account.usage_reset_version = USAGE_RESET_VERSION
-            account.usage_reset_pricing = account._baseline_pricing_snapshot()
+            account.usage_reset_pricing = account._baseline_pricing_snapshot(as_of=reset_at)
             account.save(update_fields=[
                 'usage_reset_at',
                 'usage_reset_timezone',
