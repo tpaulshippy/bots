@@ -91,7 +91,20 @@ describe('Stats screen', () => {
       'Chatted + studied today 🎉'
     );
     expect(textOf('stats-totals')).toContain('12 reviews');
+    expect(textOf('stats-totals')).toContain('best 5');
     expect(screen.getByTestId('stats-week')).toBeTruthy();
+  });
+
+  it('shows the best streak even when the current run is the record', async () => {
+    (fetchStats as jest.Mock).mockResolvedValue(
+      statsFor({ current_streak: 3, longest_streak: 3 })
+    );
+    render(<Stats />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('stats-card')).toBeTruthy()
+    );
+    expect(textOf('stats-totals')).toContain('best 3');
   });
 
   it('shows the start prompt when there is no streak yet', async () => {

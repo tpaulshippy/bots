@@ -213,7 +213,7 @@ function StatsCard({
         {pluralize(stats.total_reviews, "review")} ·{" "}
         {pluralize(stats.total_chats, "chat")} ·{" "}
         {pluralize(stats.total_messages, "message")}
-        {stats.longest_streak > stats.current_streak
+        {stats.longest_streak > 0
           ? ` · best ${stats.longest_streak}`
           : ""}
       </ThemedText>

@@ -35,7 +35,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   const textColor = useThemeColor({}, "text");
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
-  // Teen-delegated devices only get Chats + Flashcards: no parent surfaces.
+  // Teen-delegated devices only get Chats + Flashcards + Stats: no parent
+  // surfaces.
   // Unknown (still loading) fails closed to the teen view so a teen device
   // never flashes Settings before the stored claims resolve.
   const sessionMode = useSessionMode();
