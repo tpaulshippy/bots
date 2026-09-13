@@ -14,6 +14,12 @@ MAX_COST_DAILY = {
     2: 5.0 / 31,
 }
 
+# Version of the cost computation that reset baselines are stamped with.
+# 1 = pre-0055 lifetime Chat counters grouped by live bot model (legacy);
+# 2 = message-based totals grouped by stamped model_id. Baselines from an
+# older version are never subtracted (see usage_reset_version).
+USAGE_RESET_VERSION = 2
+
 class UserAccount(models.Model):
     user = models.OneToOneField(User,
                                 on_delete=models.CASCADE,
@@ -36,6 +42,13 @@ class UserAccount(models.Model):
     # since the reset; on a timezone change it is ignored (conservative:
     # full-day usage counts again) rather than subtracted from a different
     # set of chats.
+    # usage_reset_version guards the same way across computation changes:
+    # baselines stamped by an older cost computation (e.g. pre-0055 Chat
+    # lifetime counters vs. message-based totals) are ignored rather than
+    # subtracted from a total measured on a different basis. A stale
+    # baseline could otherwise exceed the new raw total and clamp usage to
+    # zero for the rest of the day.
+    usage_reset_version = models.IntegerField(default=1)
     usage_reset_at = models.DateTimeField(null=True, blank=True)
     usage_reset_timezone = models.CharField(max_length=50, null=True, blank=True)
     usage_reset_cost = models.FloatField(default=0.0)
@@ -169,6 +182,7 @@ class UserAccount(models.Model):
         return (
             self.usage_reset_at is not None
             and self.usage_reset_timezone == self.timezone
+            and self.usage_reset_version == USAGE_RESET_VERSION
             and self.usage_reset_at >= self.start_of_today_utc()
         )
 
@@ -187,18 +201,21 @@ class UserAccount(models.Model):
             account.usage_reset_cost = total
             account.usage_reset_input_tokens = total_input_tokens
             account.usage_reset_output_tokens = total_output_tokens
+            account.usage_reset_version = USAGE_RESET_VERSION
             account.save(update_fields=[
                 'usage_reset_at',
                 'usage_reset_timezone',
                 'usage_reset_cost',
                 'usage_reset_input_tokens',
                 'usage_reset_output_tokens',
+                'usage_reset_version',
             ])
             self.usage_reset_at = account.usage_reset_at
             self.usage_reset_timezone = account.usage_reset_timezone
             self.usage_reset_cost = account.usage_reset_cost
             self.usage_reset_input_tokens = account.usage_reset_input_tokens
             self.usage_reset_output_tokens = account.usage_reset_output_tokens
+            self.usage_reset_version = account.usage_reset_version
 
 class RevenueCatWebhookEvent(models.Model):
     raw_event = models.JSONField()

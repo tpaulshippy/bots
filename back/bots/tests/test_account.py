@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from django.contrib.auth.models import User
 from django.utils import timezone
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, AIMessageChunk
 
 from bots.models.ai_model import AiModel
 from bots.models.bot import Bot
@@ -148,6 +148,23 @@ def describe_account():
                 account.user_account.refresh_from_db()
                 assert account.user_account.cost_for_today()[1:] == (3, 1)
 
+        def it_ignores_a_baseline_stamped_by_an_older_computation(load_fixture):
+            # A pre-0055 reset baseline measured lifetime Chat counters, not
+            # message-based totals; subtracting it could clamp usage to zero
+            # for the rest of the day, so it is ignored (conservative: full
+            # usage counts again, same as a timezone change).
+            account = User.objects.create()
+            add_turn(Chat.objects.create(user=account), 10, 5)
+            ua = account.user_account
+            ua.usage_reset_at = timezone.now()
+            ua.usage_reset_timezone = ua.timezone
+            ua.usage_reset_cost = 999.0
+            ua.usage_reset_input_tokens = 999
+            ua.usage_reset_output_tokens = 999
+            ua.usage_reset_version = 1
+            ua.save()
+            assert account.user_account.cost_for_today()[1:] == (10, 5)
+
     def describe_model_attribution():
         def it_prices_stamped_history_by_stamp_after_a_bot_model_switch(load_fixture):
             # Prod incident: Fred moved Haiku -> Nova 2 Lite mid-day and the
@@ -179,13 +196,31 @@ def describe_account():
             chat.get_response(ai=fake_client())
             assert chat.messages.last().model_id == LITE_ID
 
-        def it_stamps_the_model_on_stream_persist(load_fixture):
-            chat = Chat.objects.create(user=User.objects.create())
-            chat._persist_assistant_message(
-                "partial", {"input_tokens": 7, "output_tokens": 3}, model_id=HAIKU_ID
-            )
-            saved = chat.messages.last()
+        def it_stamps_the_resolved_model_through_stream_response(load_fixture):
+            # Exercises resolve_ai_client + the stream persist call site, so
+            # a regression that drops the resolved ID there fails here.
+            haiku = AiModel.objects.get(model_id=HAIKU_ID)
+            bot = Bot.objects.create(ai_model=haiku)
+            chat = Chat.objects.create(user=User.objects.create(), bot=bot)
+            chat.messages.create(text="Hello", role="user")
+            list(chat.stream_response(ai=FakeStreamClient()))
+            saved = chat.messages.filter(role="assistant").last()
             assert (saved.model_id, saved.input_tokens, saved.output_tokens) == (HAIKU_ID, 7, 3)
+
+        def it_bills_a_deleted_model_stamp_at_default_rates(load_fixture):
+            # A stamp whose AiModel row no longer exists must not vanish; it
+            # bills at the default model's rates.
+            account = User.objects.create()
+            default = AiModel.objects.get(is_default=True)
+            doomed = AiModel.objects.create(
+                model_id="deleted-model", name="Doomed",
+                input_token_cost=1.0, output_token_cost=2.0,
+            )
+            chat = Chat.objects.create(user=account)
+            add_turn(chat, 10, 5, model_id=doomed.model_id)
+            doomed.delete()
+            expected = (default.input_token_cost * 10) + (default.output_token_cost * 5)
+            assert account.user_account.cost_for_today() == (pytest.approx(expected), 10, 5)
 
 
 def fake_client():
@@ -195,3 +230,16 @@ def fake_client():
         usage_metadata={"input_tokens": 1, "output_tokens": 2, "total_tokens": 3},
     )
     return client
+
+
+class FakeStreamClient:
+    """Minimal streaming client: one text chunk carrying usage metadata."""
+
+    def bind_tools(self, tools):
+        return self
+
+    def stream(self, message_list):
+        yield AIMessageChunk(
+            content="Hello! How can I assist you today?",
+            usage_metadata={"input_tokens": 7, "output_tokens": 3, "total_tokens": 10},
+        )
