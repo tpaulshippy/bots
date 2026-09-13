@@ -344,6 +344,16 @@ describe('Flashcards API', () => {
 
       await expect(fetchStudyQueue(testDeckId)).resolves.toBeNull();
     });
+
+    it('should return an empty queue when the deck is not found (inaccessible to this profile)', async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        data: null,
+      });
+
+      await expect(fetchStudyQueue(testDeckId)).resolves.toEqual([]);
+    });
   });
 
   describe('reviewFlashcard', () => {

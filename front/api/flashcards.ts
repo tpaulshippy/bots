@@ -148,18 +148,28 @@ export const deleteFlashcard = async (
 
 // Cards to study for this deck, ordered by due_at ascending. Returns null
 // when the queue fails to load (offline/server error) so callers can tell
-// "failed" apart from "genuinely empty" — e.g. a reminder tap must not
-// silently redirect on a failed load.
+// "failed" apart from "nothing loadable" — e.g. a reminder tap must not
+// silently redirect on a failed load. A 404 (deck inaccessible to this
+// profile, e.g. a sibling's deck on a shared device) maps to [] —
+// confirmed-empty for this profile, safe to redirect — while any other
+// failure stays null.
 export const fetchStudyQueue = async (
   deckId: string,
   mode: StudyQueueMode = "due",
   limit = 50
-): Promise<Flashcard[] | null> =>
-  request<Flashcard[] | null>(
+): Promise<Flashcard[] | null> => {
+  const response = await requestRaw<Flashcard[]>(
     `/decks/${deckId}/study_queue.json?mode=${mode}&limit=${limit}`,
-    { method: "GET" },
-    null
+    { method: "GET" }
   );
+  if (!response) {
+    return null;
+  }
+  if (!response.ok) {
+    return response.status === 404 ? [] : null;
+  }
+  return response.data ?? [];
+};
 
 // Rate a card during study; returns the rescheduled flashcard.
 export const reviewFlashcard = async (
