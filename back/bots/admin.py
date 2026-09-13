@@ -107,7 +107,9 @@ class SafetyEventAdmin(admin.ModelAdmin):
 
 
 class UserAccountAdmin(admin.ModelAdmin):
-    actions = ['reset_daily_token_usage']
+    # delete_selected is listed explicitly to keep Django's default bulk
+    # delete alongside the reset action.
+    actions = ['reset_daily_token_usage', 'delete_selected']
     readonly_fields = [
         'usage_reset_at',
         'usage_reset_timezone',
