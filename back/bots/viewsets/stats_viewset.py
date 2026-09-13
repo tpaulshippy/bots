@@ -1,10 +1,12 @@
 import uuid
 
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from bots.models import Profile
+from bots.serializers import StatsSerializer
 from bots.services import stats as stats_service
 from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 from bots.viewsets.mixins import get_object_by_uuid_or_id
@@ -20,6 +22,22 @@ class StatsViewSet(viewsets.ViewSet):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name='profileId',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    'Parent sessions: UUID of one of their profiles. '
+                    'Teen-delegated sessions ignore it and always serve '
+                    'their claimed profile.'
+                ),
+            ),
+        ],
+        responses=StatsSerializer,
+    )
     def list(self, request, *args, **kwargs):
         profile = self._resolve_profile(request)
         if profile is None:

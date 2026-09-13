@@ -18,10 +18,24 @@ import { getSelectedProfileId, handleUnauthorized, subscribeToSelectedProfile } 
 
 // Single-letter weekday for the 7-day activity bars (UTC, matching the API).
 const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 const weekdayLetter = (isoDate: string): string => {
   const day = new Date(`${isoDate}T12:00:00Z`).getUTCDay();
   return WEEKDAY_LETTERS[Number.isNaN(day) ? 0 : day] ?? "";
+};
+
+const weekdayName = (isoDate: string): string => {
+  const day = new Date(`${isoDate}T12:00:00Z`).getUTCDay();
+  return WEEKDAY_NAMES[Number.isNaN(day) ? -1 : day] ?? isoDate;
 };
 
 const pluralize = (count: number, singular: string): string =>
@@ -77,7 +91,18 @@ export default function Stats() {
 
   // Same staleness as the chat list had: the header/drawer switcher doesn't
   // blur/focus this screen, so refetch when the selected profile changes.
-  useEffect(() => subscribeToSelectedProfile(() => refresh()), [refresh]);
+  // The previous kid's stats are cleared first so they are never shown
+  // under the new profile while its request is in flight.
+  useEffect(
+    () =>
+      subscribeToSelectedProfile(() => {
+        requestRef.current += 1;
+        setStats(null);
+        setLoading(true);
+        void refresh();
+      }),
+    [refresh]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -156,7 +181,9 @@ function StatsCard({
       : "Studied today ✓"
     : stats.chatted_today
       ? "Chatted today ✓"
-      : "Chat or study today to start one!";
+      : stats.current_streak > 0
+        ? "Keep the streak going — chat or study today!"
+        : "Chat or study today to start one!";
   const totals = stats.week.map((d) => d.messages + d.reviews);
   const maxTotal = Math.max(1, ...totals);
 
@@ -195,7 +222,12 @@ function StatsCard({
           const total = totals[index] ?? 0;
           const isToday = index === stats.week.length - 1;
           return (
-            <View key={day.date} style={styles.statsDay}>
+            <View
+              key={day.date}
+              style={styles.statsDay}
+              accessible
+              accessibilityLabel={`${weekdayName(day.date)}: ${pluralize(day.messages, "message")}, ${pluralize(day.reviews, "review")}${isToday ? ", today" : ""}`}
+            >
               <View
                 style={[
                   styles.statsBar,

@@ -1007,7 +1007,7 @@ paths:
           description: No response body
   /api/stats/:
     get:
-      operationId: stats_retrieve
+      operationId: stats_list
       description: |-
         Gamification stats for one profile (kid): streaks + totals fed by both
         chat messages and flashcard reviews.
@@ -1015,6 +1015,13 @@ paths:
         Unlike the parent-only activity endpoints, this is visible to the kid too,
         so teen-delegated sessions are locked to their claimed profile instead of
         being denied.
+      parameters:
+      - in: query
+        name: profileId
+        schema:
+          type: string
+        description: 'Parent sessions: UUID of one of their profiles. Teen-delegated
+          sessions ignore it and always serve their claimed profile.'
       tags:
       - stats
       security:
@@ -1022,7 +1029,11 @@ paths:
       - cookieAuth: []
       responses:
         '200':
-          description: No response body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+          description: ''
   /api/token/:
     post:
       operationId: token_create
@@ -1948,6 +1959,58 @@ components:
       - name
       - profile_id
       - url
+    Stats:
+      type: object
+      description: Gamification stats for one profile, fed by chat + flashcard use.
+      properties:
+        profile_id:
+          type: string
+        name:
+          type: string
+        current_streak:
+          type: integer
+        longest_streak:
+          type: integer
+        total_chats:
+          type: integer
+        total_messages:
+          type: integer
+        total_reviews:
+          type: integer
+        chatted_today:
+          type: boolean
+        studied_today:
+          type: boolean
+        week:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatsDay'
+      required:
+      - chatted_today
+      - current_streak
+      - longest_streak
+      - name
+      - profile_id
+      - studied_today
+      - total_chats
+      - total_messages
+      - total_reviews
+      - week
+    StatsDay:
+      type: object
+      description: One UTC day bucket of kid activity (see bots/services/stats.py).
+      properties:
+        date:
+          type: string
+          format: date
+        messages:
+          type: integer
+        reviews:
+          type: integer
+      required:
+      - date
+      - messages
+      - reviews
     TokenObtainPair:
       type: object
       properties:

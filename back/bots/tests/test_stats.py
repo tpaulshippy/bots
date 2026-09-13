@@ -139,6 +139,7 @@ class TestGetProfileStats:
         stats = get_profile_stats(test_profile)
         assert stats['current_streak'] == 0
         assert stats['total_messages'] == 0
+        assert stats['total_chats'] == 0
         assert stats['chatted_today'] is False
         assert stats['week'][-1]['messages'] == 0
 

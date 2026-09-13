@@ -114,6 +114,35 @@ describe('Stats screen', () => {
     );
   });
 
+  it('tells a quiet-today streak holder to keep the streak going', async () => {
+    (fetchStats as jest.Mock).mockResolvedValue(
+      statsFor({
+        current_streak: 2,
+        longest_streak: 5,
+        chatted_today: false,
+        studied_today: false,
+      })
+    );
+    render(<Stats />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('stats-card')).toBeTruthy()
+    );
+    expect(textOf('stats-streak')).toContain('2-day streak');
+    expect(textOf('stats-today-badge')).toContain('Keep the streak going');
+  });
+
+  it('exposes each week day as an accessible element with its counts', async () => {
+    render(<Stats />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('stats-card')).toBeTruthy()
+    );
+    const days = screen.getAllByLabelText(/messages?, \d+ reviews?/);
+    expect(days).toHaveLength(7);
+    expect(days[6]?.props.accessibilityLabel).toContain('today');
+  });
+
   it('shows the error state (not the empty state) when stats fail to load', async () => {
     (fetchStats as jest.Mock).mockResolvedValue(null);
     render(<Stats />);

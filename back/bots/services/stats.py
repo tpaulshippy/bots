@@ -5,6 +5,7 @@ flashcard review. Streaks count consecutive active days ending today (or
 yesterday when today is still quiet, so an evening learner at 9am doesn't
 wake up to a broken streak).
 """
+from collections import Counter
 from datetime import timedelta
 from datetime import timezone as dt_timezone
 
@@ -71,20 +72,30 @@ def get_profile_stats(profile, now=None):
 
     # Day buckets use explicit UTC ranges: __date truncation happens in
     # TIME_ZONE, which would disagree with `today` (UTC) near midnight.
+    # Two queries total (one per model): datetimes come back in UTC, so
+    # .date() buckets them exactly as the old per-day range filters did.
+    week_start = timezone.datetime(
+        today.year, today.month, today.day, tzinfo=dt_timezone.utc
+    ) - timedelta(days=6)
+    message_counts = Counter(
+        created_at.date()
+        for created_at in messages.filter(
+            created_at__gte=week_start
+        ).values_list('created_at', flat=True)
+    )
+    review_counts = Counter(
+        reviewed_at.date()
+        for reviewed_at in reviews.filter(
+            reviewed_at__gte=week_start
+        ).values_list('reviewed_at', flat=True)
+    )
     week = []
     for i in range(6, -1, -1):
-        day_start = timezone.datetime(
-            today.year, today.month, today.day, tzinfo=dt_timezone.utc
-        ) - timedelta(days=i)
-        day_end = day_start + timedelta(days=1)
+        day = today - timedelta(days=i)
         week.append({
-            'date': str(day_start.date()),
-            'messages': messages.filter(
-                created_at__gte=day_start, created_at__lt=day_end
-            ).count(),
-            'reviews': reviews.filter(
-                reviewed_at__gte=day_start, reviewed_at__lt=day_end
-            ).count(),
+            'date': str(day),
+            'messages': message_counts.get(day, 0),
+            'reviews': review_counts.get(day, 0),
         })
 
     return {
@@ -92,7 +103,9 @@ def get_profile_stats(profile, now=None):
         'name': profile.name,
         'current_streak': current_streak,
         'longest_streak': longest_streak,
-        'total_chats': chats.count(),
+        # Chats the kid actually participated in: the assistant-only welcome
+        # chat must not inflate this total (see the messages filter above).
+        'total_chats': chats.filter(messages__role='user').distinct().count(),
         'total_messages': messages.count(),
         'total_reviews': reviews.count(),
         'chatted_today': week[-1]['messages'] > 0,
