@@ -107,12 +107,21 @@ class SafetyEventAdmin(admin.ModelAdmin):
 
 
 class UserAccountAdmin(admin.ModelAdmin):
+    actions = ['reset_daily_token_usage']
+
     @admin.display(boolean=True, description='Has PIN')
     def has_pin(self, obj):
         return bool(obj.pin_hash)
 
     def get_list_display(self, request):
         return ['user', 'has_pin', 'pin_failed_attempts', 'pin_locked_until', 'subscription_level', 'timezone'] + list(super().get_list_display(request))
+
+    @admin.action(description='Reset daily token usage for selected accounts')
+    def reset_daily_token_usage(self, request, queryset):
+        total = 0
+        for account in queryset:
+            total += account.reset_daily_usage()
+        self.message_user(request, f'Reset daily token usage ({total} chats updated).')
 
 class UserAdmin(BaseUserAdmin):
     list_display = ['username', 'email', 'first_name', 'last_name', 'date_joined']

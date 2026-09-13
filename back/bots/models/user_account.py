@@ -88,13 +88,22 @@ class UserAccount(models.Model):
         return chats.aggregate(models.Sum('output_tokens'))['output_tokens__sum'] or 0
         
     def chats_today(self, model_id):
+        return Chat.objects.filter(user=self.user,
+                                    bot__ai_model__model_id=model_id,
+                                    modified_at__gte=self.start_of_today_utc())
+
+    def start_of_today_utc(self):
         user_timezone = pytz.timezone(self.timezone)
         today = timezone.now().astimezone(user_timezone).date()
         start_of_day = user_timezone.localize(datetime.combine(today, time.min))
-        start_of_day_utc = start_of_day.astimezone(pytz.UTC)
-        return Chat.objects.filter(user=self.user,
-                                    bot__ai_model__model_id=model_id,
-                                    modified_at__gte=start_of_day_utc)
+        return start_of_day.astimezone(pytz.UTC)
+
+    def reset_daily_usage(self):
+        """Zero today's token counters so the account is no longer rate limited today."""
+        return Chat.objects.filter(
+            user=self.user,
+            modified_at__gte=self.start_of_today_utc(),
+        ).update(input_tokens=0, output_tokens=0)
 
 class RevenueCatWebhookEvent(models.Model):
     raw_event = models.JSONField()
