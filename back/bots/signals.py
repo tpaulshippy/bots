@@ -16,8 +16,9 @@ def manage_user_profile(sender, instance, created, **kwargs):
     if created:
         UserAccount.objects.create(user=instance)
         provision_default_content(instance)
-    else:
-        instance.user_account.save()
+    # No save on updates: the account instance here may be stale, and a
+    # full save would overwrite columns (e.g. admin usage-reset baselines)
+    # written after it was loaded.
 
 
 def provision_default_content(user):

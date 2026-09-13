@@ -16,6 +16,10 @@ export const Colors = {
     cardBackgroundSelected: tintColorLight,
     border: '#ccc',
     studyCardBack: '#f0f8ff',
+    // Rating buttons keep white text: these darker shades meet WCAG AA
+    // (tint #00a4c9 and again-red #d9534f do not).
+    studyRating: '#00708c',
+    studyAgain: '#b52a25',
     disabled: '#ccc',
     navButton: '#f0f0f0',
     navButtonIcon: '#03465b',
@@ -29,6 +33,8 @@ export const Colors = {
     cardBackgroundSelected: tintColorDark,
     border: '#444',
     studyCardBack: '#1a2a3a',
+    studyRating: tintColorDark,
+    studyAgain: '#b52a25',
     disabled: '#555',
     navButton: '#333',
     navButtonIcon: '#00a4c9',

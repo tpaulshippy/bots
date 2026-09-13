@@ -157,6 +157,17 @@ class TestReviewEndpoint:
         assert review.profile == test_profile
         assert review.reviewed_at is not None
 
+    def test_review_json_format_suffix(self, auth_client, deck):
+        # The frontend calls the .json routes; cover them directly.
+        card = make_card(deck)
+        response = auth_client.post(
+            f'/api/decks/{deck.deck_id}/flashcards/{card.flashcard_id}/review.json',
+            {'rating': 'good'},
+        )
+        assert response.status_code == 200
+        assert response.json()['reps'] == 1
+        assert FlashcardReview.objects.filter(flashcard=card).count() == 1
+
 
 @pytest.mark.django_db
 class TestStudyQueue:
@@ -267,6 +278,42 @@ class TestStudyQueue:
         response = api_client.get(f'/api/decks/{deck.deck_id}/study_queue/')
         assert response.status_code == 401
 
+    def test_review_str_does_not_raise(self, deck):
+        card = make_card(deck)
+        review = FlashcardReview.objects.create(
+            flashcard=card, profile=deck.profile, rating='good'
+        )
+        assert str(review) == f"{card.pk}: good at {review.reviewed_at}"
+
+
+@pytest.mark.django_db
+class TestSchedulingFieldsReadOnly:
+    def test_create_ignores_scheduling_fields(self, auth_client, deck):
+        response = auth_client.post(
+            f'/api/decks/{deck.deck_id}/flashcards/',
+            {'front': 'Q', 'back': 'A', 'ease': 9.9, 'reps': 10,
+             'interval_days': 99, 'lapses': 5},
+            format='json',
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data['ease'] == 2.5
+        assert data['reps'] == 0
+        assert data['interval_days'] == 0
+        assert data['lapses'] == 0
+
+    def test_update_ignores_scheduling_fields(self, auth_client, deck):
+        card = make_card(deck)
+        response = auth_client.patch(
+            f'/api/decks/{deck.deck_id}/flashcards/{card.flashcard_id}/',
+            {'ease': 9.9, 'reps': 10, 'due_at': '2099-01-01T00:00:00Z'},
+            format='json',
+        )
+        assert response.status_code == 200
+        card.refresh_from_db()
+        assert card.ease == 2.5
+        assert card.reps == 0
+
     def test_study_queue_includes_scheduling_fields(self, auth_client, deck):
         make_card(deck, ease=2.1, reps=4, lapses=1, interval_days=12.5)
         results = auth_client.get(f'/api/decks/{deck.deck_id}/study_queue/').json()
@@ -275,6 +322,15 @@ class TestStudyQueue:
             assert field in card
         assert card['ease'] == 2.1
         assert card['reps'] == 4
+
+    def test_study_queue_json_format_suffix_with_params(self, auth_client, deck):
+        for i in range(3):
+            make_card(deck, order=i, due_at=timezone.now() - timedelta(days=1))
+        response = auth_client.get(
+            f'/api/decks/{deck.deck_id}/study_queue.json?mode=all&limit=2'
+        )
+        assert response.status_code == 200
+        assert len(response.json()) == 2
 
 
 @pytest.mark.django_db

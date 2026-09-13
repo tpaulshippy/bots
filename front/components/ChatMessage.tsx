@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { ActivityIndicator, FlexAlignType, Image, Modal, TouchableOpacity } from "react-native";
+import { ActivityIndicator, FlexAlignType, Image, Modal, Platform, TouchableOpacity } from "react-native";
 import { AgentActivity, ChatMessage as ApiChatMessage } from "@/api/chats";
+import { downloadHtmlPage, getPageLink } from "@/api/htmlPages";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import { useRouter } from "expo-router";
 import { format } from "date-fns";
 
 interface ChatMessageProps {
@@ -21,6 +23,8 @@ const chipLabel = (event: AgentActivity): string => {
   switch (event.kind) {
     case "deck":
       return `📇 Created “${event.name}” · ${event.cardCount} cards`;
+    case "page":
+      return `🌐 Built “${event.name}”`;
     default:
       return event.label;
   }
@@ -32,6 +36,8 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
   const userColor = useThemeColor({ light: "#03465b", dark: "#0a7ea4" }, "tint");
   const timestampColor = useThemeColor({}, "icon");
   const isUser = message.role === "user";
+  const events = message.agent_events ?? [];
+  const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState('');
 
@@ -64,15 +70,55 @@ const ChatMessage = ({ message, onRetry, isStreaming }: ChatMessageProps) => {
         </TouchableOpacity>
       )}
       {message.isLoading && <ActivityIndicator style={styles.loading} />}
-      {!isUser && (message.agentEvents?.length ?? 0) > 0 && (
+      {!isUser && events.length > 0 && (
         <ThemedView style={styles.agentChips}>
-          {message.agentEvents!.map((event, index) => (
+          {events.map((event, index) => (
             <ThemedView
               key={`${event.kind}-${index}`}
-              testID={`agent-chip-${event.kind === "deck" ? "deck" : event.kind === "sources" ? "search" : "tool"}`}
+              testID={`agent-chip-${event.kind === "deck" ? "deck" : event.kind === "sources" ? "search" : event.kind === "page" ? "page" : event.kind === "preview" ? "preview" : "tool"}`}
               style={styles.agentChip}
             >
               <ThemedText style={styles.agentChipText}>{chipLabel(event)}</ThemedText>
+              {event.kind === "page" && Platform.OS === "web" && (
+                <ThemedView style={styles.pageActions}>
+                  <TouchableOpacity
+                    testID={`open-page-${index}`}
+                    onPress={() => {
+                      // Open synchronously in the click handler: navigating
+                      // only after the link promise resolves loses transient
+                      // user activation and browsers block the popup. No
+                      // "noopener" feature: it nulls the returned reference
+                      // in some browsers, so sever the opener manually.
+                      const win = window.open("about:blank", "_blank");
+                      if (win) win.opener = null;
+                      getPageLink(event.pageId)
+                        .then((url) => {
+                          if (url && win) win.location.href = url;
+                          else win?.close();
+                        })
+                        .catch(() => win?.close());
+                    }}
+                  >
+                    <ThemedText style={styles.pageActionText}>Open in browser ↗</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    testID={`download-page-${index}`}
+                    onPress={() => downloadHtmlPage(event.pageId, event.name).catch(() => null)}
+                  >
+                    <ThemedText style={styles.pageActionText}>Download ⬇</ThemedText>
+                  </TouchableOpacity>
+                </ThemedView>
+              )}
+              {event.kind === "page" && Platform.OS !== "web" && (
+                <TouchableOpacity
+                  testID={`view-page-${index}`}
+                  onPress={() =>
+                    router.push({ pathname: "/pageViewer", params: { pageId: event.pageId, title: event.name } })
+                  }
+                >
+                  <ThemedText style={styles.pageActionText}>View page ↗</ThemedText>
+                </TouchableOpacity>
+              )}
             </ThemedView>
           ))}
         </ThemedView>
@@ -166,6 +212,16 @@ const styles = {
   agentChipText: {
     fontSize: 13,
     color: "#0a7ea4",
+  },
+  pageActions: {
+    flexDirection: "row" as "row",
+    gap: 12,
+    marginTop: 4,
+  },
+  pageActionText: {
+    fontSize: 13,
+    color: "#0a7ea4",
+    textDecorationLine: "underline" as const,
   },
   retryButton: {
     alignSelf: "flex-start" as FlexAlignType,

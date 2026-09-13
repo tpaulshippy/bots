@@ -66,6 +66,7 @@ STAGE_OUTPUT = "output"
 STAGE_WEB_QUERY = "web_query"
 STAGE_WEB_RESULT = "web_result"
 STAGE_TOOL_FLASHCARD = "tool_flashcard"
+STAGE_TOOL_HTML_PAGE = "tool_html_page"
 
 
 # ---------------------------------------------------------------------------

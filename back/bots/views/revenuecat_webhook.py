@@ -55,6 +55,6 @@ def revenuecat_webhook(request):
         subscription_level = 1  # Basic
     
     user.user_account.subscription_level = subscription_level
-    user.user_account.save()
+    user.user_account.save(update_fields=['subscription_level'])
     
     return Response({'status': 'success'})

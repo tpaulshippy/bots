@@ -9,6 +9,7 @@ from .models import (
     Deck,
     Device,
     Flashcard,
+    HtmlPage,
     Message,
     Profile,
     RevenueCatWebhookEvent,
@@ -90,6 +91,13 @@ class FlashcardAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         return ['flashcard_id', 'deck', 'front', 'order', 'created_at', 'updated_at'] + list(super().get_list_display(request))
 
+class HtmlPageAdmin(admin.ModelAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        return ['page_id', 'created_at', 'updated_at']
+
+    def get_list_display(self, request):
+        return ['page_id', 'title', 'profile', 'chat', 'bot', 'created_at', 'updated_at'] + list(super().get_list_display(request))
+
 class SafetyEventAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         return ['created_at', 'event_id']
@@ -99,8 +107,48 @@ class SafetyEventAdmin(admin.ModelAdmin):
 
 
 class UserAccountAdmin(admin.ModelAdmin):
+    # delete_selected is listed explicitly to keep Django's default bulk
+    # delete alongside the reset action.
+    actions = ['reset_daily_token_usage', 'delete_selected']
+    readonly_fields = [
+        'usage_reset_at',
+        'usage_reset_timezone',
+        'usage_reset_cost',
+        'usage_reset_input_tokens',
+        'usage_reset_output_tokens',
+    ]
+
+    @admin.display(boolean=True, description='Has PIN')
+    def has_pin(self, obj):
+        return bool(obj.pin_hash)
+
     def get_list_display(self, request):
-        return ['user_id', 'pin', 'subscription_level', 'timezone'] + list(super().get_list_display(request))
+        return ['user', 'has_pin', 'pin_failed_attempts', 'pin_locked_until', 'subscription_level', 'timezone'] + list(super().get_list_display(request))
+
+    @admin.action(description='Reset daily token usage for selected accounts')
+    def reset_daily_token_usage(self, request, queryset):
+        # Per-account: the reset baseline is each account's own usage totals,
+        # so this cannot be a single bulk UPDATE. Selections here are a
+        # handful of accounts, not a bulk data operation.
+        updated = 0
+        for account in queryset:
+            account.reset_daily_usage()
+            updated += 1
+        self.message_user(request, f'Reset daily token usage for {updated} account(s).')
+
+    def save_model(self, request, obj, form, change):
+        # The default admin save writes every loaded column, so a change
+        # form opened before a usage reset would silently erase the fresh
+        # baseline. Only edited fields are written; reset columns are
+        # readonly and can only be written by the reset action.
+        if change and form is not None:
+            concrete = {f.name for f in obj._meta.concrete_fields}
+            update_fields = [name for name in form.changed_data if name in concrete]
+            if update_fields:
+                obj.save(update_fields=update_fields)
+                return
+            return
+        super().save_model(request, obj, form, change)
 
 class UserAdmin(BaseUserAdmin):
     list_display = ['username', 'email', 'first_name', 'last_name', 'date_joined']
@@ -117,6 +165,7 @@ admin.site.register(UsageLimitHit, UsageLimitHitAdmin)
 admin.site.register(RevenueCatWebhookEvent, RevenueCatWebhookEventAdmin)
 admin.site.register(Deck, DeckAdmin)
 admin.site.register(Flashcard, FlashcardAdmin)
+admin.site.register(HtmlPage, HtmlPageAdmin)
 admin.site.register(SafetyEvent, SafetyEventAdmin)
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)

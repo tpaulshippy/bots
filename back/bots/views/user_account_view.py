@@ -26,7 +26,7 @@ def user_account_view(request):
         timezone = request.query_params.get('timezone')
         if timezone and timezone != user.user_account.timezone:
             user.user_account.timezone = timezone
-            user.user_account.save()
+            user.user_account.save(update_fields=['timezone'])
 
         # Never return the PIN or its hash — only whether one is set.
         # Legacy compat (old app builds): `pin` is always null — the real
@@ -117,7 +117,7 @@ def onboarding_complete_view(request):
     account = request.user.user_account
     if account.onboarding_completed_at is None:
         account.onboarding_completed_at = timezone.now()
-        account.save()
+        account.save(update_fields=['onboarding_completed_at'])
     return Response({'response': 'ok', 'onboardingCompleted': True})
 
 

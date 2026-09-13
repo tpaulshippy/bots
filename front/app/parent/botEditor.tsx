@@ -43,6 +43,7 @@ export default function BotEditor() {
           restrict_language: true,
           restrict_adult_topics: true,
           enable_web_search: false,
+          enable_html_pages: false,
           color: null,
           icon: null,
           deleted_at: null,

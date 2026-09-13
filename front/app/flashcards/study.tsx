@@ -23,47 +23,37 @@ import {
   Flashcard,
   FlashcardRating,
 } from "@/api/flashcards";
+import { handleUnauthorized } from "@/hooks/useSelectedProfile";
 import { useThemeColor } from "@/hooks/useThemeColor";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - 40;
 
-// Interval preview mirroring back/bots/services/srs.py so the hint under
-// each rating button shows the truthful next interval for THIS card
-// (a static 1d/3d/7d legend would lie for new vs. mature cards).
-const SM2_FIRST_INTERVAL = 1;
-const SM2_SECOND_INTERVAL = 6;
-const SM2_LAPSE_INTERVAL = 1 / 6;
-const SM2_EASY_BONUS = 1.3;
-const SM2_HARD_MULTIPLIER = 1.2;
+// Interval preview shown under each rating button, derived from the current
+// card's scheduling state (mirrors back/bots/services/srs.py) so the hint
+// stays correct as the card progresses past the early learning steps.
+const LAPSE_HINT = "<1d";
 
-const previewIntervalDays = (
-  card: Flashcard,
-  rating: FlashcardRating
-): number => {
-  const interval = card.interval_days ?? 0;
-  const ease = card.ease ?? 2.5;
-  const reps = card.reps ?? 0;
-  if (rating === "again") return SM2_LAPSE_INTERVAL;
-  if (rating === "hard") return Math.max(SM2_FIRST_INTERVAL, interval * SM2_HARD_MULTIPLIER);
-  const base =
-    reps === 0
-      ? SM2_FIRST_INTERVAL
-      : reps === 1
-        ? SM2_SECOND_INTERVAL
-        : interval * ease;
-  return rating === "easy" ? base * SM2_EASY_BONUS : base;
-};
-
-const formatIntervalHint = (days: number): string => {
-  if (days < 1) {
-    const hours = Math.max(1, Math.round(days * 24));
-    return `${hours}h`;
+function previewHint(card: Flashcard | undefined, rating: FlashcardRating): string {
+  const interval = card?.interval_days ?? 0;
+  const ease = card?.ease ?? 2.5;
+  const reps = card?.reps ?? 0;
+  let days: number;
+  switch (rating) {
+    case "again":
+      return LAPSE_HINT;
+    case "hard":
+      days = Math.max(1, interval * 1.2);
+      break;
+    case "good":
+      days = reps === 0 ? 1 : reps === 1 ? 6 : interval * ease;
+      break;
+    case "easy":
+      days = (reps === 0 ? 1 : reps === 1 ? 6 : interval * ease) * 1.3;
+      break;
   }
-  if (days < 30) return `${Math.round(days)}d`;
-  if (days < 365) return `${Math.round(days / 30)}mo`;
-  return `${Math.round(days / 365)}y`;
-};
+  return days < 1 ? LAPSE_HINT : `${Math.round(days)}d`;
+}
 
 const RATINGS: { rating: FlashcardRating; label: string }[] = [
   { rating: "again", label: "Again" },
@@ -73,9 +63,8 @@ const RATINGS: { rating: FlashcardRating; label: string }[] = [
 ];
 
 export default function Study() {
-  const { deckId, mode, source } = useLocalSearchParams<{
+  const { deckId, source } = useLocalSearchParams<{
     deckId: string;
-    mode?: string;
     source?: string;
   }>();
   const router = useRouter();
@@ -87,9 +76,9 @@ export default function Study() {
   const [againCount, setAgainCount] = useState(0);
   const [reviewedDues, setReviewedDues] = useState<string[]>([]);
   const [ratingInProgress, setRatingInProgress] = useState(false);
-  // Wall-clock time the session completed, captured in the rating event
-  // handler (render must stay pure) so "Next due in …" never goes stale.
-  const [completedAt, setCompletedAt] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [now] = useState(() => Date.now());
 
   const [flipAnim] = useState(() => new Animated.Value(0));
 
@@ -99,8 +88,12 @@ export default function Study() {
   const iconColor = useThemeColor({}, "icon");
   const tintColor = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
+  const ratingButtonBg = useThemeColor({}, "studyRating");
+  const againButtonBg = useThemeColor({}, "studyAgain");
 
   useEffect(() => {
+    // Loader lives inside the effect and touches state only after the
+    // first await, so the effect itself performs no synchronous setState.
     const loadQueue = async () => {
       if (!deckId) {
         Alert.alert("Error", "Invalid deck");
@@ -109,33 +102,50 @@ export default function Study() {
       }
       try {
         // Default study queue: only cards that are due right now.
-        const initialMode = mode === "all" ? "all" : "due";
-        const dueCards = await fetchStudyQueue(deckId, initialMode);
-        if (dueCards === null) {
-          // Load failure (offline/server error): keep the previous empty
-          // state — never silently redirect a reminder tap on a failed load.
-          setCards([]);
-          return;
-        }
+        // fetchStudyQueue throws on failure, so a network/server error lands
+        // in the error state below instead of rendering as "Nothing due".
+        const dueCards = await fetchStudyQueue(deckId, "due");
         if (dueCards.length === 0 && source === "reminder") {
-          // Reminder tap, but nothing loadable for this profile (already
-          // studied, or someone else's deck on a shared device): resolve to
-          // the deck list — whose due badges show what's actually due —
-          // instead of a "Nothing due" dead end for a push that promised
-          // cards. Plain navigation keeps the celebratory empty state.
+          // Reminder tap, but nothing due for this profile (already studied):
+          // resolve to the deck list — whose due badges show what's actually
+          // due — instead of a "Nothing due" dead end for a push that
+          // promised cards. Plain navigation keeps the celebratory empty
+          // state. (Inaccessible decks 404, handled in the catch below.)
           router.replace("/flashcards");
           return;
         }
         setCards(dueCards);
       } catch (error) {
+        // Expired sessions take the app's logout flow, not the error card.
+        if (await handleUnauthorized(error, router)) {
+          return;
+        }
+        if (
+          source === "reminder" &&
+          typeof (error as { status?: unknown } | null) === "object" &&
+          (error as { status?: unknown } | null)?.status === 404
+        ) {
+          // Reminder tap into a deck this profile can't load (e.g. a
+          // sibling's deck on a shared device): same deck-list fallback.
+          router.replace("/flashcards");
+          return;
+        }
         Sentry.captureException(error);
-        setCards([]);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
     };
     loadQueue();
-  }, [deckId, mode, router, source]);
+  }, [deckId, router, reloadKey, source]);
+
+  // Retry resets the flags here (event handler, not the effect) and
+  // re-runs the loader above via reloadKey.
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(false);
+    setReloadKey((k) => k + 1);
+  };
 
   const frontRotate = flipAnim.interpolate({
     inputRange: [0, 1],
@@ -159,6 +169,9 @@ export default function Study() {
   };
 
   const resetFlip = () => {
+    // Stop the flip spring first: setValue alone leaves an in-flight
+    // animation running, which could show the next card already flipped.
+    flipAnim.stopAnimation();
     flipAnim.setValue(0);
     setIsFlipped(false);
   };
@@ -171,15 +184,16 @@ export default function Study() {
     setLoading(true);
     try {
       const allCards = await fetchStudyQueue(deckId, "all");
-      resetFlip();
-      setCurrentIndex(0);
-      setCompleted(false);
-      setCompletedAt(null);
-      setAgainCount(0);
-      setReviewedDues([]);
-      setCards(allCards ?? []);
+      setCards(allCards);
     } catch (error) {
+      if (await handleUnauthorized(error, router)) {
+        return;
+      }
       Sentry.captureException(error);
+      // Surface the failure instead of falling back to "Nothing due":
+      // retry reloads the due queue, the primary study flow.
+      setLoadError(true);
+      Alert.alert("Error", "Failed to load cards");
     } finally {
       setLoading(false);
     }
@@ -198,7 +212,7 @@ export default function Study() {
       }
 
       const currentCard = cards[currentIndex];
-      let updated;
+      let updated: Flashcard;
       try {
         updated = await reviewFlashcard(
           deckId,
@@ -206,22 +220,17 @@ export default function Study() {
           rating
         );
       } catch (error) {
+        // Expired sessions take the app's logout flow; anything else stays
+        // on the card with a save error.
+        if (await handleUnauthorized(error, router)) {
+          return;
+        }
         Sentry.captureException(error);
         Alert.alert("Error", "Failed to save your review");
         return;
       }
-      // request() resolves to the null fallback on network/server failure
-      // instead of throwing — treat that as a failure and stay on the card
-      // so the review isn't silently skipped.
-      if (!updated) {
-        Sentry.captureException(
-          new Error(
-            `reviewFlashcard returned null for card ${currentCard.flashcard_id}`
-          )
-        );
-        Alert.alert("Error", "Failed to save your review");
-        return;
-      }
+      // reviewFlashcard throws on failure, so reaching here means the
+      // review was persisted; only then do we advance the session.
       const nextDueAt: string | null = updated.due_at ?? null;
 
       if (rating === "again") {
@@ -235,7 +244,6 @@ export default function Study() {
         resetFlip();
         setCurrentIndex(currentIndex + 1);
       } else {
-        setCompletedAt(Date.now());
         setCompleted(true);
       }
     } finally {
@@ -243,16 +251,14 @@ export default function Study() {
     }
   };
 
-  // Earliest next-due across reviewed cards, measured from the moment the
-  // session completed. Pure: reads only state, so it is safe to call at render.
   const earliestNextDue = (): string | null => {
-    if (reviewedDues.length === 0 || completedAt === null) return null;
+    if (reviewedDues.length === 0) return null;
     const times = reviewedDues
       .map((iso) => new Date(iso).getTime())
       .filter((t) => !Number.isNaN(t));
     if (times.length === 0) return null;
     const earliest = new Date(Math.min(...times));
-    const diffMs = earliest.getTime() - completedAt;
+    const diffMs = earliest.getTime() - now;
     if (diffMs <= 0) return "now";
     const minutes = Math.round(diffMs / 60000);
     if (minutes < 60) return `${minutes} min`;
@@ -267,6 +273,30 @@ export default function Study() {
     );
   }
 
+  if (!loading && loadError) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <ThemedText testID="study-load-error" style={styles.emptyText}>
+            Couldn&apos;t load your cards
+          </ThemedText>
+          <ThemedText style={[styles.emptySubtext, { color: iconColor }]}>
+            Check your connection and try again.
+          </ThemedText>
+          <Pressable
+            testID="study-load-retry"
+            style={[styles.studyAllButton, { backgroundColor: ratingButtonBg }]}
+            onPress={retryLoad}
+          >
+            <ThemedText style={styles.ratingButtonText}>
+              Retry
+            </ThemedText>
+          </Pressable>
+        </View>
+      </ThemedView>
+    );
+  }
+
   if (cards.length === 0) {
     return (
       <ThemedView style={styles.container}>
@@ -277,7 +307,7 @@ export default function Study() {
           </ThemedText>
           <Pressable
             testID="study-all-anyway"
-            style={[styles.studyAllButton, { backgroundColor: tintColor }]}
+            style={[styles.studyAllButton, { backgroundColor: ratingButtonBg }]}
             onPress={handleStudyAllAnyway}
           >
             <ThemedText style={styles.ratingButtonText}>
@@ -291,6 +321,10 @@ export default function Study() {
 
   if (completed) {
     const nextDueIn = earliestNextDue();
+    // "Correct" = any rating other than Again (issue #59 success criteria).
+    const correctCount = cards.length - againCount;
+    const correctPct =
+      cards.length > 0 ? Math.round((correctCount / cards.length) * 100) : 0;
     return (
       <ThemedView style={styles.container}>
         <View style={styles.completion}>
@@ -299,6 +333,9 @@ export default function Study() {
           </ThemedText>
           <ThemedText style={styles.completionSubtitle}>
             You reviewed {cards.length} card{cards.length === 1 ? "" : "s"}.
+          </ThemedText>
+          <ThemedText testID="study-correct-rate" style={[styles.completionStat, { color: iconColor }]}>
+            {correctPct}% correct ({correctCount} of {cards.length}).
           </ThemedText>
           {againCount > 0 ? (
             <ThemedText style={[styles.completionStat, { color: iconColor }]}>
@@ -312,7 +349,7 @@ export default function Study() {
           ) : null}
           <Pressable
             testID="study-complete-done"
-            style={[styles.doneButton, { backgroundColor: tintColor }]}
+            style={[styles.doneButton, { backgroundColor: ratingButtonBg }]}
             onPress={() => router.back()}
           >
             <ThemedText style={styles.ratingButtonText}>Done</ThemedText>
@@ -357,6 +394,10 @@ export default function Study() {
             styles.cardFace,
             { transform: [{ rotateY: frontRotate }] },
           ]}
+          // The front face is visually hidden after the flip; keep screen
+          // readers in sync so the question isn't announced twice.
+          accessibilityElementsHidden={isFlipped}
+          importantForAccessibility={isFlipped ? 'no-hide-descendants' : 'yes'}
         >
           <View
             style={[
@@ -377,6 +418,10 @@ export default function Study() {
             styles.cardFace,
             { transform: [{ rotateY: backRotate }] },
           ]}
+          // backfaceVisibility only hides pixels: keep the answer away from
+          // VoiceOver/TalkBack until the user flips the card.
+          accessibilityElementsHidden={!isFlipped}
+          importantForAccessibility={isFlipped ? 'yes' : 'no-hide-descendants'}
         >
           <View
             style={[
@@ -399,7 +444,7 @@ export default function Study() {
               testID={`study-rating-${rating}`}
               style={({ pressed }) => [
                 styles.ratingButton,
-                { backgroundColor: rating === "again" ? "#d9534f" : tintColor },
+                { backgroundColor: rating === "again" ? againButtonBg : ratingButtonBg },
                 pressed && styles.ratingButtonPressed,
                 ratingInProgress && styles.ratingButtonDisabled,
               ]}
@@ -407,9 +452,7 @@ export default function Study() {
               disabled={ratingInProgress}
             >
               <ThemedText style={styles.ratingButtonText}>{label}</ThemedText>
-              <ThemedText style={styles.ratingHint}>
-                {formatIntervalHint(previewIntervalDays(currentCard, rating))}
-              </ThemedText>
+              <ThemedText style={styles.ratingHint}>{previewHint(currentCard, rating)}</ThemedText>
             </Pressable>
           ))
         ) : (

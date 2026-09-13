@@ -18,6 +18,7 @@ pytz
 requests
 Pillow
 tavily-python==0.7.23
+playwright
 langchain-openai==1.1.12
 langchain-community==0.4.1
 

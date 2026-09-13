@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 S3_CLIENT = boto3.client('s3')
 S3_BUCKET = settings.AWS_STORAGE_BUCKET_NAME
 
+# Output cap per model response. langchain-aws defaults Anthropic calls to
+# 1024 tokens when unset — a full HTML page never fits, so the response is
+# cut mid-JSON, only `title` parses, and the agent retry-loops on
+# "missing html" until MAX_ITERATIONS (prod incident). 8192 fits a ~15KB
+# page plus reply text with headroom.
+BEDROCK_MAX_TOKENS = 8192
+
 class AiClientWrapper:
     def __init__(self, model_id, client=None):
         self.model_id = model_id
@@ -40,12 +47,12 @@ class AiClientWrapper:
                     "Refusing e2e fake model %r in prod; using Bedrock.",
                     model_id,
                 )
-                self.client = ChatBedrock(model_id=model_id)
+                self.client = ChatBedrock(model_id=model_id, max_tokens=BEDROCK_MAX_TOKENS)
             else:
                 # Deterministic fake streaming client for e2e/demo — no AWS creds.
                 self.client = fake_ai.FakeStreamingClient()
         else:
-            self.client = ChatBedrock(model_id=model_id)
+            self.client = ChatBedrock(model_id=model_id, max_tokens=BEDROCK_MAX_TOKENS)
 
     def invoke(self, message_list):
         return self.client.invoke(message_list)
@@ -129,7 +136,7 @@ class Chat(models.Model):
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
 
-    def _persist_assistant_message(self, text, usage_metadata, message_id=None):
+    def _persist_assistant_message(self, text, usage_metadata, message_id=None, agent_events=None):
         message_order = self.messages.count()
 
         input_tokens = usage_metadata.get('input_tokens', 0)
@@ -141,6 +148,7 @@ class Chat(models.Model):
             order=message_order,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            agent_events=agent_events or [],
             **({'message_id': message_id} if message_id is not None else {}),
         )
         self.input_tokens += input_tokens
@@ -172,6 +180,8 @@ class Chat(models.Model):
         response_text, usage_metadata = service.respond(message_list)
         # Structured tool results for the legacy `events[]` payload (doc 06 §3).
         self.last_client_events = service.client_events
+        from bots.services.chat_agent import client_events_to_agent_events
+        agent_events = client_events_to_agent_events(service.client_events)
 
         # Post-model output filter: replace flagged completions before save.
         output_verdict = evaluate_text(response_text, policy, source='OUTPUT')
@@ -193,6 +203,7 @@ class Chat(models.Model):
                 order=message_order,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                agent_events=agent_events,
             )
             self.input_tokens += input_tokens
             self.output_tokens += output_tokens
@@ -252,7 +263,11 @@ class Chat(models.Model):
             if output_verdict.blocked:
                 flagged_output = text
                 text = refusal_for_verdict(output_verdict)
-            assistant_message = self._persist_assistant_message(text, usage_totals, message_id=message_id)
+            from bots.services.chat_agent import client_events_to_agent_events
+            agent_events = client_events_to_agent_events(service.client_events)
+            assistant_message = self._persist_assistant_message(
+                text, usage_totals, message_id=message_id, agent_events=agent_events
+            )
             if output_verdict.blocked:
                 record_safety_event(
                     stage='output',
@@ -274,8 +289,11 @@ class Chat(models.Model):
         finally:
             # Runs both after normal completion and on GeneratorExit when the
             # client disconnects mid-stream: whatever the kid saw gets saved.
+            # A disconnect after a tool call but before any token must still
+            # persist the tool chip, so persist on tool events too — not just
+            # non-empty text.
             text = "".join(streamed_text)
-            if text.strip():
+            if text.strip() or service.client_events:
                 persist(text)
 
 
@@ -326,8 +344,24 @@ class Chat(models.Model):
     
     def get_system_message(self):
         if self.bot and self.bot.system_prompt:
-            return self.bot.system_prompt
-        return ""
+            prompt = self.bot.system_prompt
+        else:
+            prompt = ""
+        # Feature guidance lives here — not in bot templates or stored
+        # rows — so flag changes take effect without re-saving prompts.
+        # Each block mirrors its tool's bind condition exactly, so the
+        # model is never told to use a tool it wasn't given.
+        if self.bot and getattr(self.bot, "enable_html_pages", False):
+            from bots.services.chat_agent import ChatAgentService
+            prompt = (prompt + "\n\n" + ChatAgentService.HTML_GUIDANCE).strip()
+        if (
+            self.bot
+            and getattr(self.bot, "enable_web_search", False)
+            and settings.TAVILY_API_KEY
+        ):
+            from bots.services.chat_agent import ChatAgentService
+            prompt = (prompt + "\n\n" + ChatAgentService.WEB_SEARCH_GUIDANCE).strip()
+        return prompt
 
     def get_image_data(self, filename):
         try:

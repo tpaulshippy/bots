@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bots', '0050_flashcard_due_at_flashcard_ease_and_more'),
+        ('bots', '0054_useraccount_usage_reset_at'),
     ]
 
     operations = [

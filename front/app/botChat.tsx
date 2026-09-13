@@ -174,8 +174,8 @@ export default function Chat() {
         patchStreamingAssistant(message => ({
           ...message,
           isLoading: true,
-          agentEvents: [
-            ...(message.agentEvents ?? []),
+          agent_events: [
+            ...(message.agent_events ?? []),
             { kind: "tool_start", label: event.tool === "web_search" ? "🔍 Searching…" : `🛠 ${event.tool}…` },
           ],
         }));
@@ -185,8 +185,8 @@ export default function Chat() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => null);
           patchStreamingAssistant(message => ({
             ...message,
-            agentEvents: [
-              ...(message.agentEvents ?? []),
+            agent_events: [
+              ...(message.agent_events ?? []),
               {
                 kind: "deck",
                 deckId: event.deckId!,
@@ -206,17 +206,33 @@ export default function Chat() {
         } else if (event.tool === "web_search") {
           patchStreamingAssistant(message => ({
             ...message,
-            agentEvents: [
-              ...(message.agentEvents ?? []),
+            agent_events: [
+              ...(message.agent_events ?? []),
               { kind: "sources", label: event.resultPreview ? `🌐 ${event.resultPreview}` : "🌐 Sources used" },
             ],
           }));
         } else if (event.tool === "create_flashcard") {
           patchStreamingAssistant(message => ({
             ...message,
-            agentEvents: [
-              ...(message.agentEvents ?? []),
+            agent_events: [
+              ...(message.agent_events ?? []),
               { kind: "sources", label: "📇 Card added" },
+            ],
+          }));
+        } else if (event.tool === "save_html_page" && event.pageId) {
+          patchStreamingAssistant(message => ({
+            ...message,
+            agent_events: [
+              ...(message.agent_events ?? []),
+              { kind: "page", pageId: event.pageId!, name: event.name ?? "page" },
+            ],
+          }));
+        } else if (event.tool === "preview_page" && event.pageId) {
+          patchStreamingAssistant(message => ({
+            ...message,
+            agent_events: [
+              ...(message.agent_events ?? []),
+              { kind: "preview", label: "👁 Checked render" },
             ],
           }));
         }

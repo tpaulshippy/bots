@@ -98,6 +98,7 @@ export default function OnboardingBot() {
       restrict_language: true,
       restrict_adult_topics: true,
       enable_web_search: false,
+      enable_html_pages: false,
       color,
       icon,
       deleted_at: null,

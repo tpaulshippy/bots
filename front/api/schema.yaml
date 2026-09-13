@@ -4,6 +4,72 @@ info:
   version: 1.0.0
   description: API for the Bots application
 paths:
+  /api/activity/chats/:
+    get:
+      operationId: activity_chats_list
+      description: |-
+        Parent inbox: list recent chats across profiles + read-only transcript.
+
+        Read-only by design: parents review here, they never write into the kid
+        thread (roadmap 04 non-goal).
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - activity
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedActivityChatListList'
+          description: ''
+  /api/activity/chats/{id}/:
+    get:
+      operationId: activity_chats_retrieve
+      description: |-
+        Parent inbox: list recent chats across profiles + read-only transcript.
+
+        Read-only by design: parents review here, they never write into the kid
+        thread (roadmap 04 non-goal).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - activity
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityChatList'
+          description: ''
+  /api/activity/summary/:
+    get:
+      operationId: activity_summary_retrieve
+      description: Per-profile activity counts for the summary chips (windowed by
+        ?days=).
+      tags:
+      - activity
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/ai_models/:
     get:
       operationId: ai_models_list
@@ -48,6 +114,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/AiModel'
           description: ''
+  /api/auth/reauthenticate:
+    post:
+      operationId: auth_reauthenticate_create
+      description: |-
+        POST /api/auth/reauthenticate — verify the parent PIN.
+
+        200 -> {"parentSessionToken": "<jwt>", "expiresAt": "<iso>"}
+        400 -> malformed body / no PIN configured
+        401 -> {"detail": "Invalid PIN", "remainingAttempts": n}
+        403 -> teen-delegated sessions can never reauthenticate
+        423 -> {"detail": "PIN locked. Try again later.", "lockedUntil": "<iso>"}
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/bots/:
     get:
       operationId: bots_list
@@ -379,14 +464,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Deck'
           description: ''
-  /api/decks/{deck_id_pk}/flashcards/:
+  /api/decks/{deck_pk}/flashcards/:
     get:
       operationId: decks_flashcards_list
       parameters:
       - in: path
-        name: deck_id_pk
+        name: deck_pk
         schema:
-          type: string
+          type: integer
         required: true
       - name: page
         required: false
@@ -410,9 +495,9 @@ paths:
       operationId: decks_flashcards_create
       parameters:
       - in: path
-        name: deck_id_pk
+        name: deck_pk
         schema:
-          type: string
+          type: integer
         required: true
       tags:
       - decks
@@ -438,14 +523,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Flashcard'
           description: ''
-  /api/decks/{deck_id_pk}/flashcards/{flashcardId}/:
+  /api/decks/{deck_pk}/flashcards/{flashcardId}/:
     get:
       operationId: decks_flashcards_retrieve
       parameters:
       - in: path
-        name: deck_id_pk
+        name: deck_pk
         schema:
-          type: string
+          type: integer
         required: true
       - in: path
         name: flashcardId
@@ -469,9 +554,9 @@ paths:
       operationId: decks_flashcards_update
       parameters:
       - in: path
-        name: deck_id_pk
+        name: deck_pk
         schema:
-          type: string
+          type: integer
         required: true
       - in: path
         name: flashcardId
@@ -507,9 +592,9 @@ paths:
       operationId: decks_flashcards_partial_update
       parameters:
       - in: path
-        name: deck_id_pk
+        name: deck_pk
         schema:
-          type: string
+          type: integer
         required: true
       - in: path
         name: flashcardId
@@ -544,9 +629,9 @@ paths:
       operationId: decks_flashcards_destroy
       parameters:
       - in: path
-        name: deck_id_pk
+        name: deck_pk
         schema:
-          type: string
+          type: integer
         required: true
       - in: path
         name: flashcardId
@@ -562,6 +647,46 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/decks/{deck_pk}/flashcards/{flashcardId}/review/:
+    post:
+      operationId: decks_flashcards_review_create
+      description: Rate a card (again|hard|good|easy) and reschedule it via SM-2.
+      parameters:
+      - in: path
+        name: deck_pk
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: flashcardId
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - decks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Flashcard'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Flashcard'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Flashcard'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flashcard'
+          description: ''
   /api/decks/{id}/:
     get:
       operationId: decks_retrieve
@@ -666,6 +791,34 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/decks/{id}/study_queue/:
+    get:
+      operationId: decks_study_queue_retrieve
+      description: |-
+        Cards to study, ordered by due_at ascending (nulls last).
+
+        Query params:
+            mode: 'due' (default) only cards due now, or 'all'
+            limit: max cards returned (default 50, capped at 200)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this deck.
+        required: true
+      tags:
+      - decks
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deck'
+          description: ''
   /api/devices/:
     get:
       operationId: devices_list
@@ -818,6 +971,151 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/html-pages/:
+    get:
+      operationId: html_pages_list
+      description: |-
+        Read API for agent-built pages (plus owner DELETE).
+
+        Writes are disabled here on purpose: creation/updates happen only
+        through the agent tools, where the bot opt-in flag and the title/text
+        safety filter are enforced. Direct POST/PUT/PATCH would bypass both.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: profileId
+        schema:
+          type: string
+        description: Filter pages to one profile (UUID). Omit for all profiles.
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedHtmlPageListList'
+          description: ''
+  /api/html-pages/{page_id}/:
+    get:
+      operationId: html_pages_retrieve
+      description: |-
+        Read API for agent-built pages (plus owner DELETE).
+
+        Writes are disabled here on purpose: creation/updates happen only
+        through the agent tools, where the bot opt-in flag and the title/text
+        safety filter are enforced. Direct POST/PUT/PATCH would bypass both.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HtmlPage'
+          description: ''
+    delete:
+      operationId: html_pages_destroy
+      description: |-
+        Read API for agent-built pages (plus owner DELETE).
+
+        Writes are disabled here on purpose: creation/updates happen only
+        through the agent tools, where the bot opt-in flag and the title/text
+        safety filter are enforced. Direct POST/PUT/PATCH would bypass both.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/html-pages/{page_id}/link/:
+    get:
+      operationId: html_pages_link_retrieve
+      description: Signed raw URL for window.open(), which cannot send the JWT.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HtmlPageLink'
+          description: ''
+  /api/html-pages/{page_id}/raw/:
+    get:
+      operationId: html_pages_raw_retrieve
+      description: |-
+        Serve stored HTML for viewing on the local machine's browser.
+
+        Same Django origin as /app/ (no extra host), but CSP `sandbox`
+        without `allow-same-origin` puts it in an opaque origin: page JS
+        cannot read Syft cookies, localStorage, or parent DOM, and
+        `connect-src 'none'` blocks exfiltration.
+
+        Auth: session/JWT as usual, or a short-lived `?sig=` from `link`
+        for browser handoffs that cannot attach headers. Either way the
+        page must belong to the caller's profile.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: sig
+        schema:
+          type: string
+        description: Short-lived signed handoff token from the link action.
+      tags:
+      - html-pages
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            text/html:
+              schema:
+                type: string
+          description: ''
   /api/login:
     get:
       operationId: login_retrieve
@@ -838,6 +1136,19 @@ paths:
       - jwtAuth: []
       - cookieAuth: []
       - {}
+      responses:
+        '200':
+          description: No response body
+  /api/onboarding/bootstrap:
+    post:
+      operationId: onboarding_bootstrap_create
+      description: 'Atomic wizard save: profile name, first bot, PIN and completion
+        flag.'
+      tags:
+      - onboarding
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
       responses:
         '200':
           description: No response body
@@ -993,6 +1304,26 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/profiles/self/:
+    get:
+      operationId: profiles_self_retrieve
+      description: |-
+        Read-self endpoint for teen-delegated sessions.
+
+        Returns only the profile this session is locked to, redacted via
+        OwnProfileSerializer. Parents have no use for it (403).
+      tags:
+      - profiles
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
   /api/revenuecat/webhook:
     post:
       operationId: revenuecat_webhook_create
@@ -1091,8 +1422,113 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/user/onboarding/complete:
+    post:
+      operationId: user_onboarding_complete_create
+      description: Mark onboarding complete. Idempotent; teen delegated sessions are
+        403.
+      tags:
+      - user
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/user/pin:
+    delete:
+      operationId: user_pin_destroy
+      description: |-
+        DELETE /api/user/pin — remove the parent PIN (opt out of PIN protection).
+
+        Body: {"currentPin": "1234"}. Always requires a valid parent reauth
+        session plus the current PIN when one is set, so a kid holding the
+        device cannot be the one to turn protection off. No-op success when no
+        PIN is set. After removal, parent mutations rely on the parent session
+        alone (see ParentReauthRequired).
+      tags:
+      - user
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
 components:
   schemas:
+    ActivityBot:
+      type: object
+      properties:
+        bot_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        color:
+          type: string
+          nullable: true
+          maxLength: 7
+        icon:
+          type: string
+          nullable: true
+          maxLength: 255
+      required:
+      - bot_id
+      - name
+    ActivityChatList:
+      type: object
+      description: Row of the parent activity inbox. Fields are annotations on the
+        Chat queryset.
+      properties:
+        chat_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        profile:
+          allOf:
+          - $ref: '#/components/schemas/ActivityProfile'
+          nullable: true
+        bot:
+          allOf:
+          - $ref: '#/components/schemas/ActivityBot'
+          nullable: true
+        message_count:
+          type: integer
+        last_message_preview:
+          type: string
+          nullable: true
+        last_message_at:
+          type: string
+          format: date-time
+          nullable: true
+        safety_event_count:
+          type: integer
+          readOnly: true
+      required:
+      - bot
+      - chat_id
+      - last_message_at
+      - last_message_preview
+      - message_count
+      - profile
+      - safety_event_count
+      - title
+    ActivityProfile:
+      type: object
+      properties:
+        profile_id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+      required:
+      - name
+      - profile_id
     AiModel:
       type: object
       properties:
@@ -1168,6 +1604,8 @@ components:
         restrict_language:
           type: boolean
         enable_web_search:
+          type: boolean
+        enable_html_pages:
           type: boolean
         color:
           type: string
@@ -1332,6 +1770,16 @@ components:
         card_count:
           type: integer
           readOnly: true
+          default: 0
+        due_count:
+          type: integer
+          readOnly: true
+          default: 0
+        last_studied_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -1343,8 +1791,10 @@ components:
       required:
       - card_count
       - created_at
+      - due_count
       - flashcards
       - id
+      - last_studied_at
       - name
       - profile
       - updated_at
@@ -1365,6 +1815,16 @@ components:
         card_count:
           type: integer
           readOnly: true
+          default: 0
+        due_count:
+          type: integer
+          readOnly: true
+          default: 0
+        last_studied_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -1376,7 +1836,9 @@ components:
       required:
       - card_count
       - created_at
+      - due_count
       - id
+      - last_studied_at
       - name
       - updated_at
     Device:
@@ -1395,6 +1857,8 @@ components:
         notify_on_new_chat:
           type: boolean
         notify_on_new_message:
+          type: boolean
+        notify_digest_only:
           type: boolean
         deleted_at:
           type: string
@@ -1441,7 +1905,30 @@ components:
           maximum: 9223372036854775807
           minimum: 0
           format: int64
-          default: 0
+        due_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        interval_days:
+          type: number
+          format: double
+          readOnly: true
+        ease:
+          type: number
+          format: double
+          readOnly: true
+        reps:
+          type: integer
+          readOnly: true
+        lapses:
+          type: integer
+          readOnly: true
+        last_reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -1453,8 +1940,110 @@ components:
       required:
       - back
       - created_at
+      - due_at
+      - ease
       - front
       - id
+      - interval_days
+      - lapses
+      - last_reviewed_at
+      - reps
+      - updated_at
+    HtmlPage:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        page_id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        html:
+          type: string
+        raw_url:
+          type: string
+          readOnly: true
+        profile_id:
+          type: string
+          format: uuid
+          readOnly: true
+        profile_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - html
+      - id
+      - page_id
+      - profile_id
+      - profile_name
+      - raw_url
+      - title
+      - updated_at
+    HtmlPageLink:
+      type: object
+      description: Response shape of the signed browser-handoff link action.
+      properties:
+        url:
+          type: string
+      required:
+      - url
+    HtmlPageList:
+      type: object
+      description: |-
+        Lightweight list rows: metadata only, never the document body.
+
+        Pages can be 200KB each, so the list must not ship N full documents.
+        The body stays on the detail + raw views.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        page_id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        raw_url:
+          type: string
+          readOnly: true
+        profile_id:
+          type: string
+          format: uuid
+          readOnly: true
+        profile_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - page_id
+      - profile_id
+      - profile_name
+      - raw_url
+      - title
       - updated_at
     Message:
       type: object
@@ -1500,6 +2089,11 @@ components:
         image_url:
           type: string
           readOnly: true
+        agent_events:
+          type: array
+          items:
+            type: object
+          readOnly: true
       required:
       - chat_id
       - created_at
@@ -1508,6 +2102,29 @@ components:
       - message_id
       - modified_at
       - text
+    PaginatedActivityChatListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityChatList'
     PaginatedAiModelList:
       type: object
       required:
@@ -1646,6 +2263,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Flashcard'
+    PaginatedHtmlPageListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/HtmlPageList'
     PaginatedMessageList:
       type: object
       required:
@@ -1727,6 +2367,8 @@ components:
           type: boolean
         enable_web_search:
           type: boolean
+        enable_html_pages:
+          type: boolean
         color:
           type: string
           nullable: true
@@ -1780,6 +2422,16 @@ components:
         card_count:
           type: integer
           readOnly: true
+          default: 0
+        due_count:
+          type: integer
+          readOnly: true
+          default: 0
+        last_studied_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -1804,6 +2456,8 @@ components:
         notify_on_new_chat:
           type: boolean
         notify_on_new_message:
+          type: boolean
+        notify_digest_only:
           type: boolean
         deleted_at:
           type: string
@@ -1843,7 +2497,30 @@ components:
           maximum: 9223372036854775807
           minimum: 0
           format: int64
-          default: 0
+        due_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        interval_days:
+          type: number
+          format: double
+          readOnly: true
+        ease:
+          type: number
+          format: double
+          readOnly: true
+        reps:
+          type: integer
+          readOnly: true
+        lapses:
+          type: integer
+          readOnly: true
+        last_reviewed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -1865,6 +2542,14 @@ components:
         name:
           type: string
           maxLength: 255
+        oauth_email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        photo_url:
+          type: string
+          readOnly: true
         deleted_at:
           type: string
           format: date-time
@@ -1890,6 +2575,14 @@ components:
         name:
           type: string
           maxLength: 255
+        oauth_email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        photo_url:
+          type: string
+          readOnly: true
         deleted_at:
           type: string
           format: date-time
@@ -1907,6 +2600,7 @@ components:
       - id
       - modified_at
       - name
+      - photo_url
       - profile_id
     ProfileId:
       type: object

@@ -35,9 +35,10 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   const textColor = useThemeColor({}, "text");
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
-  // Teen-delegated devices only get Chats + Flashcards + the teen-safe
-  // Settings screen (/settings: study reminders only, no PIN gate). Parent
-  // surveillance flags stay behind the PIN at /parent/settings.
+  // Teen-delegated devices get Chats + Flashcards + Study Materials + the
+  // teen-safe Settings screen (/settings: study reminders only, no PIN
+  // gate). Parent surveillance flags and the Activity inbox stay behind
+  // the PIN at /parent/*.
   // Unknown (still loading) fails closed to the teen view so a teen device
   // never flashes parent Settings before the stored claims resolve.
   const sessionMode = useSessionMode();
@@ -59,16 +60,36 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
     { label: "Chats", icon: "bubble.left.fill", path: "/chatHistory" },
     { label: "Flashcards", icon: "square.grid.2x2.fill", path: "/flashcards" },
     {
-      label: "Settings",
-      icon: "gear" as IconSymbolName,
-      path: (isTeenDelegated
-        ? "/settings"
-        : "/parent/settings") as Extract<Href, string>,
+      label: "Study Materials",
+      icon: "book.fill",
+      path: "/studyMaterials" as Extract<Href, string>,
     },
+    ...(isTeenDelegated
+      ? [
+          {
+            label: "Settings",
+            icon: "gear" as IconSymbolName,
+            path: "/settings" as Extract<Href, string>,
+          },
+        ]
+      : [
+          {
+            label: "Activity",
+            icon: "list.bullet" as IconSymbolName,
+            path: "/parent/activity" as Extract<Href, string>,
+          },
+          {
+            label: "Settings",
+            icon: "gear" as IconSymbolName,
+            path: "/parent/settings" as Extract<Href, string>,
+          },
+        ]),
   ];
 
   const handleMenuPress = (path: MenuItem["path"]) => {
-    router.push(path);
+    // Main-menu switches replace instead of pushing: sections never stack,
+    // so navigating back out of a section always looks the same.
+    router.replace(path);
     onClose();
   };
 

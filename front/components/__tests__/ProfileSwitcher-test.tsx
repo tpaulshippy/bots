@@ -39,6 +39,10 @@ const profiles = [
   { id: 2, profile_id: 'profile-leo', name: 'Leo', deleted_at: null },
 ];
 
+// Cold start (transform + mock init) can exceed the 5s default on loaded CI
+// runners, flaking the first test. Allow headroom; assertions are unchanged.
+jest.setTimeout(15000);
+
 describe('ProfileSwitcher', () => {
   const mockRouter = { push: jest.fn() };
   let storedProfile: string | null;

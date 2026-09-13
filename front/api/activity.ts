@@ -1,4 +1,5 @@
 import { request, PaginatedResponse } from './request';
+import { normalizeAgentChip } from './chats';
 
 export type { PaginatedResponse };
 
@@ -35,6 +36,7 @@ export interface ActivityTranscriptMessage {
     text: string;
     created_at: string;
     image_url: string | null;
+    agent_events?: import('./chats').AgentActivity[];
 }
 
 // Safety marker behind a flagged turn (GET /api/activity/chats/{id}/).
@@ -101,8 +103,20 @@ export const fetchActivityChats = async (
 
 export const fetchActivityChat = async (
     chatId: string
-): Promise<ActivityChatDetail | null> =>
-    request<ActivityChatDetail | null>(`/activity/chats/${chatId}.json`, {}, null);
+): Promise<ActivityChatDetail | null> => {
+    const data = await request<ActivityChatDetail | null>(`/activity/chats/${chatId}.json`, {}, null);
+    if (data) {
+        // Convert stored chips so the transcript renders the same as live chat.
+        return {
+            ...data,
+            messages: data.messages.map((message) => ({
+                ...message,
+                agent_events: (message.agent_events ?? []).map(normalizeAgentChip),
+            })),
+        };
+    }
+    return data;
+};
 
 export const fetchActivitySummary = async (days = 7): Promise<ActivitySummary | null> =>
     request<ActivitySummary | null>(

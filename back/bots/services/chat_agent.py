@@ -20,13 +20,138 @@ from bots.services.safety import (
 
 logger = logging.getLogger(__name__)
 
+def _harden_tool(tool, retry_hint: str):
+    """Never let arg-validation or tool errors kill the turn.
+
+    Without this, a model call missing a required arg raises ValidationError
+    out of tool.invoke() and aborts the whole response (prod incident:
+    save_html_page called with title-only). With it, the model gets the
+    hint back as a ToolMessage and can retry correctly.
+    """
+    tool.handle_validation_error = retry_hint
+    tool.handle_tool_error = (
+        "That tool call failed. Fix the arguments and try again, "
+        "or explain what you were trying to do."
+    )
+    return tool
+
+
+def _mark_system_cacheable(message_list, model_id):
+    """Tag the system prompt with a Bedrock cache breakpoint (Anthropic only).
+
+    Haiku 4.5 supports explicit caching on system/messages/tools with a
+    4,096-token minimum per checkpoint (verified e2e). The stable system
+    prompt forms the cacheable prefix across turns and agent iterations,
+    so one breakpoint buys cache hits (cache reads ~90% cheaper) on every
+    call after the first within the TTL. Shorter prefixes simply don't
+    cache — never an error. Other providers keep the plain string form.
+
+    Tool schemas passed via bind_tools() are NOT covered by this
+    breakpoint: with ChatBedrock they serialize after the system block
+    with no provider-supported cache point wired through LangChain, so
+    they bill as fresh input. The win here is the system prefix alone.
+    """
+    if "anthropic" not in str(model_id or "").lower():
+        return message_list
+    messages = list(message_list)
+    if messages:
+        from langchain_core.messages import SystemMessage
+
+        first = messages[0]
+        if isinstance(first, SystemMessage) and isinstance(first.content, str) and first.content:
+            messages[0] = SystemMessage(content=[{
+                "type": "text",
+                "text": first.content,
+                "cache_control": {"type": "ephemeral"},
+            }])
+    return messages
+
+
+
 WEB_SEARCH_UNAVAILABLE = "Web search is not available."
 WEB_QUERY_BLOCKED = "This search query was blocked by the safety policy. Please try a different question."
 NO_SAFE_RESULTS = "No safe results found."
+HTML_PAGE_BLOCKED = (
+    "I can't save that page because it didn't pass the safety check. "
+    "Please adjust the wording and try again."
+)
+HTML_PAGE_DISABLED = "HTML pages are not enabled for this bot."
+HTML_PAGE_TOO_LARGE = "That page is too large. Please keep pages under 200KB."
 FLASHCARD_BLOCKED = (
     "I can't save that flashcard because it didn't pass the safety check. "
     "Please adjust the wording and try again."
 )
+
+
+def _deck_chip(event):
+    if not event.get("deck_id"):
+        return None
+    return {
+        "kind": "deck",
+        "deck_id": event["deck_id"],
+        "name": event.get("name", "deck"),
+        "card_count": event.get("card_count", 0),
+    }
+
+
+def _single_card_chip(event):
+    if not event.get("deck_id"):
+        return None
+    return {"kind": "sources", "label": "📇 Card added"}
+
+
+def _search_chip(event):
+    preview = event.get("result_preview")
+    return {
+        "kind": "sources",
+        "label": f"🌐 {preview}" if preview else "🌐 Sources used",
+    }
+
+
+def _page_chip(event):
+    if not event.get("page_id"):
+        return None
+    return {
+        "kind": "page",
+        "page_id": event["page_id"],
+        "name": event.get("name", "page"),
+    }
+
+
+def _preview_chip(event):
+    if not event.get("page_id"):
+        return None
+    return {"kind": "preview", "label": "👁 Checked render"}
+
+
+_AGENT_CHIP_BY_TOOL = {
+    "create_flashcard_deck": _deck_chip,
+    "create_flashcard": _single_card_chip,
+    "web_search": _search_chip,
+    "save_html_page": _page_chip,
+    "preview_page": _preview_chip,
+}
+
+
+def client_events_to_agent_events(client_events):
+    """Map backend tool results to frontend AgentActivity chips for history.
+
+    Live SSE streams build these chips client-side from tool_end frames;
+    history replays them from Message.agent_events so a revisit shows the
+    same chips. Transient tool_start states are intentionally omitted —
+    only completed tool results with an id to act on are persisted.
+
+    Chips are stored wire-shaped (snake_case, like every other API
+    payload); the frontend converts id keys to camelCase at fetch,
+    mirroring normalizeStreamEvent.
+    """
+    agent_events = []
+    for event in client_events or []:
+        event = event or {}
+        chip = _AGENT_CHIP_BY_TOOL.get(event.get("tool"), lambda e: None)(event)
+        if chip is not None:
+            agent_events.append(chip)
+    return agent_events
 
 
 class ChatAgentService:
@@ -38,21 +163,161 @@ class ChatAgentService:
         # Structured tool results the API can surface to clients (SSE status
         # payloads and the legacy `events[]` array). Roadmap doc 06 §3.
         self.client_events = []
+        # Image observations queued by tools (e.g. page screenshots) to be
+        # appended as HumanMessages right after their ToolMessage.
+        self._pending_observations = []
+        self._preview_count = 0
+
+    def _html_tools(self):
+        """Single upsert tool (+ preview) when the parent-enabled flag is on.
+
+        One tool for create and update removes the save-vs-update confusion
+        that looped updates: omit page_id to create, pass it to replace in
+        place (same page_id, stable URL). Rows live in the DB, never files.
+        """
+        save_tool = self._create_html_page_tool()
+        if not save_tool:
+            return {}
+        tools = {"save_html_page": save_tool}
+        preview_tool = self._create_preview_page_tool()
+        if preview_tool:
+            tools["preview_page"] = preview_tool
+        return tools
+
+    def _vision_capable(self):
+        """True when the resolved model accepts image input.
+
+        Mirrors Chat.resolve_ai_client: the bot's model when set, else the
+        default model. Unresolvable (no rows) -> False so image observations
+        are never sent to a text-only model.
+        """
+        try:
+            from bots.models.ai_model import AiModel
+            model = None
+            bot = self.chat.bot
+            if bot is not None and getattr(bot, "ai_model_id", None):
+                model = AiModel.objects.filter(pk=bot.ai_model_id).first()
+            if model is None:
+                model = AiModel.objects.filter(is_default=True).first()
+            if model is None:
+                return False
+            return "image" in (model.supported_input_modalities or [])
+        except Exception:
+            return False
+
+    HTML_GUIDANCE = (
+        "HTML pages are enabled: you can build single-file web pages for the kid.\n"
+        "Call save_html_page ONCE with the title AND the complete single-file html document.\n"
+        "To change a page, call save_html_page again with the SAME page_id and the full replacement html.\n"
+        "Keep pages small (under ~15KB): every update resends the whole document.\n"
+        "Ignore reply length or word-count limits while emitting page content.\n"
+        "Always mention the page title in your reply so the kid can reference it later."
+    )
+
+    WEB_SEARCH_GUIDANCE = (
+        "Web search is enabled: you can call the web_search tool for current information.\n"
+        "Use it for up-to-date facts, recent events, or anything beyond your training data."
+    )
+
+    def _html_enabled(self):
+        return bool(
+            self.chat.bot
+            and getattr(self.chat.bot, "enable_html_pages", False)
+            and self.chat.profile is not None
+        )
+
+    def _page_catalog_message(self):
+        """Recent pages for this profile across chats, so later turns — even
+        in a new chat ("update my dino page") — can iterate.
+
+        Tool calls are not persisted as chat messages, so without this the
+        agent cannot discover page_ids from history on follow-up turns.
+        Ownership is enforced by the profile scope; updates still require
+        the exact page_id from this catalog.
+        """
+        from langchain_core.messages import SystemMessage
+
+        if not self._html_enabled():
+            return None
+        try:
+            from bots.models.html_page import HtmlPage
+            pages = (
+                HtmlPage.objects.filter(profile=self.chat.profile)
+                .select_related("chat")
+                .order_by("-updated_at")[:10]
+            )
+            if not pages:
+                return None
+            lines = [
+                "The kid's saved HTML pages (to refine one, call save_html_page with its page_id and the full replacement html):",
+            ]
+            for p in reversed(list(pages)):
+                chat_title = getattr(p.chat, "title", "") or "this chat"
+                marker = " (this chat)" if p.chat_id == self.chat.pk else f" (from chat '{chat_title}')"
+                lines.append(f"- '{p.title}' page_id={p.page_id} updated={p.updated_at:%Y-%m-%d %H:%M}{marker}")
+            return SystemMessage(content="\n".join(lines))
+        except Exception:
+            logger.exception("🌐 PAGE_CATALOG_FAILED")
+            return None
+
+    def _with_catalog(self, message_list):
+        """Fold the page catalog into the leading SystemMessage.
+
+        The HTML guidance itself lives in get_system_message() (stored row,
+        visible in admin); only the per-turn catalog list merges here.
+        Anthropic (via Bedrock Converse) rejects multiple non-consecutive
+        system messages, so this must never be appended as its own
+        SystemMessage after the prompt (prod crash). Merging keeps one.
+
+        When the system prompt already carries a cache breakpoint (list
+        content from _mark_system_cacheable), the volatile catalog — which
+        includes each page's updated_at and moves on every save — is
+        appended as a separate UNCACHED block in the same SystemMessage so
+        page updates don't invalidate the stable cached prefix.
+        """
+        from langchain_core.messages import SystemMessage
+
+        if not self._html_enabled():
+            return message_list
+        catalog = self._page_catalog_message()
+        if catalog is None:
+            return message_list
+        messages = list(message_list)
+        if messages and isinstance(messages[0], SystemMessage):
+            first = messages[0]
+            if isinstance(first.content, list):
+                catalog_text = catalog.content if isinstance(catalog.content, str) else ""
+                if catalog_text:
+                    messages[0] = SystemMessage(content=[
+                        *first.content,
+                        {"type": "text", "text": "\n\n" + catalog_text},
+                    ])
+            else:
+                content = first.content if isinstance(first.content, str) else ""
+                messages[0] = SystemMessage(content=content + "\n\n" + catalog.content)
+        else:
+            messages.insert(0, catalog)
+        return messages
 
     def respond(self, message_list):
         tools = {
             "create_flashcard_deck": self._create_flashcard_deck_tool(),
             "create_flashcard": self._create_flashcard_tool(),
         }
+        self._preview_count = 0
 
         web_search = self._create_web_search_tool()
         if web_search:
             tools["web_search"] = web_search
-            logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
-            logger.info("🤖 AGENT_INVOKE_START: web_search and flashcard tools available")
-        else:
-            logger.info(f"Invoking agent with flashcard tools only ({len(message_list)} messages)")
-            logger.info("🤖 AGENT_INVOKE_START: flashcard tools available (web_search disabled)")
+        tools.update(self._html_tools())
+        # Mark the stable prompt cacheable FIRST, then fold the volatile
+        # page catalog in as an uncached block (same SystemMessage) so page
+        # saves don't invalidate the cached prefix.
+        message_list = _mark_system_cacheable(
+            message_list, getattr(self.ai_client, "model_id", "")
+        )
+        message_list = self._with_catalog(message_list)
+        logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
 
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
 
@@ -60,7 +325,8 @@ class ChatAgentService:
 
         logger.info("🤖 AGENT_LOOP_COMPLETE: extracting final response")
 
-        return self._extract_response(messages)
+        response_text, usage_metadata = self._extract_response(messages)
+        return response_text, usage_metadata
 
     def respond_events(self, message_list):
         """Streaming variant of respond(): yields agent events for SSE.
@@ -80,14 +346,21 @@ class ChatAgentService:
             "create_flashcard_deck": self._create_flashcard_deck_tool(),
             "create_flashcard": self._create_flashcard_tool(),
         }
+        self._preview_count = 0
         web_search = self._create_web_search_tool()
         has_web_search = False
         if web_search:
             tools["web_search"] = web_search
             has_web_search = True
+        tools.update(self._html_tools())
 
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
-        messages = list(message_list)
+        # Same ordering as respond(): stable prompt cached first, volatile
+        # catalog appended uncached so saves don't bust the cache.
+        messages = _mark_system_cacheable(
+            list(message_list), getattr(self.ai_client, "model_id", "")
+        )
+        messages = self._with_catalog(messages)
         usage_totals = {"input_tokens": 0, "output_tokens": 0}
         yielded_text = ""
         after_tool = False
@@ -153,10 +426,18 @@ class ChatAgentService:
                     tool_call_id=tool_call["id"],
                     name=tool_name
                 ))
+            # Drain once per assistant turn, not per tool call: providers
+            # require all ToolMessages for one assistant message to stay
+            # contiguous, and a HumanMessage in the middle gets rejected.
+            messages.extend(self._drain_observations())
 
         yield {"type": "done", **usage_totals}
 
-    MAX_ITERATIONS = 5
+    # Single-shot page saves (+ at most two previews) finish fast. The loop
+    # still exits early when the model stops calling tools; the ceiling only
+    # bounds worst-case retry loops so one stuck turn can't burn the day's
+    # quota (prod incident: update retry loop hit 26k in / 10k out).
+    MAX_ITERATIONS = 6
 
     def _run_agent_loop(self, model_with_tools, messages, tools):
         iteration = 0
@@ -191,14 +472,41 @@ class ChatAgentService:
                     tool_call_id=tool_call["id"],
                     name=tool_name
                 ))
+            # Drained once per assistant turn (see streaming loop): a
+            # HumanMessage between ToolMessages breaks tool-calling providers.
+            messages.extend(self._drain_observations())
 
         return messages
+
+    def _drain_observations(self):
+        """Image observations queued by tools as follow-up HumanMessages.
+
+        Same base64 data-URL shape as user uploads in Chat.get_input, so the
+        Bedrock image path needs no changes.
+        """
+        from langchain_core.messages import HumanMessage
+
+        pending, self._pending_observations = self._pending_observations, []
+        return [
+            HumanMessage(content=[
+                {"type": "text", "text": "Page render screenshot:"},
+                obs,
+            ])
+            for obs in pending
+        ]
 
     def _execute_tool(self, tool_name, tool_args, tools, has_web_search):
         if tool_name == "web_search" and not has_web_search:
             return WEB_SEARCH_UNAVAILABLE
         elif tool_name in tools:
-            return tools[tool_name].invoke(tool_args)
+            try:
+                return tools[tool_name].invoke(tool_args)
+            except Exception as e:
+                # Last resort: tool-level handlers should already convert
+                # arg/validation failures to text, but never let an
+                # unexpected tool exception abort the whole turn.
+                logger.exception("🔍 AGENT_TOOL_FAILED: %s", tool_name)
+                return f"The {tool_name} tool failed ({e!s}). Fix the arguments and try again."
         return f"Unknown tool: {tool_name}"
 
     @staticmethod
@@ -332,7 +640,11 @@ class ChatAgentService:
                 logger.error(f"🃏 CREATE_FLASHCARD_DECK_ERROR: {e!s}")
                 return f"Error creating deck: {e!s}"
 
-        return create_flashcard_deck
+        return _harden_tool(
+            create_flashcard_deck,
+            "Missing required arguments. Call create_flashcard_deck again with "
+            "'name' and a non-empty 'flashcards' list.",
+        )
 
     def _create_flashcard_tool(self):
         chat = self.chat
@@ -397,7 +709,246 @@ class ChatAgentService:
                 logger.error(f"🃏 CREATE_FLASHCARD_ERROR: {e!s}")
                 return f"Error creating flashcard: {e!s}"
 
-        return create_flashcard
+        return _harden_tool(
+            create_flashcard,
+            "Missing required arguments. Call create_flashcard again with "
+            "'deck_name', 'front', and 'back'.",
+        )
+
+    def _validate_full_html(self, title, html):
+        """Validate a complete document. Returns an error string or None.
+
+        Shared by save (one-shot), preview (gate before render), and the
+        turn-end sweep, so every path enforces the same contract.
+        """
+        from bots.serializers.html_page_serializer import (
+            MAX_HTML_BYTES,
+            html_to_text,
+            is_single_file_html,
+        )
+
+        if len((html or "").encode("utf-8")) > MAX_HTML_BYTES:
+            return HTML_PAGE_TOO_LARGE
+        if not is_single_file_html(html or ""):
+            return "HTML must be a single self-contained page."
+        verdict = evaluate_text(f"{title} {html_to_text(html or '')}", self.policy, source="OUTPUT")
+        if verdict.blocked:
+            record_safety_event(
+                stage="tool_html_page",
+                verdict=verdict,
+                chat=self.chat,
+                snippet=f"{title} {html_to_text(html or '')[:200]}",
+            )
+            return HTML_PAGE_BLOCKED
+        return None
+
+    def _create_html_page_tool(self):
+        """Single upsert tool: omit page_id to create, pass it to replace.
+
+        Both html and (on create) title are required every call — no drafts,
+        no chunks, no second tool name to confuse. Updates keep the same
+        page_id so the raw URL stays stable.
+        """
+        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
+            return None
+        if self.chat.profile is None:
+            return None
+
+        @tool
+        def save_html_page(title: str, html: str, page_id: str = "") -> str:
+            """Save a single-file HTML page for the kid (create or update).
+
+            Omit page_id to create a new page. To change an existing page,
+            pass its page_id with the FULL replacement html document.
+            Keep html under ~15KB: updates resend the whole document.
+            Ignore reply length or word-count limits while emitting page content.
+            Args:
+                title: Short page title shown in chat (required for new pages).
+                html: Complete single-file HTML document (always required).
+                page_id: Existing page to replace in place; empty to create.
+            """
+            import uuid as uuid_lib
+
+            from bots.models.html_page import HtmlPage
+
+            if not (html or "").strip():
+                return "html is required: call save_html_page again with the complete HTML document."
+            logger.info(
+                f"🌐 SAVE_HTML_PAGE_INVOKED: title='{title}' "
+                f"page_id='{page_id}' bytes={len(html.encode('utf-8'))}"
+            )
+            if (page_id or "").strip():
+                try:
+                    page_uuid = uuid_lib.UUID(str(page_id).strip())
+                except (ValueError, AttributeError):
+                    return "Unknown page. Ask which page to update or save a new one without page_id."
+                try:
+                    page = HtmlPage.objects.get(
+                        page_id=page_uuid, profile=self.chat.profile,
+                    )
+                except HtmlPage.DoesNotExist:
+                    return "Unknown page. Ask which page to update or save a new one without page_id."
+                new_title = (title or "").strip()[:255] or page.title
+                error = self._validate_full_html(new_title, html)
+                if error:
+                    return error
+                try:
+                    with transaction.atomic():
+                        page = HtmlPage.objects.select_for_update().get(pk=page.pk)
+                        page.html = html
+                        page.title = new_title
+                        page.save(update_fields=["html", "title", "updated_at"])
+                        self._record_event({
+                            "tool": "save_html_page",
+                            "page_id": str(page.page_id),
+                            "name": page.title,
+                        })
+                        return (
+                            f"Updated page '{page.title}'. Reopen "
+                            f"/api/html-pages/{page.page_id}/raw/ to see the changes"
+                        )
+                except Exception as e:
+                    logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
+                    return f"Error saving page: {e!s}"
+            clean_title = (title or "").strip()[:255]
+            if not clean_title:
+                return "Title is required."
+            error = self._validate_full_html(clean_title, html)
+            if error:
+                return error
+            try:
+                with transaction.atomic():
+                    page = HtmlPage.objects.create(
+                        profile=self.chat.profile,
+                        chat=self.chat,
+                        bot=self.chat.bot,
+                        title=clean_title,
+                        html=html,
+                    )
+                    self._record_event({
+                        "tool": "save_html_page",
+                        "page_id": str(page.page_id),
+                        "name": clean_title,
+                    })
+                    return (
+                        f"Saved page '{clean_title}'. Open it in the browser with "
+                        f"/api/html-pages/{page.page_id}/raw"
+                    )
+            except Exception as e:
+                logger.error(f"🌐 SAVE_HTML_PAGE_ERROR: {e!s}")
+                return f"Error saving page: {e!s}"
+
+        return _harden_tool(
+            save_html_page,
+            "Missing required arguments. Call save_html_page again with "
+            "'title' AND the complete 'html' document "
+            "(add 'page_id' only when replacing an existing page).",
+        )
+
+    def _create_preview_page_tool(self):
+        if not (self.chat.bot and getattr(self.chat.bot, "enable_html_pages", False)):
+            return None
+        if self.chat.profile is None:
+            return None
+        if not self._vision_capable():
+            return None
+        from bots.services.page_render import render_available
+        if not render_available():
+            return None
+
+        from bots.services.page_render import MAX_PREVIEWS_PER_TURN, render_page_shot
+
+        @tool
+        def preview_page(page_id: str) -> str:
+            """Render an existing page headlessly and LOOK at the screenshot.
+
+            Use after save_html_page to check layout and JS
+            errors, then fix with save_html_page (same page_id) if needed. Max two previews
+            per turn. Only accepts page_ids from this chat's catalog.
+            Args:
+                page_id: The page_id from the chat catalog or a prior save.
+            """
+            import base64
+            import uuid as uuid_lib
+
+            from bots.models.html_page import HtmlPage
+
+            logger.info(f"👁 PREVIEW_PAGE_INVOKED: page_id='{page_id}'")
+            if self._preview_count >= MAX_PREVIEWS_PER_TURN:
+                return "Render already checked twice this turn; proceed with fixes."
+            try:
+                page_uuid = uuid_lib.UUID(str(page_id))
+            except (ValueError, AttributeError):
+                return "Unknown page. Ask which page to preview or save a new one."
+            try:
+                page = HtmlPage.objects.get(
+                    page_id=page_uuid,
+                    profile=self.chat.profile,
+                )
+            except HtmlPage.DoesNotExist:
+                return "Unknown page. Ask which page to preview or save a new one."
+            # Gate before render: incomplete saves fail here, and unsafe
+            # content never reaches the browser.
+            error = self._validate_full_html(page.title, page.html or "")
+            if error:
+                return error
+            shot = render_page_shot(page.html)
+            if shot is None:
+                return "Render preview is not available on this server."
+            self._preview_count += 1
+            # Runtime safety gate: static source filtering cannot see text
+            # the page's own JS writes into the DOM, so the rendered text
+            # gets the same policy check before anything is shown or kept.
+            rendered_text = shot.get("rendered_text") or ""
+            if rendered_text.strip():
+                render_verdict = evaluate_text(rendered_text, self.policy, source="OUTPUT")
+                if render_verdict.blocked:
+                    record_safety_event(
+                        stage="tool_html_page",
+                        verdict=render_verdict,
+                        chat=self.chat,
+                        snippet=rendered_text[:200],
+                    )
+                    return (
+                        "I can't show that render because the finished page "
+                        "didn't pass the safety check. Fix the page with "
+                        "save_html_page (same page_id) and try previewing again."
+                    )
+            shot_bytes = shot.get("shot_bytes")
+            if shot_bytes:
+                b64 = base64.b64encode(shot_bytes).decode("ascii")
+                self._pending_observations.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
+                })
+            console_errors = shot.get("console_errors") or []
+            page_errors = shot.get("page_errors") or []
+            # Claim "checked render" only when a screenshot was captured:
+            # without page_id the frontend shows no chip (and shouldn't).
+            if shot_bytes:
+                self._record_event({
+                    "tool": "preview_page",
+                    "page_id": str(page.page_id),
+                    "name": page.title,
+                    "console_errors": len(console_errors) + len(page_errors),
+                })
+            parts = [f"Rendered '{page.title}'."]
+            if console_errors:
+                parts.append("Console errors:\n" + "\n".join(f"- {e}" for e in console_errors[:5]))
+            if page_errors:
+                parts.append("Page errors:\n" + "\n".join(f"- {e}" for e in page_errors[:5]))
+            if not console_errors and not page_errors:
+                parts.append("No JS errors.")
+            if shot_bytes:
+                parts.append("The screenshot follows as an image; inspect the layout and fix issues with save_html_page (same page_id) if needed.")
+            else:
+                parts.append("No screenshot captured.")
+            return "\n".join(parts)
+
+        return _harden_tool(
+            preview_page,
+            "Missing required arguments. Call preview_page again with 'page_id'.",
+        )
 
     def _create_web_search_tool(self):
         if not (self.chat.bot and self.chat.bot.enable_web_search and settings.TAVILY_API_KEY):
@@ -464,4 +1015,7 @@ class ChatAgentService:
                 logger.error(f"🔍 WEB_SEARCH_ERROR: {e!s}")
                 return f"Error during search: {e!s}"
 
-        return web_search
+        return _harden_tool(
+            web_search,
+            "Missing required arguments. Call web_search again with 'query'.",
+        )
