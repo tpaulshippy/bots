@@ -72,6 +72,7 @@ jest.mock('../../api/apiClient', () => ({
               text: 'Of course!',
               created_at: '2026-08-25T10:01:00Z',
               image_url: null,
+              agent_events: [{ kind: 'page', page_id: 'p1', name: 'Minecraft Guide' }],
             },
           ],
           safety_events: [],
@@ -126,6 +127,14 @@ describe('Activity API', () => {
       expect(lastCalledUrl()).toBe('/activity/chats/chat-123.json');
       expect(response?.messages.map((m) => m.role)).toEqual(['user', 'assistant']);
       expect(response?.safety_events).toEqual([]);
+    });
+
+    it('converts stored snake_case chips', async () => {
+      const response = await fetchActivityChat('chat-123');
+
+      expect(response?.messages[1].agent_events).toEqual([
+        { kind: 'page', pageId: 'p1', name: 'Minecraft Guide' },
+      ]);
     });
   });
 

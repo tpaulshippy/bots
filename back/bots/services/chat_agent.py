@@ -57,9 +57,9 @@ def _deck_chip(event):
         return None
     return {
         "kind": "deck",
-        "deckId": event["deck_id"],
+        "deck_id": event["deck_id"],
         "name": event.get("name", "deck"),
-        "cardCount": event.get("card_count", 0),
+        "card_count": event.get("card_count", 0),
     }
 
 
@@ -82,7 +82,7 @@ def _page_chip(event):
         return None
     return {
         "kind": "page",
-        "pageId": event["page_id"],
+        "page_id": event["page_id"],
         "name": event.get("name", "page"),
     }
 
@@ -110,6 +110,10 @@ def client_events_to_agent_events(client_events):
     history replays them from Message.agent_events so a revisit shows the
     same chips. Transient tool_start states are intentionally omitted —
     only completed tool results with an id to act on are persisted.
+
+    Chips are stored wire-shaped (snake_case, like every other API
+    payload); the frontend converts id keys to camelCase at fetch,
+    mirroring normalizeStreamEvent.
     """
     agent_events = []
     for event in client_events or []:

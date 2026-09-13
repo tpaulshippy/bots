@@ -572,11 +572,11 @@ def describe_agent_events_history():
             {"tool": "create_flashcard_deck"},  # failed: no id -> no chip
         ])
 
-        assert mapped[0] == {"kind": "deck", "deckId": "d1", "name": "Cell Bio", "cardCount": 3}
+        assert mapped[0] == {"kind": "deck", "deck_id": "d1", "name": "Cell Bio", "card_count": 3}
         assert mapped[1] == {"kind": "sources", "label": "📇 Card added"}
         assert mapped[2] == {"kind": "sources", "label": "🌐 2 results"}
-        assert mapped[3] == {"kind": "page", "pageId": "p1", "name": "Minecraft Guide"}
-        assert mapped[4] == {"kind": "page", "pageId": "p2", "name": "Dino"}
+        assert mapped[3] == {"kind": "page", "page_id": "p1", "name": "Minecraft Guide"}
+        assert mapped[4] == {"kind": "page", "page_id": "p2", "name": "Dino"}
         assert mapped[5] == {"kind": "preview", "label": "👁 Checked render"}
         assert len(mapped) == 6
 
@@ -608,7 +608,7 @@ def describe_agent_events_history():
         assert assistant.agent_events
         deck_chip = next(e for e in assistant.agent_events if e.get("kind") == "deck")
         assert deck_chip["name"] == "Cell Bio"
-        assert deck_chip["deckId"]
+        assert deck_chip["deck_id"]
 
     def test_serializer_exposes_agent_events(chat):
         from bots.serializers.message_serializer import MessageSerializer
