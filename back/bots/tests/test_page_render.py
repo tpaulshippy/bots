@@ -48,7 +48,8 @@ def _install_fake_playwright(monkeypatch, png=b"fakepng", console=None, page_err
         def inner_text(self, selector):
             return rendered
 
-        def screenshot(self):
+        def screenshot(self, **kwargs):
+            state["shot_kwargs"] = kwargs
             return png
 
     class FakeContext:
@@ -115,10 +116,11 @@ def describe_render_available():
     def it_renders_and_blocks_network(monkeypatch):
         state = _install_fake_playwright(monkeypatch)
         shot = page_render.render_page_shot("<html><body>hi</body></html>")
-        assert shot["png_bytes"] == b"fakepng"
+        assert shot["shot_bytes"] == b"fakepng"
         assert state["html"] == "<html><body>hi</body></html>"
         assert state["route_pattern"] == "**/*"
-        assert state["viewport"] == {"width": 1280, "height": 800}
+        assert state["viewport"] == {"width": 1024, "height": 640}
+        assert state["shot_kwargs"] == {"type": "jpeg", "quality": 70}
 
     def it_passes_no_sandbox_when_root(monkeypatch):
         from unittest.mock import patch as _patch
@@ -194,7 +196,7 @@ def describe_preview_tool():
         kinds = [type(m).__name__ for m in messages]
         assert "ToolMessage" in kinds and "HumanMessage" in kinds
         human = next(m for m in messages if isinstance(m, HumanMessage))
-        assert human.content[1]["image_url"]["url"].startswith("data:image/png;base64,")
+        assert human.content[1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
         assert any(isinstance(m, ToolMessage) for m in messages)
 
     def it_caps_previews_per_turn(monkeypatch):

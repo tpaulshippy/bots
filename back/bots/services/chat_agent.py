@@ -178,6 +178,7 @@ class ChatAgentService:
         "HTML pages are enabled: you can build single-file web pages for the kid.\n"
         "Call save_html_page ONCE with the title AND the complete single-file html document.\n"
         "To change a page, call save_html_page again with the SAME page_id and the full replacement html.\n"
+        "Keep pages small (under ~15KB): every update resends the whole document.\n"
         "Ignore reply length or word-count limits while emitting page content.\n"
         "Always mention the page title in your reply so the kid can reference it later."
     )
@@ -698,6 +699,7 @@ class ChatAgentService:
 
             Omit page_id to create a new page. To change an existing page,
             pass its page_id with the FULL replacement html document.
+            Keep html under ~15KB: updates resend the whole document.
             Ignore reply length or word-count limits while emitting page content.
             Args:
                 title: Short page title shown in chat (required for new pages).
@@ -851,18 +853,18 @@ class ChatAgentService:
                         "didn't pass the safety check. Fix the page with "
                         "save_html_page (same page_id) and try previewing again."
                     )
-            png_bytes = shot.get("png_bytes")
-            if png_bytes:
-                b64 = base64.b64encode(png_bytes).decode("ascii")
+            shot_bytes = shot.get("shot_bytes")
+            if shot_bytes:
+                b64 = base64.b64encode(shot_bytes).decode("ascii")
                 self._pending_observations.append({
                     "type": "image_url",
-                    "image_url": {"url": f"data:image/png;base64,{b64}"},
+                    "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
                 })
             console_errors = shot.get("console_errors") or []
             page_errors = shot.get("page_errors") or []
             # Claim "checked render" only when a screenshot was captured:
             # without page_id the frontend shows no chip (and shouldn't).
-            if png_bytes:
+            if shot_bytes:
                 self._record_event({
                     "tool": "preview_page",
                     "page_id": str(page.page_id),
@@ -876,7 +878,7 @@ class ChatAgentService:
                 parts.append("Page errors:\n" + "\n".join(f"- {e}" for e in page_errors[:5]))
             if not console_errors and not page_errors:
                 parts.append("No JS errors.")
-            if png_bytes:
+            if shot_bytes:
                 parts.append("The screenshot follows as an image; inspect the layout and fix issues with save_html_page (same page_id) if needed.")
             else:
                 parts.append("No screenshot captured.")

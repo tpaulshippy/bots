@@ -21,10 +21,15 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-VIEWPORT = {"width": 1280, "height": 800}
+VIEWPORT = {"width": 1024, "height": 640}
 RENDER_TIMEOUT_MS = 10_000
 MAX_PREVIEWS_PER_TURN = 2
 MAX_RENDERED_TEXT_CHARS = 5_000
+# JPEG at this quality is ~5-10x smaller than PNG for typical pages: less
+# base64 in model context and faster turns. Resolution stays high enough
+# to judge layout.
+SCREENSHOT_TYPE = "jpeg"
+SCREENSHOT_QUALITY = 70
 
 
 def _launch_args() -> list:
@@ -51,7 +56,7 @@ def render_available() -> bool:
 def render_page_shot(html: str) -> dict | None:
     """Render HTML string, return render artifact dict.
 
-    Keys: png_bytes, console_errors, page_errors, rendered_text (visible
+    Keys: shot_bytes, console_errors, page_errors, rendered_text (visible
     body text after JS runs, capped — lets the agent safety-check what the
     page actually displays, which static source filtering cannot see).
 
@@ -68,7 +73,7 @@ def render_page_shot(html: str) -> dict | None:
     console_errors: list[str] = []
     page_errors: list[str] = []
     rendered_text = ""
-    png_bytes: bytes | None = None
+    shot_bytes: bytes | None = None
     try:
         with sync_playwright() as p:
             try:
@@ -98,20 +103,20 @@ def render_page_shot(html: str) -> dict | None:
                     rendered_text = (page.inner_text("body") or "")[:MAX_RENDERED_TEXT_CHARS]
                 except Exception:
                     rendered_text = ""
-                png_bytes = page.screenshot()
+                shot_bytes = page.screenshot(type=SCREENSHOT_TYPE, quality=SCREENSHOT_QUALITY)
                 context.close()
             finally:
                 browser.close()
     except Exception as e:
         logger.exception("🌐 PAGE_RENDER_FAILED")
         return {
-            "png_bytes": None,
+            "shot_bytes": None,
             "console_errors": console_errors,
             "page_errors": [*page_errors, str(e)[:500]],
             "rendered_text": rendered_text,
         }
     return {
-        "png_bytes": png_bytes,
+        "shot_bytes": shot_bytes,
         "console_errors": console_errors,
         "page_errors": page_errors,
         "rendered_text": rendered_text,
