@@ -3,7 +3,7 @@ import uuid
 from django.core import signing
 from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -11,7 +11,11 @@ from rest_framework.response import Response
 
 from bots.models import HtmlPage
 from bots.permissions import IsOwner
-from bots.serializers import HtmlPageLinkSerializer, HtmlPageSerializer
+from bots.serializers import (
+    HtmlPageLinkSerializer,
+    HtmlPageListSerializer,
+    HtmlPageSerializer,
+)
 from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 from bots.viewsets.mixins import get_object_by_uuid_or_id
 
@@ -38,6 +42,18 @@ def sign_raw_url(user_id, page_id) -> str:
     return f"/html-pages/{page_id}/raw/?sig={token}"
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="profileId",
+                type=str,
+                required=False,
+                description="Filter pages to one profile (UUID). Omit for all profiles.",
+            )
+        ]
+    )
+)
 class HtmlPageViewSet(viewsets.ModelViewSet):
     """Read API for agent-built pages (plus owner DELETE).
 
@@ -45,7 +61,6 @@ class HtmlPageViewSet(viewsets.ModelViewSet):
     through the agent tools, where the bot opt-in flag and the title/text
     safety filter are enforced. Direct POST/PUT/PATCH would bypass both.
     """
-
     permission_classes = [IsAuthenticated, IsOwner]
     serializer_class = HtmlPageSerializer
     queryset = HtmlPage.objects.all()
@@ -66,7 +81,17 @@ class HtmlPageViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(profile__profile_id=uuid.UUID(profile_id))
             except ValueError:
                 return HtmlPage.objects.none()
-        return queryset.order_by('-created_at')
+        queryset = queryset.select_related('profile').order_by('-created_at')
+        if self.action == 'list':
+            # List rows never carry the document body (up to 200KB each):
+            # don't even fetch the column.
+            queryset = queryset.defer('html')
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return HtmlPageListSerializer
+        return HtmlPageSerializer
 
     def get_object(self):
         obj = get_object_by_uuid_or_id(self.get_queryset(), 'page_id', self.kwargs[self.lookup_field])

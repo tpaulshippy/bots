@@ -16,7 +16,11 @@ from .flashcard_serializer import (
     DeckSerializer,
     FlashcardSerializer,
 )
-from .html_page_serializer import HtmlPageLinkSerializer, HtmlPageSerializer
+from .html_page_serializer import (
+    HtmlPageLinkSerializer,
+    HtmlPageListSerializer,
+    HtmlPageSerializer,
+)
 from .message_serializer import MessageSerializer
 from .profile_serializer import (
     OwnProfileSerializer,
@@ -41,6 +45,7 @@ __all__ = [
     'DeviceSerializer',
     'FlashcardSerializer',
     'HtmlPageSerializer',
+    'HtmlPageListSerializer',
     'HtmlPageLinkSerializer',
     'MessageSerializer',
     'OwnProfileSerializer',

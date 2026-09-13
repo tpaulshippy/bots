@@ -1,4 +1,4 @@
-import { request } from "./request";
+import { request, PaginatedResponse } from "./request";
 import { getTokens } from "./tokens";
 
 export interface HtmlPage {
@@ -7,7 +7,14 @@ export interface HtmlPage {
   title: string;
   html: string;
   raw_url: string;
+  profile_id?: string;
+  profile_name?: string;
+  created_at?: string;
+  updated_at?: string;
 }
+
+/** List rows never carry the document body (see HtmlPageListSerializer). */
+export type HtmlPageListItem = Omit<HtmlPage, "html">;
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
 
@@ -25,6 +32,22 @@ export async function getPageLink(pageId: string): Promise<string | null> {
 
 export const fetchHtmlPage = async (pageId: string): Promise<HtmlPage | null> =>
   request<HtmlPage | null>(`/html-pages/${pageId}.json`, {}, null);
+
+/**
+ * List agent-built pages (Study Materials), newest first.
+ * Teen-delegated sessions are scoped to their locked profile server-side;
+ * parents may pass a profileId to filter (omitted = all profiles).
+ */
+export const fetchHtmlPages = async (
+  profileId?: string | null
+): Promise<PaginatedResponse<HtmlPageListItem>> => {
+  const query = profileId ? `?profileId=${encodeURIComponent(profileId)}` : "";
+  return request<PaginatedResponse<HtmlPageListItem>>(
+    `/html-pages.json${query}`,
+    { method: "GET" },
+    { results: [], count: 0 }
+  );
+};
 
 /**
  * Resource restrictions mirrored into downloads. The raw view's CSP is an

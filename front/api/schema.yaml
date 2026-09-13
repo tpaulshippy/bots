@@ -987,6 +987,11 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - in: query
+        name: profileId
+        schema:
+          type: string
+        description: Filter pages to one profile (UUID). Omit for all profiles.
       tags:
       - html-pages
       security:
@@ -997,7 +1002,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedHtmlPageList'
+                $ref: '#/components/schemas/PaginatedHtmlPageListList'
           description: ''
   /api/html-pages/{page_id}/:
     get:
@@ -1962,6 +1967,13 @@ components:
         raw_url:
           type: string
           readOnly: true
+        profile_id:
+          type: string
+          format: uuid
+          readOnly: true
+        profile_name:
+          type: string
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -1975,6 +1987,8 @@ components:
       - html
       - id
       - page_id
+      - profile_id
+      - profile_name
       - raw_url
       - title
       - updated_at
@@ -1986,6 +2000,51 @@ components:
           type: string
       required:
       - url
+    HtmlPageList:
+      type: object
+      description: |-
+        Lightweight list rows: metadata only, never the document body.
+
+        Pages can be 200KB each, so the list must not ship N full documents.
+        The body stays on the detail + raw views.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        page_id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        raw_url:
+          type: string
+          readOnly: true
+        profile_id:
+          type: string
+          format: uuid
+          readOnly: true
+        profile_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - page_id
+      - profile_id
+      - profile_name
+      - raw_url
+      - title
+      - updated_at
     Message:
       type: object
       properties:
@@ -2204,7 +2263,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Flashcard'
-    PaginatedHtmlPageList:
+    PaginatedHtmlPageListList:
       type: object
       required:
       - count
@@ -2226,7 +2285,7 @@ components:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/HtmlPage'
+            $ref: '#/components/schemas/HtmlPageList'
     PaginatedMessageList:
       type: object
       required:

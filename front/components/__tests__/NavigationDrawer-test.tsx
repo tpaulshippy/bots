@@ -15,7 +15,7 @@ jest.mock('@/hooks/useSessionMode', () => ({
 const mockUseSessionMode = useSessionMode as jest.Mock;
 
 describe('NavigationDrawer session modes', () => {
-  it('shows Chats, Flashcards, and Settings for parent sessions', () => {
+  it('shows Chats, Flashcards, Study Materials, Activity, and Settings for parent sessions', () => {
     mockUseSessionMode.mockReturnValue({
       isTeenDelegated: false,
       activeProfileId: null,
@@ -25,10 +25,12 @@ describe('NavigationDrawer session modes', () => {
 
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
+    expect(screen.getByText('Study Materials')).toBeOnTheScreen();
+    expect(screen.getByText('Activity')).toBeOnTheScreen();
     expect(screen.getByText('Settings')).toBeOnTheScreen();
   });
 
-  it('hides Settings for teen-delegated sessions', () => {
+  it('shows Study Materials but hides Activity and Settings for teen-delegated sessions', () => {
     mockUseSessionMode.mockReturnValue({
       isTeenDelegated: true,
       activeProfileId: 'profile-maya',
@@ -38,16 +40,20 @@ describe('NavigationDrawer session modes', () => {
 
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
+    expect(screen.getByText('Study Materials')).toBeOnTheScreen();
+    expect(screen.queryByText('Activity')).toBeNull();
     expect(screen.queryByText('Settings')).toBeNull();
   });
 
-  it('hides Settings while the session mode is still loading (fail closed)', () => {
+  it('hides Activity and Settings while the session mode is still loading (fail closed)', () => {
     mockUseSessionMode.mockReturnValue(null);
 
     render(<NavigationDrawer isOpen={true} onClose={jest.fn()} />);
 
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
+    expect(screen.getByText('Study Materials')).toBeOnTheScreen();
+    expect(screen.queryByText('Activity')).toBeNull();
     expect(screen.queryByText('Settings')).toBeNull();
   });
 });
