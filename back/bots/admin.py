@@ -43,7 +43,10 @@ class ChatAdmin(admin.ModelAdmin):
 
 class MessageAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
-        return ['created_at', 'modified_at', 'message_id', 'model_id']
+        # input/output tokens feed daily cost attribution; they are
+        # machine-written and must not be hand-edited (a pre-reset edit
+        # would stale the reset baseline and clamp usage to zero).
+        return ['created_at', 'modified_at', 'message_id', 'model_id', 'input_tokens', 'output_tokens']
 
     def get_list_display(self, request):
         return ['message_id', 'created_at', 'modified_at'] + list(super().get_list_display(request))

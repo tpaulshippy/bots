@@ -207,6 +207,8 @@ def describe_account():
             from bots.admin import MessageAdmin, UserAccountAdmin
             from bots.models.message import Message
             assert 'model_id' in MessageAdmin(Message, django_admin.site).get_readonly_fields(None)
+            assert 'input_tokens' in MessageAdmin(Message, django_admin.site).get_readonly_fields(None)
+            assert 'output_tokens' in MessageAdmin(Message, django_admin.site).get_readonly_fields(None)
             for field in (
                 'usage_reset_at', 'usage_reset_timezone', 'usage_reset_cost',
                 'usage_reset_input_tokens', 'usage_reset_output_tokens',

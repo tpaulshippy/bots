@@ -260,10 +260,10 @@ class UserAccount(models.Model):
             .values_list('model_id', flat=True)
             .distinct()
         )
-        unstamped_rows = list(
-            pre_reset.filter(models.Q(model_id__isnull=True) | models.Q(model_id='')).values(
-                'chat_id', 'chat__bot__ai_model__model_id'
-            )
+        unstamped_rows = (
+            pre_reset.filter(models.Q(model_id__isnull=True) | models.Q(model_id=''))
+            .values('chat_id', 'chat__bot__ai_model__model_id')
+            .distinct()
         )
         unstamped = {
             str(row['chat_id']): row['chat__bot__ai_model__model_id'] for row in unstamped_rows
@@ -287,10 +287,17 @@ class UserAccount(models.Model):
             # Single cutoff captured before the snapshot: the aggregate and
             # the pricing snapshot both exclude rows created at/after it, so
             # a turn committed mid-reset counts post-reset (never swallowed
-            # by the baseline). If local midnight falls during the snapshot,
-            # the stamp predates it and the baseline is conservatively
-            # ignored (never subtracted from the wrong day's usage).
+            # by the baseline). The snapshot is captured BEFORE the
+            # aggregate: an AiModel edit landing between them then leaves
+            # the snapshot on the old basis while the total measures the
+            # new one, so the guard voids instead of subtracting on the
+            # wrong basis. (The reverse order would record new rates
+            # alongside an old-basis total and wrongly apply.) If local
+            # midnight falls during the snapshot, the stamp predates it and
+            # the baseline is conservatively ignored (never subtracted from
+            # the wrong day's usage).
             reset_at = timezone.now()
+            pricing = account._baseline_pricing_snapshot(as_of=reset_at)
             total, total_input_tokens, total_output_tokens = account._raw_cost_for_today(as_of=reset_at)
             account.usage_reset_at = reset_at
             account.usage_reset_timezone = account.timezone
@@ -298,7 +305,7 @@ class UserAccount(models.Model):
             account.usage_reset_input_tokens = total_input_tokens
             account.usage_reset_output_tokens = total_output_tokens
             account.usage_reset_version = USAGE_RESET_VERSION
-            account.usage_reset_pricing = account._baseline_pricing_snapshot(as_of=reset_at)
+            account.usage_reset_pricing = pricing
             account.save(update_fields=[
                 'usage_reset_at',
                 'usage_reset_timezone',
