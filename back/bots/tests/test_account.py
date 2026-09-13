@@ -210,9 +210,39 @@ def describe_account():
             for field in (
                 'usage_reset_at', 'usage_reset_timezone', 'usage_reset_cost',
                 'usage_reset_input_tokens', 'usage_reset_output_tokens',
-                'usage_reset_version',
+                'usage_reset_version', 'usage_reset_pricing',
             ):
                 assert field in UserAccountAdmin.readonly_fields
+
+        def it_keeps_the_baseline_after_cosmetic_model_edits(load_fixture):
+            # Renames and modality flags leave the pricing basis equal, so
+            # the reset still applies (no re-charge for pre-reset usage).
+            account = User.objects.create()
+            add_turn(Chat.objects.create(user=account), 10, 5)
+            account.user_account.reset_daily_usage()
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+            lite = AiModel.objects.get(model_id=LITE_ID)
+            lite.name = "Renamed Lite"
+            lite.supported_input_modalities = ["text", "image"]
+            lite.save()
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+
+        def it_voids_the_baseline_when_a_bot_switch_reprices_unstamped_rows(load_fixture):
+            # Unstamped rows price from the live bot FK: switching the bot
+            # after a reset reprices them, so the old snapshot must not be
+            # subtracted (an expensive-to-cheap switch would clamp to zero).
+            account = User.objects.create()
+            haiku = AiModel.objects.get(model_id=HAIKU_ID)
+            lite = AiModel.objects.get(model_id=LITE_ID)
+            bot = Bot.objects.create(ai_model=haiku)
+            chat = Chat.objects.create(user=account, bot=bot)
+            add_turn(chat, 1000, 500)
+            account.user_account.reset_daily_usage()
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+            bot.ai_model = lite
+            bot.save()
+            expected = (lite.input_token_cost * 1000) + (lite.output_token_cost * 500)
+            assert account.user_account.cost_for_today() == (pytest.approx(expected), 1000, 500)
 
     def describe_model_attribution():
         def it_prices_stamped_history_by_stamp_after_a_bot_model_switch(load_fixture):

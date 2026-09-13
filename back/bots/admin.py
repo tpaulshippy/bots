@@ -117,6 +117,7 @@ class UserAccountAdmin(admin.ModelAdmin):
         'usage_reset_input_tokens',
         'usage_reset_output_tokens',
         'usage_reset_version',
+        'usage_reset_pricing',
     ]
 
     @admin.display(boolean=True, description='Has PIN')

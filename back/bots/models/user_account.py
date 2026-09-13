@@ -56,6 +56,14 @@ class UserAccount(models.Model):
     # the old snapshot exactly. Keep this field admin-readonly so an
     # operator cannot re-arm a stale baseline by hand.
     usage_reset_version = models.IntegerField(default=1)
+    # Pricing basis of the usage snapshotted in this baseline: rates per
+    # priced-in model plus the live model per chat holding pre-reset
+    # unstamped rows. Compared against live state on every read; any
+    # difference (rate edit, default switch, model delete, bot reassignment
+    # over unstamped history) voids the baseline instead of subtracting a
+    # snapshot measured on a different basis. Null for pre-0057 baselines,
+    # which are always ignored. Admin-readonly like the other reset columns.
+    usage_reset_pricing = models.JSONField(null=True, blank=True, default=None)
     usage_reset_at = models.DateTimeField(null=True, blank=True)
     usage_reset_timezone = models.CharField(max_length=50, null=True, blank=True)
     usage_reset_cost = models.FloatField(default=0.0)
@@ -209,14 +217,54 @@ class UserAccount(models.Model):
             and self.usage_reset_at >= self.start_of_today_utc()
         ):
             return False
-        # The baseline snapshots per-model rates at reset time. If pricing
-        # config changed since, stamped rows may now reprice differently
-        # and the old snapshot could exceed the recomputed total, clamping
-        # usage to zero. Void the baseline (conservative recount, same
-        # precedent as a timezone change). Both checks read live database
-        # state on every call, so no invalidation write can be missed by a
-        # stale in-memory account instance.
-        return not self._pricing_changed_since_reset()
+        # The baseline snapshots per-model rates at reset time. If the
+        # pricing basis changed since, stamped rows may now reprice
+        # differently and the old snapshot could exceed the recomputed
+        # total, clamping usage to zero. Void the baseline (conservative
+        # recount, same precedent as a timezone change). The comparison
+        # reads live database state on every call, so no invalidation can
+        # be missed by a stale in-memory account instance, and changes to
+        # models no priced-in row depends on never void unrelated resets.
+        return self._baseline_pricing_snapshot() == (self.usage_reset_pricing or {})
+
+    def _baseline_pricing_snapshot(self):
+        """Pricing basis of today's pre-reset usage.
+
+        Rates per priced-in model plus the live model per chat holding
+        pre-reset unstamped rows (those price from the live bot FK, so a
+        later bot switch or model delete reprices them). Only rows created
+        before the reset could have been priced into the baseline.
+        Cosmetic model edits (name, modalities) leave the snapshot equal.
+        """
+        from .message import Message
+
+        start = self.start_of_today_utc()
+        pre_reset = Message.objects.filter(
+            chat__user=self.user,
+            role='assistant',
+            created_at__gte=start,
+            created_at__lt=self.usage_reset_at,
+        )
+        stamped_ids = set(
+            pre_reset.exclude(model_id__isnull=True)
+            .exclude(model_id='')
+            .values_list('model_id', flat=True)
+            .distinct()
+        )
+        unstamped_rows = list(
+            pre_reset.filter(models.Q(model_id__isnull=True) | models.Q(model_id='')).values(
+                'chat_id', 'chat__bot__ai_model__model_id'
+            )
+        )
+        unstamped = {
+            str(row['chat_id']): row['chat__bot__ai_model__model_id'] for row in unstamped_rows
+        }
+        priced_ids = set(stamped_ids) | {mid for mid in unstamped.values() if mid is not None}
+        rates = {
+            m.model_id: [m.input_token_cost, m.output_token_cost, m.is_default]
+            for m in AiModel.objects.filter(model_id__in=priced_ids)
+        }
+        return {'rates': rates, 'unstamped': unstamped}
 
     def _pricing_changed_since_reset(self):
         """True if model pricing changed after the reset snapshot.
@@ -266,6 +314,7 @@ class UserAccount(models.Model):
             account.usage_reset_input_tokens = total_input_tokens
             account.usage_reset_output_tokens = total_output_tokens
             account.usage_reset_version = USAGE_RESET_VERSION
+            account.usage_reset_pricing = account._baseline_pricing_snapshot()
             account.save(update_fields=[
                 'usage_reset_at',
                 'usage_reset_timezone',
@@ -273,6 +322,7 @@ class UserAccount(models.Model):
                 'usage_reset_input_tokens',
                 'usage_reset_output_tokens',
                 'usage_reset_version',
+                'usage_reset_pricing',
             ])
             self.usage_reset_at = account.usage_reset_at
             self.usage_reset_timezone = account.usage_reset_timezone
@@ -280,6 +330,7 @@ class UserAccount(models.Model):
             self.usage_reset_input_tokens = account.usage_reset_input_tokens
             self.usage_reset_output_tokens = account.usage_reset_output_tokens
             self.usage_reset_version = account.usage_reset_version
+            self.usage_reset_pricing = account.usage_reset_pricing
 
 class RevenueCatWebhookEvent(models.Model):
     raw_event = models.JSONField()
