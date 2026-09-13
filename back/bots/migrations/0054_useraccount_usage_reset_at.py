@@ -15,4 +15,19 @@ class Migration(migrations.Migration):
             name='usage_reset_at',
             field=models.DateTimeField(blank=True, null=True),
         ),
+        migrations.AddField(
+            model_name='useraccount',
+            name='usage_reset_cost',
+            field=models.FloatField(default=0.0),
+        ),
+        migrations.AddField(
+            model_name='useraccount',
+            name='usage_reset_input_tokens',
+            field=models.IntegerField(default=0),
+        ),
+        migrations.AddField(
+            model_name='useraccount',
+            name='usage_reset_output_tokens',
+            field=models.IntegerField(default=0),
+        ),
     ]

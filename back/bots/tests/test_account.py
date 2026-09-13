@@ -98,3 +98,12 @@ def describe_account():
             two.user_account.refresh_from_db()
             assert one.user_account.cost_for_today() == (0.0, 0, 0)
             assert two.user_account.cost_for_today()[1:] == (10, 5)
+
+        def it_counts_only_new_tokens_when_a_pre_reset_chat_grows(load_fixture):
+            account = User.objects.create()
+            chat = Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            account.user_account.reset_daily_usage()
+            chat.input_tokens += 3
+            chat.output_tokens += 2
+            chat.save()
+            assert account.user_account.cost_for_today()[1:] == (3, 2)

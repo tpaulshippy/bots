@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from django.utils import timezone
 
 from .models import (
     AiModel,
@@ -109,6 +108,12 @@ class SafetyEventAdmin(admin.ModelAdmin):
 
 class UserAccountAdmin(admin.ModelAdmin):
     actions = ['reset_daily_token_usage']
+    readonly_fields = [
+        'usage_reset_at',
+        'usage_reset_cost',
+        'usage_reset_input_tokens',
+        'usage_reset_output_tokens',
+    ]
 
     @admin.display(boolean=True, description='Has PIN')
     def has_pin(self, obj):
@@ -119,7 +124,13 @@ class UserAccountAdmin(admin.ModelAdmin):
 
     @admin.action(description='Reset daily token usage for selected accounts')
     def reset_daily_token_usage(self, request, queryset):
-        updated = queryset.update(usage_reset_at=timezone.now())
+        # Per-account: the reset baseline is each account's own usage totals,
+        # so this cannot be a single bulk UPDATE. Selections here are a
+        # handful of accounts, not a bulk data operation.
+        updated = 0
+        for account in queryset:
+            account.reset_daily_usage()
+            updated += 1
         self.message_user(request, f'Reset daily token usage for {updated} account(s).')
 
 class UserAdmin(BaseUserAdmin):

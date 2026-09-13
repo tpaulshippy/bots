@@ -27,10 +27,16 @@ class UserAccount(models.Model):
     # Set by the first-run onboarding wizard (feature 05); null for accounts
     # that predate it or have not finished onboarding yet.
     onboarding_completed_at = models.DateTimeField(null=True, blank=True)
-    # When an admin resets daily token limits, set to now. Daily cost then
-    # counts only chats modified after max(start of day, this timestamp),
-    # preserving Chat token history instead of zeroing it.
+    # When an admin resets daily token limits, these record today's usage
+    # at reset time. cost_for_today() then reports current usage minus this
+    # baseline, so Chat token history is never modified. A pre-reset chat
+    # that receives messages after the reset only re-counts its new tokens
+    # (cumulative Chat counters would otherwise recharge the whole history
+    # as soon as modified_at moves past the reset).
     usage_reset_at = models.DateTimeField(null=True, blank=True)
+    usage_reset_cost = models.FloatField(default=0.0)
+    usage_reset_input_tokens = models.IntegerField(default=0)
+    usage_reset_output_tokens = models.IntegerField(default=0)
 
     def __str__(self):
         return self.user.email
@@ -62,6 +68,16 @@ class UserAccount(models.Model):
         return False
 
     def cost_for_today(self):
+        total, total_input_tokens, total_output_tokens = self._raw_cost_for_today()
+
+        if self.usage_reset_at is not None and self.usage_reset_at >= self.start_of_today_utc():
+            total = max(0.0, total - self.usage_reset_cost)
+            total_input_tokens = max(0, total_input_tokens - self.usage_reset_input_tokens)
+            total_output_tokens = max(0, total_output_tokens - self.usage_reset_output_tokens)
+
+        return total, total_input_tokens, total_output_tokens
+
+    def _raw_cost_for_today(self):
         supported_models = AiModel.objects.all()
         total = 0.0
         total_input_tokens = 0
@@ -94,7 +110,7 @@ class UserAccount(models.Model):
     def chats_today(self, model_id):
         return Chat.objects.filter(user=self.user,
                                     bot__ai_model__model_id=model_id,
-                                    modified_at__gte=self.usage_period_start_utc())
+                                    modified_at__gte=self.start_of_today_utc())
 
     def start_of_today_utc(self):
         user_timezone = pytz.timezone(self.timezone)
@@ -102,16 +118,19 @@ class UserAccount(models.Model):
         start_of_day = user_timezone.localize(datetime.combine(today, time.min))
         return start_of_day.astimezone(pytz.UTC)
 
-    def usage_period_start_utc(self):
-        start_of_day = self.start_of_today_utc()
-        if self.usage_reset_at is not None and self.usage_reset_at > start_of_day:
-            return self.usage_reset_at
-        return start_of_day
-
     def reset_daily_usage(self):
         """Clear today's rate limit without touching Chat token history."""
+        total, total_input_tokens, total_output_tokens = self._raw_cost_for_today()
         self.usage_reset_at = timezone.now()
-        self.save(update_fields=['usage_reset_at'])
+        self.usage_reset_cost = total
+        self.usage_reset_input_tokens = total_input_tokens
+        self.usage_reset_output_tokens = total_output_tokens
+        self.save(update_fields=[
+            'usage_reset_at',
+            'usage_reset_cost',
+            'usage_reset_input_tokens',
+            'usage_reset_output_tokens',
+        ])
 
 class RevenueCatWebhookEvent(models.Model):
     raw_event = models.JSONField()
