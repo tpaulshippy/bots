@@ -250,7 +250,12 @@ export default function OnboardingNotifications() {
           fetchedProfile = single;
         }
       }
-      const profile = listedProfile || fetchedProfile || profilesList[0];
+      // No first-row fallback when the wizard targeted a row: if the
+      // configured profile can't be resolved (transient failure), caching
+      // row one would open the next chat under the wrong profile. The
+      // prior selection is left intact instead.
+      const profile =
+        listedProfile || fetchedProfile || (!profileId ? profilesList[0] : undefined);
       if (profile) {
         await setSelectedProfile(profile);
       }
@@ -264,7 +269,7 @@ export default function OnboardingNotifications() {
           fetchedBot = single;
         }
       }
-      const bot = listedBot || fetchedBot || botsList[0];
+      const bot = listedBot || fetchedBot || (!botId ? botsList[0] : undefined);
       if (bot) {
         await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
       }

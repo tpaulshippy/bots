@@ -5,7 +5,7 @@ import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { tryFetchProfiles } from "@/api/profiles";
-import { getSelectedProfile } from "@/hooks/useSelectedProfile";
+import { getSelectedProfile, handleUnauthorized } from "@/hooks/useSelectedProfile";
 import { WizardStep } from "./WizardStep";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,7 +37,14 @@ export default function OnboardingProfile() {
         // "couldn't load" (null), never as "no profiles" — fetchProfiles
         // resolves an empty fallback on failure, and continuing ID-less
         // would rename the oldest profile instead of the selected one.
-        const profiles = await tryFetchProfiles().catch(() => null);
+        // Auth errors propagate so an expired session reaches login
+        // instead of idling on a gated wizard.
+        const profiles = await tryFetchProfiles().catch((error: unknown) => {
+          if ((error as { name?: string })?.name === "UnauthorizedError") {
+            throw error;
+          }
+          return null;
+        });
         const selectedId =
           selected && typeof selected.profile_id === "string"
             ? selected.profile_id
@@ -62,8 +69,12 @@ export default function OnboardingProfile() {
             profiles !== null && profiles.results.length === 0
           );
         }
-      } catch {
-        // Prefill is best-effort; the wizard still works blank.
+      } catch (error) {
+        // An expired session leaves the wizard for login; every other
+        // prefill failure is best-effort and the wizard still works blank.
+        if (await handleUnauthorized(error, router)) {
+          return;
+        }
       } finally {
         if (active) {
           setReviewPrefillLoaded(true);
@@ -73,7 +84,7 @@ export default function OnboardingProfile() {
     return () => {
       active = false;
     };
-  }, [isReview]);
+  }, [isReview, router]);
 
   const trimmedEmail = studentEmail.trim();
   const emailValid = trimmedEmail === "" || EMAIL_PATTERN.test(trimmedEmail);

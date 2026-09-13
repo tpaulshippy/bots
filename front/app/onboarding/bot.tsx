@@ -12,7 +12,7 @@ import {
   generateSystemPrompt,
 } from "@/api/botTemplates";
 import type { Bot } from "@/api/bots";
-import { fetchBots } from "@/api/bots";
+import { fetchBot, fetchBots } from "@/api/bots";
 import { WizardStep } from "./WizardStep";
 
 // Wizard defaults: Blank template, Penelope, teal, sparkles icon.
@@ -80,10 +80,26 @@ export default function OnboardingBot() {
           parsed && typeof parsed.bot_id === "string" && parsed.bot_id
             ? parsed.bot_id
             : null;
-        const current =
+        // Resolve the selected id against live data first: the cached
+        // snapshot goes stale (the bot editor never refreshes it), so
+        // submitting it for a correct botId would overwrite newer server
+        // state and break rerun idempotency. The cache remains only as an
+        // offline/stale fallback, and soft-deleted rows never prefill.
+        const liveMatch =
           (selectedId &&
-            (bots?.results?.find((bot) => bot.bot_id === selectedId) ||
-              (typeof parsed?.name === "string" ? parsed : null))) ||
+            bots?.results?.find((bot) => bot.bot_id === selectedId)) ||
+          null;
+        let serverMatch = null;
+        if (selectedId && !liveMatch) {
+          const single = await fetchBot(selectedId).catch(() => null);
+          if (single && !single.deleted_at) {
+            serverMatch = single;
+          }
+        }
+        const current =
+          liveMatch ||
+          serverMatch ||
+          (selectedId && typeof parsed?.name === "string" ? parsed : null) ||
           bots?.results?.[0] ||
           null;
         if (current && active) {

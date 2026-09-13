@@ -82,6 +82,8 @@ describe('Onboarding wizard', () => {
       results: [{ bot_id: 'b1', name: 'Penelope' }],
       count: 1,
     });
+    // Single-bot lookups resolve null unless a test overrides them.
+    (fetchBot as jest.Mock).mockResolvedValue(null);
     (bootstrapOnboarding as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
@@ -335,6 +337,21 @@ describe('Onboarding wizard', () => {
           .disabled
       ).toBe(false);
     });
+
+    it('redirects to login when review prefill hits an expired session', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      const { UnauthorizedError: RealUnauthorizedError } = jest.requireActual(
+        '@/api/apiClient'
+      );
+      (tryFetchProfiles as jest.Mock).mockRejectedValue(
+        new RealUnauthorizedError()
+      );
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(mockRouter.replace).toHaveBeenCalledWith('/login');
+    });
   });
 
   describe('Bot step', () => {
@@ -518,6 +535,59 @@ describe('Onboarding wizard', () => {
         params: expect.objectContaining({
           botName: 'Penelope',
           botId: 'b1',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('prefers live server state over a stale cached snapshot for the same id', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b9',
+                name: 'Stale Name',
+                template_name: 'Blank',
+                color: '#111111',
+                icon: 'flame',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      // The selected bot lives beyond page one; the server copy is newer
+      // than the cache (the bot editor never refreshes selectedBot).
+      (fetchBot as jest.Mock).mockResolvedValue({
+        bot_id: 'b9',
+        name: 'Fresh Name',
+        template_name: 'Blank',
+        color: '#222222',
+        icon: 'sparkles',
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Fresh Name'
+      );
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Fresh Name',
+          botId: 'b9',
+          color: '#222222',
           review: 'true',
         }),
       });
@@ -1231,6 +1301,52 @@ describe('Onboarding wizard', () => {
         'selectedBot',
         JSON.stringify({ bot_id: 'b9', name: 'Late Bot' })
       );
+    });
+
+    it('leaves the prior selection intact when configured rows cannot be resolved', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Alex',
+        profileId: 'p9',
+        botName: 'Dragon',
+        botId: 'b9',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Maya' }],
+        count: 2,
+      });
+      (fetchProfile as jest.Mock).mockResolvedValue(null);
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      (fetchBot as jest.Mock).mockResolvedValue(null);
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { profileId: 'p9', botId: 'b9' },
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      // A transient failure must not cache row one over the configured
+      // rows: the prior selection is left for chat to resolve.
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'selectedProfile',
+        expect.anything()
+      );
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'selectedBot',
+        expect.anything()
+      );
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
 
     it('persists turning all notification toggles off in review mode', async () => {
