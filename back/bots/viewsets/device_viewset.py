@@ -36,7 +36,9 @@ def _field_unchanged(current, incoming):
         if isinstance(incoming, bool):
             return current == incoming
         if isinstance(incoming, str):
-            return current == incoming.lower() in ('true', '1')
+            # Parenthesized: without them this parses as a chained
+            # comparison and string booleans never match.
+            return current == (incoming.lower() in ('true', '1'))
         return False
     return str(current) == str(incoming)
 

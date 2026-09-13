@@ -80,6 +80,27 @@ class TestTeenDeviceWrites:
         device.refresh_from_db()
         assert device.notify_study_due is True
 
+    def test_teen_form_encoded_flags_compare_as_booleans(self, parent, teen_profile):
+        """Multipart/form PUTs deliver every value as a string: unchanged
+        parent flags ('true'/'false') must still compare equal instead of
+        wrongly 403ing (chained-comparison regression)."""
+        device = _device(parent)
+
+        payload = {k: str(v) for k, v in _full_payload(device).items()}
+        payload['notify_study_due'] = 'true'
+        # Multipart has no null literal: unchanged nulls are omitted.
+        del payload['deleted_at']
+        response = teen_client(teen_profile).put(
+            f'/api/devices/{device.device_id}.json',
+            payload,
+            format='multipart',
+        )
+
+        assert response.status_code == 200
+        device.refresh_from_db()
+        assert device.notify_study_due is True
+        assert device.notify_on_new_chat is True
+
     def test_teen_cannot_disable_parent_chat_flag(self, parent, teen_profile):
         device = _device(parent)
 
