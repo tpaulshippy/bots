@@ -32,6 +32,11 @@ jest.mock('../../api/apiClient', () => ({
 }));
 
 describe('Stats API', () => {
+  const lastCalledUrl = (): string => {
+    const { apiClient } = jest.requireMock('../../api/apiClient');
+    return apiClient.mock.calls[apiClient.mock.calls.length - 1][0] as string;
+  };
+
   it('should fetch gamification stats for a profile', async () => {
     const stats = await fetchStats('kid-1');
 
@@ -41,5 +46,11 @@ describe('Stats API', () => {
     expect(stats?.total_reviews).toBe(12);
     expect(stats?.studied_today).toBe(true);
     expect(stats?.week).toHaveLength(7);
+  });
+
+  it('scopes the request to the exact profileId', async () => {
+    await fetchStats('kid-1');
+
+    expect(lastCalledUrl()).toBe('/stats.json?profileId=kid-1');
   });
 });
