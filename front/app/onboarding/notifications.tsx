@@ -166,7 +166,6 @@ export default function OnboardingNotifications() {
     setSaving(true);
     setSaveError(null);
     try {
-      await persistNotificationChoices();
       const response = await bootstrapOnboarding({
         profileName: local.profileName ?? "",
         ...(local.studentEmail !== undefined
@@ -216,6 +215,8 @@ export default function OnboardingNotifications() {
         typeof result?.profileId === "string" ? result.profileId : undefined;
       const botId =
         typeof result?.botId === "string" ? result.botId : undefined;
+
+      await persistNotificationChoices();
 
       // Select exactly the configured profile and bot so the very
       // first chat needs no further setup (fixes "Please select a profile

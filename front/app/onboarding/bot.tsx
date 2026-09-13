@@ -44,6 +44,7 @@ export default function OnboardingBot() {
   const [story, setStory] = useState("");
   // Review mode targets the pre-filled bot on save (see bootstrap botId).
   const [botId, setBotId] = useState<string | null>(null);
+  const [reviewBot, setReviewBot] = useState<Bot | null>(null);
   const [reviewPromptSeed, setReviewPromptSeed] = useState<{
     name: string;
     templateName: string;
@@ -90,6 +91,7 @@ export default function OnboardingBot() {
           setColor(current.color || DEFAULTS.color);
           setIcon(current.icon || DEFAULTS.icon);
           setStory(currentStory);
+          setReviewBot(current);
           setReviewPromptSeed({
             name: currentName,
             templateName: currentTemplateName,
@@ -141,6 +143,27 @@ export default function OnboardingBot() {
     }),
     [trimmedBotName, templateName, color, icon]
   );
+  const promptBot: Bot = reviewBot
+    ? {
+        ...reviewBot,
+        name: trimmedBotName,
+        template_name: templateName,
+        color,
+        icon,
+      }
+    : draftBot;
+  const reviewPromptWasGenerated =
+    reviewPromptSeed !== null &&
+    reviewBot !== null &&
+    reviewPromptSeed.systemPrompt ===
+      generateSystemPrompt(
+        {
+          ...reviewBot,
+          name: reviewPromptSeed.name,
+          template_name: reviewPromptSeed.templateName,
+        },
+        { Name: reviewPromptSeed.name, Story: reviewPromptSeed.story }
+      );
 
   const continueToProtect = () => {
     const inputs: Record<string, string> = { Name: trimmedBotName, Story: trimmedStory };
@@ -155,9 +178,11 @@ export default function OnboardingBot() {
         botName: trimmedBotName,
         ...(botId ? { botId } : {}),
         templateName,
-        systemPrompt: canReuseReviewPrompt
-          ? reviewPromptSeed.systemPrompt
-          : generateSystemPrompt(draftBot, inputs),
+        systemPrompt:
+          canReuseReviewPrompt ||
+          (isReview && reviewPromptSeed !== null && !reviewPromptWasGenerated)
+            ? reviewPromptSeed.systemPrompt
+            : generateSystemPrompt(promptBot, inputs),
         color,
         icon,
         ...(isReview ? { review: "true" } : {}),

@@ -516,6 +516,63 @@ describe('Onboarding wizard', () => {
       });
     });
 
+    it('preserves a custom review bot prompt when prompt fields change', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Dragon',
+                template_name: 'Blank',
+                color: '#222222',
+                icon: 'sparkles',
+                response_length: 500,
+                restrict_language: false,
+                restrict_adult_topics: false,
+                system_prompt: 'custom prompt',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [
+          {
+            bot_id: 'b2',
+            name: 'Dragon',
+            template_name: 'Blank',
+            color: '#222222',
+            icon: 'sparkles',
+            response_length: 500,
+            restrict_language: false,
+            restrict_adult_topics: false,
+            system_prompt: 'custom prompt',
+          },
+        ],
+        count: 1,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      fireEvent.changeText(screen.getByTestId('onboarding-bot-name-input'), 'Smaug');
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Smaug',
+          botId: 'b2',
+          systemPrompt: 'custom prompt',
+          review: 'true',
+        }),
+      });
+    });
+
     it('allows an unchanged Character bot to continue in review mode', async () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({
         review: 'true',
@@ -942,6 +999,45 @@ describe('Onboarding wizard', () => {
           notify_digest_only: false,
         })
       );
+    });
+
+    it('does not persist review notification changes when bootstrap fails', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 400,
+        data: {
+          studentEmail: ['That email is already used by another profile.'],
+        },
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue({
+        id: 5,
+        device_id: 'd1',
+        notification_token: 'ExponentPushToken[test]',
+        notify_on_new_chat: true,
+        notify_on_new_message: true,
+        notify_digest_only: false,
+        deleted_at: null,
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      fireEvent(screen.getByTestId('onboarding-notifications-switch'), 'onValueChange', false);
+      fireEvent(screen.getByTestId('onboarding-notify-message-switch'), 'onValueChange', false);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(upsertDevice).not.toHaveBeenCalled();
+      expect(mockRouter.replace).not.toHaveBeenCalled();
     });
   });
 });
