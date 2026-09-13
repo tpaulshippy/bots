@@ -610,6 +610,20 @@ def describe_agent_events_history():
         assert deck_chip["name"] == "Cell Bio"
         assert deck_chip["deck_id"]
 
+    def test_get_response_persists_mapped_agent_events(chat):
+        """Legacy non-stream path must save the same chips: a regression
+        dropping the mapping there would lose history chips for old clients."""
+        chat.messages.create(text="hello", role="user")
+
+        chat.get_response(ai=ScriptedStreamClient())
+
+        assistant = chat.messages.filter(role="assistant").get()
+        assert assistant.agent_events
+        deck_chip = next(e for e in assistant.agent_events if e.get("kind") == "deck")
+        assert deck_chip["deck_id"]
+        assert deck_chip["name"] == "Cell Bio"
+        assert deck_chip["card_count"] == 1
+
     def test_serializer_exposes_agent_events(chat):
         from bots.serializers.message_serializer import MessageSerializer
 
