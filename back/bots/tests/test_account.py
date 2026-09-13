@@ -107,3 +107,13 @@ def describe_account():
             chat.output_tokens += 2
             chat.save()
             assert account.user_account.cost_for_today()[1:] == (3, 2)
+
+        def it_clears_over_limit_after_reset(load_fixture):
+            from bots.models.user_account import MAX_COST_DAILY
+            account = User.objects.create()
+            assert MAX_COST_DAILY[0] == pytest.approx(0.01 / 31)
+            Chat.objects.create(user=account, input_tokens=142855, output_tokens=35715)
+            assert account.user_account.over_limit() is True
+            account.user_account.reset_daily_usage()
+            account.user_account.refresh_from_db()
+            assert account.user_account.over_limit() is False

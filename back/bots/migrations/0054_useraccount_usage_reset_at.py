@@ -17,6 +17,11 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='useraccount',
+            name='usage_reset_timezone',
+            field=models.CharField(blank=True, max_length=50, null=True),
+        ),
+        migrations.AddField(
+            model_name='useraccount',
             name='usage_reset_cost',
             field=models.FloatField(default=0.0),
         ),

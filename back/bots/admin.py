@@ -110,6 +110,7 @@ class UserAccountAdmin(admin.ModelAdmin):
     actions = ['reset_daily_token_usage']
     readonly_fields = [
         'usage_reset_at',
+        'usage_reset_timezone',
         'usage_reset_cost',
         'usage_reset_input_tokens',
         'usage_reset_output_tokens',

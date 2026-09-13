@@ -2,7 +2,7 @@ from datetime import datetime, time
 
 import pytz
 from django.contrib.auth.models import User
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 from .ai_model import AiModel
@@ -31,9 +31,13 @@ class UserAccount(models.Model):
     # at reset time. cost_for_today() then reports current usage minus this
     # baseline, so Chat token history is never modified. A pre-reset chat
     # that receives messages after the reset only re-counts its new tokens
-    # (cumulative Chat counters would otherwise recharge the whole history
-    # as soon as modified_at moves past the reset).
+    # (cumulative Chat counters would otherwise recharge the whole history).
+    # The baseline only applies while the account timezone is unchanged
+    # since the reset; on a timezone change it is ignored (conservative:
+    # full-day usage counts again) rather than subtracted from a different
+    # set of chats.
     usage_reset_at = models.DateTimeField(null=True, blank=True)
+    usage_reset_timezone = models.CharField(max_length=50, null=True, blank=True)
     usage_reset_cost = models.FloatField(default=0.0)
     usage_reset_input_tokens = models.IntegerField(default=0)
     usage_reset_output_tokens = models.IntegerField(default=0)
@@ -70,7 +74,7 @@ class UserAccount(models.Model):
     def cost_for_today(self):
         total, total_input_tokens, total_output_tokens = self._raw_cost_for_today()
 
-        if self.usage_reset_at is not None and self.usage_reset_at >= self.start_of_today_utc():
+        if self._reset_baseline_applies():
             total = max(0.0, total - self.usage_reset_cost)
             total_input_tokens = max(0, total_input_tokens - self.usage_reset_input_tokens)
             total_output_tokens = max(0, total_output_tokens - self.usage_reset_output_tokens)
@@ -118,19 +122,35 @@ class UserAccount(models.Model):
         start_of_day = user_timezone.localize(datetime.combine(today, time.min))
         return start_of_day.astimezone(pytz.UTC)
 
+    def _reset_baseline_applies(self):
+        return (
+            self.usage_reset_at is not None
+            and self.usage_reset_timezone == self.timezone
+            and self.usage_reset_at >= self.start_of_today_utc()
+        )
+
     def reset_daily_usage(self):
         """Clear today's rate limit without touching Chat token history."""
-        total, total_input_tokens, total_output_tokens = self._raw_cost_for_today()
-        self.usage_reset_at = timezone.now()
-        self.usage_reset_cost = total
-        self.usage_reset_input_tokens = total_input_tokens
-        self.usage_reset_output_tokens = total_output_tokens
-        self.save(update_fields=[
-            'usage_reset_at',
-            'usage_reset_cost',
-            'usage_reset_input_tokens',
-            'usage_reset_output_tokens',
-        ])
+        with transaction.atomic():
+            account = UserAccount.objects.select_for_update().get(pk=self.pk)
+            total, total_input_tokens, total_output_tokens = account._raw_cost_for_today()
+            account.usage_reset_at = timezone.now()
+            account.usage_reset_timezone = account.timezone
+            account.usage_reset_cost = total
+            account.usage_reset_input_tokens = total_input_tokens
+            account.usage_reset_output_tokens = total_output_tokens
+            account.save(update_fields=[
+                'usage_reset_at',
+                'usage_reset_timezone',
+                'usage_reset_cost',
+                'usage_reset_input_tokens',
+                'usage_reset_output_tokens',
+            ])
+            self.usage_reset_at = account.usage_reset_at
+            self.usage_reset_timezone = account.usage_reset_timezone
+            self.usage_reset_cost = account.usage_reset_cost
+            self.usage_reset_input_tokens = account.usage_reset_input_tokens
+            self.usage_reset_output_tokens = account.usage_reset_output_tokens
 
 class RevenueCatWebhookEvent(models.Model):
     raw_event = models.JSONField()
