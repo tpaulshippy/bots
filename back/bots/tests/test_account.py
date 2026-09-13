@@ -165,6 +165,37 @@ def describe_account():
             ua.save()
             assert account.user_account.cost_for_today()[1:] == (10, 5)
 
+        def it_ignores_the_baseline_after_pricing_edits(load_fixture):
+            # Rates snapshotted in the baseline no longer match: the
+            # recomputed total could fall below the old snapshot and clamp
+            # usage to zero, so the baseline is voided (conservative
+            # recount, same precedent as a timezone change).
+            account = User.objects.create()
+            add_turn(Chat.objects.create(user=account), 10, 5)
+            account.user_account.reset_daily_usage()
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+            lite = AiModel.objects.get(model_id=LITE_ID)
+            lite.output_token_cost += 1.0
+            lite.save()
+            assert account.user_account.cost_for_today()[1:] == (10, 5)
+
+        def it_counts_usage_again_after_a_model_delete(load_fixture):
+            # Deleting a model reprices its stamped rows at default rates;
+            # without voiding, the baseline captured at the old rates could
+            # exceed the recomputed total and clamp usage to zero.
+            account = User.objects.create()
+            pricey = AiModel.objects.create(
+                model_id="pricey-model", name="Pricey",
+                input_token_cost=1.0, output_token_cost=2.0,
+            )
+            chat = Chat.objects.create(user=account)
+            add_turn(chat, 10, 5, model_id=pricey.model_id)
+            account.user_account.reset_daily_usage()
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+            pricey.delete()
+            account.user_account.refresh_from_db()
+            assert account.user_account.cost_for_today()[1:] == (10, 5)
+
         def it_keeps_the_reset_version_readonly_in_admin(load_fixture):
             # usage_reset_version is an internal compatibility marker: an
             # operator hand-editing it could re-arm a stale baseline and

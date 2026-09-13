@@ -136,32 +136,48 @@ class UserAccount(models.Model):
         bot model changes cannot reprice history. Unstamped rows (pre-fix,
         or chats whose bot was deleted) group by the chat's live bot model —
         the pre-fix behavior — with None for bot-less chats (default rates).
+
+        Both buckets come from a single aggregate query: the effective key
+        is computed per row with CASE, so a message committed mid-read
+        cannot fall between two statements and be undercounted by a
+        concurrent quota check.
         """
         from .message import Message
 
-        base = Message.objects.filter(
-            chat__user=self.user,
-            role='assistant',
-            created_at__gte=self.start_of_today_utc(),
+        effective_model = models.Case(
+            models.When(
+                models.Q(model_id__isnull=True) | models.Q(model_id=''),
+                then=models.F('chat__bot__ai_model__model_id'),
+            ),
+            default=models.F('model_id'),
+            output_field=models.CharField(),
         )
-        stamped_rows = (
-            base.exclude(model_id__isnull=True).exclude(model_id='')
-            .values('model_id')
-            .annotate(total_in=models.Sum('input_tokens'), total_out=models.Sum('output_tokens'))
+        was_stamped = models.Case(
+            models.When(
+                models.Q(model_id__isnull=True) | models.Q(model_id=''),
+                then=models.Value(False),
+            ),
+            default=models.Value(True),
+            output_field=models.BooleanField(),
         )
-        stamped = {
-            row['model_id']: [row['total_in'] or 0, row['total_out'] or 0]
-            for row in stamped_rows
-        }
-        unstamped_rows = (
-            base.filter(models.Q(model_id__isnull=True) | models.Q(model_id=''))
-            .values('chat__bot__ai_model__model_id')
-            .annotate(total_in=models.Sum('input_tokens'), total_out=models.Sum('output_tokens'))
+        rows = (
+            Message.objects.filter(
+                chat__user=self.user,
+                role='assistant',
+                created_at__gte=self.start_of_today_utc(),
+            )
+            .annotate(effective_model=effective_model, was_stamped=was_stamped)
+            .values('effective_model', 'was_stamped')
+            .annotate(
+                total_in=models.Sum('input_tokens'),
+                total_out=models.Sum('output_tokens'),
+            )
         )
-        unstamped = {
-            row['chat__bot__ai_model__model_id']: [row['total_in'] or 0, row['total_out'] or 0]
-            for row in unstamped_rows
-        }
+        stamped = {}
+        unstamped = {}
+        for row in rows:
+            bucket = stamped if row['was_stamped'] else unstamped
+            bucket[row['effective_model']] = [row['total_in'] or 0, row['total_out'] or 0]
         return stamped, unstamped
 
     def _message_tokens_today(self, model_id):
@@ -186,12 +202,21 @@ class UserAccount(models.Model):
         return start_of_day.astimezone(pytz.UTC)
 
     def _reset_baseline_applies(self):
-        return (
+        if not (
             self.usage_reset_at is not None
             and self.usage_reset_timezone == self.timezone
             and self.usage_reset_version == USAGE_RESET_VERSION
             and self.usage_reset_at >= self.start_of_today_utc()
-        )
+        ):
+            return False
+        # The baseline snapshots per-model rates at reset time. If pricing
+        # config changed since (rates edited, default switched), stamped
+        # rows may now reprice differently and the old snapshot could exceed
+        # the recomputed total, clamping usage to zero. Void the baseline
+        # (conservative recount, same precedent as a timezone change).
+        # Deletions leave no modified row behind; they void baselines via
+        # the post_delete signal in ai_model.py instead.
+        return not AiModel.objects.filter(modified_at__gt=self.usage_reset_at).exists()
 
     def reset_daily_usage(self):
         """Clear today's rate limit without touching Chat token history."""

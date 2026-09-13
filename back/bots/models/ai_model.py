@@ -1,5 +1,7 @@
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 
 class AiModel(models.Model):
@@ -30,3 +32,21 @@ class AiModel(models.Model):
                 name='unique_default_model'
             )
         ]
+
+
+@receiver(post_delete, sender=AiModel)
+def void_reset_baselines_on_model_delete(sender, instance, **kwargs):
+    """A deleted model's stamped rows reprice at default rates, which can
+    drop the recomputed total below a same-day reset baseline and clamp
+    usage to zero. Void baselines (conservative recount until midnight);
+    rate edits are caught instead by the modified_at guard in
+    UserAccount._reset_baseline_applies, since a deleted row leaves no
+    modified trace behind."""
+    from bots.models.user_account import UserAccount
+    UserAccount.objects.filter(usage_reset_at__isnull=False).update(
+        usage_reset_at=None,
+        usage_reset_timezone=None,
+        usage_reset_cost=0.0,
+        usage_reset_input_tokens=0,
+        usage_reset_output_tokens=0,
+    )
