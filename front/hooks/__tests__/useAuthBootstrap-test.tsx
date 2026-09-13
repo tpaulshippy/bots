@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
 import { useAuthBootstrap } from '../useAuthBootstrap';
-import { fetchBots } from '@/api/bots';
+import { fetchBots, fetchBot } from '@/api/bots';
 import { fetchOwnProfile, fetchProfiles } from '@/api/profiles';
 import { getSessionMode } from '@/api/tokens';
 
@@ -28,6 +28,7 @@ jest.mock('expo-web-browser', () => ({
 
 jest.mock('@/api/bots', () => ({
   fetchBots: jest.fn(),
+  fetchBot: jest.fn(),
 }));
 
 jest.mock('@/api/profiles', () => ({
@@ -71,6 +72,7 @@ describe('useAuthBootstrap bot selection repair', () => {
       results: [{ bot_id: 'b1', name: 'Penelope' }],
       count: 1,
     });
+    (fetchBot as jest.Mock).mockResolvedValue(null);
   });
 
   it('keeps a stored bot selection owned by the current account', async () => {
@@ -124,5 +126,50 @@ describe('useAuthBootstrap bot selection repair', () => {
 
     // Offline must not strand the user with no bot selected.
     expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith('selectedBot');
+  });
+
+  it('keeps a valid bot that lives beyond the first list page', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'selectedBot'
+          ? JSON.stringify({ bot_id: 'b51', name: 'Late Bot' })
+          : null
+      )
+    );
+    (fetchBot as jest.Mock).mockResolvedValue({
+      bot_id: 'b51',
+      name: 'Late Bot',
+    });
+
+    await bootstrap();
+
+    // Page one doesn't have it, but the single-bot lookup proves ownership.
+    expect(fetchBot).toHaveBeenCalledWith('b51');
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith('selectedBot');
+  });
+
+  it('repairs a foreign bot selection for teen-delegated sessions too', async () => {
+    (getSessionMode as jest.Mock).mockResolvedValue({
+      isTeenDelegated: true,
+      activeProfileId: 'p1',
+    });
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'selectedBot'
+          ? JSON.stringify({ bot_id: 'bx', name: 'Other Account Bot' })
+          : key === 'selectedProfile'
+            ? JSON.stringify({ profile_id: 'p1', name: 'Jordan' })
+            : null
+      )
+    );
+    (fetchBot as jest.Mock).mockResolvedValue(null);
+
+    await bootstrap();
+
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('selectedBot');
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'selectedBot',
+      JSON.stringify({ bot_id: 'b1', name: 'Penelope' })
+    );
   });
 });

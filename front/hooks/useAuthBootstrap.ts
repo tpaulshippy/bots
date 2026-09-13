@@ -5,8 +5,10 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { fetchBots } from "@/api/bots";
+import { fetchBot, fetchBots } from "@/api/bots";
+import type { Bot } from "@/api/bots";
 import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
+import type { PaginatedResponse } from "@/api/request";
 import { UnauthorizedError } from "@/api/apiClient";
 import { clearUser, getSessionMode, sessionFromQueryParams, setTokens } from "@/api/tokens";
 
@@ -57,38 +59,51 @@ export function useAuthBootstrap(loaded: boolean) {
   /**
    * Same ownership repair as setProfile, for the selected bot: a stored
    * selection from another account (or a deleted bot) is dropped and
-   * re-seeded from the live list. Unlike setProfile, a failed fetch keeps
-   * the stored selection — offline must not strand the user with no bot.
+   * re-seeded from the live list. Two safeguards: the stored id is resolved
+   * with the single-bot endpoint before giving up (page one is not the
+   * whole account), and anything unverifiable — failed fetches, offline —
+   * keeps the stored selection.
    */
-  const setBot = useCallback(async () => {
-    const botData = await AsyncStorage.getItem("selectedBot");
-    if (!botData) {
-      return;
-    }
-    const bots = await fetchBots().catch(() => null);
-    if (!bots) {
-      return;
-    }
-    let bot: { bot_id?: string } | null = null;
-    try {
-      bot = JSON.parse(botData);
-    } catch {
-      bot = null;
-    }
-    const botExists =
-      !!bot &&
-      typeof bot.bot_id === "string" &&
-      bots.results.some((b) => b.bot_id === bot.bot_id);
-    if (!botExists) {
+  const setBot = useCallback(
+    async (prefetchedBots?: PaginatedResponse<Bot> | null) => {
+      const botData = await AsyncStorage.getItem("selectedBot");
+      if (!botData) {
+        return;
+      }
+      let bot: { bot_id?: string } | null = null;
+      try {
+        bot = JSON.parse(botData);
+      } catch {
+        bot = null;
+      }
+      const storedId =
+        bot && typeof bot.bot_id === "string" ? bot.bot_id : null;
+      const bots =
+        prefetchedBots === undefined
+          ? await fetchBots().catch(() => null)
+          : prefetchedBots;
+      if (storedId && bots?.results.some((b) => b.bot_id === storedId)) {
+        return;
+      }
+      if (storedId) {
+        const owned = await fetchBot(storedId).catch(() => null);
+        if (owned) {
+          return;
+        }
+        if (!bots) {
+          return;
+        }
+      }
       await AsyncStorage.removeItem("selectedBot");
-      if (bots.count > 0) {
+      if (bots && bots.count > 0) {
         await AsyncStorage.setItem(
           "selectedBot",
           JSON.stringify(bots.results[0])
         );
       }
-    }
-  }, []);
+    },
+    []
+  );
 
   /**
    * Teen-delegated sessions never see the profile picker: fetch only their
@@ -118,13 +133,16 @@ export function useAuthBootstrap(loaded: boolean) {
 
   const initialNavigationChecks = useCallback(async () => {
     try {
-      await fetchBots();
+      // Doubles as the logged-out probe (401 throws → redirect below);
+      // the result is reused so setBot doesn't fetch the list twice.
+      const bots = await fetchBots();
       const mode = await getSessionMode();
       if (mode.isTeenDelegated) {
         await setDelegatedProfile();
+        await setBot(bots);
       } else {
         await setProfile();
-        await setBot();
+        await setBot(bots);
       }
     } catch (error) {
       if (error instanceof UnauthorizedError) {
