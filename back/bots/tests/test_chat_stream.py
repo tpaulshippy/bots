@@ -647,3 +647,122 @@ def describe_agent_events_history():
         assistant = chat.messages.filter(role="assistant").get()
         assert assistant.agent_events
         assert any(e.get("kind") == "deck" for e in assistant.agent_events)
+
+
+@pytest.mark.django_db
+def describe_prompt_caching():
+    """System-prompt cache breakpoint: stable prefix caches on Bedrock."""
+
+    def it_marks_system_cacheable_for_anthropic():
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        from bots.services.chat_agent import _mark_system_cacheable
+
+        out = _mark_system_cacheable(
+            [SystemMessage(content="You are Fred."), HumanMessage(content="hi")],
+            "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        )
+        assert out[0].content == [{
+            "type": "text",
+            "text": "You are Fred.",
+            "cache_control": {"type": "ephemeral"},
+        }]
+        assert out[1].content == "hi"
+
+    def it_leaves_other_providers_and_empty_models_alone():
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        from bots.services.chat_agent import _mark_system_cacheable
+
+        for model_id in ("us.amazon.nova-lite-v1:0", "meta.llama3-3-70b-instruct-v1:0", "", None):
+            messages = [SystemMessage(content="You are Fred."), HumanMessage(content="hi")]
+            out = _mark_system_cacheable(messages, model_id)
+            assert out[0].content == "You are Fred."
+
+    def it_wires_cache_marking_into_the_stream(chat):
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        from bots.services.chat_agent import ChatAgentService
+
+        class _CapturingClient:
+            def __init__(self, model_id):
+                self.model_id = model_id
+                self.seen = None
+
+            def bind_tools(self, tools):
+                return self
+
+            def stream(self, messages):
+                self.seen = messages
+                yield AIMessageChunk(content="hi")
+
+        anthropic = _CapturingClient("us.anthropic.claude-haiku-4-5-20251001-v1:0")
+        svc = ChatAgentService(chat, anthropic)
+        list(svc.respond_events([SystemMessage(content="You are Fred."), HumanMessage(content="hi")]))
+        assert anthropic.seen[0].content[0]["cache_control"] == {"type": "ephemeral"}
+
+        nova = _CapturingClient("us.amazon.nova-lite-v1:0")
+        list(ChatAgentService(chat, nova).respond_events([SystemMessage(content="You are Fred.")]))
+        assert nova.seen[0].content == "You are Fred."
+
+    def it_wires_cache_marking_into_respond(chat):
+        from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+        from bots.services.chat_agent import ChatAgentService
+
+        class _CapturingInvokeClient:
+            def __init__(self, model_id):
+                self.model_id = model_id
+                self.seen = None
+
+            def bind_tools(self, tools):
+                return self
+
+            def invoke(self, messages):
+                self.seen = messages
+                return AIMessage(content="hi")
+
+        anthropic = _CapturingInvokeClient("us.anthropic.claude-haiku-4-5-20251001-v1:0")
+        text, _ = ChatAgentService(chat, anthropic).respond(
+            [SystemMessage(content="You are Fred."), HumanMessage(content="hi")]
+        )
+        assert text == "hi"
+        assert anthropic.seen[0].content[0]["cache_control"] == {"type": "ephemeral"}
+
+        nova = _CapturingInvokeClient("us.amazon.nova-lite-v1:0")
+        ChatAgentService(chat, nova).respond([SystemMessage(content="You are Fred.")])
+        assert nova.seen[0].content == "You are Fred."
+
+    def it_keeps_page_catalog_out_of_the_cached_block(chat):
+        from unittest.mock import MagicMock
+
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        from bots.models import Bot
+        from bots.services.chat_agent import ChatAgentService, _mark_system_cacheable
+
+        chat.bot = Bot.objects.create(
+            user=chat.user, name="Web", enable_html_pages=True
+        )
+        chat.save()
+        svc = ChatAgentService(chat, MagicMock())
+        svc._page_catalog_message = lambda: SystemMessage(
+            content="The kid's saved HTML pages:\n- 'Dino' page_id=abc updated=2026-09-13 15:00"
+        )
+
+        marked = _mark_system_cacheable(
+            [SystemMessage(content="You are Fred."), HumanMessage(content="hi")],
+            "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        )
+        merged = svc._with_catalog(marked)
+        blocks = merged[0].content
+        assert isinstance(blocks, list) and len(blocks) == 2
+        assert blocks[0] == {
+            "type": "text",
+            "text": "You are Fred.",
+            "cache_control": {"type": "ephemeral"},
+        }
+        assert "Dino" in blocks[1]["text"]
+        assert "cache_control" not in blocks[1]
+        # Still a single SystemMessage (Bedrock Converse rejects splits).
+        assert len([m for m in merged if isinstance(m, SystemMessage)]) == 1

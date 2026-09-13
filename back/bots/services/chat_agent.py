@@ -36,6 +36,37 @@ def _harden_tool(tool, retry_hint: str):
     return tool
 
 
+def _mark_system_cacheable(message_list, model_id):
+    """Tag the system prompt with a Bedrock cache breakpoint (Anthropic only).
+
+    Haiku 4.5 supports explicit caching on system/messages/tools with a
+    4,096-token minimum per checkpoint (verified e2e). The stable system
+    prompt forms the cacheable prefix across turns and agent iterations,
+    so one breakpoint buys cache hits (cache reads ~90% cheaper) on every
+    call after the first within the TTL. Shorter prefixes simply don't
+    cache — never an error. Other providers keep the plain string form.
+
+    Tool schemas passed via bind_tools() are NOT covered by this
+    breakpoint: with ChatBedrock they serialize after the system block
+    with no provider-supported cache point wired through LangChain, so
+    they bill as fresh input. The win here is the system prefix alone.
+    """
+    if "anthropic" not in str(model_id or "").lower():
+        return message_list
+    messages = list(message_list)
+    if messages:
+        from langchain_core.messages import SystemMessage
+
+        first = messages[0]
+        if isinstance(first, SystemMessage) and isinstance(first.content, str) and first.content:
+            messages[0] = SystemMessage(content=[{
+                "type": "text",
+                "text": first.content,
+                "cache_control": {"type": "ephemeral"},
+            }])
+    return messages
+
+
 
 WEB_SEARCH_UNAVAILABLE = "Web search is not available."
 WEB_QUERY_BLOCKED = "This search query was blocked by the safety policy. Please try a different question."
@@ -178,6 +209,7 @@ class ChatAgentService:
         "HTML pages are enabled: you can build single-file web pages for the kid.\n"
         "Call save_html_page ONCE with the title AND the complete single-file html document.\n"
         "To change a page, call save_html_page again with the SAME page_id and the full replacement html.\n"
+        "Keep pages small (under ~15KB): every update resends the whole document.\n"
         "Ignore reply length or word-count limits while emitting page content.\n"
         "Always mention the page title in your reply so the kid can reference it later."
     )
@@ -236,6 +268,12 @@ class ChatAgentService:
         Anthropic (via Bedrock Converse) rejects multiple non-consecutive
         system messages, so this must never be appended as its own
         SystemMessage after the prompt (prod crash). Merging keeps one.
+
+        When the system prompt already carries a cache breakpoint (list
+        content from _mark_system_cacheable), the volatile catalog — which
+        includes each page's updated_at and moves on every save — is
+        appended as a separate UNCACHED block in the same SystemMessage so
+        page updates don't invalidate the stable cached prefix.
         """
         from langchain_core.messages import SystemMessage
 
@@ -247,8 +285,16 @@ class ChatAgentService:
         messages = list(message_list)
         if messages and isinstance(messages[0], SystemMessage):
             first = messages[0]
-            content = first.content if isinstance(first.content, str) else ""
-            messages[0] = SystemMessage(content=content + "\n\n" + catalog.content)
+            if isinstance(first.content, list):
+                catalog_text = catalog.content if isinstance(catalog.content, str) else ""
+                if catalog_text:
+                    messages[0] = SystemMessage(content=[
+                        *first.content,
+                        {"type": "text", "text": "\n\n" + catalog_text},
+                    ])
+            else:
+                content = first.content if isinstance(first.content, str) else ""
+                messages[0] = SystemMessage(content=content + "\n\n" + catalog.content)
         else:
             messages.insert(0, catalog)
         return messages
@@ -264,6 +310,12 @@ class ChatAgentService:
         if web_search:
             tools["web_search"] = web_search
         tools.update(self._html_tools())
+        # Mark the stable prompt cacheable FIRST, then fold the volatile
+        # page catalog in as an uncached block (same SystemMessage) so page
+        # saves don't invalidate the cached prefix.
+        message_list = _mark_system_cacheable(
+            message_list, getattr(self.ai_client, "model_id", "")
+        )
         message_list = self._with_catalog(message_list)
         logger.info(f"Invoking agent with full context ({len(message_list)} messages)")
 
@@ -303,7 +355,12 @@ class ChatAgentService:
         tools.update(self._html_tools())
 
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
-        messages = self._with_catalog(list(message_list))
+        # Same ordering as respond(): stable prompt cached first, volatile
+        # catalog appended uncached so saves don't bust the cache.
+        messages = _mark_system_cacheable(
+            list(message_list), getattr(self.ai_client, "model_id", "")
+        )
+        messages = self._with_catalog(messages)
         usage_totals = {"input_tokens": 0, "output_tokens": 0}
         yielded_text = ""
         after_tool = False
@@ -703,6 +760,7 @@ class ChatAgentService:
 
             Omit page_id to create a new page. To change an existing page,
             pass its page_id with the FULL replacement html document.
+            Keep html under ~15KB: updates resend the whole document.
             Ignore reply length or word-count limits while emitting page content.
             Args:
                 title: Short page title shown in chat (required for new pages).
@@ -856,18 +914,18 @@ class ChatAgentService:
                         "didn't pass the safety check. Fix the page with "
                         "save_html_page (same page_id) and try previewing again."
                     )
-            png_bytes = shot.get("png_bytes")
-            if png_bytes:
-                b64 = base64.b64encode(png_bytes).decode("ascii")
+            shot_bytes = shot.get("shot_bytes")
+            if shot_bytes:
+                b64 = base64.b64encode(shot_bytes).decode("ascii")
                 self._pending_observations.append({
                     "type": "image_url",
-                    "image_url": {"url": f"data:image/png;base64,{b64}"},
+                    "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
                 })
             console_errors = shot.get("console_errors") or []
             page_errors = shot.get("page_errors") or []
             # Claim "checked render" only when a screenshot was captured:
             # without page_id the frontend shows no chip (and shouldn't).
-            if png_bytes:
+            if shot_bytes:
                 self._record_event({
                     "tool": "preview_page",
                     "page_id": str(page.page_id),
@@ -881,7 +939,7 @@ class ChatAgentService:
                 parts.append("Page errors:\n" + "\n".join(f"- {e}" for e in page_errors[:5]))
             if not console_errors and not page_errors:
                 parts.append("No JS errors.")
-            if png_bytes:
+            if shot_bytes:
                 parts.append("The screenshot follows as an image; inspect the layout and fix issues with save_html_page (same page_id) if needed.")
             else:
                 parts.append("No screenshot captured.")
