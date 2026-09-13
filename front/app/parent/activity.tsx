@@ -100,8 +100,16 @@ export default function ActivityScreen() {
       let active = true;
       getAccount()
         .then((account) => {
-          if (active && account) {
+          if (!active) return;
+          if (account) {
             setHasPin(!!account.hasPin);
+          } else {
+            // request() resolves null (instead of rejecting) on ordinary
+            // HTTP/network failures: fall back to the cached flag so the
+            // spinner resolves instead of hanging indefinitely.
+            getCachedHasPin().then((cached) => {
+              if (active) setHasPin(cached);
+            });
           }
         })
         .catch(() => {

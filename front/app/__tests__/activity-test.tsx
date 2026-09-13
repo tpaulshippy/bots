@@ -4,6 +4,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react-nativ
 import ActivityScreen from '../parent/activity';
 import { fetchActivityChats, fetchActivitySummary } from '@/api/activity';
 import { getAccount } from '@/api/account';
+import { getCachedHasPin } from '@/api/pinStorage';
 import { useRouter } from 'expo-router';
 
 jest.mock('expo-router', () => {
@@ -157,5 +158,18 @@ describe('ActivityScreen', () => {
       screen.getByTestId('activity-safety-filter').props.accessibilityState
         .selected
     ).toBe(true);
+  });
+
+  it('falls back to the cached PIN flag when the account resolves to null', async () => {
+    (getAccount as jest.Mock).mockResolvedValue(null);
+    (getCachedHasPin as jest.Mock).mockResolvedValue(false);
+
+    render(<ActivityScreen />);
+
+    // Loading resolves to content instead of hanging on the spinner.
+    await waitFor(() =>
+      expect(screen.getByTestId('activity-empty-state')).toBeTruthy()
+    );
+    expect(getCachedHasPin).toHaveBeenCalled();
   });
 });
