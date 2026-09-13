@@ -39,6 +39,38 @@ export const tryFetchProfiles = async (): Promise<PaginatedResponse<Profile> | n
 export const fetchProfile = async (id: string): Promise<Profile | null> =>
     request<Profile | null>(`/profiles/${id}.json`, {}, null);
 
+/** Failure-distinguishing single-profile lookup for review prefill.
+ *  Same contract as tryFetchBot (see bots.ts): the profile, 'missing' on a
+ *  confirmed absence (404, or 403 — the detail view loads unscoped rows
+ *  and IsOwner rejects foreign ones), null when the lookup couldn't run,
+ *  with auth errors propagating to the login redirect. */
+export const tryFetchProfile = async (
+    id: string
+): Promise<Profile | 'missing' | null> => {
+    let response;
+    try {
+        response = await requestRaw<Profile>(`/profiles/${id}.json`);
+    } catch (error: any) {
+        if (
+            error?.name === 'UnauthorizedError' ||
+            (typeof UnauthorizedError === 'function' &&
+                error instanceof UnauthorizedError)
+        ) {
+            throw error;
+        }
+        return null;
+    }
+    if (!response) {
+        return null;
+    }
+    if (response.ok) {
+        return response.data ?? null;
+    }
+    return response.status === 404 || response.status === 403
+        ? 'missing'
+        : null;
+};
+
 /**
  * Read-self endpoint for teen-delegated sessions: returns only the profile
  * this session is locked to, redacted by the backend.

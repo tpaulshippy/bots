@@ -8,7 +8,7 @@ import OnboardingProfile from '../onboarding/profile';
 import OnboardingBot from '../onboarding/bot';
 import OnboardingProtect from '../onboarding/protect';
 import OnboardingNotifications from '../onboarding/notifications';
-import { fetchProfiles, tryFetchProfiles, fetchProfile } from '@/api/profiles';
+import { fetchProfiles, tryFetchProfiles, fetchProfile, tryFetchProfile } from '@/api/profiles';
 import { fetchBots, fetchBot, tryFetchBot } from '@/api/bots';
 import {
   fetchDevice,
@@ -33,6 +33,7 @@ jest.mock('@/api/profiles', () => ({
   fetchProfiles: jest.fn(),
   tryFetchProfiles: jest.fn(),
   fetchProfile: jest.fn(),
+  tryFetchProfile: jest.fn(),
 }));
 
 jest.mock('@/api/bots', () => ({
@@ -79,6 +80,8 @@ describe('Onboarding wizard', () => {
       results: [{ profile_id: 'p1', name: 'Jordan' }],
       count: 1,
     });
+    // Single-item lookups resolve null unless a test overrides them.
+    (tryFetchProfile as jest.Mock).mockResolvedValue(null);
     (fetchBots as jest.Mock).mockResolvedValue({
       results: [{ bot_id: 'b1', name: 'Penelope' }],
       count: 1,
@@ -263,6 +266,9 @@ describe('Onboarding wizard', () => {
         results: [{ profile_id: 'p1', name: 'Jordan' }],
         count: 1,
       });
+      // Confirmed missing (not a transient failure): the cached snapshot
+      // stays usable for the recreate path.
+      (tryFetchProfile as jest.Mock).mockResolvedValue('missing');
 
       render(<OnboardingProfile />);
       await act(async () => {});
@@ -282,6 +288,78 @@ describe('Onboarding wizard', () => {
           profileId: 'p9',
         },
       });
+    });
+
+    it('prefers live server state over a stale cached profile snapshot', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({
+          profile_id: 'p9',
+          name: 'Old Name',
+          oauth_email: 'old@school.edu',
+        });
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Jordan' }],
+        count: 2,
+      });
+      (tryFetchProfile as jest.Mock).mockResolvedValue({
+        profile_id: 'p9',
+        name: 'New Name',
+        oauth_email: 'new@school.edu',
+      });
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        'New Name'
+      );
+      expect(
+        screen.getByTestId('onboarding-student-email-input').props.value
+      ).toBe('new@school.edu');
+
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: {
+          profileName: 'New Name',
+          studentEmail: 'new@school.edu',
+          review: 'true',
+          profileId: 'p9',
+        },
+      });
+    });
+
+    it('gates Continue when the confirming profile lookup fails transiently', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({
+          profile_id: 'p9',
+          name: 'Maybe Stale',
+          oauth_email: 'maybe@school.edu',
+        });
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Jordan' }],
+        count: 2,
+      });
+      // List loaded but the single lookup flaked: show the cache but
+      // refuse to submit it.
+      (tryFetchProfile as jest.Mock).mockResolvedValue(null);
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        'Maybe Stale'
+      );
+      expect(
+        screen.getByTestId('onboarding-profile-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+      expect(mockRouter.push).not.toHaveBeenCalled();
     });
 
     it('blocks Continue until review profile prefill finishes', async () => {

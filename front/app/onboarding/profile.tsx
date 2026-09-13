@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { tryFetchProfiles } from "@/api/profiles";
+import { tryFetchProfile, tryFetchProfiles } from "@/api/profiles";
 import { getSelectedProfile, handleUnauthorized } from "@/hooks/useSelectedProfile";
 import { WizardStep } from "./WizardStep";
 
@@ -21,6 +21,10 @@ export default function OnboardingProfile() {
   const [profileId, setProfileId] = useState<string | null>(null);
   const [reviewPrefillLoaded, setReviewPrefillLoaded] = useState(!isReview);
   const [reviewCanCreateProfile, setReviewCanCreateProfile] = useState(false);
+  // True when the selected id missed page one and the confirming lookup
+  // failed transiently: the cached snapshot may be stale, so Continue
+  // stays gated instead of submitting outdated name/email.
+  const [reviewTargetUnverified, setReviewTargetUnverified] = useState(false);
 
   // Review mode: pre-fill with what's currently configured so the wizard
   // doubles as a way to verify the setup. Prefer the selected profile,
@@ -49,10 +53,29 @@ export default function OnboardingProfile() {
           selected && typeof selected.profile_id === "string"
             ? selected.profile_id
             : null;
-        const current =
+        // Resolve the selected id against live data first: the cached
+        // snapshot goes stale, so submitting it for a correct profileId
+        // would overwrite newer server name/email and break idempotency
+        // (same rule as the bot step). Auth errors propagate to login.
+        const liveMatch =
           (selectedId &&
-            (profiles?.results?.find((profile) => profile.profile_id === selectedId) ||
-              (typeof selected.name === "string" ? selected : null))) ||
+            profiles?.results?.find(
+              (profile) => profile.profile_id === selectedId
+            )) ||
+          null;
+        let serverMatch = null;
+        if (selectedId && !liveMatch && profiles) {
+          const lookup = await tryFetchProfile(selectedId);
+          if (lookup && lookup !== "missing" && !lookup.deleted_at) {
+            serverMatch = lookup;
+          } else if (lookup === null && active) {
+            setReviewTargetUnverified(true);
+          }
+        }
+        const current =
+          liveMatch ||
+          serverMatch ||
+          (selectedId && typeof selected.name === "string" ? selected : null) ||
           profiles?.results?.[0] ||
           null;
         if (current && active) {
@@ -91,6 +114,7 @@ export default function OnboardingProfile() {
   const canContinue =
     (!isReview || reviewPrefillLoaded) &&
     (!isReview || profileId !== null || reviewCanCreateProfile) &&
+    (!isReview || !reviewTargetUnverified) &&
     name.trim().length > 0 &&
     emailValid;
 

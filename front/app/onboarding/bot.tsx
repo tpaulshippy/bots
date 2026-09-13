@@ -80,7 +80,14 @@ export default function OnboardingBot() {
         } catch {
           parsed = null;
         }
-        const bots = await fetchBots().catch(() => null);
+        const bots = await fetchBots().catch((error: unknown) => {
+          // Auth errors propagate to the login redirect below; anything
+          // else reads as an unavailable list (offline still works).
+          if ((error as { name?: string })?.name === "UnauthorizedError") {
+            throw error;
+          }
+          return null;
+        });
         const selectedId =
           parsed && typeof parsed.bot_id === "string" && parsed.bot_id
             ? parsed.bot_id
@@ -97,21 +104,16 @@ export default function OnboardingBot() {
           null;
         let serverMatch = null;
         if (selectedId && !liveMatch && bots) {
-          let lookup = null;
-          try {
-            lookup = await tryFetchBot(selectedId);
-          } catch (error) {
-            if ((error as { name?: string })?.name === "UnauthorizedError") {
-              throw error;
-            }
-            lookup = null;
-          }
+          // tryFetchBot throws auth errors (boundary redirects) and maps
+          // everything else: a bot object, 'missing', or null.
+          const lookup = await tryFetchBot(selectedId);
           if (lookup && lookup !== "missing" && !lookup.deleted_at) {
             serverMatch = lookup;
-          } else if (lookup !== "missing") {
+          } else if (lookup === null) {
             // Transient failure with a loaded list: the cache may be
-            // stale, so prefill it but keep Continue gated. (No list at
-            // all means offline — the cache is the best source there.)
+            // stale, so prefill it but keep Continue gated. Confirmed
+            // missing (or soft-deleted) rows use the cache recreate path
+            // ungated; no list at all means offline, same deal.
             if (active) {
               setReviewTargetUnverified(true);
             }
