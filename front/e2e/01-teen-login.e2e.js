@@ -183,7 +183,7 @@ describe('Teen delegated login (roadmap 01)', () => {
     expect(cleared.oauth_email === null || cleared.oauth_email === '').toBe(true);
   });
 
-  it('teen-delegated session hides Settings in the drawer', async () => {
+  it('teen-delegated session shows the teen-safe Settings (study reminders only)', async () => {
     const teenTokens = mintDelegatedTokens(maya.profile_id);
     await launchAndInject({
       tokens: teenTokens,
@@ -196,16 +196,23 @@ describe('Teen delegated login (roadmap 01)', () => {
 
     await waitFor(element(by.id('drawer-item-chats'))).toBeVisible().withTimeout(3000);
     await waitFor(element(by.id('drawer-item-flashcards'))).toBeVisible().withTimeout(3000);
-    await expect(element(by.id('drawer-item-settings'))).toNotExist();
+    await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(3000);
+
+    // Teen Settings exposes the study-reminder opt-in, never parent surfaces.
+    await element(by.id('drawer-item-settings')).tap();
+    await waitFor(element(by.id('teen-study-due-switch'))).toBeVisible().withTimeout(5000);
+    await expect(element(by.id('menu-profiles'))).toNotExist();
   });
 
   it('teen deep link into /parent/* bounces off the parent area', async () => {
     await device.openURL({ url: 'botsforkids://parent/settings' });
     await new Promise((resolve) => setTimeout(resolve, 2500));
 
-    // The app is alive on a kid-safe screen and the drawer stays teen-scoped.
+    // The app is alive on a kid-safe screen and the drawer stays teen-scoped
+    // (teen-safe Settings visible, parent area unbounced-into).
     await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(10000);
     await openDrawer();
-    await expect(element(by.id('drawer-item-settings'))).toNotExist();
+    await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(3000);
+    await expect(element(by.id('menu-profiles'))).toNotExist();
   });
 });
