@@ -90,7 +90,11 @@ export function useAuthBootstrap(loaded: boolean) {
       // a soft-deleted detail row (both with a loaded list to reseed from).
       let confirmedGone = !storedId;
       if (storedId) {
-        const lookup = await tryFetchBot(storedId).catch(() => null);
+        // No catch: tryFetchBot maps every non-auth failure to null and
+        // only auth errors throw, which must reach the login redirect in
+        // initialNavigationChecks rather than look like an unverifiable
+        // selection.
+        const lookup = await tryFetchBot(storedId);
         confirmedGone =
           !!bots &&
           (lookup === "missing" || (!!lookup && !!lookup.deleted_at));

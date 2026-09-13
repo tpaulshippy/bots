@@ -15,32 +15,29 @@ export const fetchProfiles = async (): Promise<PaginatedResponse<Profile> | null
     request<PaginatedResponse<Profile> | null>('/profiles.json', {}, { results: [], count: 0 });
 
 /** Failure-distinguishing profiles fetch for review-mode gating: resolves
- *  null when the list couldn't load. fetchProfiles resolves an empty
- *  fallback in that case, which review mode must not mistake for "no
+ *  null when the list couldn't load, and rethrows auth errors so expired
+ *  sessions still reach the login redirect. fetchProfiles resolves an
+ *  empty fallback on failure, which review mode must not mistake for "no
  *  profiles" — continuing ID-less would rename the oldest profile. */
 export const tryFetchProfiles = async (): Promise<PaginatedResponse<Profile> | null> => {
-    const response = await requestRaw<PaginatedResponse<Profile>>('/profiles.json').catch(() => null);
+    let response;
+    try {
+        response = await requestRaw<PaginatedResponse<Profile>>('/profiles.json');
+    } catch (error: any) {
+        if (
+            error?.name === 'UnauthorizedError' ||
+            (typeof UnauthorizedError === 'function' &&
+                error instanceof UnauthorizedError)
+        ) {
+            throw error;
+        }
+        return null;
+    }
     return response && response.ok ? response.data ?? null : null;
 };
 
 export const fetchProfile = async (id: string): Promise<Profile | null> =>
     request<Profile | null>(`/profiles/${id}.json`, {}, null);
-
-/** Failure-distinguishing single-profile lookup: the bot-side twin of
- *  tryFetchBot (see bots.ts) — 'missing' only on a confirmed 404, null
- *  when the lookup couldn't run. */
-export const tryFetchProfile = async (
-    id: string
-): Promise<Profile | 'missing' | null> => {
-    const response = await requestRaw<Profile>(`/profiles/${id}.json`).catch(() => null);
-    if (!response) {
-        return null;
-    }
-    if (response.ok) {
-        return response.data ?? null;
-    }
-    return response.status === 404 ? 'missing' : null;
-};
 
 /**
  * Read-self endpoint for teen-delegated sessions: returns only the profile
