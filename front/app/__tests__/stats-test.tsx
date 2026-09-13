@@ -3,12 +3,16 @@ import { render, act, screen, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Stats from '../stats';
 import { fetchStats } from '@/api/stats';
+import { UnauthorizedError } from '@/api/apiClient';
 import { setSelectedProfile } from '@/hooks/useSelectedProfile';
+
+const mockPush = jest.fn();
+const mockReplace = jest.fn();
 
 jest.mock('expo-router', () => {
   const React = require('react');
   return {
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+    useRouter: () => ({ push: mockPush, replace: mockReplace }),
     useFocusEffect: (cb: () => void) => React.useEffect(cb, []),
   };
 });
@@ -21,6 +25,7 @@ jest.mock('@/api/tokens', () => ({
   getSessionMode: jest.fn(() =>
     Promise.resolve({ isTeenDelegated: false, activeProfileId: null })
   ),
+  clearUser: jest.fn(() => Promise.resolve()),
 }));
 
 const week = [
@@ -109,12 +114,12 @@ describe('Stats screen', () => {
     );
   });
 
-  it('shows the empty state when stats fail to load', async () => {
+  it('shows the error state (not the empty state) when stats fail to load', async () => {
     (fetchStats as jest.Mock).mockResolvedValue(null);
     render(<Stats />);
 
     await waitFor(() =>
-      expect(screen.getByText('No stats yet')).toBeTruthy()
+      expect(screen.getByText("Couldn't load stats")).toBeTruthy()
     );
     expect(screen.queryByTestId('stats-card')).toBeNull();
   });
@@ -129,5 +134,38 @@ describe('Stats screen', () => {
     });
 
     await waitFor(() => expect(fetchStats).toHaveBeenCalledWith('kid-2'));
+  });
+
+  it('ignores a stale response that resolves after a profile switch', async () => {
+    let resolveStale!: (value: unknown) => void;
+    (fetchStats as jest.Mock)
+      .mockImplementationOnce(
+        () => new Promise((resolve) => { resolveStale = resolve; })
+      )
+      .mockResolvedValue(statsFor({ current_streak: 9, longest_streak: 9 }));
+    render(<Stats />);
+
+    await waitFor(() => expect(fetchStats).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await setSelectedProfile({ profile_id: 'kid-2', name: 'Leo' });
+    });
+    await waitFor(() =>
+      expect(textOf('stats-streak')).toContain('9-day streak')
+    );
+
+    await act(async () => {
+      resolveStale(statsFor({ current_streak: 1, longest_streak: 5 }));
+    });
+
+    await waitFor(() => expect(fetchStats).toHaveBeenCalledTimes(2));
+    expect(textOf('stats-streak')).toContain('9-day streak');
+  });
+
+  it('redirects to login when the session is unauthorized', async () => {
+    (fetchStats as jest.Mock).mockRejectedValue(new UnauthorizedError());
+    render(<Stats />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
   });
 });

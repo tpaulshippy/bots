@@ -131,6 +131,17 @@ class TestGetProfileStats:
         assert stats['current_streak'] == 0
         assert stats['total_messages'] == 0
 
+    def test_assistant_greeting_does_not_count_as_activity(self, test_profile, chat):
+        # New chats open with an assistant greeting (see bots/signals.py):
+        # only the kid's own messages feed streaks, buckets, and totals.
+        _message(chat, role='assistant', days_ago=0)
+
+        stats = get_profile_stats(test_profile)
+        assert stats['current_streak'] == 0
+        assert stats['total_messages'] == 0
+        assert stats['chatted_today'] is False
+        assert stats['week'][-1]['messages'] == 0
+
     def test_week_buckets_messages_and_reviews(self, test_profile, chat, card):
         _message(chat, days_ago=0)
         _message(chat, days_ago=0)
@@ -195,3 +206,44 @@ class TestStatsEndpoint:
     def test_requires_authentication(self, test_profile):
         response = APIClient().get(f'/api/stats.json?profileId={test_profile.profile_id}')
         assert response.status_code == 401
+
+    def test_teen_delegated_locked_to_claimed_profile(self, test_user, test_profile, chat):
+        # A teen session ignores ?profileId= — even when it names a sibling —
+        # and always serves its claimed profile.
+        from bots.tokens import SyftRefreshToken
+
+        sibling = Profile.objects.create(user=test_user, name='Sam')
+        _message(chat, days_ago=0)
+        teen_client = APIClient()
+        refresh = SyftRefreshToken.for_delegated_profile(test_user, test_profile)
+        teen_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+
+        response = teen_client.get(f'/api/stats.json?profileId={sibling.profile_id}')
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data['profile_id'] == str(test_profile.profile_id)
+        assert data['total_messages'] == 1
+
+    def test_teen_delegated_without_claim_returns_400(self, test_user, test_profile):
+        teen_client = APIClient()
+        refresh = RefreshToken.for_user(test_user)
+        refresh['is_teen_delegated'] = True
+        teen_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+
+        response = teen_client.get(f'/api/stats.json?profileId={test_profile.profile_id}')
+
+        assert response.status_code == 400
+
+    def test_teen_delegated_with_deleted_claim_returns_400(self, test_user, test_profile):
+        from bots.tokens import SyftRefreshToken
+
+        test_profile.deleted_at = timezone.now()
+        test_profile.save(update_fields=['deleted_at'])
+        teen_client = APIClient()
+        refresh = SyftRefreshToken.for_delegated_profile(test_user, test_profile)
+        teen_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+
+        response = teen_client.get(f'/api/stats.json?profileId={test_profile.profile_id}')
+
+        assert response.status_code == 400

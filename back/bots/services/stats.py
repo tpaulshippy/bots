@@ -62,7 +62,11 @@ def get_profile_stats(profile, now=None):
     current_streak, longest_streak = _streaks(active_dates, today)
 
     chats = Chat.objects.filter(profile=profile)
-    messages = Message.objects.filter(chat__profile=profile).exclude(role='system')
+    # User messages only: new chats open with an assistant greeting (see
+    # bots/signals.py), which must not read as kid activity — this queryset
+    # feeds the streak input, the day buckets, chatted_today, and totals
+    # alike so they can never disagree.
+    messages = Message.objects.filter(chat__profile=profile, role='user')
     reviews = FlashcardReview.objects.filter(profile=profile)
 
     # Day buckets use explicit UTC ranges: __date truncation happens in

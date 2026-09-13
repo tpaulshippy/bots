@@ -1005,6 +1005,24 @@ paths:
       responses:
         '200':
           description: No response body
+  /api/stats/:
+    get:
+      operationId: stats_retrieve
+      description: |-
+        Gamification stats for one profile (kid): streaks + totals fed by both
+        chat messages and flashcard reviews.
+
+        Unlike the parent-only activity endpoints, this is visible to the kid too,
+        so teen-delegated sessions are locked to their claimed profile instead of
+        being denied.
+      tags:
+      - stats
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/token/:
     post:
       operationId: token_create

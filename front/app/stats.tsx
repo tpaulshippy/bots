@@ -5,16 +5,16 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedButton } from "@/components/ThemedButton";
 import { useThemeColor } from "@/hooks/useThemeColor";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as Sentry from "@sentry/react-native";
 
 import { fetchStats, ProfileStats } from "@/api/stats";
-import { getSelectedProfileId, subscribeToSelectedProfile } from "@/hooks/useSelectedProfile";
+import { getSelectedProfileId, handleUnauthorized, subscribeToSelectedProfile } from "@/hooks/useSelectedProfile";
 
 // Single-letter weekday for the 7-day activity bars (UTC, matching the API).
 const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -28,31 +28,52 @@ const pluralize = (count: number, singular: string): string =>
   `${count} ${singular}${count === 1 ? "" : "s"}`;
 
 export default function Stats() {
+  const router = useRouter();
   const [stats, setStats] = useState<ProfileStats | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Profile switches fire refresh() from both focus and the profile
+  // listener: only the latest request may commit, so a slow response for
+  // the previous kid can't overwrite the current one.
+  const requestRef = useRef(0);
   const cardBackground = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const iconColor = useThemeColor({}, "icon");
   const accentColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   const refresh = useCallback(async () => {
+    const requestId = (requestRef.current += 1);
+    const isCurrent = () => requestId === requestRef.current;
     setRefreshing(true);
+    setLoadError(false);
     try {
       const profileId = await getSelectedProfileId();
+      if (!isCurrent()) return;
       if (!profileId) {
         setStats(null);
-        setRefreshing(false);
         return;
       }
-      setStats(await fetchStats(profileId));
+      const data = await fetchStats(profileId);
+      if (!isCurrent()) return;
+      // A successful empty profile returns a zeroed object, never null —
+      // null here means the request failed, so show the error state.
+      if (data === null) {
+        setLoadError(true);
+      }
+      setStats(data);
     } catch (error) {
-      Sentry.captureException(error);
+      if (!isCurrent()) return;
+      setLoadError(true);
+      if (!(await handleUnauthorized(error, router))) {
+        Sentry.captureException(error);
+      }
     } finally {
+      if (!isCurrent()) return;
       setRefreshing(false);
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   // Same staleness as the chat list had: the header/drawer switcher doesn't
   // blur/focus this screen, so refetch when the selected profile changes.
@@ -91,9 +112,13 @@ export default function Stats() {
             <RefreshControl refreshing={refreshing} onRefresh={refresh} />
           }
         >
-          <ThemedText style={styles.emptyText}>No stats yet</ThemedText>
+          <ThemedText style={styles.emptyText}>
+            {loadError ? "Couldn't load stats" : "No stats yet"}
+          </ThemedText>
           <ThemedText style={styles.emptySubtext}>
-            Chat or study today to start a streak
+            {loadError
+              ? "Check your connection and try again"
+              : "Chat or study today to start a streak"}
           </ThemedText>
           <ThemedButton
             testID="stats-retry-button"
