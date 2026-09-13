@@ -35,8 +35,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   const textColor = useThemeColor({}, "text");
   const backgroundColor = useThemeColor({}, "background");
   const tintColor = useThemeColor({}, "tint");
-  // Teen-delegated devices get Chats + Flashcards + Study Materials + the
-  // teen-safe Settings screen (/settings: study reminders only, no PIN
+  // Teen-delegated devices get Chats + Flashcards + Study Materials + Stats +
+  // the teen-safe Settings screen (/settings: study reminders only, no PIN
   // gate). Parent surveillance flags and the Activity inbox stay behind
   // the PIN at /parent/*.
   // Unknown (still loading) fails closed to the teen view so a teen device
@@ -64,6 +64,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
       icon: "book.fill",
       path: "/studyMaterials" as Extract<Href, string>,
     },
+    { label: "Stats", icon: "chart.bar.fill", path: "/stats" },
     ...(isTeenDelegated
       ? [
           {

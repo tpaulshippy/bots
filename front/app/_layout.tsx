@@ -198,6 +198,18 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="stats"
+              options={{
+                headerShown: true,
+                title: "Stats",
+                headerTintColor: textColor,
+                headerLeft: () => (
+                  <DrawerMenuButton onOpen={() => setIsDrawerOpen(true)} />
+                ),
+                headerRight: () => <ProfileSwitcher />,
+              }}
+            />
+            <Stack.Screen
               name="flashcards/deck"
               options={{
                 headerShown: true,

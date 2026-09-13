@@ -79,6 +79,15 @@ describe('Flashcards', () => {
     expect(screen.queryByText('Deck of kid-1')).toBeNull();
   });
 
+  it('does not render the stats card (stats live on their own screen)', async () => {
+    render(<Flashcards />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Deck of kid-1')).toBeTruthy()
+    );
+    expect(screen.queryByTestId('stats-card')).toBeNull();
+  });
+
   it('clears decks when the selection is cleared', async () => {
     render(<Flashcards />);
 

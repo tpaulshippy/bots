@@ -16,7 +16,7 @@ jest.mock('@/hooks/useSessionMode', () => ({
 const mockUseSessionMode = useSessionMode as jest.Mock;
 
 describe('NavigationDrawer session modes', () => {
-  it('shows Chats, Flashcards, Study Materials, Activity, and Settings for parent sessions', () => {
+  it('shows Chats, Flashcards, Study Materials, Stats, Activity, and Settings for parent sessions', () => {
     mockUseSessionMode.mockReturnValue({
       isTeenDelegated: false,
       activeProfileId: null,
@@ -27,11 +27,12 @@ describe('NavigationDrawer session modes', () => {
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
     expect(screen.getByText('Study Materials')).toBeOnTheScreen();
+    expect(screen.getByText('Stats')).toBeOnTheScreen();
     expect(screen.getByText('Activity')).toBeOnTheScreen();
     expect(screen.getByText('Settings')).toBeOnTheScreen();
   });
 
-  it('shows teen-safe Settings alongside Study Materials for teen-delegated sessions', () => {
+  it('shows teen-safe Settings alongside Study Materials and Stats for teen-delegated sessions', () => {
     mockUseSessionMode.mockReturnValue({
       isTeenDelegated: true,
       activeProfileId: 'profile-maya',
@@ -42,6 +43,7 @@ describe('NavigationDrawer session modes', () => {
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
     expect(screen.getByText('Study Materials')).toBeOnTheScreen();
+    expect(screen.getByText('Stats')).toBeOnTheScreen();
     expect(screen.getByText('Settings')).toBeOnTheScreen();
     // Parent-only surfaces stay hidden.
     expect(screen.queryByText('Activity')).toBeNull();
@@ -55,6 +57,7 @@ describe('NavigationDrawer session modes', () => {
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
     expect(screen.getByText('Study Materials')).toBeOnTheScreen();
+    expect(screen.getByText('Stats')).toBeOnTheScreen();
     expect(screen.getByText('Settings')).toBeOnTheScreen();
     expect(screen.queryByText('Activity')).toBeNull();
   });
