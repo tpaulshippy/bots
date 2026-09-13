@@ -69,9 +69,9 @@ export default function OnboardingBot() {
           if (typeof current.bot_id === "string" && current.bot_id) {
             setBotId(current.bot_id);
           }
-          if (current.template_name) setTemplateName(current.template_name);
-          if (current.color) setColor(current.color);
-          if (current.icon) setIcon(current.icon);
+          setTemplateName(current.template_name || DEFAULTS.templateName);
+          setColor(current.color || DEFAULTS.color);
+          setIcon(current.icon || DEFAULTS.icon);
         }
       } catch {
         // Prefill is best-effort; defaults still work.

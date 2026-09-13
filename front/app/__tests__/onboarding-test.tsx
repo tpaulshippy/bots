@@ -381,6 +381,48 @@ describe('Onboarding wizard', () => {
         }),
       });
     });
+
+    it('resets missing live bot fields to defaults in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Old Dragon',
+                template_name: 'Character',
+                color: '#111111',
+                icon: 'flame',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b2', name: 'Dragon', template_name: '', color: '', icon: '' }],
+        count: 1,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Dragon',
+          botId: 'b2',
+          templateName: 'Blank',
+          color: '#2A9D8F',
+          icon: 'sparkles',
+          review: 'true',
+        }),
+      });
+    });
   });
 
   describe('Protect step', () => {
