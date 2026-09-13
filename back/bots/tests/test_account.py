@@ -1,118 +1,126 @@
+from unittest.mock import MagicMock
+
 import pytest
 from django.contrib.auth.models import User
 from django.utils import timezone
+from langchain_core.messages import AIMessage
 
 from bots.models.ai_model import AiModel
 from bots.models.bot import Bot
 from bots.models.chat import Chat
 
+HAIKU_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
+LITE_ID = 'us.amazon.nova-2-lite-v1:0'
+
+
+def add_turn(chat, input_tokens, output_tokens, model_id=None):
+    """Record one assistant turn the way the chat persist paths do."""
+    return chat.messages.create(
+        text="reply",
+        role="assistant",
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        model_id=model_id,
+    )
+
 
 @pytest.mark.django_db
 def describe_account():
-    def test_cost_single_model(load_fixture, backdate_modified_at):
+    def test_cost_single_model(load_fixture, backdate_message_created_at):
         account = User.objects.create()
-        Chat.objects.create(user=account, input_tokens=1, output_tokens=2)
-        Chat.objects.create(user=account, input_tokens=3, output_tokens=4)
-        chat3 = Chat.objects.create(user=account, 
-                                    input_tokens=5, 
-                                    output_tokens=6)
-        backdate_modified_at(chat3, timezone.now() - timezone.timedelta(days=1))
-        expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
-        assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
-        
-    def test_cost_single_model_in_hawaii(load_fixture, backdate_modified_at):
-        account = User.objects.create()
-        account.user_account.timezone = 'Pacific/Honolulu'
-        Chat.objects.create(user=account, input_tokens=1, output_tokens=2)
-        Chat.objects.create(user=account, input_tokens=3, output_tokens=4)
-        chat3 = Chat.objects.create(user=account, 
-                                    input_tokens=5, 
-                                    output_tokens=6)
-        backdate_modified_at(chat3, timezone.now().astimezone(timezone.get_fixed_timezone(-600)) - timezone.timedelta(hours=1))
-        backdate_modified_at(chat3, timezone.now() - timezone.timedelta(days=1))
+        add_turn(Chat.objects.create(user=account), 1, 2)
+        add_turn(Chat.objects.create(user=account), 3, 4)
+        old = add_turn(Chat.objects.create(user=account), 5, 6)
+        backdate_message_created_at(old, timezone.now() - timezone.timedelta(days=1))
         expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
         assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
 
-    def test_cost_single_model_in_australia(load_fixture, backdate_modified_at):
+    def test_cost_single_model_in_hawaii(load_fixture, backdate_message_created_at):
         account = User.objects.create()
-        account.user_account.timezone = 'Australia/Sydney'
-        Chat.objects.create(user=account, input_tokens=1, output_tokens=2)
-        Chat.objects.create(user=account, input_tokens=3, output_tokens=4)
-        chat3 = Chat.objects.create(user=account, 
-                                    input_tokens=5, 
-                                    output_tokens=6)
-        backdate_modified_at(chat3, timezone.now().astimezone(timezone.get_fixed_timezone(600)) - timezone.timedelta(hours=1))
-        backdate_modified_at(chat3, timezone.now() - timezone.timedelta(days=1))
+        account.user_account.timezone = 'Pacific/Honolulu'
+        add_turn(Chat.objects.create(user=account), 1, 2)
+        add_turn(Chat.objects.create(user=account), 3, 4)
+        old = add_turn(Chat.objects.create(user=account), 5, 6)
+        backdate_message_created_at(old, timezone.now() - timezone.timedelta(days=1))
         expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
         assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
-    
-    def test_cost_multiple_models(load_fixture, backdate_modified_at):
+
+    def test_cost_single_model_in_australia(load_fixture, backdate_message_created_at):
+        account = User.objects.create()
+        account.user_account.timezone = 'Australia/Sydney'
+        add_turn(Chat.objects.create(user=account), 1, 2)
+        add_turn(Chat.objects.create(user=account), 3, 4)
+        old = add_turn(Chat.objects.create(user=account), 5, 6)
+        backdate_message_created_at(old, timezone.now() - timezone.timedelta(days=1))
+        expected_cost = (0.00000006 * 4) + (0.00000024 * 6)
+        assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
+
+    def test_cost_multiple_models(load_fixture, backdate_message_created_at):
+        # Unstamped rows fall back to the chat's live bot model.
         account = User.objects.create()
         nova_micro = AiModel.objects.get(model_id='us.amazon.nova-micro-v1:0')
         nova_lite = AiModel.objects.get(model_id='us.amazon.nova-lite-v1:0')
         bot1 = Bot.objects.create(ai_model=nova_micro)
-        Chat.objects.create(user=account, bot=bot1, input_tokens=1, output_tokens=2)
+        add_turn(Chat.objects.create(user=account, bot=bot1), 1, 2)
         bot2 = Bot.objects.create(ai_model=nova_lite)
-        Chat.objects.create(user=account, bot=bot2, input_tokens=3, output_tokens=4)
-        chat3 = Chat.objects.create(user=account, 
-                                    input_tokens=5, 
-                                    output_tokens=6)
-        backdate_modified_at(chat3, timezone.now() - timezone.timedelta(days=1))
+        add_turn(Chat.objects.create(user=account, bot=bot2), 3, 4)
+        old = add_turn(Chat.objects.create(user=account), 5, 6)
+        backdate_message_created_at(old, timezone.now() - timezone.timedelta(days=1))
         expected_cost = (0.000000035 * 1) + (0.00000014 * 2)
         expected_cost += (0.00000006 * 3) + (0.00000024 * 4)
         assert account.user_account.cost_for_today() == (expected_cost, 4, 6)
 
     def describe_reset_daily_usage():
-        def it_clears_todays_cost_without_touching_chat_history(load_fixture):
+        def it_clears_todays_cost_without_touching_message_history(load_fixture):
             account = User.objects.create()
-            chat = Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            chat = Chat.objects.create(user=account)
+            turn = add_turn(chat, 10, 5)
             assert account.user_account.cost_for_today()[1:] == (10, 5)
             account.user_account.reset_daily_usage()
             account.user_account.refresh_from_db()
             assert account.user_account.usage_reset_at is not None
             assert account.user_account.cost_for_today() == (0.0, 0, 0)
-            chat.refresh_from_db()
-            assert (chat.input_tokens, chat.output_tokens) == (10, 5)
+            turn.refresh_from_db()
+            assert (turn.input_tokens, turn.output_tokens) == (10, 5)
 
-        def it_counts_only_chats_after_reset(load_fixture):
+        def it_counts_only_turns_after_reset(load_fixture):
             account = User.objects.create()
-            Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            add_turn(Chat.objects.create(user=account), 10, 5)
             account.user_account.reset_daily_usage()
-            Chat.objects.create(user=account, input_tokens=3, output_tokens=4)
+            add_turn(Chat.objects.create(user=account), 3, 4)
             assert account.user_account.cost_for_today()[1:] == (3, 4)
 
-        def it_ignores_prior_day_chats(load_fixture, backdate_modified_at):
+        def it_ignores_prior_day_turns(load_fixture, backdate_message_created_at):
             account = User.objects.create()
-            old = Chat.objects.create(user=account, input_tokens=50, output_tokens=25)
-            backdate_modified_at(old, timezone.now() - timezone.timedelta(days=1))
+            old = add_turn(Chat.objects.create(user=account), 50, 25)
+            backdate_message_created_at(old, timezone.now() - timezone.timedelta(days=1))
             account.user_account.reset_daily_usage()
             assert account.user_account.cost_for_today() == (0.0, 0, 0)
 
         def it_only_resets_the_selected_account(load_fixture):
             one = User.objects.create(username='reset-one')
             two = User.objects.create(username='reset-two')
-            Chat.objects.create(user=one, input_tokens=10, output_tokens=5)
-            Chat.objects.create(user=two, input_tokens=10, output_tokens=5)
+            add_turn(Chat.objects.create(user=one), 10, 5)
+            add_turn(Chat.objects.create(user=two), 10, 5)
             one.user_account.reset_daily_usage()
             one.user_account.refresh_from_db()
             two.user_account.refresh_from_db()
             assert one.user_account.cost_for_today() == (0.0, 0, 0)
             assert two.user_account.cost_for_today()[1:] == (10, 5)
 
-        def it_counts_only_new_tokens_when_a_pre_reset_chat_grows(load_fixture):
+        def it_counts_only_new_turns_when_a_pre_reset_chat_grows(load_fixture):
             account = User.objects.create()
-            chat = Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            chat = Chat.objects.create(user=account)
+            add_turn(chat, 10, 5)
             account.user_account.reset_daily_usage()
-            chat.input_tokens += 3
-            chat.output_tokens += 2
-            chat.save()
+            add_turn(chat, 3, 2)
             assert account.user_account.cost_for_today()[1:] == (3, 2)
 
         def it_clears_over_limit_after_reset(load_fixture):
             from bots.models.user_account import MAX_COST_DAILY
             account = User.objects.create()
             assert MAX_COST_DAILY[0] == pytest.approx(0.01 / 31)
-            Chat.objects.create(user=account, input_tokens=142855, output_tokens=35715)
+            add_turn(Chat.objects.create(user=account), 142855, 35715)
             assert account.user_account.over_limit() is True
             account.user_account.reset_daily_usage()
             account.user_account.refresh_from_db()
@@ -120,7 +128,7 @@ def describe_account():
 
         def it_ignores_the_baseline_after_a_timezone_change(load_fixture):
             account = User.objects.create()
-            Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            add_turn(Chat.objects.create(user=account), 10, 5)
             account.user_account.reset_daily_usage()
             assert account.user_account.cost_for_today() == (0.0, 0, 0)
             account.user_account.timezone = 'Pacific/Auckland'
@@ -131,11 +139,59 @@ def describe_account():
         def it_ignores_a_baseline_from_a_previous_local_day(load_fixture):
             from unittest.mock import patch
             account = User.objects.create()
-            Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            add_turn(Chat.objects.create(user=account), 10, 5)
             account.user_account.reset_daily_usage()
             assert account.user_account.cost_for_today() == (0.0, 0, 0)
             future = timezone.now() + timezone.timedelta(days=2)
             with patch('django.utils.timezone.now', return_value=future):
-                Chat.objects.create(user=account, input_tokens=3, output_tokens=1)
+                add_turn(Chat.objects.create(user=account), 3, 1)
                 account.user_account.refresh_from_db()
                 assert account.user_account.cost_for_today()[1:] == (3, 1)
+
+    def describe_model_attribution():
+        def it_prices_stamped_history_by_stamp_after_a_bot_model_switch(load_fixture):
+            # Prod incident: Fred moved Haiku -> Nova 2 Lite mid-day and the
+            # whole day repriced to Nova rates, collapsing usage to 0.
+            account = User.objects.create()
+            haiku = AiModel.objects.get(model_id=HAIKU_ID)
+            lite = AiModel.objects.get(model_id=LITE_ID)
+            bot = Bot.objects.create(ai_model=haiku)
+            chat = Chat.objects.create(user=account, bot=bot)
+            add_turn(chat, 1000, 500, model_id=haiku.model_id)
+            bot.ai_model = lite
+            bot.save()
+            add_turn(chat, 1000, 500, model_id=lite.model_id)
+            expected = (0.0000008 * 1000) + (0.000004 * 500)
+            expected += (0.00000006 * 1000) + (0.00000024 * 500)
+            assert account.user_account.cost_for_today() == (pytest.approx(expected), 2000, 1000)
+
+        def it_stamps_the_resolved_model_on_get_response(load_fixture):
+            haiku = AiModel.objects.get(model_id=HAIKU_ID)
+            bot = Bot.objects.create(ai_model=haiku)
+            chat = Chat.objects.create(user=User.objects.create(), bot=bot)
+            chat.messages.create(text="Hello", role="user")
+            chat.get_response(ai=fake_client())
+            assert chat.messages.last().model_id == HAIKU_ID
+
+        def it_stamps_the_default_model_when_the_bot_has_none(load_fixture):
+            chat = Chat.objects.create(user=User.objects.create())
+            chat.messages.create(text="Hello", role="user")
+            chat.get_response(ai=fake_client())
+            assert chat.messages.last().model_id == LITE_ID
+
+        def it_stamps_the_model_on_stream_persist(load_fixture):
+            chat = Chat.objects.create(user=User.objects.create())
+            chat._persist_assistant_message(
+                "partial", {"input_tokens": 7, "output_tokens": 3}, model_id=HAIKU_ID
+            )
+            saved = chat.messages.last()
+            assert (saved.model_id, saved.input_tokens, saved.output_tokens) == (HAIKU_ID, 7, 3)
+
+
+def fake_client():
+    client = MagicMock()
+    client.bind_tools.return_value.invoke.return_value = AIMessage(
+        content="Hello! How can I assist you today?",
+        usage_metadata={"input_tokens": 1, "output_tokens": 2, "total_tokens": 3},
+    )
+    return client

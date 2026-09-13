@@ -136,7 +136,7 @@ class Chat(models.Model):
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
 
-    def _persist_assistant_message(self, text, usage_metadata, message_id=None, agent_events=None):
+    def _persist_assistant_message(self, text, usage_metadata, message_id=None, agent_events=None, model_id=None):
         message_order = self.messages.count()
 
         input_tokens = usage_metadata.get('input_tokens', 0)
@@ -149,6 +149,7 @@ class Chat(models.Model):
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             agent_events=agent_events or [],
+            model_id=model_id,
             **({'message_id': message_id} if message_id is not None else {}),
         )
         self.input_tokens += input_tokens
@@ -204,6 +205,7 @@ class Chat(models.Model):
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 agent_events=agent_events,
+                model_id=self.ai.model_id if self.ai is not None else None,
             )
             self.input_tokens += input_tokens
             self.output_tokens += output_tokens
@@ -266,7 +268,8 @@ class Chat(models.Model):
             from bots.services.chat_agent import client_events_to_agent_events
             agent_events = client_events_to_agent_events(service.client_events)
             assistant_message = self._persist_assistant_message(
-                text, usage_totals, message_id=message_id, agent_events=agent_events
+                text, usage_totals, message_id=message_id, agent_events=agent_events,
+                model_id=self.ai.model_id if self.ai is not None else None,
             )
             if output_verdict.blocked:
                 record_safety_event(

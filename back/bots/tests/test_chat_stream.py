@@ -220,9 +220,7 @@ def describe_disconnect_mid_stream():
 @pytest.mark.django_db
 def describe_over_limit():
     def it_emits_single_error_event_and_no_tokens(chat):
-        chat.input_tokens = 142855
-        chat.output_tokens = 35715
-        chat.save()
+        chat.messages.create(text="old", role="assistant", input_tokens=142855, output_tokens=35715)
         chat.messages.create(text="hello", role="user")
 
         events = list(chat.stream_response(ai=ScriptedStreamClient()))
@@ -230,7 +228,7 @@ def describe_over_limit():
         assert len(events) == 1
         assert events[0]["type"] == "error"
         assert events[0]["code"] == "over_limit"
-        assert not [m for m in chat.messages.all() if m.role == "assistant"]
+        assert [m.text for m in chat.messages.all() if m.role == "assistant"] == ["old"]
 
 
 @pytest.mark.django_db
@@ -275,9 +273,7 @@ def describe_sse_endpoint():
 
     def test_over_limit_emits_error_frame_only(user, profile, load_fixture):
         chat = Chat.objects.create(user=user, profile=profile, title='capped')
-        chat.input_tokens = 14285500
-        chat.output_tokens = 3571500
-        chat.save()
+        chat.messages.create(text="old", role="assistant", input_tokens=14285500, output_tokens=3571500)
 
         with patch.object(chat_module, 'AiClientWrapper', FakeAiWrapper):
             response = auth_client(user).post(f'/api/chats/{chat.chat_id}/stream', {

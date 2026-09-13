@@ -82,46 +82,82 @@ class UserAccount(models.Model):
         return total, total_input_tokens, total_output_tokens
 
     def _raw_cost_for_today(self):
-        supported_models = AiModel.objects.all()
+        models_by_id = {m.model_id: m for m in AiModel.objects.all()}
+        default_model = next((m for m in models_by_id.values() if m.is_default), None)
+
+        def price(model_id):
+            # A stamp for a deleted model row (or a bot-less unstamped chat
+            # with no default configured) bills at default rates rather
+            # than silently dropping real spend; with no default at all it
+            # bills zero, matching the pre-fix behavior for bot-less chats.
+            model = models_by_id.get(model_id) or default_model
+            if model is None:
+                return (0.0, 0.0)
+            return (model.input_token_cost, model.output_token_cost)
+
+        stamped, unstamped = self._message_buckets_today()
         total = 0.0
         total_input_tokens = 0
         total_output_tokens = 0
-        for model in supported_models:
-            # Single aggregate per model so a concurrent Chat write cannot
-            # leave the reset baseline with only one side of a turn.
-            input_tokens, output_tokens = self._tokens_for_model(model.model_id)
-            total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
-            total_input_tokens += input_tokens
-            total_output_tokens += output_tokens
-
-            if model.is_default:
-                # Add costs for chats with no specified bot (using the default model)
-                input_tokens, output_tokens = self._tokens_for_model(None)
-                total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
+        for bucket in (stamped, unstamped):
+            for model_id, (input_tokens, output_tokens) in bucket.items():
+                rate_in, rate_out = price(model_id)
+                total += input_tokens * rate_in + output_tokens * rate_out
                 total_input_tokens += input_tokens
                 total_output_tokens += output_tokens
 
         return total, total_input_tokens, total_output_tokens
 
-    def _tokens_for_model(self, model_id):
-        row = self.chats_today(model_id).aggregate(
-            total_in=models.Sum('input_tokens'),
-            total_out=models.Sum('output_tokens'),
+    def _message_buckets_today(self):
+        """Per-model (input, output) sums over today's assistant messages.
+
+        Returns (stamped, unstamped) dicts mapping model_id -> [in, out].
+        Stamped rows group by the model_id written at persist time, so later
+        bot model changes cannot reprice history. Unstamped rows (pre-fix,
+        or chats whose bot was deleted) group by the chat's live bot model —
+        the pre-fix behavior — with None for bot-less chats (default rates).
+        """
+        from .message import Message
+
+        base = Message.objects.filter(
+            chat__user=self.user,
+            role='assistant',
+            created_at__gte=self.start_of_today_utc(),
         )
-        return row['total_in'] or 0, row['total_out'] or 0
-    
+        stamped_rows = (
+            base.exclude(model_id__isnull=True).exclude(model_id='')
+            .values('model_id')
+            .annotate(total_in=models.Sum('input_tokens'), total_out=models.Sum('output_tokens'))
+        )
+        stamped = {
+            row['model_id']: [row['total_in'] or 0, row['total_out'] or 0]
+            for row in stamped_rows
+        }
+        unstamped_rows = (
+            base.filter(models.Q(model_id__isnull=True) | models.Q(model_id=''))
+            .values('chat__bot__ai_model__model_id')
+            .annotate(total_in=models.Sum('input_tokens'), total_out=models.Sum('output_tokens'))
+        )
+        unstamped = {
+            row['chat__bot__ai_model__model_id']: [row['total_in'] or 0, row['total_out'] or 0]
+            for row in unstamped_rows
+        }
+        return stamped, unstamped
+
+    def _message_tokens_today(self, model_id):
+        stamped, unstamped = self._message_buckets_today()
+        total_in, total_out = unstamped.get(model_id, [0, 0])
+        if model_id is not None:
+            stamped_in, stamped_out = stamped.get(model_id, [0, 0])
+            total_in += stamped_in
+            total_out += stamped_out
+        return total_in, total_out
+
     def input_tokens_today(self, model_id):
-        chats = self.chats_today(model_id)
-        return chats.aggregate(models.Sum('input_tokens'))['input_tokens__sum'] or 0
-    
+        return self._message_tokens_today(model_id)[0]
+
     def output_tokens_today(self, model_id):
-        chats = self.chats_today(model_id)
-        return chats.aggregate(models.Sum('output_tokens'))['output_tokens__sum'] or 0
-        
-    def chats_today(self, model_id):
-        return Chat.objects.filter(user=self.user,
-                                    bot__ai_model__model_id=model_id,
-                                    modified_at__gte=self.start_of_today_utc())
+        return self._message_tokens_today(model_id)[1]
 
     def start_of_today_utc(self):
         user_timezone = pytz.timezone(self.timezone)
