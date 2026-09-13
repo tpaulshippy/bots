@@ -16,19 +16,26 @@ export default function ChildHome() {
         router.replace("/login");
         return;
       }
-      // If the app was launched by tapping a notification, the root layout
-      // navigates to that chat instead; don't clobber it with a redirect.
+      // If the app was launched by tapping a notification the root layout
+      // handles, don't clobber it with a redirect: chat taps (chat_id) and
+      // the deep-link targets the notification hook routes (study_due,
+      // parent_activity). Unknown payloads fall through to the normal flow
+      // so a stale tap can never strand the app on this blank screen.
       // getLastNotificationResponse throws on web (no native module).
-      let data: { chat_id?: string } | undefined;
+      let data: { chat_id?: string; target?: string } | undefined;
       try {
         const response = Notifications.getLastNotificationResponse();
         data = response?.notification.request.content.data as
-          | { chat_id?: string }
+          | { chat_id?: string; target?: string }
           | undefined;
       } catch {
         data = undefined;
       }
-      if (data?.chat_id) {
+      if (
+        data?.chat_id ||
+        data?.target === 'study_due' ||
+        data?.target === 'parent_activity'
+      ) {
         return;
       }
       // Detox e2e runs may request a specific landing screen via injected

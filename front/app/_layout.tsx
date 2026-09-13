@@ -227,6 +227,14 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: true,
+                title: "Settings",
+                headerTintColor: textColor,
+              }}
+            />
+            <Stack.Screen
               name="studyMaterials"
               options={{
                 headerShown: true,

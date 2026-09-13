@@ -1,4 +1,5 @@
 import { fetchDevice, upsertDevice } from '../../api/devices';
+import { apiClient } from '../../api/apiClient';
 
 jest.mock('../../api/apiClient', () => ({
   apiClient: jest.fn((url, options = {}) => {
@@ -52,6 +53,8 @@ jest.mock('../../api/apiClient', () => ({
             notification_token: 'test-token-123',
             notify_on_new_chat: false,
             notify_on_new_message: true,
+            notify_digest_only: false,
+            notify_study_due: true,
             deleted_at: null,
             created_at: '2024-01-01T00:00:00Z',
             modified_at: '2024-01-02T00:00:00Z',
@@ -94,12 +97,20 @@ describe('Devices API', () => {
         notify_on_new_chat: false,
         notify_on_new_message: true,
         notify_digest_only: false,
+        notify_study_due: true,
         deleted_at: null,
       });
 
       expect(response).not.toBeNull();
       expect(response?.notify_on_new_chat).toBe(false);
       expect(response?.notify_on_new_message).toBe(true);
+      expect(response?.notify_study_due).toBe(true);
+      // Updates address the unguessable device UUID, never the sequential
+      // integer pk (teen detail routes are UUID-only server-side).
+      expect(apiClient).toHaveBeenCalledWith(
+        '/devices/550e8400-e29b-41d4-a716-446655440001.json',
+        expect.objectContaining({ method: 'PUT' })
+      );
     });
   });
 });

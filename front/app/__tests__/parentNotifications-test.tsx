@@ -43,6 +43,7 @@ const storedDevice = {
   notify_on_new_chat: true,
   notify_on_new_message: false,
   notify_digest_only: false,
+  notify_study_due: true,
   deleted_at: null,
 };
 
@@ -64,7 +65,7 @@ describe('NotificationsScreen', () => {
     });
   });
 
-  it('renders all three toggles defaulting to off when no device is stored', async () => {
+  it('renders all four toggles defaulting to off when no device is stored', async () => {
     render(<NotificationsScreen />);
 
     await waitFor(() =>
@@ -74,6 +75,7 @@ describe('NotificationsScreen', () => {
     expect(screen.getByText('Notify on new chat')).toBeTruthy();
     expect(screen.getByText('Notify on each message')).toBeTruthy();
     expect(screen.getByText('Daily digest only')).toBeTruthy();
+    expect(screen.getByText('Study reminders')).toBeTruthy();
     expect(
       screen.getByTestId('notify-new-chat-switch').props.value
     ).toBe(false);
@@ -82,6 +84,9 @@ describe('NotificationsScreen', () => {
     ).toBe(false);
     expect(
       screen.getByTestId('notify-digest-only-switch').props.value
+    ).toBe(false);
+    expect(
+      screen.getByTestId('notify-study-due-switch').props.value
     ).toBe(false);
   });
 
@@ -102,6 +107,43 @@ describe('NotificationsScreen', () => {
     expect(
       screen.getByTestId('notify-digest-only-switch').props.value
     ).toBe(false);
+    expect(
+      screen.getByTestId('notify-study-due-switch').props.value
+    ).toBe(true);
+  });
+
+  it('toggling study reminders persists the flag', async () => {
+    (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('dev-1');
+    (fetchDevice as jest.Mock).mockResolvedValue({
+      ...storedDevice,
+      notify_study_due: false,
+    });
+
+    render(<NotificationsScreen />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('notify-study-due-switch').props.value
+      ).toBe(false)
+    );
+
+    fireEvent(
+      screen.getByTestId('notify-study-due-switch'),
+      'onValueChange',
+      true
+    );
+
+    await waitFor(() =>
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 7,
+          notify_study_due: true,
+        })
+      )
+    );
+    expect(
+      screen.getByTestId('notify-study-due-switch').props.value
+    ).toBe(true);
   });
 
   it('toggling digest-only persists flags and disables the instant toggles', async () => {
@@ -140,6 +182,9 @@ describe('NotificationsScreen', () => {
     ).toBe(true);
     expect(
       screen.getByTestId('notify-new-message-switch').props.disabled
+    ).toBe(true);
+    expect(
+      screen.getByTestId('notify-study-due-switch').props.disabled
     ).toBe(true);
   });
 

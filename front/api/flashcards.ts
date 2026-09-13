@@ -149,7 +149,10 @@ export const deleteFlashcard = async (
 // Cards to study for this deck, ordered by due_at ascending.
 //
 // Throws on failure (instead of resolving to []) so callers can tell an
-// empty queue apart from a network/server error.
+// empty queue apart from a network/server error. The thrown error carries
+// the HTTP `status` (0 when the request never got a response) so callers
+// can special-case 404 — a deck this profile can't load, e.g. a sibling's
+// deck on a shared device — without treating it as a load failure.
 export const fetchStudyQueue = async (
   deckId: string,
   mode: StudyQueueMode = "due",
@@ -160,7 +163,10 @@ export const fetchStudyQueue = async (
     { method: "GET" }
   );
   if (!response?.ok || !response.data) {
-    throw new Error(`Study queue request failed for deck ${deckId}`);
+    throw Object.assign(
+      new Error(`Study queue request failed for deck ${deckId}`),
+      { status: response?.status ?? 0 }
+    );
   }
   return response.data;
 };

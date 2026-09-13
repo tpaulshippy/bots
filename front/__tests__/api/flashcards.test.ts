@@ -335,6 +335,14 @@ describe('Flashcards API', () => {
 
       await expect(fetchStudyQueue(testDeckId)).rejects.toThrow();
     });
+
+    it('should carry the HTTP status on the thrown error (404 = inaccessible deck)', async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404, data: null });
+
+      const error = await fetchStudyQueue(testDeckId).catch((e) => e);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as { status?: number }).status).toBe(404);
+    });
   });
 
   describe('reviewFlashcard', () => {

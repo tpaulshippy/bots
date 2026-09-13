@@ -103,4 +103,39 @@ describe('ChildHome', () => {
 
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['study_due', { target: 'study_due', deck_id: 'deck-1' }],
+    ['parent_activity', { target: 'parent_activity' }],
+  ])(
+    'does not redirect when the app was launched by tapping a %s notification',
+    async (_label, data) => {
+      (Notifications.getLastNotificationResponse as jest.Mock).mockReturnValue({
+        notification: {
+          request: { identifier: 'response-1', content: { data } },
+        },
+      } as unknown as Notifications.NotificationResponse);
+
+      render(<ChildHome />);
+      await act(async () => {});
+
+      expect(mockRouter.replace).not.toHaveBeenCalled();
+    }
+  );
+
+  it('still redirects on an unknown launch-notification payload', async () => {
+    (Notifications.getLastNotificationResponse as jest.Mock).mockReturnValue({
+      notification: {
+        request: {
+          identifier: 'response-1',
+          content: { data: { target: 'stale_unknown' } },
+        },
+      },
+    } as unknown as Notifications.NotificationResponse);
+
+    render(<ChildHome />);
+    await act(async () => {});
+
+    expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+  });
 });
