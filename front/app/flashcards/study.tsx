@@ -73,9 +73,10 @@ const RATINGS: { rating: FlashcardRating; label: string }[] = [
 ];
 
 export default function Study() {
-  const { deckId, mode } = useLocalSearchParams<{
+  const { deckId, mode, source } = useLocalSearchParams<{
     deckId: string;
     mode?: string;
+    source?: string;
   }>();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -110,6 +111,15 @@ export default function Study() {
         // Default study queue: only cards that are due right now.
         const initialMode = mode === "all" ? "all" : "due";
         const dueCards = await fetchStudyQueue(deckId, initialMode);
+        if (dueCards.length === 0 && source === "reminder") {
+          // Reminder tap, but nothing loadable for this profile (already
+          // studied, or someone else's deck on a shared device): resolve to
+          // the deck list — whose due badges show what's actually due —
+          // instead of a "Nothing due" dead end for a push that promised
+          // cards. Plain navigation keeps the celebratory empty state.
+          router.replace("/flashcards");
+          return;
+        }
         setCards(dueCards);
       } catch (error) {
         Sentry.captureException(error);
@@ -119,7 +129,7 @@ export default function Study() {
       }
     };
     loadQueue();
-  }, [deckId, mode, router]);
+  }, [deckId, mode, router, source]);
 
   const frontRotate = flipAnim.interpolate({
     inputRange: [0, 1],

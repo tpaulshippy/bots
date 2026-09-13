@@ -51,11 +51,15 @@ export function useNotificationChatNavigation() {
 
       // Study reminders open the due study session directly when the push
       // names a single deck, otherwise the deck list (due badges show where).
+      // The source marker lets the study screen fall back to the deck list
+      // when the tapped deck has nothing loadable for this profile (e.g. a
+      // sibling's deck on a teen-delegated device) instead of stranding the
+      // user on a "Nothing due" dead end for a push that promised cards.
       if (data.target === "study_due") {
         if (data.deck_id) {
           router.push({
             pathname: "/flashcards/study",
-            params: { deckId: data.deck_id, mode: "due" },
+            params: { deckId: data.deck_id, mode: "due", source: "reminder" },
           });
         } else {
           router.push({ pathname: "/flashcards" });

@@ -100,6 +100,33 @@ describe('Study', () => {
     await waitFor(() => expect(screen.getByText('Nothing due 🎉')).toBeTruthy());
   });
 
+  it('resolves a reminder tap with nothing loadable to the deck list', async () => {
+    // A tapped push promised due cards but the queue is empty for this
+    // profile (already studied, or someone else's deck on a shared device):
+    // land on the deck list — due badges show what's actually due — instead
+    // of a "Nothing due" dead end.
+    (useLocalSearchParams as jest.Mock).mockReturnValue({
+      deckId: 'deck-1',
+      mode: 'due',
+      source: 'reminder',
+    });
+    (fetchStudyQueue as jest.Mock).mockResolvedValue([]);
+    render(<Study />);
+
+    await waitFor(() =>
+      expect(mockRouter.replace).toHaveBeenCalledWith('/flashcards')
+    );
+  });
+
+  it('keeps the empty state for plain navigation even with no cards', async () => {
+    (useLocalSearchParams as jest.Mock).mockReturnValue({ deckId: 'deck-1' });
+    (fetchStudyQueue as jest.Mock).mockResolvedValue([]);
+    render(<Study />);
+
+    await waitFor(() => expect(screen.getByText('Nothing due 🎉')).toBeTruthy());
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
   it('shows truthful per-card interval hints (new card: Again→4h, Good→1d)', async () => {
     render(<Study />);
 

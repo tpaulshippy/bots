@@ -206,7 +206,7 @@ describe('useNotificationChatNavigation', () => {
     expect(fetchChat).not.toHaveBeenCalled();
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/flashcards/study',
-      params: { deckId: 'deck-1', mode: 'due' },
+      params: { deckId: 'deck-1', mode: 'due', source: 'reminder' },
     });
   });
 
