@@ -159,11 +159,15 @@ def bootstrap_onboarding(user,
             bot.save()
 
     account, _ = UserAccount.objects.get_or_create(user=user)
+    changed_fields = []
     if pin_value is not None:
         # Same hashed storage as POST /api/user.
         account.pin_hash = hash_pin(pin_value)
+        changed_fields.append('pin_hash')
     if account.onboarding_completed_at is None:
         account.onboarding_completed_at = timezone.now()
-    account.save()
+        changed_fields.append('onboarding_completed_at')
+    if changed_fields:
+        account.save(update_fields=changed_fields)
 
     return {'profile': profile, 'bot': bot}

@@ -87,21 +87,28 @@ class UserAccount(models.Model):
         total_input_tokens = 0
         total_output_tokens = 0
         for model in supported_models:
-            input_tokens = self.input_tokens_today(model.model_id)
-            output_tokens = self.output_tokens_today(model.model_id)
+            # Single aggregate per model so a concurrent Chat write cannot
+            # leave the reset baseline with only one side of a turn.
+            input_tokens, output_tokens = self._tokens_for_model(model.model_id)
             total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
             total_input_tokens += input_tokens
             total_output_tokens += output_tokens
-            
+
             if model.is_default:
                 # Add costs for chats with no specified bot (using the default model)
-                input_tokens = self.input_tokens_today(None)
-                output_tokens = self.output_tokens_today(None)
+                input_tokens, output_tokens = self._tokens_for_model(None)
                 total += input_tokens * model.input_token_cost + output_tokens * model.output_token_cost
                 total_input_tokens += input_tokens
                 total_output_tokens += output_tokens
 
         return total, total_input_tokens, total_output_tokens
+
+    def _tokens_for_model(self, model_id):
+        row = self.chats_today(model_id).aggregate(
+            total_in=models.Sum('input_tokens'),
+            total_out=models.Sum('output_tokens'),
+        )
+        return row['total_in'] or 0, row['total_out'] or 0
     
     def input_tokens_today(self, model_id):
         chats = self.chats_today(model_id)
