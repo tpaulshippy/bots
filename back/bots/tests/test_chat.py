@@ -141,11 +141,26 @@ def describe_chat_model():
             )
             chat.bot = bot
             chat.save()
-            
+
             chat.messages.create(text="Hello", role="user")
             result = chat.get_response(ai=ai)
-            
+
             assert result == "Hello! How can I assist you today?"
+
+        def it_should_request_a_large_output_cap_from_bedrock():
+            # Prod incident: unset max_tokens defaulted Anthropic calls to
+            # 1024 output tokens, truncating page HTML mid-JSON so only
+            # `title` parsed and the agent retry-looped on "missing html".
+            import bots.models.chat as chat_module
+            from bots.models.chat import AiClientWrapper
+
+            with patch.object(chat_module, "ChatBedrock") as bedrock:
+                AiClientWrapper("us.anthropic.claude-haiku-4-5-20251001-v1:0")
+            bedrock.assert_called_once_with(
+                model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                max_tokens=chat_module.BEDROCK_MAX_TOKENS,
+            )
+            assert chat_module.BEDROCK_MAX_TOKENS >= 8192
 
 
 @pytest.mark.django_db

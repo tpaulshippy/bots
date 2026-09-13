@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 S3_CLIENT = boto3.client('s3')
 S3_BUCKET = settings.AWS_STORAGE_BUCKET_NAME
 
+# Output cap per model response. langchain-aws defaults Anthropic calls to
+# 1024 tokens when unset — a full HTML page never fits, so the response is
+# cut mid-JSON, only `title` parses, and the agent retry-loops on
+# "missing html" until MAX_ITERATIONS (prod incident). 8192 fits a ~15KB
+# page plus reply text with headroom.
+BEDROCK_MAX_TOKENS = 8192
+
 class AiClientWrapper:
     def __init__(self, model_id, client=None):
         self.model_id = model_id
@@ -40,12 +47,12 @@ class AiClientWrapper:
                     "Refusing e2e fake model %r in prod; using Bedrock.",
                     model_id,
                 )
-                self.client = ChatBedrock(model_id=model_id)
+                self.client = ChatBedrock(model_id=model_id, max_tokens=BEDROCK_MAX_TOKENS)
             else:
                 # Deterministic fake streaming client for e2e/demo — no AWS creds.
                 self.client = fake_ai.FakeStreamingClient()
         else:
-            self.client = ChatBedrock(model_id=model_id)
+            self.client = ChatBedrock(model_id=model_id, max_tokens=BEDROCK_MAX_TOKENS)
 
     def invoke(self, message_list):
         return self.client.invoke(message_list)
