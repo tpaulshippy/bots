@@ -70,7 +70,7 @@ class TestTeenDeviceWrites:
         device = _device(parent)
 
         response = teen_client(teen_profile).put(
-            f'/api/devices/{device.id}.json',
+            f'/api/devices/{device.device_id}.json',
             _full_payload(device, notify_study_due=True),
             format='json',
         )
@@ -83,7 +83,7 @@ class TestTeenDeviceWrites:
         device = _device(parent)
 
         response = teen_client(teen_profile).put(
-            f'/api/devices/{device.id}.json',
+            f'/api/devices/{device.device_id}.json',
             _full_payload(device, notify_on_new_chat=False, notify_study_due=True),
             format='json',
         )
@@ -97,7 +97,7 @@ class TestTeenDeviceWrites:
         device = _device(parent)
 
         response = teen_client(teen_profile).put(
-            f'/api/devices/{device.id}.json',
+            f'/api/devices/{device.device_id}.json',
             _full_payload(device, notify_digest_only=True),
             format='json',
         )
@@ -110,7 +110,7 @@ class TestTeenDeviceWrites:
         device = _device(parent)
 
         response = teen_client(teen_profile).put(
-            f'/api/devices/{device.id}.json',
+            f'/api/devices/{device.device_id}.json',
             _full_payload(device, notification_token='attacker-token'),
             format='json',
         )
@@ -122,7 +122,7 @@ class TestTeenDeviceWrites:
     def test_teen_cannot_delete_device(self, parent, teen_profile):
         device = _device(parent)
 
-        response = teen_client(teen_profile).delete(f'/api/devices/{device.id}.json')
+        response = teen_client(teen_profile).delete(f'/api/devices/{device.device_id}.json')
 
         assert response.status_code == 403
         assert Device.objects.filter(pk=device.pk).exists()
@@ -206,13 +206,36 @@ class TestTeenDeviceEnumeration:
         assert response.status_code == 200
         assert response.json()['results'] == []
 
-    def test_teen_retrieve_by_id_still_works(self, parent, teen_profile):
+    def test_teen_retrieve_by_uuid_still_works(self, parent, teen_profile):
         device = _device(parent)
 
-        response = teen_client(teen_profile).get(f'/api/devices/{device.id}.json')
+        response = teen_client(teen_profile).get(f'/api/devices/{device.device_id}.json')
 
         assert response.status_code == 200
         assert response.json()['notification_token'] == device.notification_token
+
+    def test_teen_integer_pk_routes_are_404(self, parent, teen_profile):
+        """Sequential pks are brute-forceable, so teen detail routes are
+        UUID-only: integer lookups 404 for reads and writes alike."""
+        device = _device(parent)
+
+        assert teen_client(teen_profile).get(f'/api/devices/{device.id}.json').status_code == 404
+
+        response = teen_client(teen_profile).put(
+            f'/api/devices/{device.id}.json',
+            _full_payload(device, notify_study_due=True),
+            format='json',
+        )
+        assert response.status_code == 404
+        device.refresh_from_db()
+        assert device.notify_study_due is False
+
+    def test_parent_integer_pk_routes_still_work(self, parent, teen_profile):
+        device = _device(parent)
+
+        response = parent_client(parent).get(f'/api/devices/{device.id}.json')
+
+        assert response.status_code == 200
 
     def test_parent_list_unchanged(self, parent, teen_profile):
         _device(parent)

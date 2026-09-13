@@ -61,7 +61,11 @@ export const upsertDevice = async (device: Device): Promise<Device | null> => {
       body: JSON.stringify(device),
     }, null);
   }
-  return request<Device | null>(`/devices/${device.id}.json`, {
+  // Address updates by the unguessable device UUID, never the sequential
+  // integer pk: teen-delegated sessions are UUID-only server-side, so integer
+  // URLs would 404 for them (and are brute-forceable). The route resolves
+  // both forms, so parent flows are unaffected.
+  return request<Device | null>(`/devices/${device.device_id}.json`, {
     method: "PUT",
     body: JSON.stringify(device),
   }, null);

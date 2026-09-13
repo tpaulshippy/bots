@@ -1,5 +1,7 @@
+import uuid
+
 from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
 
 from bots.models import Device
 from bots.permissions import IsOwner
@@ -65,6 +67,16 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
     def get_object(self):
         lookup_field_value = self.kwargs[self.lookup_field]
+
+        if is_teen_delegated(self.request.auth):
+            # Teen detail routes are UUID-only: integer pks are sequential
+            # and brute-forceable, which would re-open the enumeration just
+            # closed on the list route. All teen clients address their own
+            # record by device UUID (see upsertDevice).
+            try:
+                uuid.UUID(str(lookup_field_value))
+            except ValueError:
+                raise NotFound('Device not found')
 
         device = get_object_by_uuid_or_id(Device.objects.all(), 'device_id', lookup_field_value)
 
