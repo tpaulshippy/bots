@@ -1,6 +1,7 @@
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -22,7 +23,7 @@ import {
 import { getAccount } from "@/api/account";
 import { getCachedHasPin } from "@/api/pinStorage";
 import { fetchProfiles, Profile } from "@/api/profiles";
-import { fetchHtmlPages, HtmlPageListItem } from "@/api/htmlPages";
+import { fetchHtmlPages, getPageLink, HtmlPageListItem } from "@/api/htmlPages";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useState } from "react";
 import * as Sentry from "@sentry/react-native";
@@ -38,8 +39,10 @@ import { formatDistanceToNowStrict } from "date-fns";
 export default function StudyMaterials() {
   const router = useRouter();
   const sessionMode = useSessionMode();
-  // Unknown (still loading) fails closed to the teen view, matching the
-  // drawer: no chips, no parent surfaces until the claims resolve.
+  // Fail closed while the claims resolve: unknown sessions render the
+  // spinner, never content — a parent with a PIN must not flash ungated
+  // pages. (The drawer fails closed the same way.)
+  const sessionResolved = sessionMode !== null;
   const isTeenDelegated = sessionMode?.isTeenDelegated ?? true;
 
   const [pages, setPages] = useState<HtmlPageListItem[]>([]);
@@ -55,6 +58,9 @@ export default function StudyMaterials() {
   const accentColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   const refresh = useCallback(async () => {
+    // No fetching until the session claims resolve: the render gate below
+    // holds the spinner meanwhile, so nothing can flash pre-resolution.
+    if (!sessionResolved) return;
     setRefreshing(true);
     try {
       if (isTeenDelegated) {
@@ -73,7 +79,7 @@ export default function StudyMaterials() {
       setRefreshing(false);
       setLoading(false);
     }
-  }, [isTeenDelegated, selectedProfileId, sessionMode, router]);
+  }, [sessionResolved, isTeenDelegated, selectedProfileId, sessionMode, router]);
 
   // Parent mode: load profiles for the filter chips (teens never see them).
   useEffect(() => {
@@ -115,9 +121,11 @@ export default function StudyMaterials() {
 
   // Mirror activity.tsx: accounts that opted out of a PIN render parent
   // surfaces directly; PIN accounts go through the PinWrapper gate.
-  // Teens skip the account lookup entirely (never gated).
+  // Teens skip the account lookup entirely (never gated). Nothing runs
+  // until the session claims resolve (see the render gate below).
   useFocusEffect(
     useCallback(() => {
+      if (!sessionResolved) return;
       if (isTeenDelegated) {
         setHasPin(false);
         return;
@@ -125,8 +133,16 @@ export default function StudyMaterials() {
       let active = true;
       getAccount()
         .then((account) => {
-          if (active && account) {
+          if (!active) return;
+          if (account) {
             setHasPin(!!account.hasPin);
+          } else {
+            // request() resolves null (instead of rejecting) on ordinary
+            // HTTP/network failures: fall back to the cached flag so the
+            // spinner resolves instead of hanging indefinitely.
+            getCachedHasPin().then((cached) => {
+              if (active) setHasPin(cached);
+            });
           }
         })
         .catch(() => {
@@ -137,12 +153,26 @@ export default function StudyMaterials() {
       return () => {
         active = false;
       };
-    }, [isTeenDelegated])
+    }, [sessionResolved, isTeenDelegated])
   );
 
   const handlePagePress = (page: HtmlPageListItem) => {
     if (process.env.EXPO_OS === "ios") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    if (Platform.OS === "web") {
+      // The in-app viewer is native-only (WebView): open the signed raw URL
+      // in a browser tab instead, synchronously in the press handler so
+      // popup blockers allow it (same handoff as ChatMessage).
+      const win = window.open("about:blank", "_blank");
+      if (win) win.opener = null;
+      getPageLink(page.page_id)
+        .then((url) => {
+          if (url && win) win.location.href = url;
+          else win?.close();
+        })
+        .catch(() => win?.close());
+      return;
     }
     router.push({
       pathname: "/pageViewer",
@@ -293,6 +323,17 @@ export default function StudyMaterials() {
       )}
     </ThemedView>
   );
+
+  if (!sessionResolved) {
+    return (
+      <ThemedView testID="study-materials-screen" style={styles.container}>
+        <ActivityIndicator
+          testID="study-materials-loading"
+          style={styles.activityIndicator}
+        />
+      </ThemedView>
+    );
+  }
 
   if (isTeenDelegated) {
     return content;

@@ -3,7 +3,7 @@ import uuid
 from django.core import signing
 from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -42,6 +42,18 @@ def sign_raw_url(user_id, page_id) -> str:
     return f"/html-pages/{page_id}/raw/?sig={token}"
 
 
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="profileId",
+                type=str,
+                required=False,
+                description="Filter pages to one profile (UUID). Omit for all profiles.",
+            )
+        ]
+    )
+)
 class HtmlPageViewSet(viewsets.ModelViewSet):
     """Read API for agent-built pages (plus owner DELETE).
 
@@ -49,7 +61,6 @@ class HtmlPageViewSet(viewsets.ModelViewSet):
     through the agent tools, where the bot opt-in flag and the title/text
     safety filter are enforced. Direct POST/PUT/PATCH would bypass both.
     """
-
     permission_classes = [IsAuthenticated, IsOwner]
     serializer_class = HtmlPageSerializer
     queryset = HtmlPage.objects.all()

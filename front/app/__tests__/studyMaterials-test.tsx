@@ -1,10 +1,12 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import StudyMaterials from '../studyMaterials';
-import { fetchHtmlPages } from '@/api/htmlPages';
+import { fetchHtmlPages, getPageLink } from '@/api/htmlPages';
 import { fetchProfiles } from '@/api/profiles';
 import { getAccount } from '@/api/account';
+import { getCachedHasPin } from '@/api/pinStorage';
 import { useSessionMode } from '@/hooks/useSessionMode';
 
 jest.mock('expo-router', () => {
@@ -26,6 +28,7 @@ jest.mock('@/hooks/useSessionMode', () => ({
 
 jest.mock('@/api/htmlPages', () => ({
   fetchHtmlPages: jest.fn(),
+  getPageLink: jest.fn(),
 }));
 
 jest.mock('@/api/profiles', () => ({
@@ -140,5 +143,65 @@ describe('StudyMaterials', () => {
       pathname: '/pageViewer',
       params: { pageId: 'page-1', title: 'Fractions Guide' },
     });
+  });
+
+  it('fails closed while the session mode is still resolving', async () => {
+    mockUseSessionMode.mockReturnValue(null);
+
+    render(<StudyMaterials />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('study-materials-loading')).toBeTruthy()
+    );
+    // No content flash and no fetching until the claims resolve.
+    expect(screen.queryByTestId('study-material-row-page-1')).toBeNull();
+    expect(fetchHtmlPages).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the cached PIN flag when the account resolves to null', async () => {
+    mockUseSessionMode.mockReturnValue({
+      isTeenDelegated: false,
+      activeProfileId: null,
+    });
+    (getAccount as jest.Mock).mockResolvedValue(null);
+    (getCachedHasPin as jest.Mock).mockResolvedValue(false);
+
+    render(<StudyMaterials />);
+
+    // Loading resolves to content instead of hanging on the spinner.
+    await waitFor(() =>
+      expect(screen.getByTestId('study-material-row-page-1')).toBeTruthy()
+    );
+    expect(getCachedHasPin).toHaveBeenCalled();
+  });
+
+  it('opens the signed raw URL in a browser tab on web', async () => {
+    mockUseSessionMode.mockReturnValue({
+      isTeenDelegated: true,
+      activeProfileId: 'p1',
+    });
+    (getPageLink as jest.Mock).mockResolvedValue('https://x/html-pages/page-1/raw/?sig=s');
+    const openMock = jest.fn(() => ({ location: { href: '' }, opener: 'x' }));
+    const originalOpen = window.open;
+    const originalOS = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true });
+    window.open = openMock as unknown as typeof window.open;
+
+    try {
+      render(<StudyMaterials />);
+
+      await waitFor(() =>
+        expect(screen.getByTestId('study-material-row-page-1')).toBeTruthy()
+      );
+
+      fireEvent.press(screen.getByTestId('study-material-row-page-1'));
+
+      await waitFor(() => expect(getPageLink).toHaveBeenCalledWith('page-1'));
+      expect(openMock).toHaveBeenCalledWith('about:blank', '_blank');
+      expect(mockRouter.push).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(Platform, 'OS', { value: originalOS, configurable: true });
+      window.open = originalOpen;
+    }
   });
 });
