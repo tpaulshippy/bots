@@ -252,6 +252,9 @@ export default function RootLayout() {
                 headerShown: true,
                 title: "Settings",
                 headerTintColor: textColor,
+                headerLeft: () => (
+                  <DrawerMenuButton onOpen={() => setIsDrawerOpen(true)} />
+                ),
               }}
             />
             <Stack.Screen
@@ -319,6 +322,9 @@ export default function RootLayout() {
                 headerShown: true,
                 title: "Activity",
                 headerTintColor: textColor,
+                headerLeft: () => (
+                  <DrawerMenuButton onOpen={() => setIsDrawerOpen(true)} />
+                ),
               }}
             />
             <Stack.Screen
