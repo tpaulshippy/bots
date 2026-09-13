@@ -110,12 +110,20 @@ export default function OnboardingNotifications() {
   // registration throws on simulators/web and offline upserts return null.
   const persistNotificationChoices = async () => {
     if (!notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly) {
+      if (!isReview) {
+        return;
+      }
       try {
         const deviceId = await getDeviceIdFromStorage().catch(() => null);
-        if (!deviceId) {
-          return;
-        }
-        const existing = await fetchDevice(deviceId).catch(() => null);
+        const existingById = deviceId
+          ? await fetchDevice(deviceId).catch(() => null)
+          : null;
+        const token = existingById
+          ? existingById.notification_token
+          : await registerForPushNotificationsAsync().catch(() => null);
+        const existing =
+          existingById ||
+          (token ? await fetchDeviceByToken(token).catch(() => null) : null);
         if (!existing) {
           return;
         }
