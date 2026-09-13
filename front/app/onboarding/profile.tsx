@@ -19,6 +19,7 @@ export default function OnboardingProfile() {
   // Review mode targets the pre-filled row on save (see bootstrap
   // profileId): the selected profile, else the first on the account.
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [reviewPrefillLoaded, setReviewPrefillLoaded] = useState(!isReview);
 
   // Review mode: pre-fill with what's currently configured so the wizard
   // doubles as a way to verify the setup. Prefer the selected profile,
@@ -51,6 +52,10 @@ export default function OnboardingProfile() {
         }
       } catch {
         // Prefill is best-effort; the wizard still works blank.
+      } finally {
+        if (active) {
+          setReviewPrefillLoaded(true);
+        }
       }
     })();
     return () => {
@@ -60,7 +65,11 @@ export default function OnboardingProfile() {
 
   const trimmedEmail = studentEmail.trim();
   const emailValid = trimmedEmail === "" || EMAIL_PATTERN.test(trimmedEmail);
-  const canContinue = name.trim().length > 0 && emailValid;
+  const canContinue =
+    (!isReview || reviewPrefillLoaded) &&
+    (!isReview || profileId !== null) &&
+    name.trim().length > 0 &&
+    emailValid;
 
   // X gets out without saving: review mode returns to Settings, first-run
   // drops to chat (which re-gates to the wizard if nothing exists yet).

@@ -61,6 +61,9 @@ export default function OnboardingNotifications() {
     ReturnType<typeof fetchDevice>
   > | null>(null);
   const [reviewDeviceLoaded, setReviewDeviceLoaded] = useState(!isReview);
+  const [storedReviewDeviceId, setStoredReviewDeviceId] = useState<string | null>(
+    null
+  );
   // Field error from the last failed save (e.g. taken student email), shown
   // inline so the user can go back and fix it instead of losing the wizard.
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -76,6 +79,9 @@ export default function OnboardingNotifications() {
     (async () => {
       try {
         const deviceId = await getDeviceIdFromStorage().catch(() => null);
+        if (active) {
+          setStoredReviewDeviceId(deviceId);
+        }
         if (!deviceId) {
           return;
         }
@@ -172,6 +178,7 @@ export default function OnboardingNotifications() {
     }
     if (
       isReview &&
+      storedReviewDeviceId &&
       !reviewDevice &&
       !notifyOnNewChat &&
       !notifyOnNewMessage &&
