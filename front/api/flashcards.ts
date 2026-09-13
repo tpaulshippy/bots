@@ -146,16 +146,19 @@ export const deleteFlashcard = async (
   return response?.ok ?? false;
 };
 
-// Cards to study for this deck, ordered by due_at ascending.
+// Cards to study for this deck, ordered by due_at ascending. Returns null
+// when the queue fails to load (offline/server error) so callers can tell
+// "failed" apart from "genuinely empty" — e.g. a reminder tap must not
+// silently redirect on a failed load.
 export const fetchStudyQueue = async (
   deckId: string,
   mode: StudyQueueMode = "due",
   limit = 50
-): Promise<Flashcard[]> =>
-  request<Flashcard[]>(
+): Promise<Flashcard[] | null> =>
+  request<Flashcard[] | null>(
     `/decks/${deckId}/study_queue.json?mode=${mode}&limit=${limit}`,
     { method: "GET" },
-    []
+    null
   );
 
 // Rate a card during study; returns the rescheduled flashcard.

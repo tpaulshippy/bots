@@ -7,9 +7,15 @@ import {
   fetchStudyQueue,
   reviewFlashcard,
 } from '../../api/flashcards';
+import { apiClient } from '../../api/apiClient';
 
-// Mock the apiClient to return paginated responses matching OpenAPI schema
+// Mock the apiClient to return paginated responses matching OpenAPI schema.
+// UnauthorizedError/ForbiddenError are real classes (not undefined) so the
+// shared request() error path (`instanceof`) works when a test forces a
+// failure instead of resolving ok:true.
 jest.mock('../../api/apiClient', () => ({
+  UnauthorizedError: class UnauthorizedError extends Error {},
+  ForbiddenError: class ForbiddenError extends Error {},
   apiClient: jest.fn((url, options = {}) => {
     const method = options.method || 'GET';
     
@@ -312,21 +318,31 @@ describe('Flashcards API', () => {
       const queue = await fetchStudyQueue(testDeckId);
 
       expect(Array.isArray(queue)).toBe(true);
-      expect(queue.length).toBe(2);
-      expect(queue[0].front).toBe('What is anaphase?');
+      expect(queue?.length).toBe(2);
+      expect(queue?.[0].front).toBe('What is anaphase?');
     });
 
     it('should return cards with scheduling fields', async () => {
       const queue = await fetchStudyQueue(testDeckId, 'all');
 
-      expect(queue[0]).toHaveProperty('due_at');
-      expect(queue[0]).toHaveProperty('interval_days');
-      expect(queue[0]).toHaveProperty('ease');
-      expect(queue[0]).toHaveProperty('reps');
-      expect(queue[0]).toHaveProperty('lapses');
-      expect(queue[0]).toHaveProperty('last_reviewed_at');
-      expect(queue[0].reps).toBe(0);
-      expect(queue[1].reps).toBe(1);
+      expect(queue?.[0]).toHaveProperty('due_at');
+      expect(queue?.[0]).toHaveProperty('interval_days');
+      expect(queue?.[0]).toHaveProperty('ease');
+      expect(queue?.[0]).toHaveProperty('reps');
+      expect(queue?.[0]).toHaveProperty('lapses');
+      expect(queue?.[0]).toHaveProperty('last_reviewed_at');
+      expect(queue?.[0].reps).toBe(0);
+      expect(queue?.[1].reps).toBe(1);
+    });
+
+    it('should return null (not an empty queue) when the load fails', async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        data: null,
+      });
+
+      await expect(fetchStudyQueue(testDeckId)).resolves.toBeNull();
     });
   });
 

@@ -111,6 +111,12 @@ export default function Study() {
         // Default study queue: only cards that are due right now.
         const initialMode = mode === "all" ? "all" : "due";
         const dueCards = await fetchStudyQueue(deckId, initialMode);
+        if (dueCards === null) {
+          // Load failure (offline/server error): keep the previous empty
+          // state — never silently redirect a reminder tap on a failed load.
+          setCards([]);
+          return;
+        }
         if (dueCards.length === 0 && source === "reminder") {
           // Reminder tap, but nothing loadable for this profile (already
           // studied, or someone else's deck on a shared device): resolve to
@@ -171,7 +177,7 @@ export default function Study() {
       setCompletedAt(null);
       setAgainCount(0);
       setReviewedDues([]);
-      setCards(allCards);
+      setCards(allCards ?? []);
     } catch (error) {
       Sentry.captureException(error);
     } finally {

@@ -127,6 +127,21 @@ describe('Study', () => {
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
+  it('does not redirect a reminder tap when the queue fails to load', async () => {
+    // Load failure (offline/5xx) resolves to null, not []: a failed load
+    // must never silently redirect — it keeps the empty state instead.
+    (useLocalSearchParams as jest.Mock).mockReturnValue({
+      deckId: 'deck-1',
+      mode: 'due',
+      source: 'reminder',
+    });
+    (fetchStudyQueue as jest.Mock).mockResolvedValue(null);
+    render(<Study />);
+
+    await waitFor(() => expect(screen.getByText('Nothing due 🎉')).toBeTruthy());
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
   it('shows truthful per-card interval hints (new card: Again→4h, Good→1d)', async () => {
     render(<Study />);
 
