@@ -1,7 +1,7 @@
 import uuid
 
 from rest_framework import viewsets
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from bots.models import Device
 from bots.permissions import IsOwner
@@ -58,11 +58,18 @@ class DeviceViewSet(viewsets.ModelViewSet):
             # notification token on the parent account (push targets); device
             # UUIDs are the only other address, and both are unguessable, so
             # token lookup plus retrieve-by-id is all a teen client needs.
+            # Soft-deleted rows are excluded (as in the parent list): a
+            # re-registering device revives via create instead of
+            # resurrecting a dead row through update.
             if notification_token:
-                return Device.objects.filter(user=user, notification_token=notification_token)
+                return Device.objects.filter(
+                    user=user, notification_token=notification_token, deleted_at=None
+                )
             return Device.objects.none()
         if notification_token:
-            return Device.objects.filter(user=user, notification_token=notification_token)
+            return Device.objects.filter(
+                user=user, notification_token=notification_token, deleted_at=None
+            )
         return Device.objects.filter(user=user, deleted_at=None)
 
     def get_object(self):
@@ -84,6 +91,38 @@ class DeviceViewSet(viewsets.ModelViewSet):
         return device
 
     def perform_create(self, serializer):
+        user = self.request.user
+        # Re-registration of a soft-deleted device revives the same row
+        # (preserving its device_id) instead of colliding on the unique
+        # notification token — and instead of the old flow where a token
+        # lookup returned the dead row and clients PUT it back unchanged,
+        # leaving it deleted (and reminder-less) forever. Requested flags
+        # apply with the same teen rules as fresh creates below.
+        token = serializer.validated_data.get('notification_token')
+        if token:
+            deleted = Device.objects.filter(
+                user=user, notification_token=token, deleted_at__isnull=False
+            ).first()
+            if deleted is not None:
+                for attr, value in serializer.validated_data.items():
+                    setattr(deleted, attr, value)
+                if is_teen_delegated(self.request.auth):
+                    deleted.notify_on_new_chat = False
+                    deleted.notify_on_new_message = False
+                    deleted.notify_digest_only = False
+                deleted.user = user
+                deleted.deleted_at = None
+                deleted.save()
+                serializer.instance = deleted
+                return
+            # No soft-deleted row to revive: a live row with this token
+            # (any account — the old UniqueValidator behaved globally) is a
+            # genuine duplicate, rejected as a 400 instead of hitting the DB
+            # constraint as a 500.
+            if Device.objects.filter(notification_token=token).exists():
+                raise ValidationError({
+                    'notification_token': 'Device with this notification token already exists.'
+                })
         # Set the user before saving the object
         if is_teen_delegated(self.request.auth):
             # A teen registering their device must not alter the parent

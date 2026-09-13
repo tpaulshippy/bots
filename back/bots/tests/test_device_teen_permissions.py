@@ -2,6 +2,7 @@ import secrets
 
 import pytest
 from django.contrib.auth.models import User
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from bots.models import Device, Profile
@@ -247,3 +248,98 @@ class TestTeenDeviceEnumeration:
 
         assert response.status_code == 200
         assert response.json()['count'] == 2
+
+
+@pytest.mark.django_db
+class TestDeletedDeviceReregistration:
+    """A soft-deleted device that re-registers (same push token) must come
+    back to life: token lookups exclude dead rows, and creates revive the
+    soft-deleted row in place instead of colliding on the unique token —
+    otherwise the row stays deleted (and reminder-less) forever."""
+
+    def test_token_lookup_excludes_deleted_rows(self, parent, teen_profile):
+        device = _device(parent, deleted_at=timezone.now())
+
+        response = teen_client(teen_profile).get(
+            f'/api/devices.json?notificationToken={device.notification_token}'
+        )
+
+        assert response.status_code == 200
+        assert response.json()['results'] == []
+
+    def test_parent_token_lookup_excludes_deleted_rows(self, parent):
+        device = _device(parent, deleted_at=timezone.now())
+
+        response = parent_client(parent).get(
+            f'/api/devices.json?notificationToken={device.notification_token}'
+        )
+
+        assert response.status_code == 200
+        assert response.json()['results'] == []
+
+    def test_create_revives_soft_deleted_row(self, parent):
+        device = _device(parent, deleted_at=timezone.now(), notify_study_due=False)
+
+        response = parent_client(parent).post(
+            '/api/devices.json',
+            {
+                'notification_token': device.notification_token,
+                'notify_on_new_chat': False,
+                'notify_on_new_message': False,
+                'notify_digest_only': False,
+                'notify_study_due': True,
+            },
+            format='json',
+        )
+
+        assert response.status_code == 201
+        device.refresh_from_db()
+        assert device.deleted_at is None
+        assert device.notify_study_due is True
+        assert response.json()['device_id'] == str(device.device_id)
+
+    def test_teen_create_revives_with_forced_defaults(self, parent, teen_profile):
+        device = _device(
+            parent,
+            deleted_at=timezone.now(),
+            notify_on_new_chat=True,
+            notify_study_due=False,
+        )
+
+        response = teen_client(teen_profile).post(
+            '/api/devices.json',
+            {
+                'notification_token': device.notification_token,
+                'notify_on_new_chat': True,
+                'notify_on_new_message': True,
+                'notify_digest_only': True,
+                'notify_study_due': True,
+            },
+            format='json',
+        )
+
+        assert response.status_code == 201
+        device.refresh_from_db()
+        assert device.deleted_at is None
+        assert device.notify_on_new_chat is False
+        assert device.notify_on_new_message is False
+        assert device.notify_digest_only is False
+        assert device.notify_study_due is True
+
+    def test_create_with_live_duplicate_token_is_400(self, parent):
+        device = _device(parent)
+
+        response = parent_client(parent).post(
+            '/api/devices.json',
+            {
+                'notification_token': device.notification_token,
+                'notify_on_new_chat': False,
+                'notify_on_new_message': False,
+                'notify_digest_only': False,
+                'notify_study_due': True,
+            },
+            format='json',
+        )
+
+        assert response.status_code == 400
+        assert 'notification_token' in response.json()
