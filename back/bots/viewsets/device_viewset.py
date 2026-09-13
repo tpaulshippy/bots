@@ -87,13 +87,17 @@ class DeviceViewSet(viewsets.ModelViewSet):
         # Set the user before saving the object
         if is_teen_delegated(self.request.auth):
             # A teen registering their device must not alter the parent
-            # surveillance posture: parent-only flags are forced to the model
-            # defaults no matter what a crafted client sends. Only the teen's
-            # own study-reminder opt-in is honored as given.
+            # surveillance posture: parent-only flags are forced off no
+            # matter what a crafted client sends, so a first-time teen
+            # registration can never opt into per-chat/per-message pushes
+            # (which carry profile names and message text, possibly a
+            # sibling's). Only the teen's own study-reminder opt-in is
+            # honored as given. A parent can still enable pushes for that
+            # device later from parent Settings.
             serializer.save(
                 user=self.request.user,
                 notify_on_new_chat=False,
-                notify_on_new_message=True,
+                notify_on_new_message=False,
                 notify_digest_only=False,
             )
             return

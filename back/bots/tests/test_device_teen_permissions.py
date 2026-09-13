@@ -133,7 +133,7 @@ class TestTeenDeviceWrites:
             {
                 'notification_token': secrets.token_hex(8),
                 'notify_on_new_chat': True,
-                'notify_on_new_message': False,
+                'notify_on_new_message': True,
                 'notify_digest_only': True,
                 'notify_study_due': True,
             },
@@ -143,7 +143,7 @@ class TestTeenDeviceWrites:
         assert response.status_code == 201
         created = Device.objects.get(notification_token=response.json()['notification_token'])
         assert created.notify_on_new_chat is False
-        assert created.notify_on_new_message is True
+        assert created.notify_on_new_message is False
         assert created.notify_digest_only is False
         assert created.notify_study_due is True
 
