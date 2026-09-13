@@ -580,6 +580,25 @@ def describe_agent_events_history():
         assert mapped[5] == {"kind": "preview", "label": "👁 Checked render"}
         assert len(mapped) == 6
 
+    def test_mapper_ignores_empty_unknown_and_idless_events():
+        from bots.services.chat_agent import client_events_to_agent_events
+
+        assert client_events_to_agent_events(None) == []
+        assert client_events_to_agent_events([]) == []
+        assert client_events_to_agent_events([
+            None,
+            {},
+            {"tool": "nope", "deck_id": "d1"},
+            {"tool": "create_flashcard_deck"},  # no deck_id
+            {"tool": "create_flashcard"},  # no deck_id
+            {"tool": "save_html_page", "name": "No id"},
+            {"tool": "update_html_page", "name": "No id"},
+            {"tool": "preview_page", "name": "No id"},
+        ]) == []
+        assert client_events_to_agent_events([
+            {"tool": "web_search", "query": "mitosis"},
+        ]) == [{"kind": "sources", "label": "🌐 Sources used"}]
+
     def test_stream_persists_deck_chip_on_assistant_message(chat):
         chat.messages.create(text="hello", role="user")
 

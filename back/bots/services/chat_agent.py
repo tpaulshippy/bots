@@ -52,6 +52,57 @@ FLASHCARD_BLOCKED = (
 )
 
 
+def _deck_chip(event):
+    if not event.get("deck_id"):
+        return None
+    return {
+        "kind": "deck",
+        "deckId": event["deck_id"],
+        "name": event.get("name", "deck"),
+        "cardCount": event.get("card_count", 0),
+    }
+
+
+def _single_card_chip(event):
+    if not event.get("deck_id"):
+        return None
+    return {"kind": "sources", "label": "📇 Card added"}
+
+
+def _search_chip(event):
+    preview = event.get("result_preview")
+    return {
+        "kind": "sources",
+        "label": f"🌐 {preview}" if preview else "🌐 Sources used",
+    }
+
+
+def _page_chip(event):
+    if not event.get("page_id"):
+        return None
+    return {
+        "kind": "page",
+        "pageId": event["page_id"],
+        "name": event.get("name", "page"),
+    }
+
+
+def _preview_chip(event):
+    if not event.get("page_id"):
+        return None
+    return {"kind": "preview", "label": "👁 Checked render"}
+
+
+_AGENT_CHIP_BY_TOOL = {
+    "create_flashcard_deck": _deck_chip,
+    "create_flashcard": _single_card_chip,
+    "web_search": _search_chip,
+    "save_html_page": _page_chip,
+    "update_html_page": _page_chip,
+    "preview_page": _preview_chip,
+}
+
+
 def client_events_to_agent_events(client_events):
     """Map backend tool results to frontend AgentActivity chips for history.
 
@@ -62,36 +113,10 @@ def client_events_to_agent_events(client_events):
     """
     agent_events = []
     for event in client_events or []:
-        tool = event.get("tool")
-        if tool == "create_flashcard_deck" and event.get("deck_id"):
-            agent_events.append({
-                "kind": "deck",
-                "deckId": event["deck_id"],
-                "name": event.get("name", "deck"),
-                "cardCount": event.get("card_count", 0),
-            })
-        elif tool == "create_flashcard" and event.get("deck_id"):
-            agent_events.append({
-                "kind": "sources",
-                "label": "📇 Card added",
-            })
-        elif tool == "web_search":
-            preview = event.get("result_preview")
-            agent_events.append({
-                "kind": "sources",
-                "label": f"🌐 {preview}" if preview else "🌐 Sources used",
-            })
-        elif tool in ("save_html_page", "update_html_page") and event.get("page_id"):
-            agent_events.append({
-                "kind": "page",
-                "pageId": event["page_id"],
-                "name": event.get("name", "page"),
-            })
-        elif tool == "preview_page" and event.get("page_id"):
-            agent_events.append({
-                "kind": "preview",
-                "label": "👁 Checked render",
-            })
+        event = event or {}
+        chip = _AGENT_CHIP_BY_TOOL.get(event.get("tool"), lambda e: None)(event)
+        if chip is not None:
+            agent_events.append(chip)
     return agent_events
 
 
