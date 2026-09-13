@@ -162,6 +162,67 @@ def describe_chat_model():
             )
             assert chat_module.BEDROCK_MAX_TOKENS >= 8192
 
+        def describe_get_system_message():
+            def _bot(**kwargs):
+                defaults = {"system_prompt": "You are Fred."}
+                defaults.update(kwargs)
+                return Bot(**defaults)
+
+            def it_appends_web_search_guidance_when_enabled_with_api_key(chat, settings):
+                from bots.services.chat_agent import ChatAgentService
+
+                settings.TAVILY_API_KEY = "key"
+                chat.bot = _bot(enable_web_search=True)
+                text = chat.get_system_message()
+                assert "You are Fred." in text
+                assert ChatAgentService.WEB_SEARCH_GUIDANCE in text
+
+            def it_omits_web_search_guidance_when_disabled(chat, settings):
+                from bots.services.chat_agent import ChatAgentService
+
+                settings.TAVILY_API_KEY = "key"
+                chat.bot = _bot(enable_web_search=False)
+                assert ChatAgentService.WEB_SEARCH_GUIDANCE not in chat.get_system_message()
+
+            def it_omits_web_search_guidance_without_api_key(chat, settings):
+                # Mirrors the tool bind condition: no key means no tool,
+                # so the model must never be told to use it.
+                from bots.services.chat_agent import ChatAgentService
+
+                settings.TAVILY_API_KEY = ""
+                chat.bot = _bot(enable_web_search=True)
+                assert ChatAgentService.WEB_SEARCH_GUIDANCE not in chat.get_system_message()
+
+            def it_appends_both_guidance_blocks(chat, settings):
+                from bots.services.chat_agent import ChatAgentService
+
+                settings.TAVILY_API_KEY = "key"
+                chat.bot = _bot(enable_web_search=True, enable_html_pages=True)
+                text = chat.get_system_message()
+                assert ChatAgentService.WEB_SEARCH_GUIDANCE in text
+                assert ChatAgentService.HTML_GUIDANCE in text
+
+            def it_strips_the_legacy_baked_in_sentence():
+                import importlib
+
+                from django.apps import apps as django_apps
+
+                migration = importlib.import_module(
+                    "bots.migrations.0053_strip_web_search_sentence"
+                )
+                BotModel = django_apps.get_model("bots", "Bot")
+                bot = BotModel.objects.create(
+                    user=User.objects.create(),
+                    name="Legacy",
+                    system_prompt=(
+                        "Your name is Freddy.\n\n" + migration.LEGACY_SENTENCE + "\n\n"
+                    ),
+                )
+                migration.strip_web_search_sentence(django_apps, None)
+                bot.refresh_from_db()
+                assert bot.system_prompt == "Your name is Freddy."
+                assert "web_search" not in bot.system_prompt
+
 
 @pytest.mark.django_db
 def test_flashcard_order_increments():

@@ -347,12 +347,20 @@ class Chat(models.Model):
             prompt = self.bot.system_prompt
         else:
             prompt = ""
-        # HTML guidance lives here — not merged at call time — so it is
-        # stored in the system row (visible in admin) and sent verbatim,
-        # exactly like the web_search sentence in bot prompts.
+        # Feature guidance lives here — not in bot templates or stored
+        # rows — so flag changes take effect without re-saving prompts.
+        # Each block mirrors its tool's bind condition exactly, so the
+        # model is never told to use a tool it wasn't given.
         if self.bot and getattr(self.bot, "enable_html_pages", False):
             from bots.services.chat_agent import ChatAgentService
             prompt = (prompt + "\n\n" + ChatAgentService.HTML_GUIDANCE).strip()
+        if (
+            self.bot
+            and getattr(self.bot, "enable_web_search", False)
+            and settings.TAVILY_API_KEY
+        ):
+            from bots.services.chat_agent import ChatAgentService
+            prompt = (prompt + "\n\n" + ChatAgentService.WEB_SEARCH_GUIDANCE).strip()
         return prompt
 
     def get_image_data(self, filename):

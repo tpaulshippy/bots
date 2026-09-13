@@ -182,6 +182,11 @@ class ChatAgentService:
         "Always mention the page title in your reply so the kid can reference it later."
     )
 
+    WEB_SEARCH_GUIDANCE = (
+        "Web search is enabled: you can call the web_search tool for current information.\n"
+        "Use it for up-to-date facts, recent events, or anything beyond your training data."
+    )
+
     def _html_enabled(self):
         return bool(
             self.chat.bot
