@@ -42,7 +42,7 @@ const detail = {
       text: 'Hi there',
       created_at: '2026-01-01T12:01:00Z',
       image_url: null,
-      agentEvents: [{ kind: 'page', pageId: 'p1', name: 'Minecraft Guide' }],
+      agent_events: [{ kind: 'page', pageId: 'p1', name: 'Minecraft Guide' }],
     },
   ],
   safety_events: [
@@ -93,7 +93,7 @@ describe('ActivityChatScreen', () => {
     expect(bubbles[0].props.message.text).toBe('Hello bot');
   });
 
-  it('forwards agentEvents to the ChatMessage bubble', async () => {
+  it('forwards agent_events to the ChatMessage bubble', async () => {
     (fetchActivityChat as jest.Mock).mockResolvedValue(detail);
 
     render(<ActivityChatScreen />);
@@ -103,7 +103,7 @@ describe('ActivityChatScreen', () => {
     );
 
     const bubbles = screen.UNSAFE_getAllByType('ChatMessage' as never);
-    expect(bubbles[1].props.message.agentEvents).toEqual([
+    expect(bubbles[1].props.message.agent_events).toEqual([
       { kind: 'page', pageId: 'p1', name: 'Minecraft Guide' },
     ]);
   });

@@ -37,27 +37,11 @@ export interface ChatMessage {
     /** Send failed — the bubble offers a Retry action. */
     failed?: boolean;
     /** Tool activity (searching… / creating flashcards…) for this turn. */
-    agentEvents?: AgentActivity[];
+    agent_events?: AgentActivity[];
 }
 
-/** Wire shape from the API: tool activity arrives as snake_case. */
-type ChatMessageDTO = ChatMessage & {
-    agent_events?: AgentActivity[];
-};
-
-/** Map one wire message to the canonical ChatMessage (single agentEvents field). */
-const normalizeChatMessage = ({ agent_events, agentEvents, ...rest }: ChatMessageDTO): ChatMessage => ({
-    ...rest,
-    agentEvents: agentEvents ?? agent_events ?? [],
-});
-
-export const fetchChat = async (chatId: string): Promise<Chat | null> => {
-    const data = await request<Chat | null>(`/chats/${chatId}.json`, {}, null);
-    if (data) {
-        data.messages = data.messages.map(normalizeChatMessage);
-    }
-    return data;
-};
+export const fetchChat = async (chatId: string): Promise<Chat | null> =>
+    request<Chat | null>(`/chats/${chatId}.json`, {}, null);
 
 export const fetchChats = async (profileId: string | null, page: number | null): Promise<PaginatedResponse<Chat> | null> => {
     let endpoint = '/chats.json?1=1';
@@ -76,12 +60,8 @@ export const fetchChatMessages = async (chatId: string, page: number | null): Pr
     if (page) {
         endpoint += `?page=${page}`;
     }
-    const data = await request<PaginatedResponse<ChatMessageDTO> | null>(endpoint, {}, { results: [], count: 0 });
-    if (data) {
-        // Normalize persisted history so bubbles render the same chips as live streams.
-        return { ...data, results: data.results.map(normalizeChatMessage) };
-    }
-    return data as PaginatedResponse<ChatMessage> | null;
+    const data = await request<PaginatedResponse<ChatMessage> | null>(endpoint, {}, { results: [], count: 0 });
+    return data;
 }
 
 export interface ChatResponse {

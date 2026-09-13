@@ -30,7 +30,7 @@ jest.mock('@/components/ChatMessage', () => {
             <Text>retry</Text>
           </TouchableOpacity>
         ) : null}
-        {(message.agentEvents ?? []).map((chip: any, i: number) => (
+        {(message.agent_events ?? []).map((chip: any, i: number) => (
           <Text key={i} testID={`agent-chip-${chip.kind === 'deck' ? 'deck' : 'other'}`}>
             {chip.kind === 'deck' ? `${chip.name}:${chip.cardCount}` : chip.label}
           </Text>

@@ -42,7 +42,7 @@ describe('Chats API', () => {
     });
   });
 
-  it('normalizes persisted agent_events to agentEvents on history fetch', async () => {
+  it('passes persisted agent_events through on history fetch', async () => {
     const pageChip = { kind: 'page', pageId: 'p1', name: 'Minecraft Guide' };
     (apiClient as jest.Mock).mockResolvedValueOnce({
       ok: true,
@@ -59,7 +59,6 @@ describe('Chats API', () => {
     const response = await fetchChatMessages('chat-1', 1);
 
     expect(response?.results).toHaveLength(1);
-    expect(response?.results[0].agentEvents).toEqual([pageChip]);
-    expect(response?.results[0]).not.toHaveProperty('agent_events');
+    expect(response?.results[0].agent_events).toEqual([pageChip]);
   });
 });
