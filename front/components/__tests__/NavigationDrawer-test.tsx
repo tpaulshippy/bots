@@ -1,10 +1,11 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
+import { useRouter } from 'expo-router';
 import { NavigationDrawer } from '@/components/NavigationDrawer';
 import { useSessionMode } from '@/hooks/useSessionMode';
 
 jest.mock('expo-router', () => ({
-  useRouter: jest.fn(() => ({ push: jest.fn() })),
+  useRouter: jest.fn(() => ({ push: jest.fn(), replace: jest.fn() })),
   usePathname: jest.fn(() => '/'),
 }));
 
@@ -55,5 +56,24 @@ describe('NavigationDrawer session modes', () => {
     expect(screen.getByText('Study Materials')).toBeOnTheScreen();
     expect(screen.queryByText('Activity')).toBeNull();
     expect(screen.queryByText('Settings')).toBeNull();
+  });
+
+  it('replaces instead of pushing so menu sections never stack', () => {
+    mockUseSessionMode.mockReturnValue({
+      isTeenDelegated: false,
+      activeProfileId: null,
+    });
+    const replace = jest.fn();
+    const push = jest.fn();
+    (useRouter as jest.Mock).mockReturnValue({ push, replace });
+    const onClose = jest.fn();
+
+    render(<NavigationDrawer isOpen={true} onClose={onClose} />);
+
+    fireEvent.press(screen.getByText('Activity'));
+
+    expect(replace).toHaveBeenCalledWith('/parent/activity');
+    expect(push).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
   });
 });

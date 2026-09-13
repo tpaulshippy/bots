@@ -57,11 +57,15 @@ export default function StudyMaterials() {
   const iconColor = useThemeColor({}, "icon");
   const accentColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (manual = false) => {
     // No fetching until the session claims resolve: the render gate below
     // holds the spinner meanwhile, so nothing can flash pre-resolution.
     if (!sessionResolved) return;
-    setRefreshing(true);
+    // Background refetches (mount / focus / filter) stay silent: only an
+    // explicit pull-to-refresh drives the pull indicator. Requests have no
+    // timeout, so a stalled background fetch must never wedge a spinner on
+    // screen — it clears on the next settled fetch either way.
+    if (manual) setRefreshing(true);
     try {
       if (isTeenDelegated) {
         const lockedId = sessionMode?.activeProfileId ?? (await getSelectedProfileId());
@@ -263,7 +267,7 @@ export default function StudyMaterials() {
           data={pages}
           keyExtractor={(item) => item.page_id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => void refresh(true)} />
           }
           renderItem={({ item }) => (
             <Pressable

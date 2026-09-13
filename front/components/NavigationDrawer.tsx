@@ -79,7 +79,9 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   ];
 
   const handleMenuPress = (path: MenuItem["path"]) => {
-    router.push(path);
+    // Main-menu switches replace instead of pushing: sections never stack,
+    // so navigating back out of a section always looks the same.
+    router.replace(path);
     onClose();
   };
 
