@@ -1166,6 +1166,43 @@ describe('Onboarding wizard', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
 
+    it('hides the unloadable-settings warning when a toggle is on and still saves best-effort', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue(null);
+      (registerForPushNotificationsAsync as jest.Mock).mockResolvedValue(
+        'ExponentPushToken[test]'
+      );
+      (fetchDeviceByToken as jest.Mock).mockResolvedValue(null);
+      (upsertDevice as jest.Mock).mockResolvedValue({
+        device_id: 'd1',
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      fireEvent(screen.getByTestId('onboarding-notifications-switch'), 'onValueChange', true);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(
+        screen.queryByTestId('onboarding-notification-warning')
+      ).toBeNull();
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notify_on_new_chat: true,
+        })
+      );
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
     it('allows review completion with notifications off when no device record exists', async () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({
         profileName: 'Maya',

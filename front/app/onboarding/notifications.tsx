@@ -314,7 +314,10 @@ export default function OnboardingNotifications() {
       <ThemedText style={styles.optionalNote}>
         Optional — you can change these anytime in Settings → Notifications.
       </ThemedText>
-      {isReview && reviewDeviceLoaded && storedReviewDeviceId && !reviewDevice ? (
+      {/* Only accurate when everything stays off: with any toggle on,
+          finishing still attempts a best-effort save below. */}
+      {isReview && reviewDeviceLoaded && storedReviewDeviceId && !reviewDevice &&
+      !notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly ? (
         <ThemedText testID="onboarding-notification-warning" style={styles.warning}>
           We couldn&apos;t load your current notification settings. Finishing won&apos;t
           change them.
