@@ -45,6 +45,7 @@ const MAPPING = {
   'chat': 'chat',
   'bubble.left.fill': 'chat-bubble',
   'square.grid.2x2.fill': 'grid-view',
+  'chart.bar.fill': 'bar-chart',
   'shield.fill': 'security'
 } as Partial<
   Record<

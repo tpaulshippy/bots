@@ -56,6 +56,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   const menuItems: MenuItem[] = [
     { label: "Chats", icon: "bubble.left.fill", path: "/chatHistory" },
     { label: "Flashcards", icon: "square.grid.2x2.fill", path: "/flashcards" },
+    { label: "Stats", icon: "chart.bar.fill", path: "/stats" },
     ...(!isTeenDelegated
       ? [
           {

@@ -15,7 +15,7 @@ jest.mock('@/hooks/useSessionMode', () => ({
 const mockUseSessionMode = useSessionMode as jest.Mock;
 
 describe('NavigationDrawer session modes', () => {
-  it('shows Chats, Flashcards, and Settings for parent sessions', () => {
+  it('shows Chats, Flashcards, Stats, and Settings for parent sessions', () => {
     mockUseSessionMode.mockReturnValue({
       isTeenDelegated: false,
       activeProfileId: null,
@@ -25,10 +25,11 @@ describe('NavigationDrawer session modes', () => {
 
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
+    expect(screen.getByText('Stats')).toBeOnTheScreen();
     expect(screen.getByText('Settings')).toBeOnTheScreen();
   });
 
-  it('hides Settings for teen-delegated sessions', () => {
+  it('shows Stats but hides Settings for teen-delegated sessions', () => {
     mockUseSessionMode.mockReturnValue({
       isTeenDelegated: true,
       activeProfileId: 'profile-maya',
@@ -38,6 +39,7 @@ describe('NavigationDrawer session modes', () => {
 
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
+    expect(screen.getByText('Stats')).toBeOnTheScreen();
     expect(screen.queryByText('Settings')).toBeNull();
   });
 
@@ -48,6 +50,7 @@ describe('NavigationDrawer session modes', () => {
 
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
+    expect(screen.getByText('Stats')).toBeOnTheScreen();
     expect(screen.queryByText('Settings')).toBeNull();
   });
 });

@@ -1,8 +1,7 @@
 import React from 'react';
 import { render, act, screen, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Flashcards from '../flashcards';
-import { fetchDecks } from '@/api/flashcards';
+import Stats from '../stats';
 import { fetchStats } from '@/api/stats';
 import { setSelectedProfile } from '@/hooks/useSelectedProfile';
 
@@ -13,11 +12,6 @@ jest.mock('expo-router', () => {
     useFocusEffect: (cb: () => void) => React.useEffect(cb, []),
   };
 });
-
-jest.mock('@/api/flashcards', () => ({
-  fetchDecks: jest.fn(),
-  createDeck: jest.fn(),
-}));
 
 jest.mock('@/api/stats', () => ({
   fetchStats: jest.fn(),
@@ -61,7 +55,7 @@ const textOf = (testID: string): string => {
   return flat(children);
 };
 
-describe('Flashcards stats card', () => {
+describe('Stats screen', () => {
   let storedProfile: string | null;
 
   beforeEach(() => {
@@ -78,12 +72,11 @@ describe('Flashcards stats card', () => {
     (AsyncStorage.removeItem as jest.Mock).mockImplementation(async () => {
       storedProfile = null;
     });
-    (fetchDecks as jest.Mock).mockResolvedValue({ results: [], count: 0 });
     (fetchStats as jest.Mock).mockResolvedValue(statsFor());
   });
 
   it('renders the streak, totals, and today badge', async () => {
-    render(<Flashcards />);
+    render(<Stats />);
 
     await waitFor(() =>
       expect(screen.getByTestId('stats-card')).toBeTruthy()
@@ -105,7 +98,7 @@ describe('Flashcards stats card', () => {
         studied_today: false,
       })
     );
-    render(<Flashcards />);
+    render(<Stats />);
 
     await waitFor(() =>
       expect(screen.getByTestId('stats-card')).toBeTruthy()
@@ -116,18 +109,18 @@ describe('Flashcards stats card', () => {
     );
   });
 
-  it('hides the card when stats fail to load', async () => {
+  it('shows the empty state when stats fail to load', async () => {
     (fetchStats as jest.Mock).mockResolvedValue(null);
-    render(<Flashcards />);
+    render(<Stats />);
 
     await waitFor(() =>
-      expect(screen.getByText('No decks yet')).toBeTruthy()
+      expect(screen.getByText('No stats yet')).toBeTruthy()
     );
     expect(screen.queryByTestId('stats-card')).toBeNull();
   });
 
   it('refetches stats when the profile is switched', async () => {
-    render(<Flashcards />);
+    render(<Stats />);
 
     await waitFor(() => expect(fetchStats).toHaveBeenCalledWith('kid-1'));
 
