@@ -290,7 +290,7 @@ describe('Onboarding wizard', () => {
       ).toBe(true);
     });
 
-    it('keeps Continue disabled when review profile prefill finds no target profile', async () => {
+    it('keeps Continue disabled when review profile prefill fails', async () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
       jest
         .spyOn(selectedProfileHooks, 'getSelectedProfile')
@@ -306,6 +306,27 @@ describe('Onboarding wizard', () => {
         screen.getByTestId('onboarding-profile-continue').props.accessibilityState
           .disabled
       ).toBe(true);
+    });
+
+    it('allows review mode to recreate a missing profile after prefill completes', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue(null);
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [],
+        count: 0,
+      });
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      fireEvent.changeText(screen.getByTestId('onboarding-profile-input'), 'Maya');
+
+      expect(
+        screen.getByTestId('onboarding-profile-continue').props.accessibilityState
+          .disabled
+      ).toBe(false);
     });
   });
 
@@ -689,7 +710,7 @@ describe('Onboarding wizard', () => {
       ).toBe(true);
     });
 
-    it('keeps Continue disabled when review bot prefill finds no target bot', async () => {
+    it('keeps Continue disabled when review bot prefill fails', async () => {
       (useLocalSearchParams as jest.Mock).mockReturnValue({
         review: 'true',
         profileName: 'Maya',
@@ -705,6 +726,27 @@ describe('Onboarding wizard', () => {
         screen.getByTestId('onboarding-bot-continue').props.accessibilityState
           .disabled
       ).toBe(true);
+    });
+
+    it('allows review mode to recreate a missing bot after prefill completes', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [],
+        count: 0,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(false);
     });
   });
 
@@ -1117,10 +1159,11 @@ describe('Onboarding wizard', () => {
       expect(registerForPushNotificationsAsync).not.toHaveBeenCalled();
       expect(fetchDeviceByToken).not.toHaveBeenCalled();
       expect(upsertDevice).not.toHaveBeenCalled();
-      expect(mockRouter.replace).not.toHaveBeenCalled();
-      expect(screen.getByTestId('onboarding-save-error').props.children).toContain(
+      expect(bootstrapOnboarding).toHaveBeenCalled();
+      expect(screen.getByTestId('onboarding-notification-warning').props.children).toContain(
         "couldn't load your current notification settings"
       );
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
 
     it('allows review completion with notifications off when no device record exists', async () => {

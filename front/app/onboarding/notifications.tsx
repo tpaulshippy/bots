@@ -176,19 +176,6 @@ export default function OnboardingNotifications() {
     if (isReview && !reviewDeviceLoaded) {
       return;
     }
-    if (
-      isReview &&
-      storedReviewDeviceId &&
-      !reviewDevice &&
-      !notifyOnNewChat &&
-      !notifyOnNewMessage &&
-      !notifyDigestOnly
-    ) {
-      setSaveError(
-        "We couldn't load your current notification settings. Please try again or change them later in Settings → Notifications."
-      );
-      return;
-    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -327,6 +314,12 @@ export default function OnboardingNotifications() {
       <ThemedText style={styles.optionalNote}>
         Optional — you can change these anytime in Settings → Notifications.
       </ThemedText>
+      {isReview && reviewDeviceLoaded && storedReviewDeviceId && !reviewDevice ? (
+        <ThemedText testID="onboarding-notification-warning" style={styles.warning}>
+          We couldn&apos;t load your current notification settings. Finishing won&apos;t
+          change them.
+        </ThemedText>
+      ) : null}
       {saveError ? (
         <ThemedText testID="onboarding-save-error" style={styles.saveError}>
           {saveError}
@@ -351,6 +344,12 @@ export default function OnboardingNotifications() {
 }
 
 const styles = StyleSheet.create({
+  warning: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 12,
+    opacity: 0.7,
+  },
   saveError: {
     fontSize: 14,
     color: "#E63946",

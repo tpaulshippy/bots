@@ -20,6 +20,7 @@ export default function OnboardingProfile() {
   // profileId): the selected profile, else the first on the account.
   const [profileId, setProfileId] = useState<string | null>(null);
   const [reviewPrefillLoaded, setReviewPrefillLoaded] = useState(!isReview);
+  const [reviewCanCreateProfile, setReviewCanCreateProfile] = useState(false);
 
   // Review mode: pre-fill with what's currently configured so the wizard
   // doubles as a way to verify the setup. Prefer the selected profile,
@@ -49,6 +50,9 @@ export default function OnboardingProfile() {
           if (typeof current.profile_id === "string") {
             setProfileId(current.profile_id);
           }
+          setReviewCanCreateProfile(false);
+        } else if (active) {
+          setReviewCanCreateProfile(Array.isArray(profiles?.results));
         }
       } catch {
         // Prefill is best-effort; the wizard still works blank.
@@ -67,7 +71,7 @@ export default function OnboardingProfile() {
   const emailValid = trimmedEmail === "" || EMAIL_PATTERN.test(trimmedEmail);
   const canContinue =
     (!isReview || reviewPrefillLoaded) &&
-    (!isReview || profileId !== null) &&
+    (!isReview || profileId !== null || reviewCanCreateProfile) &&
     name.trim().length > 0 &&
     emailValid;
 

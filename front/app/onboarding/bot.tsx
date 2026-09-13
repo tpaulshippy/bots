@@ -46,6 +46,7 @@ export default function OnboardingBot() {
   const [botId, setBotId] = useState<string | null>(null);
   const [reviewBot, setReviewBot] = useState<Bot | null>(null);
   const [reviewPrefillLoaded, setReviewPrefillLoaded] = useState(!isReview);
+  const [reviewCanCreateBot, setReviewCanCreateBot] = useState(false);
   const [reviewPromptSeed, setReviewPromptSeed] = useState<{
     name: string;
     templateName: string;
@@ -99,6 +100,9 @@ export default function OnboardingBot() {
             story: currentStory,
             systemPrompt: current.system_prompt || "",
           });
+          setReviewCanCreateBot(false);
+        } else if (active) {
+          setReviewCanCreateBot(Array.isArray(bots?.results));
         }
       } catch {
         // Prefill is best-effort; defaults still work.
@@ -123,7 +127,7 @@ export default function OnboardingBot() {
     (templateName !== "Character" || trimmedStory === reviewPromptSeed.story);
   const canContinue =
     (!isReview || reviewPrefillLoaded) &&
-    (!isReview || botId !== null) &&
+    (!isReview || botId !== null || reviewCanCreateBot) &&
     trimmedBotName.length > 0 &&
     (templateName !== "Character" ||
       trimmedStory.length > 0 ||
