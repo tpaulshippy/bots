@@ -62,16 +62,21 @@ class Command(BaseCommand):
     def reminder_content(self, rows):
         """(title, body, data) for one user's due decks.
 
+        The body is deliberately profile-agnostic (counts only, never deck
+        names): devices belong to the parent account, so a teen-delegated
+        device opted into reminders must never receive a sibling's deck
+        names in push copy. (The deck APIs themselves stay profile-scoped,
+        so a deep link into a sibling deck 404s instead of leaking cards.)
+
         A single due deck deep-links straight into its study session; several
         decks link to the deck list instead.
         """
         total = sum(row['due'] for row in rows)
         if len(rows) == 1:
-            name = rows[0]['deck__name'] or 'your deck'
             count = rows[0]['due']
             body = (
                 f"{count} card{'s' if count != 1 else ''} due "
-                f'in "{name}" \u2014 time to review!'
+                f"\u2014 time to review!"
             )
             data = {'target': 'study_due', 'deck_id': str(rows[0]['deck__deck_id'])}
         else:

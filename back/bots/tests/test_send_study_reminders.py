@@ -56,8 +56,22 @@ class TestSendStudyReminders:
         notification = calls[0].args[0]
         assert notification.to == device.notification_token
         assert notification.title == 'Study reminder'
-        assert notification.body == '2 cards due in "Cell Bio" — time to review!'
+        assert notification.body == '2 cards due — time to review!'
         assert notification.data == {'target': 'study_due', 'deck_id': str(deck.deck_id)}
+
+    @patch('bots.models.device.NotificationClient')
+    def test_single_due_deck_body_names_no_deck(self, mock_client, parent, profile):
+        """Push copy never names a deck: devices are per-account, so a deck
+        name could belong to a sibling profile."""
+        deck = _deck(profile, name='Leo Private Deck')
+        _card(deck, order=0)
+        _device(parent, notify_study_due=True)
+
+        call_command('send_study_reminders')
+
+        notification = mock_client.return_value.notify.call_args.args[0]
+        assert 'Leo Private Deck' not in notification.body
+        assert notification.body == '1 card due — time to review!'
 
     @patch('bots.models.device.NotificationClient')
     def test_singular_card_body(self, mock_client, parent, profile):
@@ -67,7 +81,7 @@ class TestSendStudyReminders:
         call_command('send_study_reminders')
 
         notification = mock_client.return_value.notify.call_args.args[0]
-        assert notification.body == '1 card due in "Cell Bio" — time to review!'
+        assert notification.body == '1 card due — time to review!'
 
     @patch('bots.models.device.NotificationClient')
     def test_multiple_decks_aggregate_without_deep_link(self, mock_client, parent, profile):
