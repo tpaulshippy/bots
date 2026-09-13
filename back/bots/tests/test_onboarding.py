@@ -340,6 +340,119 @@ class TestOnboardingBootstrap:
         user.user_account.refresh_from_db()
         assert user.user_account.onboarding_completed_at is None
 
+    def test_review_rerun_with_ids_updates_selected_not_first(self, load_ai_models):
+        """Rerunning the wizard from Settings must be idempotent: with the
+        selected profileId/botId it updates those rows, leaving the oldest
+        rows untouched (previously it always renamed the oldest, duplicating
+        the selected bot's config onto it)."""
+        from bots.models import AiModel
+        user = User.objects.create_user(username='review', password='pass')
+        client = make_auth_client(user)
+        client.post('/api/onboarding/bootstrap', self.payload(), format='json')
+
+        second_profile = Profile.objects.create(user=user, name='Alex')
+        default_model = AiModel.objects.filter(is_default=True).first()
+        second_bot = Bot.objects.create(
+            user=user, ai_model=default_model, name='Dragon',
+            template_name='Character', system_prompt='dragon prompt',
+            color='#E63946', icon='dragon')
+
+        response = client.post(
+            '/api/onboarding/bootstrap',
+            self.payload(
+                profileName='Alex',
+                botName='Dragon',
+                templateName='Character',
+                systemPrompt='dragon prompt',
+                color='#E63946',
+                icon='dragon',
+                profileId=str(second_profile.profile_id),
+                botId=str(second_bot.bot_id),
+            ),
+            format='json')
+
+        assert response.status_code == 200
+        assert response.json()['profileId'] == str(second_profile.profile_id)
+        assert response.json()['botId'] == str(second_bot.bot_id)
+        # Both rows still exist, nothing duplicated or renamed.
+        assert Profile.objects.filter(user=user, deleted_at=None).count() == 2
+        assert Bot.objects.filter(user=user, deleted_at=None).count() == 2
+        oldest_profile = Profile.objects.filter(
+            user=user, deleted_at=None).order_by('id').first()
+        assert oldest_profile.name == 'Maya'
+        oldest_bot = Bot.objects.filter(
+            user=user, deleted_at=None).order_by('id').first()
+        assert oldest_bot.name == 'Penelope'
+        assert second_profile.profile_id is not None
+        second_profile.refresh_from_db()
+        second_bot.refresh_from_db()
+        assert second_profile.name == 'Alex'
+        assert second_bot.name == 'Dragon'
+
+    def test_stale_ids_recreate_without_touching_others(self, load_ai_models):
+        """A review id that no longer resolves recreates instead of hijacking
+        a different row."""
+        import uuid
+        user = User.objects.create_user(username='stale', password='pass')
+        client = make_auth_client(user)
+        client.post('/api/onboarding/bootstrap', self.payload(), format='json')
+
+        response = client.post(
+            '/api/onboarding/bootstrap',
+            self.payload(
+                profileName='NewKid', botName='NewBot',
+                profileId=str(uuid.uuid4()), botId=str(uuid.uuid4())),
+            format='json')
+
+        assert response.status_code == 200
+        assert Profile.objects.filter(user=user, deleted_at=None).count() == 2
+        assert Bot.objects.filter(user=user, deleted_at=None).count() == 2
+        # The original rows are untouched.
+        assert Profile.objects.filter(
+            user=user, deleted_at=None, name='Maya').count() == 1
+        assert Bot.objects.filter(
+            user=user, deleted_at=None, name='Penelope').count() == 1
+
+    def test_invalid_ids_return_400_without_side_effects(self, load_ai_models):
+        user = User.objects.create_user(username='badid', password='pass')
+        original_name = Profile.objects.get(user=user).name
+        original_bot_name = Bot.objects.get(user=user).name
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(profileId='not-a-uuid', botId='also-bad'),
+            format='json')
+
+        assert response.status_code == 400
+        assert Profile.objects.get(user=user).name == original_name
+        assert Bot.objects.get(user=user).name == original_bot_name
+        user.user_account.refresh_from_db()
+        assert user.user_account.onboarding_completed_at is None
+
+    def test_ids_from_other_user_do_not_leak(self, load_ai_models):
+        """A profileId/botId belonging to another account must not update
+        that account's rows — it recreates scoped to the caller."""
+        other = User.objects.create_user(username='other', password='pass')
+        other_profile = Profile.objects.get(user=other)
+        other_bot = Bot.objects.get(user=other)
+        user = User.objects.create_user(username='victim', password='pass')
+
+        response = make_auth_client(user).post(
+            '/api/onboarding/bootstrap',
+            self.payload(
+                profileName='Mine', botName='MineBot',
+                profileId=str(other_profile.profile_id),
+                botId=str(other_bot.bot_id)),
+            format='json')
+
+        assert response.status_code == 200
+        other_profile.refresh_from_db()
+        other_bot.refresh_from_db()
+        assert other_profile.name != 'Mine'
+        assert other_bot.name != 'MineBot'
+        assert Profile.objects.filter(user=user, deleted_at=None).count() == 2
+        assert Bot.objects.filter(user=user, deleted_at=None).count() == 2
+
     def test_teen_delegated_session_is_403(self, load_ai_models):
         user = User.objects.create_user(username='delegated', password='pass')
         client = make_auth_client(user, delegated=True)

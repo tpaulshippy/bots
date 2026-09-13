@@ -28,6 +28,7 @@ export default function OnboardingBot() {
   const local = useLocalSearchParams<{
     profileName?: string;
     studentEmail?: string;
+    profileId?: string;
     review?: string;
   }>();
   const isReview = local.review === "true";
@@ -36,6 +37,8 @@ export default function OnboardingBot() {
   const [color, setColor] = useState(DEFAULTS.color);
   const [icon, setIcon] = useState(DEFAULTS.icon);
   const [story, setStory] = useState("");
+  // Review mode targets the pre-filled bot on save (see bootstrap botId).
+  const [botId, setBotId] = useState<string | null>(null);
 
   // Review mode: pre-fill with the currently configured tutor so the wizard
   // shows what's set. Prefer the selected bot, fall back to the first bot.
@@ -52,6 +55,9 @@ export default function OnboardingBot() {
         const parsed = stored ? JSON.parse(stored) : null;
         if (parsed && typeof parsed.name === "string" && active) {
           setBotName(parsed.name || DEFAULTS.name);
+          if (typeof parsed.bot_id === "string" && parsed.bot_id) {
+            setBotId(parsed.bot_id);
+          }
           if (typeof parsed.template_name === "string" && parsed.template_name) {
             setTemplateName(parsed.template_name);
           }
@@ -67,6 +73,9 @@ export default function OnboardingBot() {
         const first = bots?.results?.[0];
         if (first && active) {
           setBotName(first.name || DEFAULTS.name);
+          if (typeof first.bot_id === "string" && first.bot_id) {
+            setBotId(first.bot_id);
+          }
           if (first.template_name) setTemplateName(first.template_name);
           if (first.color) setColor(first.color);
           if (first.icon) setIcon(first.icon);
@@ -113,7 +122,9 @@ export default function OnboardingBot() {
       params: {
         profileName: local.profileName ?? "",
         ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
+        ...(local.profileId ? { profileId: local.profileId } : {}),
         botName: botName.trim(),
+        ...(botId ? { botId } : {}),
         templateName,
         systemPrompt: generateSystemPrompt(draftBot, inputs),
         color,

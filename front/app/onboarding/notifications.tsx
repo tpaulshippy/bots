@@ -35,7 +35,9 @@ export default function OnboardingNotifications() {
   const local = useLocalSearchParams<{
     profileName?: string;
     studentEmail?: string;
+    profileId?: string;
     botName?: string;
+    botId?: string;
     templateName?: string;
     systemPrompt?: string;
     color?: string;
@@ -44,9 +46,9 @@ export default function OnboardingNotifications() {
     review?: string;
   }>();
   // Review mode (?review=true): re-walking the wizard to verify the current
-  // setup. Earlier steps pre-fill from the API; finishing saves normally —
-  // bootstrap is idempotent (renames in place, never duplicates), so leaving
-  // everything unchanged changes nothing.
+  // setup. Earlier steps pre-fill from the selected profile/bot and pass
+  // their ids through, so finishing updates those exact rows in place —
+  // leaving everything unchanged changes nothing.
   const isReview = local.review === "true";
 
   // Same per-device flags as Settings → Notifications (PR 46): digest-only
@@ -147,7 +149,9 @@ export default function OnboardingNotifications() {
       const response = await bootstrapOnboarding({
         profileName: local.profileName ?? "",
         ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
+        ...(local.profileId ? { profileId: local.profileId } : {}),
         botName: local.botName || undefined,
+        ...(local.botId ? { botId: local.botId } : {}),
         templateName: local.templateName || undefined,
         systemPrompt: local.systemPrompt || undefined,
         color: local.color || undefined,
@@ -190,7 +194,7 @@ export default function OnboardingNotifications() {
       const botId =
         typeof result?.botId === "string" ? result.botId : undefined;
 
-      // Select exactly the renamed default profile and first bot so the very
+      // Select exactly the configured profile and bot so the very
       // first chat needs no further setup (fixes "Please select a profile
       // first"). Listings are name-ordered, so match by id when we have one.
       const profiles = await fetchProfiles();

@@ -16,6 +16,9 @@ export default function OnboardingProfile() {
   const isReview = review === "true";
   const [name, setName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
+  // Review mode targets the pre-filled row on save (see bootstrap
+  // profileId): the selected profile, else the first on the account.
+  const [profileId, setProfileId] = useState<string | null>(null);
 
   // Review mode: pre-fill with what's currently configured so the wizard
   // doubles as a way to verify the setup. Prefer the selected profile,
@@ -39,6 +42,9 @@ export default function OnboardingProfile() {
         if (selectedName && active) {
           setName(selectedName);
           setStudentEmail(selectedEmail ?? "");
+          if (typeof selected.profile_id === "string") {
+            setProfileId(selected.profile_id);
+          }
           return;
         }
         const profiles = await fetchProfiles().catch(() => null);
@@ -46,6 +52,9 @@ export default function OnboardingProfile() {
         if (first && active) {
           setName(first.name ?? "");
           setStudentEmail(first.oauth_email ?? "");
+          if (typeof first.profile_id === "string") {
+            setProfileId(first.profile_id);
+          }
         }
       } catch {
         // Prefill is best-effort; the wizard still works blank.
@@ -125,6 +134,7 @@ export default function OnboardingProfile() {
               profileName: name.trim(),
               ...(trimmedEmail ? { studentEmail: trimmedEmail.toLowerCase() } : {}),
               ...(isReview ? { review: "true" } : {}),
+              ...(isReview && profileId ? { profileId } : {}),
             },
           })
         }

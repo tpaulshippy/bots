@@ -25,6 +25,10 @@ export interface OnboardingBootstrapPayload {
     systemPrompt?: string;
     color?: string;
     icon?: string;
+    // Review reruns: the selected rows the wizard pre-filled from, so
+    // re-saving updates those exact rows instead of the oldest ones.
+    profileId?: string;
+    botId?: string;
 }
 
 export interface OnboardingBootstrapResult {
@@ -69,7 +73,7 @@ export const completeOnboarding = async (): Promise<void> => {
     }, undefined);
 };
 
-// Atomic wizard save: profile name, first bot, PIN and completion flag.
+// Atomic wizard save: profile name, selected bot, PIN and completion flag.
 // Returns the raw response (null only on transport failure) so the wizard
 // can surface field errors — e.g. a taken student email comes back as 400
 // with a `studentEmail` body — instead of sailing on as if it succeeded.

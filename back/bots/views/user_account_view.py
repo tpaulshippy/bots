@@ -124,7 +124,11 @@ def onboarding_complete_view(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def onboarding_bootstrap_view(request):
-    """Atomic wizard save: profile name, first bot, PIN and completion flag."""
+    """Atomic wizard save: profile name, selected bot, PIN and completion flag.
+
+    Review reruns pass the pre-filled profileId/botId so re-saving updates
+    those exact rows; first-run omits them and updates the oldest rows.
+    """
     if is_teen_delegated(request):
         return Response({'detail': TEEN_DELEGATED_DETAIL}, status=403)
 
@@ -139,6 +143,8 @@ def onboarding_bootstrap_view(request):
         color=data.get('color'),
         icon=data.get('icon'),
         student_email=data.get('studentEmail'),
+        profile_id=data.get('profileId'),
+        bot_id=data.get('botId'),
     )
     return Response({
         'response': 'ok',
