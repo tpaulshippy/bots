@@ -13,6 +13,9 @@ export interface HtmlPage {
   updated_at?: string;
 }
 
+/** List rows never carry the document body (see HtmlPageListSerializer). */
+export type HtmlPageListItem = Omit<HtmlPage, "html">;
+
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
 
 /** Short-lived signed raw URL for window.open(), which cannot send the JWT. */
@@ -37,9 +40,9 @@ export const fetchHtmlPage = async (pageId: string): Promise<HtmlPage | null> =>
  */
 export const fetchHtmlPages = async (
   profileId?: string | null
-): Promise<PaginatedResponse<HtmlPage>> => {
+): Promise<PaginatedResponse<HtmlPageListItem>> => {
   const query = profileId ? `?profileId=${encodeURIComponent(profileId)}` : "";
-  return request<PaginatedResponse<HtmlPage>>(
+  return request<PaginatedResponse<HtmlPageListItem>>(
     `/html-pages.json${query}`,
     { method: "GET" },
     { results: [], count: 0 }

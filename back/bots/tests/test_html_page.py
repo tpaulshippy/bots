@@ -472,3 +472,24 @@ def describe_html_page_raw_view():
         # Claimed profile does not exist: the helper returns None, and the
         # raw view must fail closed instead of serving parent-owned pages.
         assert teen.get(f"/api/html-pages/{page_a.page_id}/raw/").status_code == 404
+
+
+@pytest.mark.django_db
+def describe_html_page_list():
+    def it_omits_the_document_body_but_keeps_metadata():
+        from rest_framework.test import APIClient
+        user = User.objects.create(username="listuser")
+        profile = Profile.objects.create(user=user, name="Kid")
+        page = HtmlPage.objects.create(
+            profile=profile, title="T", html="<html><body>hi</body></html>",
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+        row = client.get("/api/html-pages/").data["results"][0]
+        assert "html" not in row
+        assert row["title"] == "T"
+        assert row["profile_name"] == "Kid"
+        assert row["profile_id"] == str(profile.profile_id)
+        # Detail still serves the body.
+        detail = client.get(f"/api/html-pages/{page.page_id}/").data
+        assert detail["html"] == "<html><body>hi</body></html>"

@@ -77,6 +77,30 @@ class HtmlPageLinkSerializer(serializers.Serializer):
     url = serializers.CharField()
 
 
+class HtmlPageListSerializer(serializers.ModelSerializer):
+    """Lightweight list rows: metadata only, never the document body.
+
+    Pages can be 200KB each, so the list must not ship N full documents.
+    The body stays on the detail + raw views.
+    """
+
+    raw_url = serializers.SerializerMethodField()
+    profile_id = serializers.UUIDField(source='profile.profile_id', read_only=True)
+    profile_name = serializers.CharField(source='profile.name', read_only=True)
+
+    class Meta:
+        model = HtmlPage
+        fields = [
+            'id', 'page_id', 'title',
+            'raw_url', 'profile_id', 'profile_name',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = fields
+
+    def get_raw_url(self, obj):
+        return f"/api/html-pages/{obj.page_id}/raw/"
+
+
 class HtmlPageSerializer(serializers.ModelSerializer):
     raw_url = serializers.SerializerMethodField()
     profile_id = serializers.UUIDField(source='profile.profile_id', read_only=True)

@@ -11,7 +11,11 @@ from rest_framework.response import Response
 
 from bots.models import HtmlPage
 from bots.permissions import IsOwner
-from bots.serializers import HtmlPageLinkSerializer, HtmlPageSerializer
+from bots.serializers import (
+    HtmlPageLinkSerializer,
+    HtmlPageListSerializer,
+    HtmlPageSerializer,
+)
 from bots.tokens import delegated_profile_from_auth, is_teen_delegated
 from bots.viewsets.mixins import get_object_by_uuid_or_id
 
@@ -66,7 +70,17 @@ class HtmlPageViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(profile__profile_id=uuid.UUID(profile_id))
             except ValueError:
                 return HtmlPage.objects.none()
-        return queryset.select_related('profile').order_by('-created_at')
+        queryset = queryset.select_related('profile').order_by('-created_at')
+        if self.action == 'list':
+            # List rows never carry the document body (up to 200KB each):
+            # don't even fetch the column.
+            queryset = queryset.defer('html')
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return HtmlPageListSerializer
+        return HtmlPageSerializer
 
     def get_object(self):
         obj = get_object_by_uuid_or_id(self.get_queryset(), 'page_id', self.kwargs[self.lookup_field])

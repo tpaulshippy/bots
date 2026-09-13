@@ -22,7 +22,7 @@ import {
 import { getAccount } from "@/api/account";
 import { getCachedHasPin } from "@/api/pinStorage";
 import { fetchProfiles, Profile } from "@/api/profiles";
-import { fetchHtmlPages, HtmlPage } from "@/api/htmlPages";
+import { fetchHtmlPages, HtmlPageListItem } from "@/api/htmlPages";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useState } from "react";
 import * as Sentry from "@sentry/react-native";
@@ -42,7 +42,7 @@ export default function StudyMaterials() {
   // drawer: no chips, no parent surfaces until the claims resolve.
   const isTeenDelegated = sessionMode?.isTeenDelegated ?? true;
 
-  const [pages, setPages] = useState<HtmlPage[]>([]);
+  const [pages, setPages] = useState<HtmlPageListItem[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [hasPin, setHasPin] = useState<boolean | null>(null);
@@ -140,7 +140,7 @@ export default function StudyMaterials() {
     }, [isTeenDelegated])
   );
 
-  const handlePagePress = (page: HtmlPage) => {
+  const handlePagePress = (page: HtmlPageListItem) => {
     if (process.env.EXPO_OS === "ios") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
