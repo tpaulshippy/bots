@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, act } from '@testing-library/react-native';
+import { render, act, waitFor } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, usePathname } from 'expo-router';
@@ -19,6 +19,7 @@ jest.mock('expo-notifications', () => ({
     remove: jest.fn(),
   })),
   getLastNotificationResponse: jest.fn(() => null),
+  clearLastNotificationResponseAsync: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('@/api/chats', () => ({
@@ -68,6 +69,13 @@ function Harness() {
   useNotificationChatNavigation();
   return null;
 }
+
+// The cold-start clear runs in a fire-and-forget task after handling;
+// wait for the mock instead of guessing flush depth.
+const waitForClear = () =>
+  waitFor(() =>
+    expect(Notifications.clearLastNotificationResponseAsync).toHaveBeenCalled()
+  );
 
 describe('useNotificationChatNavigation', () => {
   const mockRouter = { push: jest.fn(), replace: jest.fn() };
@@ -365,5 +373,35 @@ describe('useNotificationChatNavigation', () => {
     unmount();
 
     expect(remove).toHaveBeenCalled();
+  });
+
+  it('clears the launch response after cold-start handling so it cannot re-fire', async () => {
+    (Notifications.getLastNotificationResponse as jest.Mock).mockReturnValue(
+      makeResponse('chat-1')
+    );
+
+    render(<Harness />);
+    await act(async () => {});
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/chat',
+      params: { chatId: 'chat-1', title: 'Bot Name' },
+    });
+    await waitForClear();
+    expect(
+      Notifications.clearLastNotificationResponseAsync
+    ).toHaveBeenCalled();
+  });
+
+  it('does not clear anything when there was no launch response', async () => {
+    render(<Harness />);
+    // Flush the cold-start task: with a null launch response it returns
+    // before reaching the clear, so any flush depth suffices here.
+    await act(async () => {});
+    await act(async () => {});
+
+    expect(
+      Notifications.clearLastNotificationResponseAsync
+    ).not.toHaveBeenCalled();
   });
 });

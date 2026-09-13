@@ -99,6 +99,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
                 notify_on_new_chat=False,
                 notify_on_new_message=False,
                 notify_digest_only=False,
+                deleted_at=None,
             )
             return
         serializer.save(user=self.request.user)

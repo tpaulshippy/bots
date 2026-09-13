@@ -125,7 +125,26 @@ export function useNotificationChatNavigation() {
       Notifications.addNotificationResponseReceivedListener(handleResponse);
     // Cold start: the app was launched by tapping a notification.
     if (Platform.OS !== "web") {
-      handleResponse(Notifications.getLastNotificationResponse());
+      const launchResponse = Notifications.getLastNotificationResponse();
+      void (async () => {
+        try {
+          await handleResponse(launchResponse);
+        } finally {
+          // Expo keeps returning the last response until it is cleared: a
+          // handled tap must never re-fire on a later launch or later visit
+          // to /. Clear whenever a launch response existed, even one the
+          // handler ignored. The index route reads the same response on
+          // mount, and child effects run before this parent effect, so it
+          // has already consumed it by the time we clear.
+          if (launchResponse) {
+            // Guarded: older native runtimes (OTA skew) may lack it.
+            const clear = Notifications.clearLastNotificationResponseAsync;
+            if (typeof clear === "function") {
+              await clear().catch(() => undefined);
+            }
+          }
+        }
+      })();
     }
     return () => subscription.remove();
   }, [handleResponse]);

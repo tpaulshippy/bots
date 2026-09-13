@@ -136,6 +136,7 @@ class TestTeenDeviceWrites:
                 'notify_on_new_message': True,
                 'notify_digest_only': True,
                 'notify_study_due': True,
+                'deleted_at': '2026-01-01T00:00:00Z',
             },
             format='json',
         )
@@ -145,6 +146,7 @@ class TestTeenDeviceWrites:
         assert created.notify_on_new_chat is False
         assert created.notify_on_new_message is False
         assert created.notify_digest_only is False
+        assert created.deleted_at is None
         assert created.notify_study_due is True
 
     def test_parent_can_still_update_all_flags(self, parent, teen_profile):
