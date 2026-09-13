@@ -56,6 +56,7 @@ export default function OnboardingNotifications() {
   const [notifyOnNewChat, setNotifyOnNewChat] = useState(false);
   const [notifyOnNewMessage, setNotifyOnNewMessage] = useState(false);
   const [notifyDigestOnly, setNotifyDigestOnly] = useState(false);
+  const [notifyStudyDue, setNotifyStudyDue] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewDevice, setReviewDevice] = useState<Awaited<
     ReturnType<typeof fetchDevice>
@@ -91,6 +92,7 @@ export default function OnboardingNotifications() {
           setNotifyOnNewMessage(current.notify_on_new_message);
           setNotifyDigestOnly(current.notify_digest_only);
           setReviewDevice(current);
+          setNotifyStudyDue(current.notify_study_due ?? false);
         }
       } catch {
         // Prefill is best-effort; the wizard still works all-off.
@@ -124,7 +126,12 @@ export default function OnboardingNotifications() {
   // Persist the chosen flags to this device. Never blocks finishing: push
   // registration throws on simulators/web and offline upserts return null.
   const persistNotificationChoices = async () => {
-    if (!notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly) {
+    if (
+      !notifyOnNewChat &&
+      !notifyOnNewMessage &&
+      !notifyDigestOnly &&
+      !notifyStudyDue
+    ) {
       if (!isReview || !reviewDeviceLoaded || !reviewDevice) {
         return;
       }
@@ -134,6 +141,7 @@ export default function OnboardingNotifications() {
           notify_on_new_chat: false,
           notify_on_new_message: false,
           notify_digest_only: false,
+          notify_study_due: false,
         });
         if (saved) {
           await setDeviceIdInStorage(saved.device_id);
@@ -160,6 +168,7 @@ export default function OnboardingNotifications() {
         notify_on_new_chat: notifyOnNewChat,
         notify_on_new_message: notifyOnNewMessage,
         notify_digest_only: notifyDigestOnly,
+        notify_study_due: notifyStudyDue,
       });
       if (saved) {
         await setDeviceIdInStorage(saved.device_id);
@@ -333,13 +342,29 @@ export default function OnboardingNotifications() {
           onValueChange={setNotifyDigestOnly}
         />
       </ThemedView>
+      <ThemedView style={styles.notificationsRow}>
+        <View style={styles.digestLabelContainer}>
+          <ThemedText style={styles.notificationsLabel}>
+            Remind me when flashcards are due
+          </ThemedText>
+          <ThemedText style={styles.digestHint}>
+            A nudge when cards are ready to review
+          </ThemedText>
+        </View>
+        <Switch
+          testID="onboarding-notify-study-switch"
+          value={notifyStudyDue}
+          disabled={notifyDigestOnly}
+          onValueChange={setNotifyStudyDue}
+        />
+      </ThemedView>
       <ThemedText style={styles.optionalNote}>
         Optional — you can change these anytime in Settings → Notifications.
       </ThemedText>
       {/* Only accurate when everything stays off: with any toggle on,
           finishing still attempts a best-effort save below. */}
       {isReview && reviewDeviceLoaded && storedReviewDeviceId && !reviewDevice &&
-      !notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly ? (
+      !notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly && !notifyStudyDue ? (
         <ThemedText testID="onboarding-notification-warning" style={styles.warning}>
           We couldn&apos;t load your current notification settings. Finishing won&apos;t
           change them.

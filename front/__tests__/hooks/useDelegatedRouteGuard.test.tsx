@@ -66,6 +66,19 @@ describe('useDelegatedRouteGuard', () => {
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });
 
+  it('does not redirect teen sessions off the teen-safe settings screen', async () => {
+    (usePathname as jest.Mock).mockReturnValue('/settings');
+    (useSessionMode as jest.Mock).mockReturnValue({
+      isTeenDelegated: true,
+      activeProfileId: 'p1',
+    });
+
+    render(<Harness />);
+    await act(async () => {});
+
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
   it('waits for the session mode to load before redirecting off /parent/*', async () => {
     (usePathname as jest.Mock).mockReturnValue('/parent/settings');
     (useSessionMode as jest.Mock).mockReturnValue(null);

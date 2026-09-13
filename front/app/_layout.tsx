@@ -198,6 +198,18 @@ export default function RootLayout() {
               }}
             />
             <Stack.Screen
+              name="stats"
+              options={{
+                headerShown: true,
+                title: "Stats",
+                headerTintColor: textColor,
+                headerLeft: () => (
+                  <DrawerMenuButton onOpen={() => setIsDrawerOpen(true)} />
+                ),
+                headerRight: () => <ProfileSwitcher />,
+              }}
+            />
+            <Stack.Screen
               name="flashcards/deck"
               options={{
                 headerShown: true,
@@ -224,6 +236,14 @@ export default function RootLayout() {
                 title: "Study",
                 headerTintColor: textColor,
                 headerLeft: () => <BackButton onPress={() => router.back()} />,
+              }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: true,
+                title: "Settings",
+                headerTintColor: textColor,
               }}
             />
             <Stack.Screen

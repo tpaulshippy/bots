@@ -36,6 +36,9 @@ class Device(models.Model):
     # When True the per-event flags are ignored at send time and the digest
     # job (send_activity_digests) is the only push source for this device.
     notify_digest_only = models.BooleanField(default=False)
+    # Opt-in flashcard study reminders (send_study_reminders). Off by default:
+    # the parent explicitly enables "Study reminders" in notification settings.
+    notify_study_due = models.BooleanField(default=False)
 
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -97,4 +100,17 @@ class Device(models.Model):
             title="Syft daily summary",
             body=body,
             data={'target': 'parent_activity'}
+        ))
+
+    def notify_study_reminder(self, title, body, data):
+        """Push a flashcard study reminder. Digest-only devices are skipped so
+        the digest job stays their single push source."""
+        if self.notify_digest_only:
+            return
+        NotificationClient().notify(Notification(
+            to=self.notification_token,
+            sound='default',
+            title=title,
+            body=body,
+            data=data,
         ))

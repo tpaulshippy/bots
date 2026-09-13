@@ -23,6 +23,19 @@ import { getSelectedProfileId, subscribeToSelectedProfile } from "@/hooks/useSel
 import { ThemedButton } from "@/components/ThemedButton";
 import { formatDistanceToNowStrict } from "date-fns";
 
+// Guards against malformed timestamps: formatDistanceToNowStrict throws on
+// Invalid Date, which would crash the whole deck list.
+const formatLastStudied = (iso: string | null | undefined): string | null => {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  try {
+    return `${formatDistanceToNowStrict(date)} ago`;
+  } catch {
+    return null;
+  }
+};
+
 export default function Flashcards() {
   const router = useRouter();
   const [decks, setDecks] = useState<DeckListItem[]>([]);
@@ -145,44 +158,44 @@ export default function Flashcards() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} />
           }
-          renderItem={({ item }) => (
-            <Pressable
-              testID={`deck-row-${item.deck_id}`}
-              style={[
-                styles.itemContainer,
-                { backgroundColor: cardBackground, borderColor },
-              ]}
-              onPress={() => handleDeckPress(item)}
-            >
-              <IconSymbol
-                name="square.grid.2x2.fill"
-                size={28}
-                color={accentColor}
-                style={styles.deckIcon}
-              />
-              <View style={styles.itemContent}>
-                <ThemedText style={styles.deckName} numberOfLines={1}>
-                  {item.name}
-                </ThemedText>
-                {item.description ? (
-                  <ThemedText
-                    style={[styles.description, { color: iconColor }]}
-                    numberOfLines={1}
-                  >
-                    {item.description}
+          renderItem={({ item }) => {
+            const lastStudied = formatLastStudied(item.last_studied_at);
+            return (
+              <Pressable
+                testID={`deck-row-${item.deck_id}`}
+                style={[
+                  styles.itemContainer,
+                  { backgroundColor: cardBackground, borderColor },
+                ]}
+                onPress={() => handleDeckPress(item)}
+              >
+                <IconSymbol
+                  name="square.grid.2x2.fill"
+                  size={28}
+                  color={accentColor}
+                  style={styles.deckIcon}
+                />
+                <View style={styles.itemContent}>
+                  <ThemedText style={styles.deckName} numberOfLines={1}>
+                    {item.name}
                   </ThemedText>
-                ) : null}
-                {item.last_studied_at ? (
-                  <ThemedText
-                    style={[styles.lastStudied, { color: iconColor }]}
-                    numberOfLines={1}
-                  >
-                    Last studied{" "}
-                    {formatDistanceToNowStrict(new Date(item.last_studied_at))}{" "}
-                    ago
-                  </ThemedText>
-                ) : null}
-              </View>
+                  {item.description ? (
+                    <ThemedText
+                      style={[styles.description, { color: iconColor }]}
+                      numberOfLines={1}
+                    >
+                      {item.description}
+                    </ThemedText>
+                  ) : null}
+                  {lastStudied ? (
+                    <ThemedText
+                      style={[styles.lastStudied, { color: iconColor }]}
+                      numberOfLines={1}
+                    >
+                      Last studied {lastStudied}
+                    </ThemedText>
+                  ) : null}
+                </View>
               {(item.due_count ?? 0) > 0 ? (
                 <View
                   testID={`deck-due-badge-${item.deck_id}`}
@@ -202,7 +215,8 @@ export default function Flashcards() {
               </View>
               <IconSymbol name="chevron.right" size={18} color={iconColor} />
             </Pressable>
-          )}
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <IconSymbol

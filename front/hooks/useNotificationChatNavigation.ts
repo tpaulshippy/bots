@@ -4,7 +4,8 @@ import * as Notifications from "expo-notifications";
 import { usePathname, useRouter } from "expo-router";
 import * as Sentry from "@sentry/react-native";
 import { fetchChat } from "@/api/chats";
-import { handleUnauthorized, setSelectedProfile } from "@/hooks/useSelectedProfile";
+import { fetchProfiles } from "@/api/profiles";
+import { handleUnauthorized, setSelectedProfile, getSelectedProfileId } from "@/hooks/useSelectedProfile";
 
 /**
  * Navigates to the chat a notification is about and switches to the
@@ -24,7 +25,7 @@ export function useNotificationChatNavigation() {
   const handleResponse = useCallback(
     async (response: Notifications.NotificationResponse | null) => {
       const data = response?.notification.request.content.data as
-        | { chat_id?: string; target?: string }
+        | { chat_id?: string; target?: string; deck_id?: string; profile_id?: string }
         | undefined;
       if (!response || (!data?.chat_id && !data?.target)) {
         return;
@@ -46,6 +47,44 @@ export function useNotificationChatNavigation() {
             } as const)
           : ({ pathname: "/parent/activity" } as const);
         router.push(route);
+        return;
+      }
+
+      // Study reminders open the due study session directly when the push
+      // names a single deck, otherwise the deck list (due badges show where).
+      // When every counted deck belongs to one profile the payload names it:
+      // switch selection first, because the deck list (and study queue) are
+      // scoped to the selected profile — without the switch the tap could
+      // land on a list omitting the cards it counted. Teen sessions locked
+      // elsewhere are unaffected: setSelectedProfile refuses cross-profile
+      // switches, and the downstream scoping falls back to their own lists.
+      if (data.target === "study_due") {
+        if (data.profile_id) {
+          try {
+            const selected = await getSelectedProfileId().catch(() => null);
+            if (selected !== data.profile_id) {
+              const profiles = await fetchProfiles().catch(() => null);
+              const match = profiles?.results?.find(
+                (p) => p.profile_id === data.profile_id
+              );
+              if (match) {
+                await setSelectedProfile(match);
+              }
+            }
+          } catch (error) {
+            // A failed switch must never block the reminder: navigate to
+            // the current selection's lists as before.
+            Sentry.captureException(error);
+          }
+        }
+        if (data.deck_id) {
+          router.push({
+            pathname: "/flashcards/study",
+            params: { deckId: data.deck_id, mode: "due", source: "reminder" },
+          });
+        } else {
+          router.push({ pathname: "/flashcards" });
+        }
         return;
       }
 
@@ -86,7 +125,26 @@ export function useNotificationChatNavigation() {
       Notifications.addNotificationResponseReceivedListener(handleResponse);
     // Cold start: the app was launched by tapping a notification.
     if (Platform.OS !== "web") {
-      handleResponse(Notifications.getLastNotificationResponse());
+      const launchResponse = Notifications.getLastNotificationResponse();
+      void (async () => {
+        try {
+          await handleResponse(launchResponse);
+        } finally {
+          // Expo keeps returning the last response until it is cleared: a
+          // handled tap must never re-fire on a later launch or later visit
+          // to /. Clear whenever a launch response existed, even one the
+          // handler ignored. The index route reads the same response on
+          // mount, and child effects run before this parent effect, so it
+          // has already consumed it by the time we clear.
+          if (launchResponse) {
+            // Guarded: older native runtimes (OTA skew) may lack it.
+            const clear = Notifications.clearLastNotificationResponseAsync;
+            if (typeof clear === "function") {
+              await clear().catch(() => undefined);
+            }
+          }
+        }
+      })();
     }
     return () => subscription.remove();
   }, [handleResponse]);

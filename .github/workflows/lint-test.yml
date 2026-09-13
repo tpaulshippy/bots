@@ -99,20 +99,23 @@ jobs:
               bots/tests/test_bot_api.py
               bots/tests/test_signals.py
           # Shard 2: auth-heavy files + fast safety suite + HTML pages
-          # (page tools share the safety filter). Solo timing ~65s, 139 tests.
+          # (page tools share the safety filter). Solo timing ~65s, 153 tests.
           - shard: 2
             paths: >-
               bots/tests/test_delegated_login.py
+              bots/tests/test_device_teen_permissions.py
               bots/tests/test_onboarding.py
               bots/tests/test_flashcard_api.py
               bots/tests/test_safety.py
               bots/tests/test_html_page.py
               bots/tests/test_page_render.py
-          # Shard 3: API breadth. Solo timing ~69s, 110 tests.
+          # Shard 3: API breadth. Solo timing ~69s, 119 tests.
           - shard: 3
             paths: >-
               bots/tests/test_spaced_repetition_api.py
+              bots/tests/test_send_study_reminders.py
               bots/tests/test_activity.py
+              bots/tests/test_stats.py
               bots/tests/test_chat_stream.py
               bots/tests/test_object_lookup.py
               bots/tests/test_security.py

@@ -1147,6 +1147,50 @@ describe('Onboarding wizard', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
 
+    it('prefills and persists the study-due reminder toggle in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue({
+        id: 5,
+        device_id: 'd1',
+        notification_token: 'ExponentPushToken[test]',
+        notify_on_new_chat: false,
+        notify_on_new_message: false,
+        notify_digest_only: false,
+        notify_study_due: true,
+        deleted_at: null,
+      });
+      (registerForPushNotificationsAsync as jest.Mock).mockResolvedValue(
+        'ExponentPushToken[test]'
+      );
+      (fetchDeviceByToken as jest.Mock).mockResolvedValue(null);
+      (upsertDevice as jest.Mock).mockResolvedValue({
+        device_id: 'd1',
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      expect(
+        screen.getByTestId('onboarding-notify-study-switch').props.value
+      ).toBe(true);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notify_study_due: true,
+        })
+      );
+    });
+
     it('shows an inline error and stays put when the student email is taken', async () => {
       (bootstrapOnboarding as jest.Mock).mockResolvedValue({
         ok: false,

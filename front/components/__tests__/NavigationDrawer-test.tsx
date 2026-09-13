@@ -16,7 +16,7 @@ jest.mock('@/hooks/useSessionMode', () => ({
 const mockUseSessionMode = useSessionMode as jest.Mock;
 
 describe('NavigationDrawer session modes', () => {
-  it('shows Chats, Flashcards, Study Materials, Activity, and Settings for parent sessions', () => {
+  it('shows Chats, Flashcards, Study Materials, Stats, Activity, and Settings for parent sessions', () => {
     mockUseSessionMode.mockReturnValue({
       isTeenDelegated: false,
       activeProfileId: null,
@@ -27,11 +27,12 @@ describe('NavigationDrawer session modes', () => {
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
     expect(screen.getByText('Study Materials')).toBeOnTheScreen();
+    expect(screen.getByText('Stats')).toBeOnTheScreen();
     expect(screen.getByText('Activity')).toBeOnTheScreen();
     expect(screen.getByText('Settings')).toBeOnTheScreen();
   });
 
-  it('shows Study Materials but hides Activity and Settings for teen-delegated sessions', () => {
+  it('shows teen-safe Settings alongside Study Materials and Stats for teen-delegated sessions', () => {
     mockUseSessionMode.mockReturnValue({
       isTeenDelegated: true,
       activeProfileId: 'profile-maya',
@@ -42,11 +43,13 @@ describe('NavigationDrawer session modes', () => {
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
     expect(screen.getByText('Study Materials')).toBeOnTheScreen();
+    expect(screen.getByText('Stats')).toBeOnTheScreen();
+    expect(screen.getByText('Settings')).toBeOnTheScreen();
+    // Parent-only surfaces stay hidden.
     expect(screen.queryByText('Activity')).toBeNull();
-    expect(screen.queryByText('Settings')).toBeNull();
   });
 
-  it('hides Activity and Settings while the session mode is still loading (fail closed)', () => {
+  it('fails closed to the teen-safe menu while the session mode is still loading', () => {
     mockUseSessionMode.mockReturnValue(null);
 
     render(<NavigationDrawer isOpen={true} onClose={jest.fn()} />);
@@ -54,8 +57,37 @@ describe('NavigationDrawer session modes', () => {
     expect(screen.getByText('Chats')).toBeOnTheScreen();
     expect(screen.getByText('Flashcards')).toBeOnTheScreen();
     expect(screen.getByText('Study Materials')).toBeOnTheScreen();
+    expect(screen.getByText('Stats')).toBeOnTheScreen();
+    expect(screen.getByText('Settings')).toBeOnTheScreen();
     expect(screen.queryByText('Activity')).toBeNull();
-    expect(screen.queryByText('Settings')).toBeNull();
+  });
+
+  it('routes parent Settings to the PIN-gated parent screen', () => {
+    mockUseSessionMode.mockReturnValue({
+      isTeenDelegated: false,
+      activeProfileId: null,
+    });
+    const replace = jest.fn();
+    (useRouter as jest.Mock).mockReturnValue({ push: jest.fn(), replace });
+
+    render(<NavigationDrawer isOpen={true} onClose={jest.fn()} />);
+    fireEvent.press(screen.getByTestId('drawer-item-settings'));
+
+    expect(replace).toHaveBeenCalledWith('/parent/settings');
+  });
+
+  it('routes teen Settings to the teen-safe screen (no parent surfaces)', () => {
+    mockUseSessionMode.mockReturnValue({
+      isTeenDelegated: true,
+      activeProfileId: 'profile-maya',
+    });
+    const replace = jest.fn();
+    (useRouter as jest.Mock).mockReturnValue({ push: jest.fn(), replace });
+
+    render(<NavigationDrawer isOpen={true} onClose={jest.fn()} />);
+    fireEvent.press(screen.getByTestId('drawer-item-settings'));
+
+    expect(replace).toHaveBeenCalledWith('/settings');
   });
 
   it('replaces instead of pushing so menu sections never stack', () => {

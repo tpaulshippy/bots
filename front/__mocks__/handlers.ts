@@ -213,4 +213,32 @@ export const handlers = [
       results: [],
     });
   }),
+
+  // Gamification stats for one profile (?profileId=), fed by chat + reviews
+  http.get('/api/stats.json', async ({ request }) => {
+    await delay(200);
+    const url = new URL(request.url);
+    const profileId = url.searchParams.get('profileId')
+      ?? '550e8400-e29b-41d4-a716-446655440000';
+    const week = Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000);
+      return {
+        date: day.toISOString().slice(0, 10),
+        messages: 0,
+        reviews: 0,
+      };
+    });
+    return HttpResponse.json({
+      profile_id: profileId,
+      name: 'Test Kid',
+      current_streak: 0,
+      longest_streak: 0,
+      total_chats: 0,
+      total_messages: 0,
+      total_reviews: 0,
+      chatted_today: false,
+      studied_today: false,
+      week,
+    });
+  }),
 ];

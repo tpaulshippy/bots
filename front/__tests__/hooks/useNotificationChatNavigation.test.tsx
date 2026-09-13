@@ -1,10 +1,11 @@
 import React from 'react';
-import { render, act } from '@testing-library/react-native';
+import { render, act, waitFor } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, usePathname } from 'expo-router';
 import { useNotificationChatNavigation } from '@/hooks/useNotificationChatNavigation';
 import { fetchChat } from '@/api/chats';
+import { fetchProfiles } from '@/api/profiles';
 import { clearUser, getSessionMode } from '@/api/tokens';
 import { UnauthorizedError } from '@/api/apiClient';
 
@@ -18,10 +19,15 @@ jest.mock('expo-notifications', () => ({
     remove: jest.fn(),
   })),
   getLastNotificationResponse: jest.fn(() => null),
+  clearLastNotificationResponseAsync: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('@/api/chats', () => ({
   fetchChat: jest.fn(),
+}));
+
+jest.mock('@/api/profiles', () => ({
+  fetchProfiles: jest.fn(),
 }));
 
 jest.mock('@/api/tokens', () => ({
@@ -39,7 +45,9 @@ const CHAT = {
 const makeResponse = (
   chatId: string | undefined,
   identifier = 'response-1',
-  target?: string
+  target?: string,
+  deckId?: string,
+  profileId?: string
 ): Notifications.NotificationResponse =>
   ({
     notification: {
@@ -49,6 +57,8 @@ const makeResponse = (
           data: {
             ...(chatId ? { chat_id: chatId } : {}),
             ...(target ? { target } : {}),
+            ...(deckId ? { deck_id: deckId } : {}),
+            ...(profileId ? { profile_id: profileId } : {}),
           },
         },
       },
@@ -59,6 +69,13 @@ function Harness() {
   useNotificationChatNavigation();
   return null;
 }
+
+// The cold-start clear runs in a fire-and-forget task after handling;
+// wait for the mock instead of guessing flush depth.
+const waitForClear = () =>
+  waitFor(() =>
+    expect(Notifications.clearLastNotificationResponseAsync).toHaveBeenCalled()
+  );
 
 describe('useNotificationChatNavigation', () => {
   const mockRouter = { push: jest.fn(), replace: jest.fn() };
@@ -192,6 +209,97 @@ describe('useNotificationChatNavigation', () => {
     });
   });
 
+  it('opens the due study session when the reminder names a single deck', async () => {
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(
+        makeResponse(undefined, 'response-1', 'study_due', 'deck-1')
+      );
+    });
+
+    expect(fetchChat).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards/study',
+      params: { deckId: 'deck-1', mode: 'due', source: 'reminder' },
+    });
+  });
+
+  it('switches to the reminder profile before opening the deck list', async () => {
+    (fetchProfiles as jest.Mock).mockResolvedValue({
+      count: 2,
+      results: [
+        { profile_id: 'kid-1', name: 'Maya' },
+        { profile_id: 'kid-2', name: 'Leo' },
+      ],
+    });
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(
+        makeResponse(undefined, 'response-1', 'study_due', undefined, 'kid-2')
+      );
+    });
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'selectedProfile',
+      JSON.stringify({ profile_id: 'kid-2', name: 'Leo' })
+    );
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards',
+    });
+  });
+
+  it('skips the switch when the reminder profile is already selected', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+      JSON.stringify({ profile_id: 'kid-2', name: 'Leo' })
+    );
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(
+        makeResponse(undefined, 'response-1', 'study_due', undefined, 'kid-2')
+      );
+    });
+
+    expect(fetchProfiles).not.toHaveBeenCalled();
+    expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+      'selectedProfile',
+      expect.anything()
+    );
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards',
+    });
+  });
+
+  it('still navigates when the reminder profile cannot be resolved', async () => {
+    (fetchProfiles as jest.Mock).mockResolvedValue(null);
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(
+        makeResponse(undefined, 'response-1', 'study_due', undefined, 'kid-9')
+      );
+    });
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards',
+    });
+  });
+
+  it('opens the deck list when the reminder spans several decks', async () => {
+    render(<Harness />);
+
+    await act(async () => {
+      await getListener()(makeResponse(undefined, 'response-1', 'study_due'));
+    });
+
+    expect(fetchChat).not.toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/flashcards',
+    });
+  });
+
   it('does not navigate when the chat cannot be fetched', async () => {
     (fetchChat as jest.Mock).mockResolvedValue(null);
 
@@ -265,5 +373,35 @@ describe('useNotificationChatNavigation', () => {
     unmount();
 
     expect(remove).toHaveBeenCalled();
+  });
+
+  it('clears the launch response after cold-start handling so it cannot re-fire', async () => {
+    (Notifications.getLastNotificationResponse as jest.Mock).mockReturnValue(
+      makeResponse('chat-1')
+    );
+
+    render(<Harness />);
+    await act(async () => {});
+
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/chat',
+      params: { chatId: 'chat-1', title: 'Bot Name' },
+    });
+    await waitForClear();
+    expect(
+      Notifications.clearLastNotificationResponseAsync
+    ).toHaveBeenCalled();
+  });
+
+  it('does not clear anything when there was no launch response', async () => {
+    render(<Harness />);
+    // Flush the cold-start task: with a null launch response it returns
+    // before reaching the clear, so any flush depth suffices here.
+    await act(async () => {});
+    await act(async () => {});
+
+    expect(
+      Notifications.clearLastNotificationResponseAsync
+    ).not.toHaveBeenCalled();
   });
 });
