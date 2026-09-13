@@ -7,6 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('bots', '0055_message_model_id'),
+        ('bots', '0055_device_notify_study_due'),
     ]
 
     operations = [

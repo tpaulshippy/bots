@@ -115,6 +115,7 @@ jobs:
               bots/tests/test_spaced_repetition_api.py
               bots/tests/test_send_study_reminders.py
               bots/tests/test_activity.py
+              bots/tests/test_stats.py
               bots/tests/test_chat_stream.py
               bots/tests/test_object_lookup.py
               bots/tests/test_security.py
