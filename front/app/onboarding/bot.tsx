@@ -60,9 +60,10 @@ export default function OnboardingBot() {
             : null;
         const current =
           (selectedId &&
-            bots?.results?.find((bot) => bot.bot_id === selectedId)) ||
+            (bots?.results?.find((bot) => bot.bot_id === selectedId) ||
+              (typeof parsed?.name === "string" ? parsed : null))) ||
           bots?.results?.[0] ||
-          (parsed && typeof parsed.name === "string" ? parsed : null);
+          null;
         if (current && active) {
           setBotName(current.name || DEFAULTS.name);
           if (typeof current.bot_id === "string" && current.bot_id) {

@@ -198,6 +198,40 @@ describe('Onboarding wizard', () => {
         },
       });
     });
+
+    it('keeps the stored selected profile when its id is stale', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({
+          profile_id: 'p9',
+          name: 'Maya',
+          oauth_email: 'maya@school.edu',
+        });
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Jordan' }],
+        count: 1,
+      });
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        'Maya'
+      );
+
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: {
+          profileName: 'Maya',
+          studentEmail: 'maya@school.edu',
+          review: 'true',
+          profileId: 'p9',
+        },
+      });
+    });
   });
 
   describe('Bot step', () => {
@@ -294,6 +328,54 @@ describe('Onboarding wizard', () => {
           botId: 'b2',
           templateName: 'Blank',
           color: '#222222',
+          icon: 'sparkles',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('keeps the stored selected bot when its id is stale', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b9',
+                name: 'Dragon',
+                template_name: 'Blank',
+                color: '#333333',
+                icon: 'sparkles',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 1,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Dragon'
+      );
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          profileName: 'Maya',
+          profileId: 'p2',
+          botName: 'Dragon',
+          botId: 'b9',
+          templateName: 'Blank',
+          color: '#333333',
           icon: 'sparkles',
           review: 'true',
         }),

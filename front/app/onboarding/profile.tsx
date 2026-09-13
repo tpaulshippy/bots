@@ -38,9 +38,10 @@ export default function OnboardingProfile() {
             : null;
         const current =
           (selectedId &&
-            profiles?.results?.find((profile) => profile.profile_id === selectedId)) ||
+            (profiles?.results?.find((profile) => profile.profile_id === selectedId) ||
+              (typeof selected.name === "string" ? selected : null))) ||
           profiles?.results?.[0] ||
-          (selected && typeof selected.name === "string" ? selected : null);
+          null;
         if (current && active) {
           setName(current.name ?? "");
           setStudentEmail(current.oauth_email ?? "");
