@@ -115,17 +115,14 @@ def describe_chat_model():
             assert chat.output_tokens == 4
 
         def it_should_rate_limit_if_cost_goes_over_daily_limit(load_fixture, chat, ai):
-            chat.input_tokens = 142855
-            chat.output_tokens = 35715
-            chat.save()
+            chat.messages.create(text="old", role="assistant", input_tokens=142855, output_tokens=35715)
             result = chat.get_response(ai=ai)
             assert result == "You have exceeded your daily limit. Please try again tomorrow or upgrade your subscription."
 
         def it_should_record_rate_limit_if_cost_goes_over_daily_limit(load_fixture, chat, ai):
-            chat.input_tokens = 14285500
-            chat.output_tokens = 3571500
+            chat.messages.create(text="old", role="assistant", input_tokens=14285500, output_tokens=3571500)
             chat.user.user_account.subscription_level = 1
-            chat.save()
+            chat.user.user_account.save()
             chat.get_response(ai=ai)
             assert chat.user.user_account.usage_limit_hits.count() == 1
             assert chat.user.user_account.usage_limit_hits.first().total_input_tokens == 14285500

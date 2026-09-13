@@ -13,6 +13,13 @@ class Message(models.Model):
     order = models.IntegerField(default=0)
     input_tokens = models.IntegerField(default=0)
     output_tokens = models.IntegerField(default=0)
+    # Bedrock model_id that produced this turn, stamped at persist time.
+    # Daily cost attribution groups by this stamp so a later bot model
+    # change cannot reprice history (prod incident: switching Fred from
+    # Haiku to Nova 2 Lite repriced the whole day to ~$0.01, below the
+    # reset baseline, and usage displayed 0). Null for pre-fix rows and
+    # non-model rows; those fall back to the chat's live bot model.
+    model_id = models.CharField(max_length=255, null=True, blank=True, default=None, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     image_filename = models.CharField(max_length=255, blank=True, null=True)
