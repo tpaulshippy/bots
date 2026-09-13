@@ -117,3 +117,25 @@ def describe_account():
             account.user_account.reset_daily_usage()
             account.user_account.refresh_from_db()
             assert account.user_account.over_limit() is False
+
+        def it_ignores_the_baseline_after_a_timezone_change(load_fixture):
+            account = User.objects.create()
+            Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            account.user_account.reset_daily_usage()
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+            account.user_account.timezone = 'Pacific/Auckland'
+            account.user_account.save(update_fields=['timezone'])
+            account.user_account.refresh_from_db()
+            assert account.user_account.cost_for_today()[1:] == (10, 5)
+
+        def it_ignores_a_baseline_from_a_previous_local_day(load_fixture):
+            from unittest.mock import patch
+            account = User.objects.create()
+            Chat.objects.create(user=account, input_tokens=10, output_tokens=5)
+            account.user_account.reset_daily_usage()
+            assert account.user_account.cost_for_today() == (0.0, 0, 0)
+            future = timezone.now() + timezone.timedelta(days=2)
+            with patch('django.utils.timezone.now', return_value=future):
+                Chat.objects.create(user=account, input_tokens=3, output_tokens=1)
+                account.user_account.refresh_from_db()
+                assert account.user_account.cost_for_today()[1:] == (3, 1)

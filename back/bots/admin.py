@@ -134,6 +134,20 @@ class UserAccountAdmin(admin.ModelAdmin):
             updated += 1
         self.message_user(request, f'Reset daily token usage for {updated} account(s).')
 
+    def save_model(self, request, obj, form, change):
+        # The default admin save writes every loaded column, so a change
+        # form opened before a usage reset would silently erase the fresh
+        # baseline. Only edited fields are written; reset columns are
+        # readonly and can only be written by the reset action.
+        if change and form is not None:
+            concrete = {f.name for f in obj._meta.concrete_fields}
+            update_fields = [name for name in form.changed_data if name in concrete]
+            if update_fields:
+                obj.save(update_fields=update_fields)
+                return
+            return
+        super().save_model(request, obj, form, change)
+
 class UserAdmin(BaseUserAdmin):
     list_display = ['username', 'email', 'first_name', 'last_name', 'date_joined']
     ordering = ['-date_joined']

@@ -140,8 +140,13 @@ class UserAccount(models.Model):
         """Clear today's rate limit without touching Chat token history."""
         with transaction.atomic():
             account = UserAccount.objects.select_for_update().get(pk=self.pk)
+            # Single timestamp captured before the snapshot: if local
+            # midnight falls during the snapshot, the stamp predates it and
+            # the baseline is conservatively ignored (never subtracted from
+            # the wrong day's usage).
+            reset_at = timezone.now()
             total, total_input_tokens, total_output_tokens = account._raw_cost_for_today()
-            account.usage_reset_at = timezone.now()
+            account.usage_reset_at = reset_at
             account.usage_reset_timezone = account.timezone
             account.usage_reset_cost = total
             account.usage_reset_input_tokens = total_input_tokens
