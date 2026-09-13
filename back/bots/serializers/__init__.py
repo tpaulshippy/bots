@@ -22,6 +22,10 @@ from .html_page_serializer import (
     HtmlPageSerializer,
 )
 from .message_serializer import MessageSerializer
+from .onboarding_serializer import (
+    OnboardingBootstrapResponseSerializer,
+    OnboardingBootstrapSerializer,
+)
 from .profile_serializer import (
     OwnProfileSerializer,
     ProfileIdSerializer,
@@ -48,6 +52,8 @@ __all__ = [
     'HtmlPageListSerializer',
     'HtmlPageLinkSerializer',
     'MessageSerializer',
+    'OnboardingBootstrapResponseSerializer',
+    'OnboardingBootstrapSerializer',
     'OwnProfileSerializer',
     'ProfileIdSerializer',
     'ProfileSerializer',

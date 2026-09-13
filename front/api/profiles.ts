@@ -14,6 +14,15 @@ export interface Profile {
 export const fetchProfiles = async (): Promise<PaginatedResponse<Profile> | null> =>
     request<PaginatedResponse<Profile> | null>('/profiles.json', {}, { results: [], count: 0 });
 
+/** Failure-distinguishing profiles fetch for review-mode gating: resolves
+ *  null when the list couldn't load. fetchProfiles resolves an empty
+ *  fallback in that case, which review mode must not mistake for "no
+ *  profiles" — continuing ID-less would rename the oldest profile. */
+export const tryFetchProfiles = async (): Promise<PaginatedResponse<Profile> | null> => {
+    const response = await requestRaw<PaginatedResponse<Profile>>('/profiles.json').catch(() => null);
+    return response && response.ok ? response.data ?? null : null;
+};
+
 export const fetchProfile = async (id: string): Promise<Profile | null> =>
     request<Profile | null>(`/profiles/${id}.json`, {}, null);
 

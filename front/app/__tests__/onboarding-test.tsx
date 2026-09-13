@@ -8,7 +8,7 @@ import OnboardingProfile from '../onboarding/profile';
 import OnboardingBot from '../onboarding/bot';
 import OnboardingProtect from '../onboarding/protect';
 import OnboardingNotifications from '../onboarding/notifications';
-import { fetchProfiles } from '@/api/profiles';
+import { fetchProfiles, tryFetchProfiles } from '@/api/profiles';
 import { fetchBots } from '@/api/bots';
 import {
   fetchDevice,
@@ -31,6 +31,7 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/api/profiles', () => ({
   fetchProfiles: jest.fn(),
+  tryFetchProfiles: jest.fn(),
 }));
 
 jest.mock('@/api/bots', () => ({
@@ -68,6 +69,10 @@ describe('Onboarding wizard', () => {
       .mockResolvedValue(null);
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
     (fetchProfiles as jest.Mock).mockResolvedValue({
+      results: [{ profile_id: 'p1', name: 'Jordan' }],
+      count: 1,
+    });
+    (tryFetchProfiles as jest.Mock).mockResolvedValue({
       results: [{ profile_id: 'p1', name: 'Jordan' }],
       count: 1,
     });
@@ -154,7 +159,7 @@ describe('Onboarding wizard', () => {
           name: 'Maya',
           oauth_email: 'maya@school.edu',
         });
-      (fetchProfiles as jest.Mock).mockResolvedValue({
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
         results: [{ profile_id: 'p2', name: 'Maya', oauth_email: 'maya@school.edu' }],
         count: 1,
       });
@@ -208,7 +213,7 @@ describe('Onboarding wizard', () => {
           name: 'Old Maya',
           oauth_email: 'old@school.edu',
         });
-      (fetchProfiles as jest.Mock).mockResolvedValue({
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
         results: [
           { profile_id: 'p1', name: 'Jordan' },
           { profile_id: 'p2', name: 'Maya', oauth_email: 'new@school.edu' },
@@ -248,7 +253,7 @@ describe('Onboarding wizard', () => {
           name: 'Maya',
           oauth_email: 'maya@school.edu',
         });
-      (fetchProfiles as jest.Mock).mockResolvedValue({
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
         results: [{ profile_id: 'p1', name: 'Jordan' }],
         count: 1,
       });
@@ -277,7 +282,7 @@ describe('Onboarding wizard', () => {
       jest
         .spyOn(selectedProfileHooks, 'getSelectedProfile')
         .mockImplementation(() => new Promise(() => {}));
-      (fetchProfiles as jest.Mock).mockImplementation(() => new Promise(() => {}));
+      (tryFetchProfiles as jest.Mock).mockImplementation(() => new Promise(() => {}));
       (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
 
       render(<OnboardingProfile />);
@@ -295,7 +300,7 @@ describe('Onboarding wizard', () => {
       jest
         .spyOn(selectedProfileHooks, 'getSelectedProfile')
         .mockResolvedValue(null);
-      (fetchProfiles as jest.Mock).mockResolvedValue(null);
+      (tryFetchProfiles as jest.Mock).mockResolvedValue(null);
 
       render(<OnboardingProfile />);
       await act(async () => {});
@@ -313,7 +318,7 @@ describe('Onboarding wizard', () => {
       jest
         .spyOn(selectedProfileHooks, 'getSelectedProfile')
         .mockResolvedValue(null);
-      (fetchProfiles as jest.Mock).mockResolvedValue({
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
         results: [],
         count: 0,
       });
@@ -473,6 +478,44 @@ describe('Onboarding wizard', () => {
           templateName: 'Blank',
           color: '#333333',
           icon: 'sparkles',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('falls back to the live bot list when the cached selection is malformed', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(key === 'selectedBot' ? '{not valid json' : null)
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 1,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      // Live data wins over the corrupt cache: prefill + target the first bot.
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Penelope'
+      );
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(false);
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Penelope',
+          botId: 'b1',
           review: 'true',
         }),
       });
@@ -1092,6 +1135,45 @@ describe('Onboarding wizard', () => {
           profileName: 'Maya',
           studentEmail: '',
           profileId: 'p2',
+        })
+      );
+    });
+
+    it('sends the selected profileId and botId in the review bootstrap payload', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Alex',
+        profileId: 'p2',
+        botName: 'Dragon',
+        botId: 'b2',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue({
+        id: 5,
+        device_id: 'd1',
+        notification_token: 'ExponentPushToken[test]',
+        notify_on_new_chat: false,
+        notify_on_new_message: false,
+        notify_digest_only: false,
+        deleted_at: null,
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      // These ids are what keep the save targeted: without them the
+      // backend falls back to the oldest profile/bot rows.
+      expect(bootstrapOnboarding).toHaveBeenCalledWith(
+        expect.objectContaining({
+          profileName: 'Alex',
+          profileId: 'p2',
+          botName: 'Dragon',
+          botId: 'b2',
         })
       );
     });

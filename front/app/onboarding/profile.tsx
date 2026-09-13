@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { fetchProfiles } from "@/api/profiles";
+import { tryFetchProfiles } from "@/api/profiles";
 import { getSelectedProfile } from "@/hooks/useSelectedProfile";
 import { WizardStep } from "./WizardStep";
 
@@ -33,7 +33,11 @@ export default function OnboardingProfile() {
     (async () => {
       try {
         const selected = await getSelectedProfile().catch(() => null);
-        const profiles = await fetchProfiles().catch(() => null);
+        // tryFetchProfiles (not fetchProfiles): a failed fetch must read as
+        // "couldn't load" (null), never as "no profiles" — fetchProfiles
+        // resolves an empty fallback on failure, and continuing ID-less
+        // would rename the oldest profile instead of the selected one.
+        const profiles = await tryFetchProfiles().catch(() => null);
         const selectedId =
           selected && typeof selected.profile_id === "string"
             ? selected.profile_id
@@ -52,7 +56,11 @@ export default function OnboardingProfile() {
           }
           setReviewCanCreateProfile(false);
         } else if (active) {
-          setReviewCanCreateProfile(Array.isArray(profiles?.results));
+          // Null means the fetch failed (genuinely empty lists resolve to
+          // { results: [] }): stay gated until a target row is known.
+          setReviewCanCreateProfile(
+            profiles !== null && profiles.results.length === 0
+          );
         }
       } catch {
         // Prefill is best-effort; the wizard still works blank.

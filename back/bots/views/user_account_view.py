@@ -1,4 +1,5 @@
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -6,6 +7,10 @@ from rest_framework.views import APIView
 
 from bots.models.user_account import MAX_COST_DAILY
 from bots.permissions import IsParentSession, ParentReauthRequired
+from bots.serializers import (
+    OnboardingBootstrapResponseSerializer,
+    OnboardingBootstrapSerializer,
+)
 from bots.services.onboarding import bootstrap_onboarding
 from bots.services.parent_reauth import (
     has_valid_parent_reauth,
@@ -121,6 +126,10 @@ def onboarding_complete_view(request):
     return Response({'response': 'ok', 'onboardingCompleted': True})
 
 
+@extend_schema(
+    request=OnboardingBootstrapSerializer,
+    responses={200: OnboardingBootstrapResponseSerializer},
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def onboarding_bootstrap_view(request):

@@ -1142,16 +1142,34 @@ paths:
   /api/onboarding/bootstrap:
     post:
       operationId: onboarding_bootstrap_create
-      description: 'Atomic wizard save: profile name, first bot, PIN and completion
-        flag.'
+      description: |-
+        Atomic wizard save: profile name, selected bot, PIN and completion flag.
+
+        Review reruns pass the pre-filled profileId/botId so re-saving updates
+        those exact rows; first-run omits them and updates the oldest rows.
       tags:
       - onboarding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingBootstrap'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OnboardingBootstrap'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OnboardingBootstrap'
       security:
       - jwtAuth: []
       - cookieAuth: []
       responses:
         '200':
-          description: No response body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingBootstrapResponse'
+          description: ''
   /api/profiles/:
     get:
       operationId: profiles_list
@@ -2102,6 +2120,58 @@ components:
       - message_id
       - modified_at
       - text
+    OnboardingBootstrap:
+      type: object
+      description: |-
+        POST /api/onboarding/bootstrap body.
+
+        First-run omits profileId/botId (oldest rows are retargeted); review
+        reruns pass the pre-filled ids so re-saving updates those exact rows.
+      properties:
+        profileName:
+          type: string
+        botName:
+          type: string
+        templateName:
+          type: string
+        pin:
+          type: string
+        systemPrompt:
+          type: string
+          nullable: true
+        color:
+          type: string
+        icon:
+          type: string
+        studentEmail:
+          type: string
+          format: email
+          nullable: true
+        profileId:
+          type: string
+          format: uuid
+        botId:
+          type: string
+          format: uuid
+    OnboardingBootstrapResponse:
+      type: object
+      description: 'Success shape: echoes exactly which rows the wizard configured.'
+      properties:
+        response:
+          type: string
+        onboardingCompleted:
+          type: boolean
+        profileId:
+          type: string
+          format: uuid
+        botId:
+          type: string
+          format: uuid
+      required:
+      - botId
+      - onboardingCompleted
+      - profileId
+      - response
     PaginatedActivityChatListList:
       type: object
       required:

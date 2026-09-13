@@ -66,7 +66,15 @@ export default function OnboardingBot() {
         const stored = await AsyncStorage.getItem("selectedBot").catch(
           () => null
         );
-        const parsed = stored ? JSON.parse(stored) : null;
+        // Parse the cache independently: malformed JSON reads as "no
+        // selection" and must never skip the live fetch below (a throw
+        // here used to leave the step gated with live bots available).
+        let parsed: any = null;
+        try {
+          parsed = stored ? JSON.parse(stored) : null;
+        } catch {
+          parsed = null;
+        }
         const bots = await fetchBots().catch(() => null);
         const selectedId =
           parsed && typeof parsed.bot_id === "string" && parsed.bot_id
