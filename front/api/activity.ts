@@ -35,7 +35,6 @@ export interface ActivityTranscriptMessage {
     text: string;
     created_at: string;
     image_url: string | null;
-    agent_events?: import('./chats').AgentActivity[];
     agentEvents?: import('./chats').AgentActivity[];
 }
 
@@ -101,10 +100,31 @@ export const fetchActivityChats = async (
     );
 };
 
+/** Wire shape from the API: tool activity arrives as snake_case. */
+type ActivityTranscriptMessageDTO = ActivityTranscriptMessage & {
+    agent_events?: import('./chats').AgentActivity[];
+};
+
 export const fetchActivityChat = async (
     chatId: string
-): Promise<ActivityChatDetail | null> =>
-    request<ActivityChatDetail | null>(`/activity/chats/${chatId}.json`, {}, null);
+): Promise<ActivityChatDetail | null> => {
+    const data = await request<Omit<ActivityChatDetail, 'messages'> & { messages: ActivityTranscriptMessageDTO[] } | null>(
+        `/activity/chats/${chatId}.json`,
+        {},
+        null,
+    );
+    if (data) {
+        // Normalize persisted history so the transcript renders the same chips as live chat.
+        return {
+            ...data,
+            messages: data.messages.map(({ agent_events, agentEvents, ...rest }) => ({
+                ...rest,
+                agentEvents: agentEvents ?? agent_events ?? [],
+            })),
+        };
+    }
+    return data;
+};
 
 export const fetchActivitySummary = async (days = 7): Promise<ActivitySummary | null> =>
     request<ActivitySummary | null>(

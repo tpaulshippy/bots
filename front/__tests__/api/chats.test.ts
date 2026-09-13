@@ -1,4 +1,4 @@
-import { fetchChats, fetchChatMessages, getMessageAgentEvents } from '../../api/chats';
+import { fetchChats, fetchChatMessages } from '../../api/chats';
 import { apiClient } from '../../api/apiClient';
 
 jest.mock('../../api/apiClient', () => ({
@@ -60,6 +60,6 @@ describe('Chats API', () => {
 
     expect(response?.results).toHaveLength(1);
     expect(response?.results[0].agentEvents).toEqual([pageChip]);
-    expect(getMessageAgentEvents(response!.results[0])).toEqual([pageChip]);
+    expect(response?.results[0]).not.toHaveProperty('agent_events');
   });
 });

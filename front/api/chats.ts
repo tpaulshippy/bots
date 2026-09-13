@@ -38,16 +38,26 @@ export interface ChatMessage {
     failed?: boolean;
     /** Tool activity (searching… / creating flashcards…) for this turn. */
     agentEvents?: AgentActivity[];
-    /** Persisted tool activity from the API (snake_case). Normalized to agentEvents on fetch. */
-    agent_events?: AgentActivity[];
 }
 
-/** Prefer the live camelCase field, fall back to the persisted snake_case field. */
-export const getMessageAgentEvents = (message: ChatMessage): AgentActivity[] =>
-    message.agentEvents ?? message.agent_events ?? [];
+/** Wire shape from the API: tool activity arrives as snake_case. */
+type ChatMessageDTO = ChatMessage & {
+    agent_events?: AgentActivity[];
+};
 
-export const fetchChat = async (chatId: string): Promise<Chat | null> =>
-    request<Chat | null>(`/chats/${chatId}.json`, {}, null);
+/** Map one wire message to the canonical ChatMessage (single agentEvents field). */
+const normalizeChatMessage = ({ agent_events, agentEvents, ...rest }: ChatMessageDTO): ChatMessage => ({
+    ...rest,
+    agentEvents: agentEvents ?? agent_events ?? [],
+});
+
+export const fetchChat = async (chatId: string): Promise<Chat | null> => {
+    const data = await request<Chat | null>(`/chats/${chatId}.json`, {}, null);
+    if (data) {
+        data.messages = data.messages.map(normalizeChatMessage);
+    }
+    return data;
+};
 
 export const fetchChats = async (profileId: string | null, page: number | null): Promise<PaginatedResponse<Chat> | null> => {
     let endpoint = '/chats.json?1=1';
@@ -66,15 +76,12 @@ export const fetchChatMessages = async (chatId: string, page: number | null): Pr
     if (page) {
         endpoint += `?page=${page}`;
     }
-    const data = await request<PaginatedResponse<ChatMessage> | null>(endpoint, {}, { results: [], count: 0 });
+    const data = await request<PaginatedResponse<ChatMessageDTO> | null>(endpoint, {}, { results: [], count: 0 });
     if (data) {
         // Normalize persisted history so bubbles render the same chips as live streams.
-        data.results = data.results.map((message) => ({
-            ...message,
-            agentEvents: getMessageAgentEvents(message),
-        }));
+        return { ...data, results: data.results.map(normalizeChatMessage) };
     }
-    return data;
+    return data as PaginatedResponse<ChatMessage> | null;
 }
 
 export interface ChatResponse {
