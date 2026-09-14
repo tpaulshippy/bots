@@ -23,6 +23,9 @@ export function useAuthBootstrap(loaded: boolean) {
 
   const setProfile = useCallback(async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");
+    // Fetch first (as before): callers rely on the list being consulted
+    // even when nothing is stored.
+    const profiles = await fetchProfiles().catch(() => null);
     if (!profileData) {
       return;
     }
@@ -36,7 +39,6 @@ export function useAuthBootstrap(loaded: boolean) {
       profile && typeof profile.profile_id === "string"
         ? profile.profile_id
         : null;
-    const profiles = await fetchProfiles().catch(() => null);
     if (storedId && profiles?.results.some((p) => p.profile_id === storedId)) {
       return;
     }
