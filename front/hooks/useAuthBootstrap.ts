@@ -50,7 +50,9 @@ export function useAuthBootstrap(loaded: boolean) {
       if (lookup && lookup !== "missing" && !lookup.deleted_at) {
         return;
       }
-      if (lookup === null) {
+      // A failed list load leaves nothing to reseed from: keep the
+      // selection rather than stranding the user with none.
+      if (lookup === null || !profiles) {
         return;
       }
     }

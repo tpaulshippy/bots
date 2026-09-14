@@ -311,4 +311,23 @@ describe('useAuthBootstrap profile selection repair', () => {
       'selectedProfile'
     );
   });
+
+  it('keeps the selection when the list fails even if the detail 404s', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'selectedProfile'
+          ? JSON.stringify({ profile_id: 'px', name: 'Maybe Mine' })
+          : null
+      )
+    );
+    (fetchProfiles as jest.Mock).mockResolvedValue(null);
+    (tryFetchProfile as jest.Mock).mockResolvedValue('missing');
+
+    await bootstrap();
+
+    // Nothing to reseed from: removing would strand the user with none.
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith(
+      'selectedProfile'
+    );
+  });
 });
