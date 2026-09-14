@@ -1381,7 +1381,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Stats'
+                type: array
+                items:
+                  $ref: '#/components/schemas/Stats'
           description: ''
   /api/token/:
     post:
@@ -1907,6 +1909,8 @@ components:
           type: boolean
         notify_digest_only:
           type: boolean
+        notify_study_due:
+          type: boolean
         deleted_at:
           type: string
           format: date-time
@@ -2137,11 +2141,10 @@ components:
           type: string
           readOnly: true
         agent_events:
-          type: array
-          items:
-            type: object
+          type: string
           readOnly: true
       required:
+      - agent_events
       - chat_id
       - created_at
       - id
@@ -2557,6 +2560,8 @@ components:
         notify_on_new_message:
           type: boolean
         notify_digest_only:
+          type: boolean
+        notify_study_due:
           type: boolean
         deleted_at:
           type: string

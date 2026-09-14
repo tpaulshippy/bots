@@ -11,9 +11,13 @@ SCHEMA_FILE="$FRONTEND_DIR/api/schema.yaml"
 echo "=== Generating OpenAPI Schema ==="
 cd "$BACKEND_DIR"
 
-# Check if virtual environment exists
+# Check if virtual environment exists, otherwise prefer python3 (bare
+# `python` does not exist on all machines — without this the generate
+# below fails silently into `|| true` and the schema drifts).
 if [ -d "venv" ]; then
     PYTHON="venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    PYTHON="python3"
 else
     PYTHON="python"
 fi
