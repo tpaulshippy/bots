@@ -116,6 +116,11 @@ export const clearUser = async () => {
       activeProfileId: null,
     });
   }
+  // Selections are account-scoped: a logout, account deletion, or expired
+  // session must not leak the previous account's rows into the next login
+  // on a shared device (the bootstrap repair reseeds from live data).
+  await AsyncStorage.removeItem("selectedProfile");
+  await AsyncStorage.removeItem("selectedBot");
 };
 
 const decodeJwtPayload = (jwt: string): Record<string, unknown> | null => {

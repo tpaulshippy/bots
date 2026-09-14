@@ -64,19 +64,25 @@ export default function OnboardingProfile() {
             )) ||
           null;
         let serverMatch = null;
-        if (selectedId && !liveMatch && profiles) {
+        if (selectedId && !liveMatch) {
           const lookup = await tryFetchProfile(selectedId);
           if (lookup && lookup !== "missing" && !lookup.deleted_at) {
             serverMatch = lookup;
           } else if (lookup === null && active) {
+            // Unverifiable target (failed list and/or failed lookup):
+            // prefill stays but Continue gates below instead of
+            // submitting possibly-stale name/email.
             setReviewTargetUnverified(true);
           }
         }
+        // Row one prefills only when no prior selection exists: with a
+        // selectedId, falling back to it would target (and save) the
+        // wrong profile.
         const current =
           liveMatch ||
           serverMatch ||
           (selectedId && typeof selected.name === "string" ? selected : null) ||
-          profiles?.results?.[0] ||
+          (!selectedId ? profiles?.results?.[0] : null) ||
           null;
         if (current && active) {
           setName(current.name ?? "");
@@ -86,11 +92,22 @@ export default function OnboardingProfile() {
           }
           setReviewCanCreateProfile(false);
         } else if (active) {
-          // Null means the fetch failed (genuinely empty lists resolve to
-          // { results: [] }): stay gated until a target row is known.
-          setReviewCanCreateProfile(
-            profiles !== null && profiles.results.length === 0
-          );
+          if (selectedId) {
+            // Unresolvable prior selection with an unusable snapshot:
+            // keep targeting the id (a save recreates rather than
+            // renaming the oldest profile) but blank the form so
+            // Continue stays gated until the user types a name.
+            setProfileId(selectedId);
+            setName("");
+            setStudentEmail("");
+            setReviewCanCreateProfile(false);
+          } else {
+            // Null means the fetch failed (genuinely empty lists resolve to
+            // { results: [] }): stay gated until a target row is known.
+            setReviewCanCreateProfile(
+              profiles !== null && profiles.results.length === 0
+            );
+          }
         }
       } catch (error) {
         // An expired session leaves the wizard for login; every other

@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 
 import { useAuthBootstrap } from '../useAuthBootstrap';
 import { fetchBots, tryFetchBot } from '@/api/bots';
-import { fetchOwnProfile, fetchProfiles } from '@/api/profiles';
+import { fetchOwnProfile, fetchProfiles, tryFetchProfile } from '@/api/profiles';
 import { getSessionMode } from '@/api/tokens';
 
 jest.mock('expo-router', () => ({
@@ -34,6 +34,7 @@ jest.mock('@/api/bots', () => ({
 jest.mock('@/api/profiles', () => ({
   fetchProfiles: jest.fn(),
   fetchOwnProfile: jest.fn(),
+  tryFetchProfile: jest.fn(),
 }));
 
 jest.mock('@/api/tokens', () => ({
@@ -68,6 +69,7 @@ describe('useAuthBootstrap bot selection repair', () => {
       count: 1,
     });
     (fetchOwnProfile as jest.Mock).mockResolvedValue(null);
+    (tryFetchProfile as jest.Mock).mockResolvedValue(null);
     (fetchBots as jest.Mock).mockResolvedValue({
       results: [{ bot_id: 'b1', name: 'Penelope' }],
       count: 1,
@@ -211,6 +213,102 @@ describe('useAuthBootstrap bot selection repair', () => {
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       'selectedBot',
       JSON.stringify({ bot_id: 'b1', name: 'Penelope' })
+    );
+  });
+});
+
+describe('useAuthBootstrap profile selection repair', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useRouter as jest.Mock).mockReturnValue(mockRouter);
+    (getSessionMode as jest.Mock).mockResolvedValue({
+      isTeenDelegated: false,
+    });
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+    (fetchProfiles as jest.Mock).mockResolvedValue({
+      results: [{ profile_id: 'p1', name: 'Jordan' }],
+      count: 1,
+    });
+    (fetchOwnProfile as jest.Mock).mockResolvedValue(null);
+    (tryFetchProfile as jest.Mock).mockResolvedValue(null);
+    (fetchBots as jest.Mock).mockResolvedValue({
+      results: [{ bot_id: 'b1', name: 'Penelope' }],
+      count: 1,
+    });
+    (tryFetchBot as jest.Mock).mockResolvedValue(null);
+  });
+
+  it('keeps a stored profile selection owned by the current account', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'selectedProfile'
+          ? JSON.stringify({ profile_id: 'p1', name: 'Jordan' })
+          : null
+      )
+    );
+
+    await bootstrap();
+
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith(
+      'selectedProfile'
+    );
+  });
+
+  it('keeps a valid profile that lives beyond the first list page', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'selectedProfile'
+          ? JSON.stringify({ profile_id: 'p51', name: 'Late Profile' })
+          : null
+      )
+    );
+    (tryFetchProfile as jest.Mock).mockResolvedValue({
+      profile_id: 'p51',
+      name: 'Late Profile',
+      deleted_at: null,
+    });
+
+    await bootstrap();
+
+    expect(tryFetchProfile).toHaveBeenCalledWith('p51');
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith(
+      'selectedProfile'
+    );
+  });
+
+  it('drops a foreign profile selection and reseeds from the live list', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'selectedProfile'
+          ? JSON.stringify({ profile_id: 'px', name: 'Other Account' })
+          : null
+      )
+    );
+    (tryFetchProfile as jest.Mock).mockResolvedValue('missing');
+
+    await bootstrap();
+
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('selectedProfile');
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'selectedProfile',
+      JSON.stringify({ profile_id: 'p1', name: 'Jordan' })
+    );
+  });
+
+  it('keeps an unverifiable profile selection when the lookup fails', async () => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'selectedProfile'
+          ? JSON.stringify({ profile_id: 'px', name: 'Maybe Mine' })
+          : null
+      )
+    );
+    (tryFetchProfile as jest.Mock).mockResolvedValue(null);
+
+    await bootstrap();
+
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith(
+      'selectedProfile'
     );
   });
 });

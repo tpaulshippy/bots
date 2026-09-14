@@ -362,6 +362,45 @@ describe('Onboarding wizard', () => {
       expect(mockRouter.push).not.toHaveBeenCalled();
     });
 
+    it('keeps targeting the id when the cached profile has no usable name', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({ profile_id: 'p9' });
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Jordan' }],
+        count: 2,
+      });
+      (tryFetchProfile as jest.Mock).mockResolvedValue('missing');
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        ''
+      );
+      expect(
+        screen.getByTestId('onboarding-profile-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-profile-input'),
+        'Maya'
+      );
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: {
+          profileName: 'Maya',
+          studentEmail: '',
+          review: 'true',
+          profileId: 'p9',
+        },
+      });
+    });
+
     it('blocks Continue until review profile prefill finishes', async () => {
       jest
         .spyOn(selectedProfileHooks, 'getSelectedProfile')
@@ -714,6 +753,53 @@ describe('Onboarding wizard', () => {
           .disabled
       ).toBe(true);
       expect(mockRouter.push).not.toHaveBeenCalled();
+    });
+
+    it('keeps targeting the id when the cached bot has no usable name', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot' ? JSON.stringify({ bot_id: 'b9' }) : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      (tryFetchBot as jest.Mock).mockResolvedValue('missing');
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      // The form blanks (row one is not shown for another id) and stays
+      // gated until the user names the replacement...
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        ''
+      );
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-bot-name-input'),
+        'Dragon'
+      );
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      // ...which then recreates under the original id, never row one.
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Dragon',
+          botId: 'b9',
+          review: 'true',
+        }),
+      });
     });
 
     it('resets missing live bot fields to defaults in review mode', async () => {

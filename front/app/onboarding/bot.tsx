@@ -103,27 +103,29 @@ export default function OnboardingBot() {
             bots?.results?.find((bot) => bot.bot_id === selectedId)) ||
           null;
         let serverMatch = null;
-        if (selectedId && !liveMatch && bots) {
+        if (selectedId && !liveMatch) {
           // tryFetchBot throws auth errors (boundary redirects) and maps
           // everything else: a bot object, 'missing', or null.
           const lookup = await tryFetchBot(selectedId);
           if (lookup && lookup !== "missing" && !lookup.deleted_at) {
             serverMatch = lookup;
           } else if (lookup === null) {
-            // Transient failure with a loaded list: the cache may be
-            // stale, so prefill it but keep Continue gated. Confirmed
-            // missing (or soft-deleted) rows use the cache recreate path
-            // ungated; no list at all means offline, same deal.
+            // Unverifiable target (failed list and/or failed lookup):
+            // prefill stays but Continue gates below instead of
+            // submitting possibly-stale fields.
             if (active) {
               setReviewTargetUnverified(true);
             }
           }
         }
+        // Row one prefills only when no prior selection exists: with a
+        // selectedId, falling back to it would target (and save) the
+        // wrong bot.
         const current =
           liveMatch ||
           serverMatch ||
           (selectedId && typeof parsed?.name === "string" ? parsed : null) ||
-          bots?.results?.[0] ||
+          (!selectedId ? bots?.results?.[0] : null) ||
           null;
         if (current && active) {
           const currentName = current.name || DEFAULTS.name;
@@ -149,7 +151,18 @@ export default function OnboardingBot() {
           });
           setReviewCanCreateBot(false);
         } else if (active) {
-          setReviewCanCreateBot(Array.isArray(bots?.results));
+          if (selectedId) {
+            // Unresolvable prior selection with an unusable snapshot:
+            // keep targeting the id (a save recreates rather than
+            // renaming the oldest row) but blank the form so Continue
+            // stays gated until the user names the replacement.
+            setBotId(selectedId);
+            setBotName("");
+            setStory("");
+            setReviewCanCreateBot(false);
+          } else {
+            setReviewCanCreateBot(Array.isArray(bots?.results));
+          }
         }
       } catch (error) {
         // An expired session leaves the wizard for login; every other

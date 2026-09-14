@@ -7,7 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { fetchBots, tryFetchBot } from "@/api/bots";
 import type { Bot } from "@/api/bots";
-import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
+import { fetchOwnProfile, fetchProfiles, tryFetchProfile } from "@/api/profiles";
 import type { PaginatedResponse } from "@/api/request";
 import { UnauthorizedError } from "@/api/apiClient";
 import { clearUser, getSessionMode, sessionFromQueryParams, setTokens } from "@/api/tokens";
@@ -23,36 +23,41 @@ export function useAuthBootstrap(loaded: boolean) {
 
   const setProfile = useCallback(async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");
-    const profiles = await fetchProfiles();
-    if (profileData) {
-      let profile: { profile_id?: string } | null = null;
-      try {
-        profile = JSON.parse(profileData);
-      } catch {
-        profile = null;
-      }
-      if (!profile || typeof profile.profile_id !== "string") {
-        await AsyncStorage.removeItem("selectedProfile");
-        if (profiles && profiles.count > 0) {
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(profiles.results[0])
-          );
-        }
+    if (!profileData) {
+      return;
+    }
+    let profile: { profile_id?: string } | null = null;
+    try {
+      profile = JSON.parse(profileData);
+    } catch {
+      profile = null;
+    }
+    const storedId =
+      profile && typeof profile.profile_id === "string"
+        ? profile.profile_id
+        : null;
+    const profiles = await fetchProfiles().catch(() => null);
+    if (storedId && profiles?.results.some((p) => p.profile_id === storedId)) {
+      return;
+    }
+    if (storedId) {
+      // Page one is not the whole account: resolve through the detail
+      // endpoint before treating the id as foreign. Auth errors propagate
+      // to the login redirect; anything unverifiable keeps the selection.
+      const lookup = await tryFetchProfile(storedId);
+      if (lookup && lookup !== "missing" && !lookup.deleted_at) {
         return;
       }
-      const profileExists = profiles?.results.some(
-        (p) => p.profile_id === profile.profile_id
-      );
-      if (!profileExists) {
-        await AsyncStorage.removeItem("selectedProfile");
-        if (profiles && profiles.count > 0) {
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(profiles.results[0])
-          );
-        }
+      if (lookup === null) {
+        return;
       }
+    }
+    await AsyncStorage.removeItem("selectedProfile");
+    if (profiles && profiles.count > 0) {
+      await AsyncStorage.setItem(
+        "selectedProfile",
+        JSON.stringify(profiles.results[0])
+      );
     }
   }, []);
 
