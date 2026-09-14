@@ -8,9 +8,11 @@ import OnboardingProfile from '../onboarding/profile';
 import OnboardingBot from '../onboarding/bot';
 import OnboardingProtect from '../onboarding/protect';
 import OnboardingNotifications from '../onboarding/notifications';
-import { fetchProfiles } from '@/api/profiles';
-import { fetchBots } from '@/api/bots';
+import { fetchProfiles, tryFetchProfiles, fetchProfile, tryFetchProfile } from '@/api/profiles';
+import { fetchBots, fetchBot, tryFetchBot } from '@/api/bots';
 import {
+  fetchDevice,
+  getDeviceIdFromStorage,
   fetchDeviceByToken,
   setDeviceIdInStorage,
   upsertDevice,
@@ -20,6 +22,7 @@ import {
   bootstrapOnboarding,
   completeOnboarding,
 } from '@/api/account';
+import * as selectedProfileHooks from '@/hooks/useSelectedProfile';
 
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
@@ -28,13 +31,20 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/api/profiles', () => ({
   fetchProfiles: jest.fn(),
+  tryFetchProfiles: jest.fn(),
+  fetchProfile: jest.fn(),
+  tryFetchProfile: jest.fn(),
 }));
 
 jest.mock('@/api/bots', () => ({
   fetchBots: jest.fn(),
+  fetchBot: jest.fn(),
+  tryFetchBot: jest.fn(),
 }));
 
 jest.mock('@/api/devices', () => ({
+  fetchDevice: jest.fn(),
+  getDeviceIdFromStorage: jest.fn(),
   fetchDeviceByToken: jest.fn(),
   setDeviceIdInStorage: jest.fn(),
   upsertDevice: jest.fn(),
@@ -58,19 +68,34 @@ describe('Onboarding wizard', () => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
     (useLocalSearchParams as jest.Mock).mockReturnValue({});
+    jest
+      .spyOn(selectedProfileHooks, 'getSelectedProfile')
+      .mockResolvedValue(null);
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
     (fetchProfiles as jest.Mock).mockResolvedValue({
       results: [{ profile_id: 'p1', name: 'Jordan' }],
       count: 1,
     });
+    (tryFetchProfiles as jest.Mock).mockResolvedValue({
+      results: [{ profile_id: 'p1', name: 'Jordan' }],
+      count: 1,
+    });
+    // Single-item lookups resolve null unless a test overrides them.
+    (tryFetchProfile as jest.Mock).mockResolvedValue(null);
     (fetchBots as jest.Mock).mockResolvedValue({
       results: [{ bot_id: 'b1', name: 'Penelope' }],
       count: 1,
     });
+    // Single-item lookups resolve null unless a test overrides them.
+    (tryFetchBot as jest.Mock).mockResolvedValue(null);
+    (fetchBot as jest.Mock).mockResolvedValue(null);
     (bootstrapOnboarding as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
       data: null,
     });
+    (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
+    (fetchDevice as jest.Mock).mockResolvedValue(null);
     (completeOnboarding as jest.Mock).mockResolvedValue(undefined);
   });
 
@@ -134,6 +159,40 @@ describe('Onboarding wizard', () => {
       });
     });
 
+    it('preserves an explicit blank student email in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({
+          profile_id: 'p2',
+          name: 'Maya',
+          oauth_email: 'maya@school.edu',
+        });
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p2', name: 'Maya', oauth_email: 'maya@school.edu' }],
+        count: 1,
+      });
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-student-email-input'),
+        ''
+      );
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: {
+          profileName: 'Maya',
+          studentEmail: '',
+          review: 'true',
+          profileId: 'p2',
+        },
+      });
+    });
+
     it('blocks Continue with an invalid student email', async () => {
       render(<OnboardingProfile />);
       await act(async () => {});
@@ -152,6 +211,265 @@ describe('Onboarding wizard', () => {
 
       fireEvent.press(screen.getByTestId('onboarding-back'));
       expect(mockRouter.back).toHaveBeenCalled();
+    });
+
+    it('refreshes the selected profile from the live list in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({
+          profile_id: 'p2',
+          name: 'Old Maya',
+          oauth_email: 'old@school.edu',
+        });
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [
+          { profile_id: 'p1', name: 'Jordan' },
+          { profile_id: 'p2', name: 'Maya', oauth_email: 'new@school.edu' },
+        ],
+        count: 2,
+      });
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        'Maya'
+      );
+      expect(
+        screen.getByTestId('onboarding-student-email-input').props.value
+      ).toBe('new@school.edu');
+
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: {
+          profileName: 'Maya',
+          studentEmail: 'new@school.edu',
+          review: 'true',
+          profileId: 'p2',
+        },
+      });
+    });
+
+    it('keeps the stored selected profile when its id is stale', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({
+          profile_id: 'p9',
+          name: 'Maya',
+          oauth_email: 'maya@school.edu',
+        });
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Jordan' }],
+        count: 1,
+      });
+      // Confirmed missing (not a transient failure): the cached snapshot
+      // stays usable for the recreate path.
+      (tryFetchProfile as jest.Mock).mockResolvedValue('missing');
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        'Maya'
+      );
+
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: {
+          profileName: 'Maya',
+          studentEmail: 'maya@school.edu',
+          review: 'true',
+          profileId: 'p9',
+        },
+      });
+    });
+
+    it('prefers live server state over a stale cached profile snapshot', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({
+          profile_id: 'p9',
+          name: 'Old Name',
+          oauth_email: 'old@school.edu',
+        });
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Jordan' }],
+        count: 2,
+      });
+      (tryFetchProfile as jest.Mock).mockResolvedValue({
+        profile_id: 'p9',
+        name: 'New Name',
+        oauth_email: 'new@school.edu',
+      });
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        'New Name'
+      );
+      expect(
+        screen.getByTestId('onboarding-student-email-input').props.value
+      ).toBe('new@school.edu');
+
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: {
+          profileName: 'New Name',
+          studentEmail: 'new@school.edu',
+          review: 'true',
+          profileId: 'p9',
+        },
+      });
+    });
+
+    it('gates Continue when the confirming profile lookup fails transiently', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({
+          profile_id: 'p9',
+          name: 'Maybe Stale',
+          oauth_email: 'maybe@school.edu',
+        });
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Jordan' }],
+        count: 2,
+      });
+      // List loaded but the single lookup flaked: show the cache but
+      // refuse to submit it.
+      (tryFetchProfile as jest.Mock).mockResolvedValue(null);
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        'Maybe Stale'
+      );
+      expect(
+        screen.getByTestId('onboarding-profile-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+      expect(mockRouter.push).not.toHaveBeenCalled();
+    });
+
+    it('keeps targeting the id when the cached profile has no usable name', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue({ profile_id: 'p9' });
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Jordan' }],
+        count: 2,
+      });
+      (tryFetchProfile as jest.Mock).mockResolvedValue('missing');
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-profile-input').props.value).toBe(
+        ''
+      );
+      expect(
+        screen.getByTestId('onboarding-profile-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-profile-input'),
+        'Maya'
+      );
+      fireEvent.press(screen.getByTestId('onboarding-profile-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/bot',
+        params: {
+          profileName: 'Maya',
+          studentEmail: '',
+          review: 'true',
+          profileId: 'p9',
+        },
+      });
+    });
+
+    it('blocks Continue until review profile prefill finishes', async () => {
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockImplementation(() => new Promise(() => {}));
+      (tryFetchProfiles as jest.Mock).mockImplementation(() => new Promise(() => {}));
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+
+      render(<OnboardingProfile />);
+
+      fireEvent.changeText(screen.getByTestId('onboarding-profile-input'), 'Maya');
+
+      expect(
+        screen.getByTestId('onboarding-profile-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+    });
+
+    it('keeps Continue disabled when review profile prefill fails', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue(null);
+      (tryFetchProfiles as jest.Mock).mockResolvedValue(null);
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      fireEvent.changeText(screen.getByTestId('onboarding-profile-input'), 'Maya');
+
+      expect(
+        screen.getByTestId('onboarding-profile-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+    });
+
+    it('allows review mode to recreate a missing profile after prefill completes', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      jest
+        .spyOn(selectedProfileHooks, 'getSelectedProfile')
+        .mockResolvedValue(null);
+      (tryFetchProfiles as jest.Mock).mockResolvedValue({
+        results: [],
+        count: 0,
+      });
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      fireEvent.changeText(screen.getByTestId('onboarding-profile-input'), 'Maya');
+
+      expect(
+        screen.getByTestId('onboarding-profile-continue').props.accessibilityState
+          .disabled
+      ).toBe(false);
+    });
+
+    it('redirects to login when review prefill hits an expired session', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({ review: 'true' });
+      const { UnauthorizedError: RealUnauthorizedError } = jest.requireActual(
+        '@/api/apiClient'
+      );
+      (tryFetchProfiles as jest.Mock).mockRejectedValue(
+        new RealUnauthorizedError()
+      );
+
+      render(<OnboardingProfile />);
+      await act(async () => {});
+
+      expect(mockRouter.replace).toHaveBeenCalledWith('/login');
     });
   });
 
@@ -196,6 +514,563 @@ describe('Onboarding wizard', () => {
           templateName: 'Character',
         }),
       });
+    });
+
+    it('refreshes the selected bot from the live list in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Old Dragon',
+                template_name: 'Character',
+                color: '#111111',
+                icon: 'flame',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [
+          { bot_id: 'b1', name: 'Penelope' },
+          {
+            bot_id: 'b2',
+            name: 'Dragon',
+            template_name: 'Blank',
+            color: '#222222',
+            icon: 'sparkles',
+          },
+        ],
+        count: 2,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Dragon'
+      );
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          profileName: 'Maya',
+          profileId: 'p2',
+          botName: 'Dragon',
+          botId: 'b2',
+          templateName: 'Blank',
+          color: '#222222',
+          icon: 'sparkles',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('keeps the stored selected bot when its id is stale', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b9',
+                name: 'Dragon',
+                template_name: 'Blank',
+                color: '#333333',
+                icon: 'sparkles',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 1,
+      });
+      // Confirmed missing (not a transient failure): the cached snapshot
+      // stays usable for the recreate path.
+      (tryFetchBot as jest.Mock).mockResolvedValue('missing');
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Dragon'
+      );
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          profileName: 'Maya',
+          profileId: 'p2',
+          botName: 'Dragon',
+          botId: 'b9',
+          templateName: 'Blank',
+          color: '#333333',
+          icon: 'sparkles',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('falls back to the live bot list when the cached selection is malformed', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(key === 'selectedBot' ? '{not valid json' : null)
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 1,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      // Live data wins over the corrupt cache: prefill + target the first bot.
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Penelope'
+      );
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(false);
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Penelope',
+          botId: 'b1',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('prefers live server state over a stale cached snapshot for the same id', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b9',
+                name: 'Stale Name',
+                template_name: 'Blank',
+                color: '#111111',
+                icon: 'flame',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      // The selected bot lives beyond page one; the server copy is newer
+      // than the cache (the bot editor never refreshes selectedBot).
+      (tryFetchBot as jest.Mock).mockResolvedValue({
+        bot_id: 'b9',
+        name: 'Fresh Name',
+        template_name: 'Blank',
+        color: '#222222',
+        icon: 'sparkles',
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Fresh Name'
+      );
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Fresh Name',
+          botId: 'b9',
+          color: '#222222',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('gates Continue when the confirming bot lookup fails transiently', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b9',
+                name: 'Maybe Stale',
+                template_name: 'Blank',
+                color: '#333333',
+                icon: 'sparkles',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      // List loaded but the single lookup flaked: the cache may be stale,
+      // so the step shows it but refuses to submit it.
+      (tryFetchBot as jest.Mock).mockResolvedValue(null);
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        'Maybe Stale'
+      );
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+      expect(mockRouter.push).not.toHaveBeenCalled();
+    });
+
+    it('keeps targeting the id when the cached bot has no usable name', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot' ? JSON.stringify({ bot_id: 'b9' }) : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      (tryFetchBot as jest.Mock).mockResolvedValue('missing');
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      // The form blanks (row one is not shown for another id) and stays
+      // gated until the user names the replacement...
+      expect(screen.getByTestId('onboarding-bot-name-input').props.value).toBe(
+        ''
+      );
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+
+      fireEvent.changeText(
+        screen.getByTestId('onboarding-bot-name-input'),
+        'Dragon'
+      );
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      // ...which then recreates under the original id, never row one.
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Dragon',
+          botId: 'b9',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('resets missing live bot fields to defaults in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Old Dragon',
+                template_name: 'Character',
+                color: '#111111',
+                icon: 'flame',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b2', name: 'Dragon', template_name: '', color: '', icon: '' }],
+        count: 1,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Dragon',
+          botId: 'b2',
+          templateName: 'Blank',
+          color: '#2A9D8F',
+          icon: 'sparkles',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('preserves a review bot system prompt when nothing prompt-related changed', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+        studentEmail: '',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Dragon',
+                template_name: 'Blank',
+                color: '#222222',
+                icon: 'sparkles',
+                system_prompt: 'custom prompt',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [
+          {
+            bot_id: 'b2',
+            name: 'Dragon',
+            template_name: 'Blank',
+            color: '#222222',
+            icon: 'sparkles',
+            system_prompt: 'custom prompt',
+          },
+        ],
+        count: 1,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          studentEmail: '',
+          botName: 'Dragon',
+          botId: 'b2',
+          systemPrompt: 'custom prompt',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('preserves a custom review bot prompt when prompt fields change', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Dragon',
+                template_name: 'Blank',
+                color: '#222222',
+                icon: 'sparkles',
+                response_length: 500,
+                restrict_language: false,
+                restrict_adult_topics: false,
+                system_prompt: 'custom prompt',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [
+          {
+            bot_id: 'b2',
+            name: 'Dragon',
+            template_name: 'Blank',
+            color: '#222222',
+            icon: 'sparkles',
+            response_length: 500,
+            restrict_language: false,
+            restrict_adult_topics: false,
+            system_prompt: 'custom prompt',
+          },
+        ],
+        count: 1,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      fireEvent.changeText(screen.getByTestId('onboarding-bot-name-input'), 'Smaug');
+      fireEvent.press(screen.getByTestId('onboarding-bot-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/protect',
+        params: expect.objectContaining({
+          botName: 'Smaug',
+          botId: 'b2',
+          systemPrompt: 'custom prompt',
+          review: 'true',
+        }),
+      });
+    });
+
+    it('allows an unchanged Character bot to continue in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Elsa',
+                template_name: 'Character',
+                color: '#222222',
+                icon: 'sparkles',
+                system_prompt:
+                  "Your name is Elsa, the character from Frozen. You speak with this character's voice and personality.",
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [
+          {
+            bot_id: 'b2',
+            name: 'Elsa',
+            template_name: 'Character',
+            color: '#222222',
+            icon: 'sparkles',
+            system_prompt:
+              "Your name is Elsa, the character from Frozen. You speak with this character's voice and personality.",
+          },
+        ],
+        count: 1,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(screen.getByTestId('onboarding-bot-story-input').props.value).toBe(
+        'Frozen'
+      );
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(false);
+    });
+
+    it('blocks Continue until review bot prefill finishes', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) =>
+        Promise.resolve(
+          key === 'selectedBot'
+            ? JSON.stringify({
+                bot_id: 'b2',
+                name: 'Dragon',
+                template_name: 'Blank',
+                color: '#222222',
+                icon: 'sparkles',
+                system_prompt: 'custom prompt',
+              })
+            : null
+        )
+      );
+      (fetchBots as jest.Mock).mockImplementation(
+        () =>
+          new Promise(() => {})
+      );
+
+      render(<OnboardingBot />);
+
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+    });
+
+    it('keeps Continue disabled when review bot prefill fails', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+      (fetchBots as jest.Mock).mockResolvedValue(null);
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(true);
+    });
+
+    it('allows review mode to recreate a missing bot after prefill completes', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        review: 'true',
+        profileName: 'Maya',
+        profileId: 'p2',
+      });
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [],
+        count: 0,
+      });
+
+      render(<OnboardingBot />);
+      await act(async () => {});
+
+      expect(
+        screen.getByTestId('onboarding-bot-continue').props.accessibilityState
+          .disabled
+      ).toBe(false);
     });
   });
 
@@ -273,6 +1148,31 @@ describe('Onboarding wizard', () => {
       expect(mockRouter.push).toHaveBeenCalledWith({
         pathname: '/onboarding/notifications',
         params: expect.not.objectContaining({ pin: expect.anything() }),
+      });
+    });
+
+    it('preserves an explicit blank student email in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        studentEmail: '',
+        profileId: 'p2',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+
+      render(<OnboardingProtect />);
+      await act(async () => {});
+
+      fireEvent.press(screen.getByTestId('onboarding-pin-continue'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/onboarding/notifications',
+        params: expect.objectContaining({
+          studentEmail: '',
+          review: 'true',
+          profileId: 'p2',
+        }),
       });
     });
 
@@ -456,6 +1356,50 @@ describe('Onboarding wizard', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
     });
 
+    it('prefills and persists the study-due reminder toggle in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue({
+        id: 5,
+        device_id: 'd1',
+        notification_token: 'ExponentPushToken[test]',
+        notify_on_new_chat: false,
+        notify_on_new_message: false,
+        notify_digest_only: false,
+        notify_study_due: true,
+        deleted_at: null,
+      });
+      (registerForPushNotificationsAsync as jest.Mock).mockResolvedValue(
+        'ExponentPushToken[test]'
+      );
+      (fetchDeviceByToken as jest.Mock).mockResolvedValue(null);
+      (upsertDevice as jest.Mock).mockResolvedValue({
+        device_id: 'd1',
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      expect(
+        screen.getByTestId('onboarding-notify-study-switch').props.value
+      ).toBe(true);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notify_study_due: true,
+        })
+      );
+    });
+
     it('shows an inline error and stays put when the student email is taken', async () => {
       (bootstrapOnboarding as jest.Mock).mockResolvedValue({
         ok: false,
@@ -481,6 +1425,395 @@ describe('Onboarding wizard', () => {
         'selectedProfile',
         expect.anything()
       );
+      expect(mockRouter.replace).not.toHaveBeenCalled();
+    });
+
+    it('sends an explicit blank student email in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        studentEmail: '',
+        profileId: 'p2',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue({
+        id: 5,
+        device_id: 'd1',
+        notification_token: 'ExponentPushToken[test]',
+        notify_on_new_chat: false,
+        notify_on_new_message: false,
+        notify_digest_only: false,
+        deleted_at: null,
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(bootstrapOnboarding).toHaveBeenCalledWith(
+        expect.objectContaining({
+          profileName: 'Maya',
+          studentEmail: '',
+          profileId: 'p2',
+        })
+      );
+    });
+
+    it('sends the selected profileId and botId in the review bootstrap payload', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Alex',
+        profileId: 'p2',
+        botName: 'Dragon',
+        botId: 'b2',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue({
+        id: 5,
+        device_id: 'd1',
+        notification_token: 'ExponentPushToken[test]',
+        notify_on_new_chat: false,
+        notify_on_new_message: false,
+        notify_digest_only: false,
+        deleted_at: null,
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      // These ids are what keep the save targeted: without them the
+      // backend falls back to the oldest profile/bot rows.
+      expect(bootstrapOnboarding).toHaveBeenCalledWith(
+        expect.objectContaining({
+          profileName: 'Alex',
+          profileId: 'p2',
+          botName: 'Dragon',
+          botId: 'b2',
+        })
+      );
+    });
+
+    it('resolves configured rows beyond the first list page instead of selecting row one', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Zed',
+        profileId: 'p9',
+        botName: 'Late Bot',
+        botId: 'b9',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Maya' }],
+        count: 2,
+      });
+      (fetchProfile as jest.Mock).mockResolvedValue({
+        profile_id: 'p9',
+        name: 'Zed',
+      });
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      (tryFetchBot as jest.Mock).mockResolvedValue(null);
+      (fetchBot as jest.Mock).mockResolvedValue({
+        bot_id: 'b9',
+        name: 'Late Bot',
+      });
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { profileId: 'p9', botId: 'b9' },
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      // Page-one misses resolve through the single-item endpoints so the
+      // wizard selects exactly what it configured, not the first rows.
+      expect(fetchProfile).toHaveBeenCalledWith('p9');
+      expect(fetchBot).toHaveBeenCalledWith('b9');
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'selectedProfile',
+        JSON.stringify({ profile_id: 'p9', name: 'Zed' })
+      );
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'selectedBot',
+        JSON.stringify({ bot_id: 'b9', name: 'Late Bot' })
+      );
+    });
+
+    it('leaves the prior selection intact when configured rows cannot be resolved', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Alex',
+        profileId: 'p9',
+        botName: 'Dragon',
+        botId: 'b9',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Maya' }],
+        count: 2,
+      });
+      (fetchProfile as jest.Mock).mockResolvedValue(null);
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      (tryFetchBot as jest.Mock).mockResolvedValue(null);
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { profileId: 'p9', botId: 'b9' },
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      // A transient failure must not cache row one over the configured
+      // rows: the prior selection is left for chat to resolve.
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'selectedProfile',
+        expect.anything()
+      );
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'selectedBot',
+        expect.anything()
+      );
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('redirects to login when the finish lookups hit an expired session', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Alex',
+        profileId: 'p9',
+        botName: 'Dragon',
+        botId: 'b9',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
+      (fetchProfiles as jest.Mock).mockResolvedValue({
+        results: [{ profile_id: 'p1', name: 'Maya' }],
+        count: 2,
+      });
+      const { UnauthorizedError: RealUnauthorizedError } = jest.requireActual(
+        '@/api/apiClient'
+      );
+      (fetchProfile as jest.Mock).mockRejectedValue(
+        new RealUnauthorizedError()
+      );
+      (fetchBots as jest.Mock).mockResolvedValue({
+        results: [{ bot_id: 'b1', name: 'Penelope' }],
+        count: 2,
+      });
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
+        data: { profileId: 'p9', botId: 'b9' },
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(mockRouter.replace).toHaveBeenCalledWith('/login');
+      expect(mockRouter.replace).not.toHaveBeenCalledWith('/chat');
+    });
+
+    it('persists turning all notification toggles off in review mode', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue({
+        id: 5,
+        device_id: 'd1',
+        notification_token: 'ExponentPushToken[test]',
+        notify_on_new_chat: true,
+        notify_on_new_message: true,
+        notify_digest_only: false,
+        deleted_at: null,
+      });
+      (upsertDevice as jest.Mock).mockResolvedValue({
+        device_id: 'd1',
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      fireEvent(screen.getByTestId('onboarding-notifications-switch'), 'onValueChange', false);
+      fireEvent(screen.getByTestId('onboarding-notify-message-switch'), 'onValueChange', false);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(registerForPushNotificationsAsync).not.toHaveBeenCalled();
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 5,
+          device_id: 'd1',
+          notify_on_new_chat: false,
+          notify_on_new_message: false,
+          notify_digest_only: false,
+        })
+      );
+    });
+
+    it('does not clear review notifications when a stored device id no longer loads', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue(null);
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(registerForPushNotificationsAsync).not.toHaveBeenCalled();
+      expect(fetchDeviceByToken).not.toHaveBeenCalled();
+      expect(upsertDevice).not.toHaveBeenCalled();
+      expect(bootstrapOnboarding).toHaveBeenCalled();
+      expect(screen.getByTestId('onboarding-notification-warning').props.children).toContain(
+        "couldn't load your current notification settings"
+      );
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('hides the unloadable-settings warning when a toggle is on and still saves best-effort', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue(null);
+      (registerForPushNotificationsAsync as jest.Mock).mockResolvedValue(
+        'ExponentPushToken[test]'
+      );
+      (fetchDeviceByToken as jest.Mock).mockResolvedValue(null);
+      (upsertDevice as jest.Mock).mockResolvedValue({
+        device_id: 'd1',
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      fireEvent(screen.getByTestId('onboarding-notifications-switch'), 'onValueChange', true);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(
+        screen.queryByTestId('onboarding-notification-warning')
+      ).toBeNull();
+      expect(upsertDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notify_on_new_chat: true,
+        })
+      );
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('allows review completion with notifications off when no device record exists', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(bootstrapOnboarding).toHaveBeenCalledWith(
+        expect.objectContaining({
+          profileName: 'Maya',
+          botName: 'Penelope',
+          templateName: 'Blank',
+        })
+      );
+      expect(upsertDevice).not.toHaveBeenCalled();
+      expect(mockRouter.replace).toHaveBeenCalledWith('/chat');
+    });
+
+    it('does not persist review notification changes when bootstrap fails', async () => {
+      (useLocalSearchParams as jest.Mock).mockReturnValue({
+        profileName: 'Maya',
+        botName: 'Penelope',
+        templateName: 'Blank',
+        review: 'true',
+      });
+      (bootstrapOnboarding as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 400,
+        data: {
+          studentEmail: ['That email is already used by another profile.'],
+        },
+      });
+      (getDeviceIdFromStorage as jest.Mock).mockResolvedValue('d1');
+      (fetchDevice as jest.Mock).mockResolvedValue({
+        id: 5,
+        device_id: 'd1',
+        notification_token: 'ExponentPushToken[test]',
+        notify_on_new_chat: true,
+        notify_on_new_message: true,
+        notify_digest_only: false,
+        deleted_at: null,
+      });
+
+      render(<OnboardingNotifications />);
+      await act(async () => {});
+
+      fireEvent(screen.getByTestId('onboarding-notifications-switch'), 'onValueChange', false);
+      fireEvent(screen.getByTestId('onboarding-notify-message-switch'), 'onValueChange', false);
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('onboarding-finish'));
+      });
+
+      expect(upsertDevice).not.toHaveBeenCalled();
       expect(mockRouter.replace).not.toHaveBeenCalled();
     });
   });

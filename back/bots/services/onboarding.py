@@ -67,6 +67,43 @@ def _clean_student_email(student_email):
     return normalized
 
 
+def _clean_uuid(value, field):
+    """Validate an optional UUID param; blank/None means "not supplied".
+
+    Malformed values 400 so a stale client can't silently retarget the
+    wrong row — the wizard only ever sends ids it read from the API.
+    """
+    if value in (None, ''):
+        return None
+    import uuid as _uuid
+    try:
+        return str(_uuid.UUID(str(value)))
+    except (ValueError, AttributeError, TypeError):
+        raise ValidationError({field: 'Invalid id.'})
+
+
+def _resolve_profile(user, profile_id):
+    """Return the targeted profile when the wizard names one.
+
+    None means "no preference" (first-run): fall back to the oldest active
+    profile. A supplied id that no longer resolves returns None so the
+    caller recreates instead of hijacking a different profile.
+    """
+    if profile_id is None:
+        return Profile.objects.filter(
+            user=user, deleted_at=None).order_by('id').first()
+    return Profile.objects.filter(
+        user=user, profile_id=profile_id, deleted_at=None).first()
+
+
+def _resolve_bot(user, bot_id):
+    """Same targeting rule as _resolve_profile, for bots."""
+    if bot_id is None:
+        return Bot.objects.filter(user=user, deleted_at=None).order_by('id').first()
+    return Bot.objects.filter(
+        user=user, bot_id=bot_id, deleted_at=None).first()
+
+
 @transaction.atomic
 def bootstrap_onboarding(user,
                          profile_name=None,
@@ -76,28 +113,40 @@ def bootstrap_onboarding(user,
                          system_prompt=None,
                          color=None,
                          icon=None,
-                         student_email=None):
+                         student_email=None,
+                         profile_id=None,
+                         bot_id=None):
     """Apply the wizard's choices to the account's default content.
 
-    Matches by "default" profile / first bot so retries never duplicate rows:
-    the signup signal already provisioned a profile and a Penelope bot, which
-    this renames/updates in place rather than creating new ones.
+    First-run (no ids) matches the oldest profile / first bot so retries
+    never duplicate rows: the signup signal already provisioned a profile
+    and a Penelope bot, which this renames/updates in place rather than
+    creating new ones.
+
+    Review reruns (Settings → Review onboarding) pass the selected
+    profileId/botId the wizard pre-filled from, so re-saving updates those
+    exact rows instead of clobbering the oldest ones when several exist.
+    A supplied id that no longer resolves recreates rather than hijacking
+    a different row.
 
     PIN is validated first so a 400 never leaves half-applied renames behind.
     PIN-less (pin=None/'') completes onboarding without setting a PIN.
     """
-    # Validate everything up front: invalid PIN / name / email must 400
-    # before any profile or bot row is touched.
+    # Validate everything up front: invalid PIN / name / email / id must
+    # 400 before any profile or bot row is touched.
     pin_value = _clean_pin(pin)
     cleaned_name = _clean_profile_name(profile_name)
     cleaned_email = _clean_student_email(student_email)
+    cleaned_profile_id = _clean_uuid(profile_id, 'profileId')
+    cleaned_bot_id = _clean_uuid(bot_id, 'botId')
 
-    profile = Profile.objects.filter(
-        user=user, deleted_at=None).order_by('id').first()
+    profile = _resolve_profile(user, cleaned_profile_id)
     if profile is None:
-        # Parent deleted the signal-provisioned default; recreate it. A name
+        # No target (deleted default, or stale review id): recreate. A name
         # is required here — persisting '' would create a blank profile
         # (Profile has no blank=True), so omit/blank names 400 instead.
+        # Never fall back to another profile when an id was supplied: that
+        # would rename a row the user wasn't reviewing.
         if not cleaned_name:
             raise ValidationError(
                 {'profileName': 'Profile name must not be blank.'})
@@ -126,8 +175,11 @@ def bootstrap_onboarding(user,
                 raise ValidationError(
                     {'studentEmail': 'That email is already used by another profile.'})
 
-    bot = Bot.objects.filter(user=user, deleted_at=None).order_by('id').first()
+    bot = _resolve_bot(user, cleaned_bot_id)
     if bot is None:
+        # No target (no bots yet, or stale review id): create. Never fall
+        # back to another bot when an id was supplied — that would
+        # overwrite a bot the user wasn't reviewing with a duplicate.
         default_model = AiModel.objects.filter(is_default=True).first()
         bot = Bot.objects.create(
             user=user,

@@ -1,4 +1,5 @@
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -6,6 +7,10 @@ from rest_framework.views import APIView
 
 from bots.models.user_account import MAX_COST_DAILY
 from bots.permissions import IsParentSession, ParentReauthRequired
+from bots.serializers import (
+    OnboardingBootstrapResponseSerializer,
+    OnboardingBootstrapSerializer,
+)
 from bots.services.onboarding import bootstrap_onboarding
 from bots.services.parent_reauth import (
     has_valid_parent_reauth,
@@ -121,10 +126,18 @@ def onboarding_complete_view(request):
     return Response({'response': 'ok', 'onboardingCompleted': True})
 
 
+@extend_schema(
+    request=OnboardingBootstrapSerializer,
+    responses={200: OnboardingBootstrapResponseSerializer},
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def onboarding_bootstrap_view(request):
-    """Atomic wizard save: profile name, first bot, PIN and completion flag."""
+    """Atomic wizard save: profile name, selected bot, PIN and completion flag.
+
+    Review reruns pass the pre-filled profileId/botId so re-saving updates
+    those exact rows; first-run omits them and updates the oldest rows.
+    """
     if is_teen_delegated(request):
         return Response({'detail': TEEN_DELEGATED_DETAIL}, status=403)
 
@@ -139,6 +152,8 @@ def onboarding_bootstrap_view(request):
         color=data.get('color'),
         icon=data.get('icon'),
         student_email=data.get('studentEmail'),
+        profile_id=data.get('profileId'),
+        bot_id=data.get('botId'),
     )
     return Response({
         'response': 'ok',

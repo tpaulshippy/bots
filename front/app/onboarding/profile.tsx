@@ -4,8 +4,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { fetchProfiles } from "@/api/profiles";
-import { getSelectedProfile } from "@/hooks/useSelectedProfile";
+import { tryFetchProfile, tryFetchProfiles } from "@/api/profiles";
+import { getSelectedProfile, handleUnauthorized } from "@/hooks/useSelectedProfile";
 import { WizardStep } from "./WizardStep";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -16,6 +16,15 @@ export default function OnboardingProfile() {
   const isReview = review === "true";
   const [name, setName] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
+  // Review mode targets the pre-filled row on save (see bootstrap
+  // profileId): the selected profile, else the first on the account.
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [reviewPrefillLoaded, setReviewPrefillLoaded] = useState(!isReview);
+  const [reviewCanCreateProfile, setReviewCanCreateProfile] = useState(false);
+  // True when the selected id missed page one and the confirming lookup
+  // failed transiently: the cached snapshot may be stale, so Continue
+  // stays gated instead of submitting outdated name/email.
+  const [reviewTargetUnverified, setReviewTargetUnverified] = useState(false);
 
   // Review mode: pre-fill with what's currently configured so the wizard
   // doubles as a way to verify the setup. Prefer the selected profile,
@@ -28,37 +37,103 @@ export default function OnboardingProfile() {
     (async () => {
       try {
         const selected = await getSelectedProfile().catch(() => null);
-        const selectedName =
-          selected && typeof selected.name === "string"
-            ? selected.name
-            : "";
-        const selectedEmail =
-          selected && typeof selected.oauth_email === "string"
-            ? selected.oauth_email
-            : "";
-        if (selectedName && active) {
-          setName(selectedName);
-          setStudentEmail(selectedEmail ?? "");
+        // tryFetchProfiles (not fetchProfiles): a failed fetch must read as
+        // "couldn't load" (null), never as "no profiles" — fetchProfiles
+        // resolves an empty fallback on failure, and continuing ID-less
+        // would rename the oldest profile instead of the selected one.
+        // Auth errors propagate so an expired session reaches login
+        // instead of idling on a gated wizard.
+        const profiles = await tryFetchProfiles().catch((error: unknown) => {
+          if ((error as { name?: string })?.name === "UnauthorizedError") {
+            throw error;
+          }
+          return null;
+        });
+        const selectedId =
+          selected && typeof selected.profile_id === "string"
+            ? selected.profile_id
+            : null;
+        // Resolve the selected id against live data first: the cached
+        // snapshot goes stale, so submitting it for a correct profileId
+        // would overwrite newer server name/email and break idempotency
+        // (same rule as the bot step). Auth errors propagate to login.
+        const liveMatch =
+          (selectedId &&
+            profiles?.results?.find(
+              (profile) => profile.profile_id === selectedId
+            )) ||
+          null;
+        let serverMatch = null;
+        if (selectedId && !liveMatch) {
+          const lookup = await tryFetchProfile(selectedId);
+          if (lookup && lookup !== "missing" && !lookup.deleted_at) {
+            serverMatch = lookup;
+          } else if (lookup === null && active) {
+            // Unverifiable target (failed list and/or failed lookup):
+            // prefill stays but Continue gates below instead of
+            // submitting possibly-stale name/email.
+            setReviewTargetUnverified(true);
+          }
+        }
+        // Row one prefills only when no prior selection exists: with a
+        // selectedId, falling back to it would target (and save) the
+        // wrong profile.
+        const current =
+          liveMatch ||
+          serverMatch ||
+          (selectedId && typeof selected.name === "string" ? selected : null) ||
+          (!selectedId ? profiles?.results?.[0] : null) ||
+          null;
+        if (current && active) {
+          setName(current.name ?? "");
+          setStudentEmail(current.oauth_email ?? "");
+          if (typeof current.profile_id === "string") {
+            setProfileId(current.profile_id);
+          }
+          setReviewCanCreateProfile(false);
+        } else if (active) {
+          if (selectedId) {
+            // Unresolvable prior selection with an unusable snapshot:
+            // keep targeting the id (a save recreates rather than
+            // renaming the oldest profile) but blank the form so
+            // Continue stays gated until the user types a name.
+            setProfileId(selectedId);
+            setName("");
+            setStudentEmail("");
+            setReviewCanCreateProfile(false);
+          } else {
+            // Null means the fetch failed (genuinely empty lists resolve to
+            // { results: [] }): stay gated until a target row is known.
+            setReviewCanCreateProfile(
+              profiles !== null && profiles.results.length === 0
+            );
+          }
+        }
+      } catch (error) {
+        // An expired session leaves the wizard for login; every other
+        // prefill failure is best-effort and the wizard still works blank.
+        if (await handleUnauthorized(error, router)) {
           return;
         }
-        const profiles = await fetchProfiles().catch(() => null);
-        const first = profiles?.results?.[0];
-        if (first && active) {
-          setName(first.name ?? "");
-          setStudentEmail(first.oauth_email ?? "");
+      } finally {
+        if (active) {
+          setReviewPrefillLoaded(true);
         }
-      } catch {
-        // Prefill is best-effort; the wizard still works blank.
       }
     })();
     return () => {
       active = false;
     };
-  }, [isReview]);
+  }, [isReview, router]);
 
   const trimmedEmail = studentEmail.trim();
   const emailValid = trimmedEmail === "" || EMAIL_PATTERN.test(trimmedEmail);
-  const canContinue = name.trim().length > 0 && emailValid;
+  const canContinue =
+    (!isReview || reviewPrefillLoaded) &&
+    (!isReview || profileId !== null || reviewCanCreateProfile) &&
+    (!isReview || !reviewTargetUnverified) &&
+    name.trim().length > 0 &&
+    emailValid;
 
   // X gets out without saving: review mode returns to Settings, first-run
   // drops to chat (which re-gates to the wizard if nothing exists yet).
@@ -123,8 +198,11 @@ export default function OnboardingProfile() {
             pathname: "/onboarding/bot",
             params: {
               profileName: name.trim(),
-              ...(trimmedEmail ? { studentEmail: trimmedEmail.toLowerCase() } : {}),
+              ...(isReview || trimmedEmail
+                ? { studentEmail: trimmedEmail.toLowerCase() }
+                : {}),
               ...(isReview ? { review: "true" } : {}),
+              ...(isReview && profileId ? { profileId } : {}),
             },
           })
         }

@@ -13,7 +13,9 @@ export default function OnboardingProtect() {
   const local = useLocalSearchParams<{
     profileName?: string;
     studentEmail?: string;
+    profileId?: string;
     botName?: string;
+    botId?: string;
     templateName?: string;
     systemPrompt?: string;
     color?: string;
@@ -62,8 +64,12 @@ export default function OnboardingProtect() {
       pathname: "/onboarding/notifications",
       params: {
         profileName: local.profileName ?? "",
-        ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
+        ...(local.studentEmail !== undefined
+          ? { studentEmail: local.studentEmail }
+          : {}),
+        ...(local.profileId ? { profileId: local.profileId } : {}),
         ...(local.botName ? { botName: local.botName } : {}),
+        ...(local.botId ? { botId: local.botId } : {}),
         ...(local.templateName ? { templateName: local.templateName } : {}),
         ...(local.systemPrompt ? { systemPrompt: local.systemPrompt } : {}),
         ...(local.color ? { color: local.color } : {}),

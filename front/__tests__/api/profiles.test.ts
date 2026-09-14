@@ -1,4 +1,4 @@
-import { fetchProfiles, upsertProfile } from '../../api/profiles';
+import { fetchProfiles, upsertProfile, tryFetchProfiles, tryFetchProfile } from '../../api/profiles';
 import { apiClient } from '../../api/apiClient';
 
 jest.mock('../../api/apiClient', () => ({
@@ -47,6 +47,119 @@ describe('Profiles API', () => {
       const profile = response!.results[0];
       expect(profile).toHaveProperty('profile_id');
       expect(profile).toHaveProperty('name');
+    });
+  });
+
+  describe('tryFetchProfiles', () => {
+    it('resolves a genuinely empty list (distinct from failure)', async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: { results: [], count: 0 },
+      });
+
+      await expect(tryFetchProfiles()).resolves.toEqual({
+        results: [],
+        count: 0,
+      });
+    });
+
+    it('resolves null on 404, 5xx, and transport failure', async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        data: { detail: 'Not found.' },
+      });
+      await expect(tryFetchProfiles()).resolves.toBeNull();
+
+      (apiClient as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        data: null,
+      });
+      await expect(tryFetchProfiles()).resolves.toBeNull();
+
+      (apiClient as jest.Mock).mockRejectedValueOnce(
+        new Error('Network request failed')
+      );
+      await expect(tryFetchProfiles()).resolves.toBeNull();
+    });
+
+    it('rethrows auth errors so expired sessions reach login', async () => {
+      (apiClient as jest.Mock).mockRejectedValueOnce(
+        Object.assign(new Error('Unauthorized'), {
+          name: 'UnauthorizedError',
+        })
+      );
+
+      await expect(tryFetchProfiles()).rejects.toMatchObject({
+        name: 'UnauthorizedError',
+      });
+    });
+  });
+
+  describe('tryFetchProfile', () => {
+    const profile = {
+      id: 1,
+      profile_id: '550e8400-e29b-41d4-a716-446655440000',
+      name: 'Test Profile',
+      deleted_at: null,
+    };
+
+    it('resolves the profile on success', async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: profile,
+      });
+
+      await expect(tryFetchProfile(profile.profile_id)).resolves.toEqual(
+        profile
+      );
+    });
+
+    it("resolves 'missing' on 404 and on foreign-row 403", async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        data: { detail: 'Not found.' },
+      });
+      await expect(tryFetchProfile('nope')).resolves.toBe('missing');
+
+      (apiClient as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        data: { detail: 'You do not have permission.' },
+      });
+      await expect(tryFetchProfile('foreign')).resolves.toBe('missing');
+    });
+
+    it('resolves null on 5xx and transport failure', async () => {
+      (apiClient as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        data: null,
+      });
+      await expect(tryFetchProfile(profile.profile_id)).resolves.toBeNull();
+
+      (apiClient as jest.Mock).mockRejectedValueOnce(
+        new Error('Network request failed')
+      );
+      await expect(tryFetchProfile(profile.profile_id)).resolves.toBeNull();
+    });
+
+    it('rethrows auth errors so expired sessions reach login', async () => {
+      (apiClient as jest.Mock).mockRejectedValueOnce(
+        Object.assign(new Error('Unauthorized'), {
+          name: 'UnauthorizedError',
+        })
+      );
+
+      await expect(
+        tryFetchProfile(profile.profile_id)
+      ).rejects.toMatchObject({
+        name: 'UnauthorizedError',
+      });
     });
   });
 

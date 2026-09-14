@@ -158,6 +158,15 @@ describe('tokens session helpers', () => {
         })
       );
     });
+
+    it('drops cached account-scoped selections so the next login reseeds', async () => {
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+
+      await clearUser();
+
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('selectedProfile');
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('selectedBot');
+    });
   });
 
   describe('setTokens', () => {

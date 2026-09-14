@@ -5,8 +5,10 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { fetchBots } from "@/api/bots";
-import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
+import { fetchBots, tryFetchBot } from "@/api/bots";
+import type { Bot } from "@/api/bots";
+import { fetchOwnProfile, fetchProfiles, tryFetchProfile } from "@/api/profiles";
+import type { PaginatedResponse } from "@/api/request";
 import { UnauthorizedError } from "@/api/apiClient";
 import { clearUser, getSessionMode, sessionFromQueryParams, setTokens } from "@/api/tokens";
 
@@ -21,38 +23,104 @@ export function useAuthBootstrap(loaded: boolean) {
 
   const setProfile = useCallback(async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");
-    const profiles = await fetchProfiles();
-    if (profileData) {
-      let profile: { profile_id?: string } | null = null;
-      try {
-        profile = JSON.parse(profileData);
-      } catch {
-        profile = null;
-      }
-      if (!profile || typeof profile.profile_id !== "string") {
-        await AsyncStorage.removeItem("selectedProfile");
-        if (profiles && profiles.count > 0) {
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(profiles.results[0])
-          );
-        }
+    // Fetch first (as before): callers rely on the list being consulted
+    // even when nothing is stored.
+    const profiles = await fetchProfiles().catch(() => null);
+    if (!profileData) {
+      return;
+    }
+    let profile: { profile_id?: string } | null = null;
+    try {
+      profile = JSON.parse(profileData);
+    } catch {
+      profile = null;
+    }
+    const storedId =
+      profile && typeof profile.profile_id === "string"
+        ? profile.profile_id
+        : null;
+    if (storedId && profiles?.results.some((p) => p.profile_id === storedId)) {
+      return;
+    }
+    if (storedId) {
+      // Page one is not the whole account: resolve through the detail
+      // endpoint before treating the id as foreign. Auth errors propagate
+      // to the login redirect; anything unverifiable keeps the selection.
+      const lookup = await tryFetchProfile(storedId);
+      if (lookup && lookup !== "missing" && !lookup.deleted_at) {
         return;
       }
-      const profileExists = profiles?.results.some(
-        (p) => p.profile_id === profile.profile_id
-      );
-      if (!profileExists) {
-        await AsyncStorage.removeItem("selectedProfile");
-        if (profiles && profiles.count > 0) {
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(profiles.results[0])
-          );
-        }
+      // A failed list load leaves nothing to reseed from: keep the
+      // selection rather than stranding the user with none.
+      if (lookup === null || !profiles) {
+        return;
       }
     }
+    await AsyncStorage.removeItem("selectedProfile");
+    if (profiles && profiles.count > 0) {
+      await AsyncStorage.setItem(
+        "selectedProfile",
+        JSON.stringify(profiles.results[0])
+      );
+    }
   }, []);
+
+  /**
+   * Same ownership repair as setProfile, for the selected bot: a stored
+   * selection from another account (or a deleted bot) is dropped and
+   * re-seeded from the live list. Two safeguards: the stored id is resolved
+   * with a failure-distinguishing single-bot lookup before giving up (page
+   * one is not the whole account, and the detail endpoint can return
+   * soft-deleted rows), and anything unverifiable — failed fetches,
+   * offline, denied — keeps the stored selection.
+   */
+  const setBot = useCallback(
+    async (prefetchedBots?: PaginatedResponse<Bot> | null) => {
+      const botData = await AsyncStorage.getItem("selectedBot");
+      if (!botData) {
+        return;
+      }
+      let bot: { bot_id?: string } | null = null;
+      try {
+        bot = JSON.parse(botData);
+      } catch {
+        bot = null;
+      }
+      const storedId =
+        bot && typeof bot.bot_id === "string" ? bot.bot_id : null;
+      const bots =
+        prefetchedBots === undefined
+          ? await fetchBots().catch(() => null)
+          : prefetchedBots;
+      if (storedId && bots?.results.some((b) => b.bot_id === storedId)) {
+        return;
+      }
+      // Only a confirmed absence clears the selection: 'missing' on 404 or
+      // a soft-deleted detail row (both with a loaded list to reseed from).
+      let confirmedGone = !storedId;
+      if (storedId) {
+        // No catch: tryFetchBot maps every non-auth failure to null and
+        // only auth errors throw, which must reach the login redirect in
+        // initialNavigationChecks rather than look like an unverifiable
+        // selection.
+        const lookup = await tryFetchBot(storedId);
+        confirmedGone =
+          !!bots &&
+          (lookup === "missing" || (!!lookup && !!lookup.deleted_at));
+      }
+      if (!confirmedGone) {
+        return;
+      }
+      await AsyncStorage.removeItem("selectedBot");
+      if (bots && bots.count > 0) {
+        await AsyncStorage.setItem(
+          "selectedBot",
+          JSON.stringify(bots.results[0])
+        );
+      }
+    },
+    []
+  );
 
   /**
    * Teen-delegated sessions never see the profile picker: fetch only their
@@ -82,12 +150,16 @@ export function useAuthBootstrap(loaded: boolean) {
 
   const initialNavigationChecks = useCallback(async () => {
     try {
-      await fetchBots();
+      // Doubles as the logged-out probe (401 throws → redirect below);
+      // the result is reused so setBot doesn't fetch the list twice.
+      const bots = await fetchBots();
       const mode = await getSessionMode();
       if (mode.isTeenDelegated) {
         await setDelegatedProfile();
+        await setBot(bots);
       } else {
         await setProfile();
+        await setBot(bots);
       }
     } catch (error) {
       if (error instanceof UnauthorizedError) {
@@ -98,7 +170,7 @@ export function useAuthBootstrap(loaded: boolean) {
         Sentry.captureException?.(error);
       }
     }
-  }, [router, setDelegatedProfile, setProfile]);
+  }, [router, setBot, setDelegatedProfile, setProfile]);
 
   const getJWTFromLink = useCallback(async (event?: any): Promise<boolean> => {
     const url = event?.url;

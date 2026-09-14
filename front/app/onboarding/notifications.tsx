@@ -17,7 +17,7 @@ import {
   completeOnboarding,
 } from "@/api/account";
 import { fieldMessage } from "@/api/fieldErrors";
-import { fetchBots } from "@/api/bots";
+import { fetchBot, fetchBots } from "@/api/bots";
 import {
   fetchDevice,
   fetchDeviceByToken,
@@ -25,8 +25,11 @@ import {
   setDeviceIdInStorage,
   upsertDevice,
 } from "@/api/devices";
-import { fetchProfiles } from "@/api/profiles";
-import { setSelectedProfile } from "@/hooks/useSelectedProfile";
+import { fetchProfile, fetchProfiles } from "@/api/profiles";
+import {
+  handleUnauthorized,
+  setSelectedProfile,
+} from "@/hooks/useSelectedProfile";
 import { registerForPushNotificationsAsync } from "../parent/notifications";
 import { WizardStep } from "./WizardStep";
 
@@ -35,7 +38,9 @@ export default function OnboardingNotifications() {
   const local = useLocalSearchParams<{
     profileName?: string;
     studentEmail?: string;
+    profileId?: string;
     botName?: string;
+    botId?: string;
     templateName?: string;
     systemPrompt?: string;
     color?: string;
@@ -44,9 +49,9 @@ export default function OnboardingNotifications() {
     review?: string;
   }>();
   // Review mode (?review=true): re-walking the wizard to verify the current
-  // setup. Earlier steps pre-fill from the API; finishing saves normally —
-  // bootstrap is idempotent (renames in place, never duplicates), so leaving
-  // everything unchanged changes nothing.
+  // setup. Earlier steps pre-fill from the selected profile/bot and pass
+  // their ids through, so finishing updates those exact rows in place —
+  // leaving everything unchanged changes nothing.
   const isReview = local.review === "true";
 
   // Same per-device flags as Settings → Notifications (PR 46): digest-only
@@ -56,6 +61,13 @@ export default function OnboardingNotifications() {
   const [notifyDigestOnly, setNotifyDigestOnly] = useState(false);
   const [notifyStudyDue, setNotifyStudyDue] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [reviewDevice, setReviewDevice] = useState<Awaited<
+    ReturnType<typeof fetchDevice>
+  > | null>(null);
+  const [reviewDeviceLoaded, setReviewDeviceLoaded] = useState(!isReview);
+  const [storedReviewDeviceId, setStoredReviewDeviceId] = useState<string | null>(
+    null
+  );
   // Field error from the last failed save (e.g. taken student email), shown
   // inline so the user can go back and fix it instead of losing the wizard.
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -71,6 +83,9 @@ export default function OnboardingNotifications() {
     (async () => {
       try {
         const deviceId = await getDeviceIdFromStorage().catch(() => null);
+        if (active) {
+          setStoredReviewDeviceId(deviceId);
+        }
         if (!deviceId) {
           return;
         }
@@ -79,10 +94,15 @@ export default function OnboardingNotifications() {
           setNotifyOnNewChat(current.notify_on_new_chat);
           setNotifyOnNewMessage(current.notify_on_new_message);
           setNotifyDigestOnly(current.notify_digest_only);
+          setReviewDevice(current);
           setNotifyStudyDue(current.notify_study_due ?? false);
         }
       } catch {
         // Prefill is best-effort; the wizard still works all-off.
+      } finally {
+        if (active) {
+          setReviewDeviceLoaded(true);
+        }
       }
     })();
     return () => {
@@ -115,6 +135,23 @@ export default function OnboardingNotifications() {
       !notifyDigestOnly &&
       !notifyStudyDue
     ) {
+      if (!isReview || !reviewDeviceLoaded || !reviewDevice) {
+        return;
+      }
+      try {
+        const saved = await upsertDevice({
+          ...reviewDevice,
+          notify_on_new_chat: false,
+          notify_on_new_message: false,
+          notify_digest_only: false,
+          notify_study_due: false,
+        });
+        if (saved) {
+          await setDeviceIdInStorage(saved.device_id);
+        }
+      } catch (error) {
+        Sentry.captureException?.(error);
+      }
       return;
     }
     try {
@@ -148,14 +185,20 @@ export default function OnboardingNotifications() {
     if (saving) {
       return;
     }
+    if (isReview && !reviewDeviceLoaded) {
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
-      await persistNotificationChoices();
       const response = await bootstrapOnboarding({
         profileName: local.profileName ?? "",
-        ...(local.studentEmail ? { studentEmail: local.studentEmail } : {}),
+        ...(local.studentEmail !== undefined
+          ? { studentEmail: local.studentEmail }
+          : {}),
+        ...(local.profileId ? { profileId: local.profileId } : {}),
         botName: local.botName || undefined,
+        ...(local.botId ? { botId: local.botId } : {}),
         templateName: local.templateName || undefined,
         systemPrompt: local.systemPrompt || undefined,
         color: local.color || undefined,
@@ -198,23 +241,61 @@ export default function OnboardingNotifications() {
       const botId =
         typeof result?.botId === "string" ? result.botId : undefined;
 
-      // Select exactly the renamed default profile and first bot so the very
+      await persistNotificationChoices();
+
+      // Select exactly the configured profile and bot so the very
       // first chat needs no further setup (fixes "Please select a profile
-      // first"). Listings are name-ordered, so match by id when we have one.
+      // first"). Listings are name-ordered and paginated, so match by id
+      // when we have one — resolving through the single-item endpoints on
+      // a page-one miss (the target may live on a later page), and only
+      // falling back to the first row when the target can't be resolved.
+      // Single lookups can return soft-deleted rows, which are never valid
+      // selections.
       const profiles = await fetchProfiles();
       const profilesList = profiles?.results ?? [];
+      const listedProfile =
+        profileId && profilesList.find((p) => p.profile_id === profileId);
+      let fetchedProfile = null;
+      if (profileId && !listedProfile) {
+        // Auth errors propagate to the login redirect in the finish
+        // handler; anything else reads as unresolvable (prior selection
+        // is left intact rather than overwritten with row one).
+        const single = await fetchProfile(profileId).catch((error: unknown) => {
+          if ((error as { name?: string })?.name === "UnauthorizedError") {
+            throw error;
+          }
+          return null;
+        });
+        if (single && !single.deleted_at) {
+          fetchedProfile = single;
+        }
+      }
+      // No first-row fallback when the wizard targeted a row: if the
+      // configured profile can't be resolved (transient failure), caching
+      // row one would open the next chat under the wrong profile. The
+      // prior selection is left intact instead.
       const profile =
-        (profileId &&
-          profilesList.find((p) => p.profile_id === profileId)) ||
-        profilesList[0];
+        listedProfile || fetchedProfile || (!profileId ? profilesList[0] : undefined);
       if (profile) {
         await setSelectedProfile(profile);
       }
       const bots = await fetchBots();
       const botsList = bots?.results ?? [];
-      const bot =
-        (botId && botsList.find((b) => b.bot_id === botId)) ||
-        botsList[0];
+      const listedBot = botId && botsList.find((b) => b.bot_id === botId);
+      let fetchedBot = null;
+      if (botId && !listedBot) {
+        // Same auth contract as the profile lookup above.
+        const single = await fetchBot(botId).catch((error: unknown) => {
+          if ((error as { name?: string })?.name === "UnauthorizedError") {
+            throw error;
+          }
+          return null;
+        });
+        if (single && !single.deleted_at) {
+          fetchedBot = single;
+        }
+      }
+      const bot = listedBot || fetchedBot || (!botId ? botsList[0] : undefined);
       if (bot) {
         await AsyncStorage.setItem("selectedBot", JSON.stringify(bot));
       }
@@ -223,6 +304,11 @@ export default function OnboardingNotifications() {
 
       router.replace("/chat");
     } catch (error) {
+      // An expired session leaves the wizard for login (the setup above
+      // already saved, so nothing is lost); anything else is surfaced.
+      if (await handleUnauthorized(error, router)) {
+        return;
+      }
       Sentry.captureException?.(error);
       setSaving(false);
       Alert.alert(
@@ -297,6 +383,15 @@ export default function OnboardingNotifications() {
       <ThemedText style={styles.optionalNote}>
         Optional — you can change these anytime in Settings → Notifications.
       </ThemedText>
+      {/* Only accurate when everything stays off: with any toggle on,
+          finishing still attempts a best-effort save below. */}
+      {isReview && reviewDeviceLoaded && storedReviewDeviceId && !reviewDevice &&
+      !notifyOnNewChat && !notifyOnNewMessage && !notifyDigestOnly && !notifyStudyDue ? (
+        <ThemedText testID="onboarding-notification-warning" style={styles.warning}>
+          We couldn&apos;t load your current notification settings. Finishing won&apos;t
+          change them.
+        </ThemedText>
+      ) : null}
       {saveError ? (
         <ThemedText testID="onboarding-save-error" style={styles.saveError}>
           {saveError}
@@ -308,6 +403,7 @@ export default function OnboardingNotifications() {
         <ThemedButton
           testID="onboarding-finish"
           style={styles.cta}
+          disabled={isReview && !reviewDeviceLoaded}
           onPress={finish}
         >
           <ThemedText lightColor="#fff" darkColor="#fff" style={styles.ctaText}>
@@ -320,6 +416,12 @@ export default function OnboardingNotifications() {
 }
 
 const styles = StyleSheet.create({
+  warning: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 12,
+    opacity: 0.7,
+  },
   saveError: {
     fontSize: 14,
     color: "#E63946",
