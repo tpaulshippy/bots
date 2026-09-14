@@ -1,8 +1,19 @@
-# Screenshots — 1.0.6 (iPhone 16 Pro Max, 6.9")
+# Screenshots — 1.0.6 (light mode)
 
-Captured 2026-09-14 in the iOS Simulator (iPhone 16 Pro Max, iOS 18.5)
-against a LOCAL backend seeded with demo data — no production data,
-no real children, no AI costs.
+Captured 2026-09-14 in the iOS Simulator (iOS 18.5) against a LOCAL backend
+seeded with demo data — no production data, no real children, no AI costs.
+
+## Sets in this package
+
+| Folder | Size class | Simulator | Pixels | For |
+|---|---|---|---|---|
+| `screenshots/` | 6.9" iPhone | iPhone 16 Pro Max | 1320×2868 | App Store **required** |
+| `screenshots-6.5/` | 6.5" iPhone | iPhone 13 Pro Max | 1284×2778 | App Store **required** |
+| `screenshots-6.7/` | 6.7" iPhone | iPhone 14 Pro Max | 1290×2796 | Bonus (6.7" slot) |
+| `screenshots-ipad/` | 13" iPad | iPad Pro 13" (M4) | 2064×2752 | App Store iPad slot |
+
+Each folder holds the same 11 shots (see table below). Upload the 6.9",
+6.5", and iPad sets; the 6.7" set is optional.
 
 ## Recipe (repeatable)
 
@@ -24,11 +35,13 @@ python manage.py runserver 127.0.0.1:8000
 EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api \
   npx expo run:ios --configuration Release --device "<sim-udid>"
 
-# 3. Capture (from repo root):
+# 3. Capture once per size class (from repo root). Example for 6.9":
 node scripts/capture-appstore-screenshots.js \
-  --udid "<sim-udid>" \
+  --udid "<16-pro-max-udid>" \
   --app "$HOME/Library/Developer/Xcode/DerivedData/SyftLearning-*/Build/Products/Release-iphonesimulator/SyftLearning.app" \
   --out docs/app-store/1.0.6/screenshots
+# Repeat with the 13 Pro Max UDID -> screenshots-6.5,
+# 14 Pro Max UDID -> screenshots-6.7, iPad Pro 13" UDID -> screenshots-ipad.
 ```
 
 Status bar is normalized (`9:41`, full signal/battery) via
@@ -52,8 +65,7 @@ Status bar is normalized (`9:41`, full signal/battery) via
 
 ## Before uploading to App Store Connect
 
-- 6.9" set (1320×2868): use these as-is.
-- 6.5" set (1284×2778): required alongside 6.9". Either downscale these
-  or re-run the recipe on an iPhone 16 Plus / 15 Pro Max simulator.
-- iPad 13": recommended (the app supports tablet) — re-run on an iPad Pro
-  simulator.
+- 6.9" set (1320×2868): use `screenshots/` as-is. ✅ in this package
+- 6.5" set (1284×2778): use `screenshots-6.5/` as-is. ✅ in this package
+- iPad 13": use `screenshots-ipad/` as-is. ✅ in this package
+- All sets are light mode (deliberate — see PR discussion).
