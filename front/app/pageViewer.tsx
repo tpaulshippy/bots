@@ -1,9 +1,10 @@
-import React, { useEffect, useLayoutEffect, useState } from "react";
-import { ActivityIndicator } from "react-native";
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { useThemeColor } from "@/hooks/useThemeColor";
 import { getPageLink } from "@/api/htmlPages";
 
 /**
@@ -19,10 +20,26 @@ export default function PageViewer() {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(!pageId);
   const navigation = useNavigation();
+  // WKWebView paints white until the document loads. Keep every layer
+  // (nav container, React wrapper, WebView, in-document root) on the
+  // theme background so dark mode never flashes white while opening.
+  const backgroundColor = useThemeColor({}, "background");
+  const spinnerColor = useThemeColor({}, "icon");
+
+  const paintBackgroundScript = useMemo(
+    () =>
+      `document.documentElement.style.background='${backgroundColor}';` +
+      `if(document.body){document.body.style.background='${backgroundColor}';}` +
+      `true;`,
+    [backgroundColor]
+  );
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: title || "Page" });
-  }, [navigation, title]);
+    navigation.setOptions({
+      title: title || "Page",
+      contentStyle: { backgroundColor },
+    });
+  }, [navigation, title, backgroundColor]);
 
   useEffect(() => {
     if (!pageId) return;
@@ -58,12 +75,36 @@ export default function PageViewer() {
   }
 
   return (
-    <WebView
-      testID="page-viewer-webview"
-      source={{ uri: url }}
-      domStorageEnabled={false}
-      startInLoadingState
-      renderLoading={() => <ActivityIndicator style={{ flex: 1 }} />}
-    />
+    <View testID="page-viewer-webview-wrapper" style={[styles.webviewContainer, { backgroundColor }]}>
+      <WebView
+        testID="page-viewer-webview"
+        source={{ uri: url }}
+        domStorageEnabled={false}
+        style={[styles.webview, { backgroundColor }]}
+        containerStyle={{ backgroundColor }}
+        injectedJavaScriptBeforeContentLoaded={paintBackgroundScript}
+        startInLoadingState
+        renderLoading={() => (
+          <View style={[styles.loadingOverlay, { backgroundColor }]}>
+            <ActivityIndicator color={spinnerColor} />
+          </View>
+        )}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  webviewContainer: {
+    flex: 1,
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+  loadingOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});
