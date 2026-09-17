@@ -9,6 +9,8 @@ import { useLocalSearchParams } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
 
 import { fetchChatMessages, sendChat, ChatMessage as ApiChatMessage } from "@/api/chats";
+import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
+import { getSessionMode } from "@/api/tokens";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
 import { E2E_TEST_IMAGE_URI } from "@/e2e/utils";
@@ -96,8 +98,40 @@ export default function Chat() {
     }
     setInput("");
     Keyboard.dismiss();
-    const profileId = await getSelectedProfileId();
+    let profileId = await getSelectedProfileId();
     const botId = await getSelectedBotId();
+    if (!profileId) {
+      // Last-resort safety net: bootstrap and login already auto-select,
+      // but a fresh teen-email login (parent session, no stored selection)
+      // could still arrive here with nothing stored. Select now instead of
+      // dead-ending on "Please select a profile".
+      try {
+        const mode = await getSessionMode();
+        if (mode.isTeenDelegated && mode.activeProfileId) {
+          const ownProfile =
+            (await fetchOwnProfile().catch(() => null)) ?? {
+              profile_id: mode.activeProfileId,
+            };
+          await AsyncStorage.setItem(
+            "selectedProfile",
+            JSON.stringify(ownProfile)
+          );
+          profileId = mode.activeProfileId;
+        } else {
+          const data = await fetchProfiles().catch(() => null);
+          const first = data?.results?.[0];
+          if (first) {
+            await AsyncStorage.setItem(
+              "selectedProfile",
+              JSON.stringify(first)
+            );
+            profileId = first.profile_id;
+          }
+        }
+      } catch {
+        // Fall through to the empty-state message below.
+      }
+    }
     if (!profileId) {
       const newAssistantMessage: ApiChatMessage = {
         role: "assistant",

@@ -22,34 +22,45 @@ export function useAuthBootstrap(loaded: boolean) {
   const setProfile = useCallback(async () => {
     const profileData = await AsyncStorage.getItem("selectedProfile");
     const profiles = await fetchProfiles();
-    if (profileData) {
-      let profile: { profile_id?: string } | null = null;
-      try {
-        profile = JSON.parse(profileData);
-      } catch {
-        profile = null;
+    if (!profileData) {
+      // Fresh login (e.g. a teen signing in with their own email bound to
+      // their own profile logs in as a parent session): no stored selection
+      // yet. Auto-select the first live profile so chat works immediately
+      // instead of dead-ending on "Please select a profile".
+      if (profiles && profiles.count > 0) {
+        await AsyncStorage.setItem(
+          "selectedProfile",
+          JSON.stringify(profiles.results[0])
+        );
       }
-      if (!profile || typeof profile.profile_id !== "string") {
-        await AsyncStorage.removeItem("selectedProfile");
-        if (profiles && profiles.count > 0) {
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(profiles.results[0])
-          );
-        }
-        return;
+      return;
+    }
+    let profile: { profile_id?: string } | null = null;
+    try {
+      profile = JSON.parse(profileData);
+    } catch {
+      profile = null;
+    }
+    if (!profile || typeof profile.profile_id !== "string") {
+      await AsyncStorage.removeItem("selectedProfile");
+      if (profiles && profiles.count > 0) {
+        await AsyncStorage.setItem(
+          "selectedProfile",
+          JSON.stringify(profiles.results[0])
+        );
       }
-      const profileExists = profiles?.results.some(
-        (p) => p.profile_id === profile.profile_id
-      );
-      if (!profileExists) {
-        await AsyncStorage.removeItem("selectedProfile");
-        if (profiles && profiles.count > 0) {
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(profiles.results[0])
-          );
-        }
+      return;
+    }
+    const profileExists = profiles?.results.some(
+      (p) => p.profile_id === profile.profile_id
+    );
+    if (!profileExists) {
+      await AsyncStorage.removeItem("selectedProfile");
+      if (profiles && profiles.count > 0) {
+        await AsyncStorage.setItem(
+          "selectedProfile",
+          JSON.stringify(profiles.results[0])
+        );
       }
     }
   }, []);
