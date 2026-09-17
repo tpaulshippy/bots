@@ -12,7 +12,7 @@ import { AppleSignInButton } from "@/components/AppleSignInButton";
 import * as WebBrowser from 'expo-web-browser';
 import { clearCachedPin, setCachedHasPin } from "@/api/pinStorage";
 import { getAccount } from "@/api/account";
-import { fetchOwnProfile } from "@/api/profiles";
+import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
 
 
 const WEB_LOGIN_URL =
@@ -56,6 +56,40 @@ const LoginScreen = () => {
       const account = await getAccount();
       if (account) {
         await setCachedHasPin(!!account.hasPin);
+      }
+      // Parent-session login (including a teen signing in with their own
+      // email bound to their own profile, which the backend intentionally
+      // does NOT delegate): ensure a profile is selected so chat doesn't
+      // start with nothing selected. Preserve a valid stored selection;
+      // otherwise auto-select the first live profile.
+      try {
+        const existing = await AsyncStorage.getItem("selectedProfile");
+        let storedId: string | null = null;
+        if (existing) {
+          try {
+            const parsed = JSON.parse(existing) as { profile_id?: unknown };
+            storedId =
+              typeof parsed?.profile_id === "string" ? parsed.profile_id : null;
+          } catch {
+            await AsyncStorage.removeItem("selectedProfile");
+          }
+        }
+        const profiles = await fetchProfiles().catch(() => null);
+        if (
+          storedId &&
+          profiles?.results.some((p) => p.profile_id === storedId)
+        ) {
+          // Existing selection still valid — keep it.
+        } else if (profiles && profiles.count > 0) {
+          await AsyncStorage.setItem(
+            "selectedProfile",
+            JSON.stringify(profiles.results[0])
+          );
+        }
+        // Offline (profiles == null) or empty list: keep whatever is stored;
+        // bootstrap and the chat safety net handle those states.
+      } catch {
+        // Best-effort only.
       }
       router.replace("/");
     } catch (error) {

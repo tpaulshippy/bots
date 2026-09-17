@@ -27,6 +27,16 @@ export function useAuthBootstrap(loaded: boolean) {
     // even when nothing is stored.
     const profiles = await fetchProfiles().catch(() => null);
     if (!profileData) {
+      // Fresh login (e.g. a teen signing in with their own email bound to
+      // their own profile logs in as a parent session): no stored selection
+      // yet. Auto-select the first live profile so chat works immediately
+      // instead of waiting for the first send to repair it.
+      if (profiles && profiles.count > 0) {
+        await AsyncStorage.setItem(
+          "selectedProfile",
+          JSON.stringify(profiles.results[0])
+        );
+      }
       return;
     }
     let profile: { profile_id?: string } | null = null;
