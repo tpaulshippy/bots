@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Switch, View } from "react-native";
+import { Linking, StyleSheet, Switch, View } from "react-native";
+import { useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
+import { MenuItem } from "@/components/MenuItem";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import {
   upsertDevice,
@@ -12,6 +14,15 @@ import {
   getDeviceIdFromStorage,
 } from "@/api/devices";
 import { registerForPushNotificationsAsync } from "./parent/notifications";
+import { clearUser } from "@/api/tokens";
+
+// Keep these URLs in sync with app/parent/terms.tsx (same documents,
+// exposed here so teen-delegated sessions — blocked from /parent/* — can
+// still read them).
+const TERMS_URL =
+  "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
+const PRIVACY_URL =
+  "https://www.freeprivacypolicy.com/live/6f20c0b8-408b-481d-a474-d3f589746d7b";
 
 /**
  * Teen-accessible Settings (no PIN gate).
@@ -25,6 +36,8 @@ import { registerForPushNotificationsAsync } from "./parent/notifications";
  */
 export default function SettingsScreen() {
   const bgColor = useThemeColor({}, "cardBackground");
+  const actionColor = useThemeColor({ dark: "#00a4c9" }, "tint");
+  const router = useRouter();
   const [notifyStudyDue, setNotifyStudyDue] = useState(false);
   // Digest-only suppresses study reminders at send time on the backend. Teens
   // can't change it here (parent-only flag) — surface it read-only so the
@@ -86,6 +99,11 @@ export default function SettingsScreen() {
     void persistStudyDue(value);
   };
 
+  const handleLogout = async () => {
+    await clearUser();
+    router.replace("/login");
+  };
+
   return (
     <ThemedView style={styles.container}>
       <ThemedView
@@ -110,6 +128,28 @@ export default function SettingsScreen() {
           onValueChange={toggleStudyDue}
         />
       </ThemedView>
+      <ThemedView style={[styles.menuContainer, { backgroundColor: bgColor }]}>
+        <MenuItem
+          title="Terms of Use"
+          iconName="questionmark.circle.fill"
+          testID="teen-terms-use"
+          onPress={() => Linking.openURL(TERMS_URL)}
+        />
+        <MenuItem
+          title="Privacy Policy"
+          iconName="shield.fill"
+          testID="teen-privacy-policy"
+          onPress={() => Linking.openURL(PRIVACY_URL)}
+        />
+        <MenuItem
+          title="Log Out"
+          iconName="arrowshape.turn.up.left.fill"
+          iconColor={actionColor}
+          testID="teen-log-out"
+          hideChevron
+          onPress={handleLogout}
+        />
+      </ThemedView>
     </ThemedView>
   );
 }
@@ -126,6 +166,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 5,
     marginBottom: 8,
+  },
+  menuContainer: {
+    borderRadius: 10,
+    padding: 4,
   },
   checkboxLabel: {
     fontSize: 16,
