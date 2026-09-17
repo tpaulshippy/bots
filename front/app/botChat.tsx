@@ -25,7 +25,8 @@ import {
   ChatMessage as ApiChatMessage,
   ChatStreamEvent,
 } from "@/api/chats";
-import { fetchProfiles } from "@/api/profiles";
+import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
+import { getSessionMode } from "@/api/tokens";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import ChatMessage from '@/components/ChatMessage';
 import { E2E_TEST_IMAGE_URI } from "@/e2e/utils";
@@ -307,23 +308,35 @@ export default function Chat() {
     let profileId = await getSelectedProfileId();
     const botId = await getSelectedBotId();
     if (!profileId) {
-      // Empty state: auto-select the first profile instead of a dead end;
-      // with no profiles at all, point the user at onboarding.
-      const data = await fetchProfiles();
-      const first = data?.results?.[0];
-      if (first) {
-        await setSelectedProfile(first);
-        profileId = first.profile_id;
+      // Empty state: auto-select instead of a dead end; with no profiles at
+      // all, point the user at onboarding. Teen-delegated sessions can't
+      // list profiles (parent-only endpoint denies them), so resolve via
+      // the redacted self endpoint / claimed profile id instead.
+      const mode = await getSessionMode().catch(() => null);
+      if (mode?.isTeenDelegated && mode.activeProfileId) {
+        const ownProfile =
+          (await fetchOwnProfile().catch(() => null)) ?? {
+            profile_id: mode.activeProfileId,
+          };
+        await setSelectedProfile(ownProfile);
+        profileId = mode.activeProfileId;
       } else {
-        setMessages([
-          {
-            role: "assistant",
-            image_url: null,
-            text: "Let's set up a profile first — one moment!",
-          },
-        ]);
-        router.replace("/onboarding/profile");
-        return;
+        const data = await fetchProfiles().catch(() => null);
+        const first = data?.results?.[0];
+        if (first) {
+          await setSelectedProfile(first);
+          profileId = first.profile_id;
+        } else {
+          setMessages([
+            {
+              role: "assistant",
+              image_url: null,
+              text: "Let's set up a profile first — one moment!",
+            },
+          ]);
+          router.replace("/onboarding/profile");
+          return;
+        }
       }
     }
 
