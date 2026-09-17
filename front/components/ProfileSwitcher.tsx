@@ -15,7 +15,7 @@ import * as Sentry from "@sentry/react-native";
 import { fetchProfiles, type Profile } from "@/api/profiles";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { getAccount } from "@/api/account";
-import { isTeenDelegatedSession } from "@/api/tokens";
+import { isTeenDelegatedSession, subscribeToSessionMode } from "@/api/tokens";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import {
   getSelectedProfile,
@@ -71,6 +71,19 @@ export function ProfileSwitcher() {
   // switch happens in the header (or anywhere else), re-read storage so
   // every chip shows the new kid without needing a tap to refresh.
   useEffect(() => subscribeToSelectedProfile(() => refreshSelected()), [refreshSelected]);
+
+  // Teen login without an app restart changes tokens while this chip stays
+  // mounted: follow session-mode updates so the switcher locks immediately.
+  useEffect(
+    () =>
+      subscribeToSessionMode((mode) => {
+        setReadOnly(mode.isTeenDelegated);
+        // The lock also pins the selection: refresh so a stale parent kid
+        // never lingers on a freshly delegated device.
+        void refreshSelected();
+      }),
+    [refreshSelected]
+  );
 
   const openSwitcher = async () => {
     if (readOnly) {

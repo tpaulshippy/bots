@@ -26,6 +26,7 @@ jest.mock('@/api/account', () => ({
 
 jest.mock('@/api/tokens', () => ({
   isTeenDelegatedSession: jest.fn(() => Promise.resolve(false)),
+  subscribeToSessionMode: jest.fn(() => jest.fn()),
   getSessionMode: jest.fn(() =>
     Promise.resolve({ isTeenDelegated: false, activeProfileId: null })
   ),
