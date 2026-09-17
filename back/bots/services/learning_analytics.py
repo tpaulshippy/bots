@@ -9,7 +9,6 @@ It is a stub: with no network by default, gated by JEV_ANALYTICS_ENABLED.
 import os
 import re
 from dataclasses import asdict, dataclass
-from datetime import timedelta
 
 from django.utils import timezone
 
