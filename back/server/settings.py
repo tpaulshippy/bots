@@ -254,6 +254,15 @@ AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='test-bucket')
 
 TAVILY_API_KEY = env('TAVILY_API_KEY', default='')
 
+# Pre-agent turn router (System One / Jev smart if-statement):
+# heuristic v1 runs offline by default; flip JEV_ROUTER_MODE=api with a
+# TYPESAFE_API_KEY to swap in live Jev answers behind the same seam.
+JEV_ROUTER_ENABLED = env.bool('JEV_ROUTER_ENABLED', default=True)
+JEV_ROUTER_MODE = env('JEV_ROUTER_MODE', default='heuristic')
+TYPESAFE_API_KEY = env('TYPESAFE_API_KEY', default='')
+TYPESAFE_API_URL = env('TYPESAFE_API_URL', default='https://api.typesafe.ai/v1/systemone')
+TYPESAFE_MODEL = env('TYPESAFE_MODEL', default='jev-latest')
+
 # Optional guardrail provider for the safety layer (bots/services/safety.py):
 # free OpenAI moderation (omni-moderation-latest). Empty string = denylist-only
 # mode. With a key configured, failed checks fail closed.
