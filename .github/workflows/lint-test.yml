@@ -122,6 +122,7 @@ jobs:
               bots/tests/test_profile_photo.py
               bots/tests/test_digest_command.py
               bots/tests/test_seed_e2e_onboarding.py
+              bots/tests/test_learning_analytics.py
 
     steps:
       - uses: actions/checkout@v4
