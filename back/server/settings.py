@@ -254,6 +254,13 @@ AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='test-bucket')
 
 TAVILY_API_KEY = env('TAVILY_API_KEY', default='')
 
+# Verify-everything judge (Jev parallel scorer for tools + web):
+# heuristic v1 runs locally; `api` calls the query_jev() seam (stubbed
+# until the live TypeSafe API is wired). Enabled by default; set
+# JEV_VERIFY_ENABLED=False to run the legacy evaluate_* path untouched.
+JEV_VERIFY_ENABLED = env.bool('JEV_VERIFY_ENABLED', default=True)
+JEV_VERIFY_MODE = env('JEV_VERIFY_MODE', default='heuristic')
+
 # Optional guardrail provider for the safety layer (bots/services/safety.py):
 # free OpenAI moderation (omni-moderation-latest). Empty string = denylist-only
 # mode. With a key configured, failed checks fail closed.
