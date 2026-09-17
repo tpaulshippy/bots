@@ -11,6 +11,7 @@ import { fetchOwnProfile, fetchProfiles, tryFetchProfile } from "@/api/profiles"
 import type { PaginatedResponse } from "@/api/request";
 import { UnauthorizedError } from "@/api/apiClient";
 import { clearUser, getSessionMode, sessionFromQueryParams, setTokens } from "@/api/tokens";
+import { setSelectedProfile as storeSelectedProfile } from "@/hooks/useSelectedProfile";
 
 /**
  * Bootstraps the session once the app has loaded: runs the initial auth
@@ -30,12 +31,11 @@ export function useAuthBootstrap(loaded: boolean) {
       // Fresh login (e.g. a teen signing in with their own email bound to
       // their own profile logs in as a parent session): no stored selection
       // yet. Auto-select the first live profile so chat works immediately
-      // instead of waiting for the first send to repair it.
+      // instead of waiting for the first send to repair it. Goes through
+      // the notifying store so every ProfileSwitcher instance (header chip,
+      // drawer chip) updates together.
       if (profiles && profiles.count > 0) {
-        await AsyncStorage.setItem(
-          "selectedProfile",
-          JSON.stringify(profiles.results[0])
-        );
+        await storeSelectedProfile(profiles.results[0]);
       }
       return;
     }
@@ -66,13 +66,9 @@ export function useAuthBootstrap(loaded: boolean) {
         return;
       }
     }
-    await AsyncStorage.removeItem("selectedProfile");
-    if (profiles && profiles.count > 0) {
-      await AsyncStorage.setItem(
-        "selectedProfile",
-        JSON.stringify(profiles.results[0])
-      );
-    }
+    await storeSelectedProfile(
+      profiles && profiles.count > 0 ? profiles.results[0] : null
+    );
   }, []);
 
   /**
@@ -150,12 +146,11 @@ export function useAuthBootstrap(loaded: boolean) {
         }
       } catch {
         // Corrupted selection: fall through, refetch, and overwrite below.
-        await AsyncStorage.removeItem("selectedProfile");
       }
     }
     const ownProfile =
       (await fetchOwnProfile()) ?? { profile_id: mode.activeProfileId };
-    await AsyncStorage.setItem("selectedProfile", JSON.stringify(ownProfile));
+    await storeSelectedProfile(ownProfile);
   }, []);
 
   const initialNavigationChecks = useCallback(async () => {
@@ -194,16 +189,14 @@ export function useAuthBootstrap(loaded: boolean) {
       WebBrowser.dismissBrowser();
 
       // Lock teen-delegated devices to their claimed profile immediately:
-      // no profile picker, ever.
+      // no profile picker, ever. Notifying store keeps the header and
+      // drawer chips in sync.
       if (session.isTeenDelegated && session.activeProfileId) {
         const ownProfile =
           (await fetchOwnProfile()) ?? {
             profile_id: session.activeProfileId,
           };
-        await AsyncStorage.setItem(
-          "selectedProfile",
-          JSON.stringify(ownProfile)
-        );
+        await storeSelectedProfile(ownProfile);
       }
 
       router.replace("/");
