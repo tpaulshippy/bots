@@ -254,6 +254,16 @@ AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='test-bucket')
 
 TAVILY_API_KEY = env('TAVILY_API_KEY', default='')
 
+# Jev complexity model router (bots/services/model_router.py): route simple
+# turns to the cheap default model, hard turns to the bot's frontier model.
+# ENABLED=True logs MODEL_ROUTE=tier:... per turn (shadow mode, no behavior
+# change). Set ENFORCE=True to actually switch models — with a ~10x cheap vs
+# frontier output-token price gap and ~70% low-tier turns, enforcing saves
+# roughly 60%+ of output-token cost vs always-frontier.
+JEV_MODEL_ROUTER_ENABLED = env.bool('JEV_MODEL_ROUTER_ENABLED', default=True)
+JEV_MODEL_ROUTER_ENFORCE = env.bool('JEV_MODEL_ROUTER_ENFORCE', default=False)
+JEV_MODEL_ROUTER_MODE = env('JEV_MODEL_ROUTER_MODE', default='heuristic')
+
 # Optional guardrail provider for the safety layer (bots/services/safety.py):
 # free OpenAI moderation (omni-moderation-latest). Empty string = denylist-only
 # mode. With a key configured, failed checks fail closed.

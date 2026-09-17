@@ -136,6 +136,50 @@ class Chat(models.Model):
         if contains_image and self.bot and self.bot.ai_model and 'image' not in self.bot.ai_model.supported_input_modalities:
             self.use_default_model(ai)
 
+        self._apply_model_route(ai=ai, contains_image=contains_image)
+
+    def _apply_model_route(self, ai=None, contains_image=False):
+        """Shadow-mode complexity routing: log MODEL_ROUTE every turn.
+
+        Default selection above is unchanged unless JEV_MODEL_ROUTER_ENFORCE
+        is True, in which case the routed model wins (keeping the
+        image-capable fallback so vision turns never land on text-only).
+        Never raises: routing must not break a turn.
+        """
+        try:
+            if not getattr(settings, 'JEV_MODEL_ROUTER_ENABLED', True):
+                return
+            from bots.services import model_router
+            try:
+                latest = self.messages.filter(role='user').order_by('-id').first()
+                text = latest.text if latest is not None else ""
+                history_len = self.messages.count()
+            except Exception:
+                text, history_len = "", 0
+            model_id, route = model_router.resolve_model_for_turn(
+                self.bot, text, history_len=history_len
+            )
+            logger.info(
+                "MODEL_ROUTE=tier:%s complexity_p=%.3f confidence=%.3f reason=%s",
+                route.tier, route.complexity_p, route.confidence, route.reason,
+            )
+            if getattr(settings, 'JEV_MODEL_ROUTER_ENFORCE', False) and model_id:
+                current = getattr(self.ai, 'model_id', None)
+                if current != model_id:
+                    if contains_image:
+                        try:
+                            from .ai_model import AiModel
+                            row = AiModel.objects.filter(model_id=model_id).first()
+                            if row is not None and 'image' not in (row.supported_input_modalities or []):
+                                logger.info("MODEL_ROUTE_IMAGE_FALLBACK: keeping image-capable model")
+                                return
+                        except Exception:
+                            pass
+                    self.ai = AiClientWrapper(model_id=model_id, client=ai)
+                    logger.info("MODEL_ROUTE_ENFORCED: %s -> %s", current, model_id)
+        except Exception:
+            logger.exception("MODEL_ROUTE_FAILED")
+
     def _persist_assistant_message(self, text, usage_metadata, message_id=None, agent_events=None, model_id=None):
         message_order = self.messages.count()
 
