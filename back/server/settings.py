@@ -186,7 +186,10 @@ if not _apple_certificate_key:
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': ['profile', 'email'],
-        'AUTH_PARAMS': {'access_type': 'online'},
+        # Force Google's account chooser on every login so a shared
+        # device can switch accounts after logout instead of silently
+        # reusing the previous Google session.
+        'AUTH_PARAMS': {'access_type': 'online', 'prompt': 'select_account'},
         'OAUTH_PKCE_ENABLED': True,
     },
     "apple": {
