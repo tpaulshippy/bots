@@ -133,12 +133,14 @@ export default function SettingsScreen() {
           title="Terms of Use"
           iconName="questionmark.circle.fill"
           testID="teen-terms-use"
+          style={styles.menuRow}
           onPress={() => Linking.openURL(TERMS_URL)}
         />
         <MenuItem
           title="Privacy Policy"
           iconName="shield.fill"
           testID="teen-privacy-policy"
+          style={styles.menuRow}
           onPress={() => Linking.openURL(PRIVACY_URL)}
         />
         <MenuItem
@@ -147,6 +149,7 @@ export default function SettingsScreen() {
           iconColor={actionColor}
           testID="teen-log-out"
           hideChevron
+          style={styles.menuRow}
           onPress={handleLogout}
         />
       </ThemedView>
@@ -170,6 +173,14 @@ const styles = StyleSheet.create({
   menuContainer: {
     borderRadius: 10,
     padding: 4,
+  },
+  // MenuItem defaults to flex: 1, which collapses to zero height inside
+  // this auto-height card on native (web's CSS flexbox masks it). Pin rows
+  // to content height instead.
+  menuRow: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: "auto",
   },
   checkboxLabel: {
     fontSize: 16,
