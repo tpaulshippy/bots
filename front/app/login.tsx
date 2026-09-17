@@ -13,6 +13,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { clearCachedPin, setCachedHasPin } from "@/api/pinStorage";
 import { getAccount } from "@/api/account";
 import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
+import { setSelectedProfile } from "@/hooks/useSelectedProfile";
 
 
 const WEB_LOGIN_URL =
@@ -36,16 +37,14 @@ const LoginScreen = () => {
   const handleSuccessfulLogin = async () => {
     try {
       // Teen-delegated sessions: never cache a parent PIN, never show a
-      // profile picker — lock straight to the claimed profile.
+      // profile picker — lock straight to the claimed profile. Notifying
+      // store keeps the header and drawer chips in sync.
       const tokens = await getTokens();
       if (tokens?.isTeenDelegated) {
         if (tokens.activeProfileId) {
           const ownProfile =
             (await fetchOwnProfile()) ?? { profile_id: tokens.activeProfileId };
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(ownProfile)
-          );
+          await setSelectedProfile(ownProfile);
         }
         router.replace("/");
         return;
@@ -71,7 +70,7 @@ const LoginScreen = () => {
             storedId =
               typeof parsed?.profile_id === "string" ? parsed.profile_id : null;
           } catch {
-            await AsyncStorage.removeItem("selectedProfile");
+            await setSelectedProfile(null);
           }
         }
         const profiles = await fetchProfiles().catch(() => null);
@@ -81,10 +80,7 @@ const LoginScreen = () => {
         ) {
           // Existing selection still valid — keep it.
         } else if (profiles && profiles.count > 0) {
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(profiles.results[0])
-          );
+          await setSelectedProfile(profiles.results[0]);
         }
         // Offline (profiles == null) or empty list: keep whatever is stored;
         // bootstrap and the chat safety net handle those states.
