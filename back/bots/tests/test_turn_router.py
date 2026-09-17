@@ -3,7 +3,6 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from bots.services.turn_router import TurnRoute, query_jev, route_turn

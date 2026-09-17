@@ -302,7 +302,11 @@ class ChatAgentService:
     def _turn_route(self, message_list):
         """Compute the pre-agent turn route once per turn (or None)."""
         try:
-            from bots.services.turn_router import last_user_text, route_turn, router_enabled
+            from bots.services.turn_router import (
+                last_user_text,
+                route_turn,
+                router_enabled,
+            )
         except Exception:
             return None
         if not router_enabled():
