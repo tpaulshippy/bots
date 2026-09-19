@@ -54,6 +54,13 @@ export default function ChatList() {
   const cardBackground = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const secondaryColor = useThemeColor({}, "icon");
+  // #03465b (dark tint) is nearly invisible on dark backgrounds and pairs
+  // poorly with a dark icon, so use the brighter accent in dark mode.
+  // Matches ChatMessage user bubbles (light #03465b / dark #0a7ea4).
+  const fabBackground = useThemeColor(
+    { light: "#03465b", dark: "#0a7ea4" },
+    "tint"
+  );
 
   const groupByDay = (data: Chat[]): ChatsByDay => {
     return data.reduce((groups: any, record: Chat) => {
@@ -152,11 +159,11 @@ export default function ChatList() {
   return (
     <ThemedView style={styles.container}>
       <Pressable
-        style={styles.addButton}
+        style={[styles.addButton, { backgroundColor: fabBackground }]}
         onPress={handleNewChatPress}
         accessibilityLabel="Start new chat"
       >
-        <IconSymbol name="text.bubble" color="black"></IconSymbol>
+        <IconSymbol name="text.bubble" color="#fff" size={28}></IconSymbol>
       </Pressable>
 
       <FlatList
@@ -315,7 +322,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 30,
     right: 30,
-    backgroundColor: "#03465b",
     width: 60,
     height: 60,
     borderRadius: 30,
