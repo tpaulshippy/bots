@@ -54,9 +54,8 @@ export default function ChatList() {
   const cardBackground = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const secondaryColor = useThemeColor({}, "icon");
-  // Match the chat send/camera buttons: light tint (#00a4c9), with the
-  // brighter accent in dark mode (dark tint #03465b is nearly invisible).
-  const fabBackground = useThemeColor({ dark: "#0a7ea4" }, "tint");
+  // Theme tint: light #00a4c9, dark #0a7ea4 (visible on dark backgrounds).
+  const fabBackground = useThemeColor({}, "tint");
 
   const groupByDay = (data: Chat[]): ChatsByDay => {
     return data.reduce((groups: any, record: Chat) => {

@@ -51,8 +51,7 @@ export default function ActivityScreen() {
   const cardBackground = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const secondaryColor = useThemeColor({}, "icon");
-  // Dark-mode tint (#03465b) is nearly invisible on dark backgrounds, so
-  // selected filters use the brighter accent (matches settings/flashcards).
+  // Selected filters use the brighter accent (matches settings/flashcards).
   const tintColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   const load = useCallback(
