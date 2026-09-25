@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 
 const mockAlert = jest.fn();
@@ -14,39 +14,75 @@ jest.mock(
       mockAlert(title, message, options)
 );
 
-let capturedOnLinkPress: ((url: string) => boolean) | undefined;
-jest.mock('react-native-markdown-display', () => {
-  const { Text } = require('react-native');
+let mockWebViewProps: any;
+jest.mock('react-native-webview', () => {
+  const React = require('react');
+  const { View } = require('react-native');
   return {
     __esModule: true,
-    default: ({
-      children,
-      onLinkPress,
-    }: {
-      children: React.ReactNode;
-      onLinkPress: (url: string) => boolean;
-    }) => {
-      capturedOnLinkPress = onLinkPress;
-      return <Text>{children}</Text>;
+    WebView: (props: any) => {
+      mockWebViewProps = props;
+      return <View {...props} testID="markdown-webview" />;
     },
   };
 });
 
 import MarkdownRenderer, { isSafeHttpUrl, linkDomain } from '@/components/MarkdownRenderer';
 
+const openRequest = (url: string) => mockWebViewProps.onShouldStartLoadWithRequest({ url });
+
+describe('MarkdownRenderer WebView sizing', () => {
+  beforeEach(() => {
+    mockWebViewProps = undefined;
+  });
+
+  const renderedStyle = () => {
+    const { style } = screen.getByTestId('markdown-webview').props;
+    return Object.assign({}, ...[style].flat(Infinity));
+  };
+
+  it('fills the bubble width and sizes itself to the reported height', () => {
+    render(<MarkdownRenderer content={'A short message with \\( z^2 \\) math.'} />);
+
+    const before = renderedStyle();
+    expect(before.width).toBe('100%');
+    expect(typeof before.height).toBe('number');
+
+    act(() => {
+      mockWebViewProps.onMessage({ nativeEvent: { data: JSON.stringify({ h: 412.4 }) } });
+    });
+    expect(renderedStyle().height).toBe(413);
+  });
+
+  it('ignores malformed measurement messages', () => {
+    render(<MarkdownRenderer content="hello" />);
+    const before = renderedStyle();
+
+    act(() => {
+      mockWebViewProps.onMessage({ nativeEvent: { data: 'not json' } });
+      mockWebViewProps.onMessage({ nativeEvent: { data: JSON.stringify({ h: -5 }) } });
+    });
+    expect(renderedStyle()).toEqual(before);
+  });
+});
+
 describe('MarkdownRenderer link handling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockWebViewProps = undefined;
     (Linking.openURL as jest.Mock).mockResolvedValue(undefined);
-    capturedOnLinkPress = undefined;
+  });
+
+  it('allows only the initial in-memory document to load', () => {
+    render(<MarkdownRenderer content="hello" />);
+    expect(openRequest('about:blank')).toBe(true);
   });
 
   it('shows the domain in a confirm dialog instead of opening directly', () => {
     render(<MarkdownRenderer content={'[docs](https://docs.example.com/a?b=1)'} />);
 
-    expect(capturedOnLinkPress).toBeDefined();
-    // Simulate the markdown lib invoking the link press handler.
-    capturedOnLinkPress!('https://docs.example.com/a?b=1');
+    // Every navigation away from the bubble goes through the guard.
+    expect(openRequest('https://docs.example.com/a?b=1')).toBe(false);
 
     // The press handler triggers the confirm dialog with the domain...
     expect(mockAlert).toHaveBeenCalled();
@@ -66,7 +102,7 @@ describe('MarkdownRenderer link handling', () => {
 
   it('does not open when cancelled', () => {
     render(<MarkdownRenderer content={'[x](https://example.com)'} />);
-    capturedOnLinkPress!('https://example.com');
+    openRequest('https://example.com');
 
     const cancelOption = mockAlert.mock.calls[0][2].find(
       (option: { text: string }) => option.text === 'Cancel'
@@ -79,7 +115,7 @@ describe('MarkdownRenderer link handling', () => {
     'blocks non-HTTP(S) scheme %s without an Open action',
     (url) => {
       render(<MarkdownRenderer content={`[x](${url})`} />);
-      capturedOnLinkPress!(url);
+      expect(openRequest(url)).toBe(false);
 
       expect(mockAlert).toHaveBeenCalledTimes(1);
       const [title, , options] = mockAlert.mock.calls[0];
@@ -91,7 +127,7 @@ describe('MarkdownRenderer link handling', () => {
 
   it('still confirms plain web links', () => {
     render(<MarkdownRenderer content={'[x](http://example.com/page)'} />);
-    capturedOnLinkPress!('http://example.com/page');
+    openRequest('http://example.com/page');
 
     expect(mockAlert.mock.calls[0][0]).toBe('Open example.com?');
     expect(

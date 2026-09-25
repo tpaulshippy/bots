@@ -175,7 +175,10 @@ const styles = {
       padding: 10,
       margin: 10,
       borderRadius: 10,
-      alignSelf: "flex-start" as FlexAlignType,
+      // Stretch (not flex-start) so the bubble has a definite width for the
+      // message WebView to fill: a content-sized parent leaves the WebView
+      // without a resolvable width and the markdown collapses.
+      alignSelf: "stretch" as FlexAlignType,
       maxWidth: "85%" as const,
     };
   },
