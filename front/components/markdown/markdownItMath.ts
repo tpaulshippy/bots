@@ -15,8 +15,10 @@
  * `token.meta`.
  */
 import MarkdownIt from 'markdown-it';
-import StateBlock from 'markdown-it/lib/rules_block/state_block';
-import StateInline from 'markdown-it/lib/rules_inline/state_inline';
+// markdown-it v14 ships ESM type declarations; the deep specifiers carry
+// the .mjs extension.
+import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
+import type StateInline from 'markdown-it/lib/rules_inline/state_inline.mjs';
 
 interface MathDelimiter {
   open: string;

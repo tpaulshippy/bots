@@ -1,4 +1,9 @@
-import { buildMessageHtml } from '@/components/markdown/markdownHtml';
+import {
+  buildMessageHtml,
+  buildMessageStyles,
+  renderMessageBody,
+  MESSAGE_SCOPE_CLASS,
+} from '@/components/markdown/markdownHtml';
 
 const theme = {
   textColor: '#ffffff',
@@ -73,5 +78,38 @@ describe('buildMessageHtml', () => {
   it('posts its height back to React Native', () => {
     const html = buildMessageHtml({ content: 'hello', ...theme });
     expect(html).toContain('window.ReactNativeWebView.postMessage');
+  });
+});
+
+describe('buildMessageStyles (shared with the web build)', () => {
+  it('scopes every rule to the message container', () => {
+    const css = buildMessageStyles(theme);
+    expect(css).toContain(`.${MESSAGE_SCOPE_CLASS} p {`);
+    expect(css).toContain(`.${MESSAGE_SCOPE_CLASS} .katex-display {`);
+    expect(css).toContain(`.${MESSAGE_SCOPE_CLASS} a {`);
+    // Comma lists must scope every part, not just the first.
+    expect(css).toContain(`.${MESSAGE_SCOPE_CLASS} ul, .${MESSAGE_SCOPE_CLASS} ol {`);
+    // No global element selectors: the web build injects this into the app
+    // document, where an unscoped `p { ... }` would restyle every screen.
+    expect(css).not.toMatch(/(^|\})\s*(p|h1|ul|a|code|pre|table)\s*[,{]/);
+    expect(css).not.toMatch(/(^|\})\s*(html|body)\s*[,{]/);
+  });
+
+  it('bakes the theme colors in', () => {
+    const css = buildMessageStyles(theme);
+    expect(css).toContain('color: #ffffff');
+    expect(css).toContain('background-color: #1c1c1e');
+    expect(css).toContain('border-left: 4px solid #6db3f2');
+  });
+});
+
+describe('renderMessageBody', () => {
+  it('returns only the rendered body, without document or style tags', () => {
+    const html = renderMessageBody('**bold** and \\( z^2 \\)');
+    expect(html).toContain('<strong>bold</strong>');
+    expect(html).toContain('class="katex"');
+    expect(html).not.toContain('<style');
+    expect(html).not.toContain('<!DOCTYPE');
+    expect(html).not.toContain('<html');
   });
 });

@@ -14,16 +14,24 @@ import katex from 'katex';
 import { KATEX_CSS } from './katexCss';
 import { markdownItMath } from './markdownItMath';
 
-export interface MessageHtmlOptions {
-  content: string;
+export interface MessageTheme {
   textColor: string;
   backgroundColor: string;
   mutedText: string;
   linkColor: string;
   codeBg: string;
   borderColor: string;
+}
+
+export interface MessageHtmlOptions extends MessageTheme {
+  content: string;
   fontSize?: number;
 }
+
+// Root class for rendered messages. Every rule is scoped to it so the web
+// build can inject the stylesheet into the app document without restyling
+// the rest of the app.
+export const MESSAGE_SCOPE_CLASS = 'assistant-md';
 
 // html stays disabled (markdown-it default): assistant output can never
 // inject markup or script into the page.
@@ -44,21 +52,39 @@ markdownIt.renderer.rules.math_block = (tokens, idx) =>
     output: 'html',
   });
 
-function chatCss(options: Required<Omit<MessageHtmlOptions, 'content'>>): string {
-  const { textColor, backgroundColor, mutedText, linkColor, codeBg, borderColor, fontSize } = options;
-  return `
-/* The page must never scroll: React Native pins the WebView to the measured
-   content size, and any leftover scroll area would show the wrong slice. */
-html, body { margin: 0; padding: 0; background-color: ${backgroundColor}; overflow: hidden; }
-body {
-  color: ${textColor};
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: ${fontSize}px;
-  line-height: 1.5;
-  -webkit-text-size-adjust: 100%;
-  overflow-wrap: break-word;
-  word-break: break-word;
+/** Render the markdown body of one message (no document wrapper). */
+export function renderMessageBody(content: string): string {
+  return markdownIt.render(content);
 }
+
+/**
+ * Prefix every rule selector with `scope`, leaving at-rules (@font-face,
+ * @keyframes) untouched. Comma-separated selector lists are scoped per part.
+ * The inputs are the flat, minified KaTeX stylesheet and the rules below, so
+ * a brace-boundary pass is enough.
+ */
+function scopeCss(css: string, scope: string): string {
+  return css.replace(/(^|\})([^{}@][^{}]*)\{/g, (_match, brace, selector) => {
+    const scopedSelector = selector
+      .split(',')
+      .map((part: string) => `${scope} ${part.trim()}`)
+      .join(', ');
+    return `${brace}${scopedSelector} {`;
+  });
+}
+
+const MESSAGE_RULES = `
+color: TEXT_COLOR;
+background-color: BACKGROUND_COLOR;
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+font-size: FONT_SIZE;
+line-height: 1.5;
+-webkit-text-size-adjust: 100%;
+overflow-wrap: break-word;
+word-break: break-word;
+`;
+
+const MESSAGE_DESCENDANT_RULES = `
 p { margin: 0 0 10px; }
 h1 { font-size: 1.75em; margin: 8px 0 12px; }
 h2 { font-size: 1.5em; margin: 8px 0 10px; }
@@ -66,44 +92,60 @@ h3 { font-size: 1.25em; margin: 8px 0 8px; }
 ul, ol { margin: 0 0 10px; padding-left: 24px; }
 li { margin-bottom: 4px; }
 blockquote {
-  border-left: 4px solid ${linkColor};
-  color: ${mutedText};
+  border-left: 4px solid LINK_COLOR;
+  color: MUTED_TEXT;
   margin: 0 0 10px;
   padding-left: 10px;
 }
 code {
-  background-color: ${codeBg};
+  background-color: CODE_BG;
   border-radius: 4px;
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 0.9em;
   padding: 2px 6px;
 }
 pre {
-  background-color: ${codeBg};
+  background-color: CODE_BG;
   border-radius: 8px;
   margin: 0 0 10px;
   overflow-x: auto;
   padding: 10px;
 }
 pre code { background: transparent; padding: 0; }
-hr { border: 0; border-top: 1px solid ${borderColor}; margin: 12px 0; }
+hr { border: 0; border-top: 1px solid BORDER_COLOR; margin: 12px 0; }
 table { border-collapse: collapse; margin-bottom: 10px; }
-th, td { border: 1px solid ${borderColor}; padding: 8px; }
-th { background-color: ${codeBg}; }
-a { color: ${linkColor}; text-decoration: underline; }
+th, td { border: 1px solid BORDER_COLOR; padding: 8px; }
+th { background-color: CODE_BG; }
+a { color: LINK_COLOR; text-decoration: underline; }
 .katex-display { margin: 10px 0; overflow-x: auto; overflow-y: hidden; }
 .katex-error { color: #cc0000; }
 `;
+
+/**
+ * The message stylesheet, every rule scoped to MESSAGE_SCOPE_CLASS. Shared
+ * by both platforms: the native WebView uses it inside its own document, the
+ * web build injects it into the app document exactly once.
+ */
+export function buildMessageStyles(theme: MessageTheme, fontSize = 16): string {
+  const themed = MESSAGE_DESCENDANT_RULES.replace(/LINK_COLOR/g, theme.linkColor)
+    .replace(/MUTED_TEXT/g, theme.mutedText)
+    .replace(/CODE_BG/g, theme.codeBg)
+    .replace(/BORDER_COLOR/g, theme.borderColor);
+  const root = MESSAGE_RULES.replace('FONT_SIZE', `${fontSize}px`)
+    .replace('TEXT_COLOR', theme.textColor)
+    .replace('BACKGROUND_COLOR', theme.backgroundColor);
+  return `.${MESSAGE_SCOPE_CLASS} {${root}}${scopeCss(themed, `.${MESSAGE_SCOPE_CLASS}`)}`;
 }
 
 /**
- * Returns the full HTML document for one message. Model output only reaches
- * the page through markdown-it's escaping and KaTeX's escaping, so raw HTML
- * or TeX in the reply cannot inject markup.
+ * Returns the full HTML document for one native message. Model output only
+ * reaches the page through markdown-it's escaping and KaTeX's escaping, so
+ * raw HTML or TeX in the reply cannot inject markup.
  */
 export function buildMessageHtml(options: MessageHtmlOptions): string {
   const { content, ...theme } = options;
-  const bodyHtml = markdownIt.render(content);
+  const bodyHtml = renderMessageBody(content);
+  const fontSize = options.fontSize ?? 16;
 
   return `<!DOCTYPE html>
 <html>
@@ -111,10 +153,14 @@ export function buildMessageHtml(options: MessageHtmlOptions): string {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>${KATEX_CSS}</style>
-<style>${chatCss({ fontSize: 16, ...theme })}</style>
+<style>${buildMessageStyles(theme, fontSize)}</style>
+<style>
+/* Page-local resets only: this document exists solely to render one message. */
+html, body { margin: 0; padding: 0; overflow: hidden; }
+</style>
 </head>
 <body>
-<div id="message">${bodyHtml}</div>
+<div class="${MESSAGE_SCOPE_CLASS}" id="message">${bodyHtml}</div>
 <script>
 function postHeight() {
   var el = document.getElementById('message');
