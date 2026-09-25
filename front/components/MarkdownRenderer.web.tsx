@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { KATEX_CSS } from '@/components/markdown/katexCss';
@@ -71,7 +71,13 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
     [isDark, cardBackground],
   );
 
-  ensureMessageStyles(theme);
+  // Inject (or re-theme) the shared stylesheets after commit: render must
+  // stay free of DOM side effects. The elements are upserted, never
+  // removed, so other mounted messages keep their styling.
+  useEffect(() => {
+    ensureMessageStyles(theme);
+  }, [theme]);
+
   const bodyHtml = useMemo(() => renderMessageBody(normalizedContent), [normalizedContent]);
 
   // Intercept link clicks so assistant links keep the confirm-sheet flow
