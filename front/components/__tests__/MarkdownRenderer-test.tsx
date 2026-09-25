@@ -78,6 +78,18 @@ describe('MarkdownRenderer link handling', () => {
     expect(openRequest('about:blank')).toBe(true);
   });
 
+  it('routes every navigation through the guard (whitelist must not bypass it)', () => {
+    render(<MarkdownRenderer content="hello" />);
+    // react-native-webview opens URLs outside originWhitelist with
+    // Linking.openURL *before* onShouldStartLoadWithRequest runs, so a
+    // narrower whitelist would let tel:/sms:/custom-scheme links past the
+    // allowlist and the confirm sheet. '*' funnels everything through the
+    // handler, which allows only the about:blank initial document.
+    expect(mockWebViewProps.originWhitelist).toEqual(['*']);
+    expect(openRequest('tel:+15551234567')).toBe(false);
+    expect(openRequest('myapp://deep/link')).toBe(false);
+  });
+
   it('shows the domain in a confirm dialog instead of opening directly', () => {
     render(<MarkdownRenderer content={'[docs](https://docs.example.com/a?b=1)'} />);
 

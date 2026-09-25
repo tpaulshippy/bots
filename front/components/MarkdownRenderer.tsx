@@ -103,7 +103,11 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
       overScrollMode="never"
       scalesPageToFit={false}
       setSupportMultipleWindows={false}
-      originWhitelist={['about:blank']}
+      // '*' is load-bearing: without it react-native-webview skips
+      // onShouldStartLoadWithRequest for non-http(s) URLs and opens them
+      // with Linking.openURL, which would bypass the HTTP(S) allowlist and
+      // the confirm sheet (tel:, sms:, custom app schemes).
+      originWhitelist={['*']}
       onMessage={onMessage}
       onShouldStartLoadWithRequest={(request) => {
         // Only the initial in-memory document may load. Assistant links are
