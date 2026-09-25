@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useReducer } from 'react';
+import React, { useCallback, useMemo, useReducer, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -93,6 +93,12 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   // real content height, never shrink it below the text.
   const estimatedHeight = Math.max(44, Math.ceil((normalizedContent.length / 38) * 24) + 16);
 
+  // The WebView's own document loads as about:blank; only that first
+  // request may pass. A markdown link like [x](about:blank) reaches the
+  // same callback later and must go through the link guard instead of
+  // replacing the rendered message with a blank page.
+  const initialDocumentPending = useRef(true);
+
   return (
     <WebView
       source={{ html }}
@@ -108,11 +114,12 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
       // with Linking.openURL, which would bypass the HTTP(S) allowlist and
       // the confirm sheet (tel:, sms:, custom app schemes).
       originWhitelist={['*']}
+      onLoadStart={() => {
+        initialDocumentPending.current = false;
+      }}
       onMessage={onMessage}
       onShouldStartLoadWithRequest={(request) => {
-        // Only the initial in-memory document may load. Assistant links are
-        // intercepted: confirmed in-app, never navigated inside the bubble.
-        if (request.url === 'about:blank') return true;
+        if (request.url === 'about:blank' && initialDocumentPending.current) return true;
         handleAssistantLink(request.url);
         return false;
       }}

@@ -43,8 +43,14 @@ markdownIt.use(markdownItMath);
 // output: 'html' skips the hidden MathML: WKWebView gives display-mode
 // <math> elements a real layout box, which inflated the measured height and
 // pushed the message content out of view.
+// \[...\] and $$...$$ can also arrive as inline tokens (mid-paragraph), so
+// the inline rule honors their display flag.
 markdownIt.renderer.rules.math_inline = (tokens, idx) =>
-  katex.renderToString(tokens[idx].content, { throwOnError: false, output: 'html' });
+  katex.renderToString(tokens[idx].content, {
+    displayMode: tokens[idx].meta?.displayMode === true,
+    throwOnError: false,
+    output: 'html',
+  });
 markdownIt.renderer.rules.math_block = (tokens, idx) =>
   katex.renderToString(tokens[idx].content, {
     displayMode: true,

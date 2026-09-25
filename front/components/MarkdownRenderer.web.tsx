@@ -81,14 +81,14 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const bodyHtml = useMemo(() => renderMessageBody(normalizedContent), [normalizedContent]);
 
   // Intercept link clicks so assistant links keep the confirm-sheet flow
-  // instead of navigating the app away.
+  // instead of navigating the app away. markdown-it emits an empty href
+  // for destinations it rejects (javascript:, ...), and those still need
+  // preventDefault or the click falls through to default navigation.
   const onClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     const anchor = (event.target as HTMLElement | null)?.closest?.('a');
     if (!anchor) return;
-    const href = anchor.getAttribute('href');
-    if (!href) return;
     event.preventDefault();
-    handleAssistantLink(href);
+    handleAssistantLink(anchor.getAttribute('href') ?? '');
   }, []);
 
   return (

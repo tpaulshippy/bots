@@ -76,6 +76,13 @@ describe('MarkdownRenderer link handling', () => {
   it('allows only the initial in-memory document to load', () => {
     render(<MarkdownRenderer content="hello" />);
     expect(openRequest('about:blank')).toBe(true);
+    // Once the document has loaded, a link like [x](about:blank) must go
+    // through the guard instead of blanking the rendered message.
+    act(() => {
+      mockWebViewProps.onLoadStart();
+    });
+    expect(openRequest('about:blank')).toBe(false);
+    expect(mockAlert.mock.calls[0][0]).toBe('Blocked link');
   });
 
   it('routes every navigation through the guard (whitelist must not bypass it)', () => {

@@ -47,6 +47,11 @@ describe('buildMessageHtml', () => {
     expect(html).toContain('class="katex-display"');
   });
 
+  it('renders a mid-paragraph \\[...\\] as display math, not inline', () => {
+    const html = buildMessageHtml({ content: 'see \\[ x + 1 \\] below', ...theme });
+    expect(html).toContain('class="katex-display"');
+  });
+
   it('keeps currency as text', () => {
     const html = buildMessageHtml({ content: 'Tutoring costs $5 and $10 total.', ...theme });
     expect(html).not.toContain('class="katex"');
