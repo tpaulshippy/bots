@@ -17,6 +17,11 @@ from bots.services.safety import (
     evaluate_web_result,
     record_safety_event,
 )
+from bots.services.verify_judge import (
+    CONTEXT_HTML_PAGE,
+    CONTEXT_WEB_RESULT,
+    gate_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -731,7 +736,14 @@ class ChatAgentService:
             return HTML_PAGE_TOO_LARGE
         if not is_single_file_html(html or ""):
             return "HTML must be a single self-contained page."
-        verdict = evaluate_text(f"{title} {html_to_text(html or '')}", self.policy, source="OUTPUT")
+        verdict, verify_verdict = gate_text(
+            f"{title} {html_to_text(html or '')}",
+            self.policy,
+            CONTEXT_HTML_PAGE,
+            lambda text, policy: evaluate_text(text, policy, source="OUTPUT"),
+        )
+        if verify_verdict is not None:
+            logger.info("🛡 VERIFY_HTML_PAGE: %s", verify_verdict.reason)
         if verdict.blocked:
             record_safety_event(
                 stage="tool_html_page",
@@ -901,7 +913,14 @@ class ChatAgentService:
             # gets the same policy check before anything is shown or kept.
             rendered_text = shot.get("rendered_text") or ""
             if rendered_text.strip():
-                render_verdict = evaluate_text(rendered_text, self.policy, source="OUTPUT")
+                render_verdict, render_verify = gate_text(
+                    rendered_text,
+                    self.policy,
+                    CONTEXT_HTML_PAGE,
+                    lambda text, policy: evaluate_text(text, policy, source="OUTPUT"),
+                )
+                if render_verify is not None:
+                    logger.info("🛡 VERIFY_RENDERED_TEXT: %s", render_verify.reason)
                 if render_verdict.blocked:
                     record_safety_event(
                         stage="tool_html_page",
@@ -992,7 +1011,14 @@ class ChatAgentService:
                     title = r.get('title', 'No title')
                     content = r.get('content', '')[:200]
                     title_and_snippet = f"{title} {content}"
-                    result_verdict = evaluate_web_result(title_and_snippet, self.policy)
+                    result_verdict, result_verify = gate_text(
+                        title_and_snippet,
+                        self.policy,
+                        CONTEXT_WEB_RESULT,
+                        evaluate_web_result,
+                    )
+                    if result_verify is not None:
+                        logger.info("🛡 VERIFY_WEB_RESULT: %s", result_verify.reason)
                     if result_verdict.blocked:
                         # Post-results filter: drop unsafe results.
                         record_safety_event(
