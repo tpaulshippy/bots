@@ -31,6 +31,12 @@ import MarkdownRenderer, { isSafeHttpUrl, linkDomain } from '@/components/Markdo
 
 const openRequest = (url: string) => mockWebViewProps.onShouldStartLoadWithRequest({ url });
 
+// The renderer derives the bubble width from the window, so the exact number
+// depends on the mocked Dimensions. Sizing cases use widths far outside any
+// real bubble so the tests read as "narrower"/"wider" rather than depending on
+// that arithmetic.
+const WIDER_THAN_ANY_BUBBLE = 4000;
+
 describe('MarkdownRenderer WebView sizing', () => {
   beforeEach(() => {
     mockWebViewProps = undefined;
@@ -38,8 +44,16 @@ describe('MarkdownRenderer WebView sizing', () => {
 
   const renderedStyle = () => {
     const { style } = screen.getByTestId('markdown-webview').props;
-    return Object.assign({}, ...[style].flat(Infinity));
+    return Object.assign({}, ...[style].flat(Infinity).filter(Boolean));
   };
+
+  // The width the page lays out at, as reported by buildMessageHtml.
+  const report = (h: number, w?: number) =>
+    act(() => {
+      mockWebViewProps.onMessage({
+        nativeEvent: { data: JSON.stringify(w === undefined ? { h } : { h, w }) },
+      });
+    });
 
   it('fills the bubble width and sizes itself to the reported height', () => {
     render(<MarkdownRenderer content={'A short message with \\( z^2 \\) math.'} />);
@@ -48,9 +62,7 @@ describe('MarkdownRenderer WebView sizing', () => {
     expect(before.width).toBe('100%');
     expect(typeof before.height).toBe('number');
 
-    act(() => {
-      mockWebViewProps.onMessage({ nativeEvent: { data: JSON.stringify({ h: 412.4 }) } });
-    });
+    report(412.4);
     expect(renderedStyle().height).toBe(413);
   });
 
@@ -63,6 +75,59 @@ describe('MarkdownRenderer WebView sizing', () => {
       mockWebViewProps.onMessage({ nativeEvent: { data: JSON.stringify({ h: -5 }) } });
     });
     expect(renderedStyle()).toEqual(before);
+  });
+
+  // The page cannot scroll (html/body are overflow:hidden and the WebView is
+  // not scrollable), so a frame shorter than the text clips its last rows off.
+  // Nothing may be painted until a real height is known: the placeholder is
+  // only ever seen as an empty bubble.
+  it('hides the message until it has a measured height, then reveals it', () => {
+    render(<MarkdownRenderer content={'Line one.\n\nLine two is a bit longer than the first.'} />);
+
+    expect(renderedStyle().opacity).toBe(0);
+
+    report(96, WIDER_THAN_ANY_BUBBLE);
+    const revealed = renderedStyle();
+    expect(revealed.opacity).toBeUndefined();
+    expect(revealed.height).toBe(96);
+  });
+
+  it('never paints a height measured in a narrower bubble', () => {
+    render(<MarkdownRenderer content="A message that reflows when the bubble changes width." />);
+    // Measured while the bubble was narrow: too small for the current one.
+    report(40, 40);
+
+    expect(renderedStyle().opacity).toBe(0);
+
+    // The re-measure the page sends once it is laid out at the real width.
+    report(96, WIDER_THAN_ANY_BUBBLE);
+    expect(renderedStyle().height).toBe(96);
+    expect(renderedStyle().opacity).toBeUndefined();
+  });
+
+  it('reuses a cached height measured in a wider bubble', () => {
+    const content = 'A message that reflows when the bubble changes width.';
+    const { unmount } = render(<MarkdownRenderer content={content} />);
+    report(140, WIDER_THAN_ANY_BUBBLE);
+    expect(renderedStyle().height).toBe(140);
+    unmount();
+
+    // Same message in a narrower bubble: 140 is still a safe frame (text only
+    // ever needs more room), so it paints at once instead of flashing empty.
+    render(<MarkdownRenderer content={content} />);
+    expect(renderedStyle().height).toBe(140);
+    expect(renderedStyle().opacity).toBeUndefined();
+  });
+
+  it('keeps the placeholder from collapsing a long message', () => {
+    render(
+      <MarkdownRenderer
+        content={'A reasonably long assistant answer.\n\n- one\n- two\n- three\n- four'}
+      />
+    );
+    // Enough to hold several lines, so the bubble does not visibly jump when
+    // the real height lands.
+    expect(renderedStyle().height).toBeGreaterThanOrEqual(88);
   });
 });
 

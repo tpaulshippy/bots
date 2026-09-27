@@ -184,8 +184,17 @@ function postHeight() {
   }
   var box = el.getBoundingClientRect();
   if (bottom === 0) bottom = box.bottom;
-  window.ReactNativeWebView.postMessage(JSON.stringify({ h: Math.ceil(bottom - box.top) }));
+  // The width travels with the height: the same message reflows to a
+  // different height in a wider or narrower bubble, so a height cached
+  // without its width cannot be reused after a rotation or a layout change.
+  var width = Math.round(box.width || document.documentElement.clientWidth);
+  window.ReactNativeWebView.postMessage(JSON.stringify({ h: Math.ceil(bottom - box.top), w: width }));
 }
+// Report as soon as the body is parsed. Every stylesheet is already in
+// <head>, so the text is laid out here and the bubble gets its real height
+// a frame after mount instead of waiting for the load event (which also
+// waits on the inlined KaTeX fonts).
+postHeight();
 window.addEventListener('load', function () {
   postHeight();
   // Inlined fonts settle after load and change metrics, so re-measure.
