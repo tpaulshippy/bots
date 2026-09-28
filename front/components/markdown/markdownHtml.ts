@@ -184,7 +184,20 @@ function postHeight() {
   }
   var box = el.getBoundingClientRect();
   if (bottom === 0) bottom = box.bottom;
-  window.ReactNativeWebView.postMessage(JSON.stringify({ h: Math.ceil(bottom - box.top) }));
+  // Measure from the top of the DOCUMENT, not from the container's own box.
+  // When a message opens with a heading, that heading's top margin collapses
+  // out of #message, so the container's box starts partway down the frame
+  // while its height does not reach the last line. Subtracting box.top then
+  // throws away exactly the pixels that end up clipped: a message starting
+  // with "### ..." reported 1438 for content painted down to 1446, and the
+  // final line lost its bottom. The WebView frame spans the document, so the
+  // height it needs is the distance from the document's top edge to the lowest
+  // painted pixel.
+  // The WebView frame spans the whole document, whose top edge sits at
+  // viewport y = -scrollY, so the height it needs is the distance from there
+  // to the lowest painted pixel.
+  var needed = Math.max(bottom, box.bottom) + (window.scrollY || 0);
+  window.ReactNativeWebView.postMessage(JSON.stringify({ h: Math.ceil(needed) }));
 }
 window.addEventListener('load', function () {
   postHeight();
