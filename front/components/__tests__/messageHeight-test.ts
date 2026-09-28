@@ -11,6 +11,12 @@ const FIXTURE = path.join(
   'production-chat-464-assistant-1.md'
 );
 
+interface Report {
+  h: number;
+  w?: number;
+  final?: boolean;
+}
+
 /** The measurement script the page installs, as shipped. */
 function measurementScript(content: string): string {
   const html = buildMessageHtml({
@@ -39,7 +45,20 @@ function runMeasurement(options: {
   boxTop: number;
   containerHeight: number;
   lowestInk: number;
+  width?: number;
+  fontsStatus?: string;
 }): number[] {
+  return runMeasurementReports(options).map((report) => report.h);
+}
+
+/** As `runMeasurement`, but keeps the whole payload the page reports. */
+function runMeasurementReports(options: {
+  boxTop: number;
+  containerHeight: number;
+  lowestInk: number;
+  width?: number;
+  fontsStatus?: string;
+}): Report[] {
   const script = measurementScript('stub');
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body><div class="assistant-md" id="message"><p>x</p></div></body></html>`,
@@ -48,16 +67,24 @@ function runMeasurement(options: {
   const win = dom.window as unknown as Window & typeof globalThis;
   const el = win.document.getElementById('message') as unknown as HTMLElement;
 
-  const reported: number[] = [];
+  const reported: Report[] = [];
   (win as any).ReactNativeWebView = {
-    postMessage: (data: string) => reported.push(JSON.parse(data).h),
+    postMessage: (data: string) => reported.push(JSON.parse(data)),
   };
+  if (options.fontsStatus) {
+    (win as any).document.fonts = { status: options.fontsStatus, ready: Promise.resolve() };
+  }
   win.scrollY = 0;
 
   // A rect whose bottom is the lowest painted pixel.
   const inkRect = { height: 18, bottom: options.lowestInk, top: options.lowestInk - 18 };
   el.getBoundingClientRect = () =>
-    ({ height: options.containerHeight, top: options.boxTop, bottom: options.boxTop + options.containerHeight }) as DOMRect;
+    ({
+      height: options.containerHeight,
+      width: options.width ?? 286,
+      top: options.boxTop,
+      bottom: options.boxTop + options.containerHeight,
+    }) as DOMRect;
   // The single range over the container is what the shipped code walks.
   (win as any).Range = class {
     selectNodeContents() {}
@@ -108,6 +135,34 @@ describe('message height measurement', () => {
       const reported = runMeasurement({ boxTop, containerHeight: lowestInk - boxTop, lowestInk });
       expect(Math.max(...reported)).toBeGreaterThanOrEqual(lowestInk);
     }
+  });
+
+  it('reports the width it measured at, so heights are not shared across widths', () => {
+    const [report] = runMeasurementReports({
+      boxTop: 8,
+      containerHeight: 1438,
+      lowestInk: 1446,
+      width: 286,
+    });
+    expect(report.w).toBe(286);
+  });
+
+  it('marks a report taken while fonts are still loading as not final', () => {
+    const [loading] = runMeasurementReports({
+      boxTop: 0,
+      containerHeight: 100,
+      lowestInk: 100,
+      fontsStatus: 'loading',
+    });
+    expect(loading.final).toBe(false);
+
+    const [settled] = runMeasurementReports({
+      boxTop: 0,
+      containerHeight: 100,
+      lowestInk: 100,
+      fontsStatus: 'loaded',
+    });
+    expect(settled.final).toBe(true);
   });
 
   it('ships the real production message as a fixture for rendering checks', () => {

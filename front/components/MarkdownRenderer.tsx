@@ -1,9 +1,15 @@
-import React, { useCallback, useMemo, useReducer, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { buildMessageHtml } from '@/components/markdown/markdownHtml';
+import {
+  pickMeasurement,
+  readMeasurements,
+  rememberMeasurements,
+  type Measurement,
+} from '@/components/markdown/heightCache';
 import { handleAssistantLink } from '@/components/markdown/links';
 
 interface MarkdownRendererProps {
@@ -11,16 +17,12 @@ interface MarkdownRendererProps {
 }
 
 export { isSafeHttpUrl, linkDomain } from '@/components/markdown/links';
+export { resetHeightCache } from '@/components/markdown/heightCache';
 
-// Measured heights are stable per message + theme; caching avoids a
-// measure/resize flash when chat rows unmount and remount while scrolling.
-const heightCache = new Map<string, number>();
-const MAX_CACHE_ENTRIES = 200;
-
-function rememberHeight(key: string, height: number) {
-  if (heightCache.size >= MAX_CACHE_ENTRIES) heightCache.clear();
-  heightCache.set(key, height);
-}
+// How long to wait for the page's first report before showing the bubble at
+// the placeholder height anyway. Reports normally land within a few tens of
+// milliseconds of load.
+const REVEAL_FALLBACK_MS = 1200;
 
 function normalizeMarkdown(content: string): string {
   return content
@@ -64,34 +66,77 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   );
 
   const cacheKey = `${theme.textColor}|${theme.backgroundColor}|${normalizedContent}`;
-  // The height cache is the single source of truth: the current message's
-  // height is read straight from it, so a recycled chat row (or a remount
-  // while scrolling) can never show the previous message's size, and no
-  // per-component state can drift out of sync with the cache.
+  // Re-reads the cache after a report so a recycled chat row (or a remount
+  // while scrolling) can never keep showing a stale size.
   const [, forceRender] = useReducer((tick: number) => tick + 1, 0);
-  const cachedHeight = heightCache.get(cacheKey);
+  // Laid-out width of the WebView, which is the width the page wraps at. Known
+  // from the first layout, well before the page reports, so a remount can find
+  // its cached height immediately instead of flashing.
+  const [width, setWidth] = useState(0);
+  // This mount's own most recent report. A height the page just measured at the
+  // width this bubble is rendering at is correct by construction, so it wins
+  // over the cache and does not have to wait for the width to be reconciled.
+  const [reported, setReported] = useState<Measurement | null>(null);
+  // Until there is a real height, there is nothing honest to draw: any estimate
+  // is wrong by hundreds of pixels in one direction or the other (0.9 px per
+  // character for a long message, 2.3 for a short one with a heading), and a
+  // frame that is too short slices the last line off, which is the bug this is
+  // all about.
+  const [revealTimedOut, setRevealTimedOut] = useState(false);
+  const matched = pickMeasurement(readMeasurements(cacheKey), width);
+  const shownHeight = reported?.height ?? matched?.height;
+  const revealed = reported !== null || matched !== undefined || revealTimedOut;
 
   const onMessage = useCallback(
     (event: { nativeEvent: { data: string } }) => {
       try {
-        const measured = Math.ceil(Number(JSON.parse(event.nativeEvent.data)?.h));
+        const payload = JSON.parse(event.nativeEvent.data);
+        const measured = Math.ceil(Number(payload?.h));
         if (!Number.isFinite(measured) || measured <= 0) return;
-        const previous = heightCache.get(cacheKey);
+        const measuredWidth = Math.round(Number(payload?.w)) || width;
+        const final = payload?.final !== false;
+        const previous =
+          pickMeasurement(readMeasurements(cacheKey), measuredWidth) ??
+          // This mount may already have reported at this width, before the
+          // value was cached, so compare against what is on screen too.
+          (reported?.width === measuredWidth ? reported : undefined);
         // Ignore trivial corrections: re-laying out the chat row for a pixel
-        // or two only costs jank.
-        if (previous !== undefined && Math.abs(previous - measured) < 3) return;
-        rememberHeight(cacheKey, measured);
+        // or two only costs jank. Not when either side is provisional, though:
+        // a pre-font height is a guess, and dropping the settled correction
+        // because it moved by two pixels would keep the guess.
+        if (
+          previous !== undefined &&
+          previous.final &&
+          final &&
+          Math.abs(previous.height - measured) < 3
+        ) {
+          return;
+        }
+        const next = (readMeasurements(cacheKey) ?? []).filter(
+          (entry) => entry.width !== measuredWidth,
+        );
+        next.push({ width: measuredWidth, height: measured, final });
+        rememberMeasurements(cacheKey, next);
+        setReported({ width: measuredWidth, height: measured, final });
         forceRender();
       } catch {
-        // Malformed measurement message: keep the estimated height.
+        // Malformed measurement message: keep the current height.
       }
     },
-    [cacheKey],
+    [cacheKey, width, reported],
   );
 
-  // Under-estimate on purpose: the page can only grow the frame towards the
-  // real content height, never shrink it below the text.
-  const estimatedHeight = Math.max(44, Math.ceil((normalizedContent.length / 38) * 24) + 16);
+  // While the bubble is hidden this only decides how much room the row
+  // reserves, so it never has to be right -- nothing is painted at this size.
+  // It just keeps the reserved height in the right neighbourhood so the row
+  // does not jump a long way when the real height lands. (An over-estimate
+  // would be worse than useless here: no single per-character rate can
+  // over-shoot both a long message at 0.9 px/char and a short one with a
+  // heading at 2.3, so the honest answer is to paint nothing until measured.)
+  const estimatedHeight = Math.max(
+    44,
+    Math.ceil((normalizedContent.length / 38) * 24) + 16,
+  );
 
   // The WebView's own document loads as about:blank; only that first
   // request may pass. A markdown link like [x](about:blank) reaches the
@@ -99,10 +144,28 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   // replacing the rendered message with a blank page.
   const initialDocumentPending = useRef(true);
 
+  // Never leave a message permanently invisible. The page reports on load and
+  // then again after its fonts settle, so this is only a backstop for a
+  // WebView that never manages to report at all; better a bubble at the
+  // placeholder height than a blank row with no way to tell it apart from
+  // a rendering failure.
+  useEffect(() => {
+    if (revealed) return;
+    const timer = setTimeout(() => setRevealTimedOut(true), REVEAL_FALLBACK_MS);
+    return () => clearTimeout(timer);
+  }, [revealed, cacheKey]);
+
   return (
     <WebView
       source={{ html }}
-      style={[styles.webView, { height: cachedHeight ?? estimatedHeight }]}
+      onLayout={(event) => {
+        const laidOut = Math.round(event.nativeEvent.layout.width);
+        setWidth((current) => (current === laidOut ? current : laidOut));
+      }}
+      style={[
+        styles.webView,
+        { height: shownHeight ?? estimatedHeight, opacity: revealed ? 1 : 0 },
+      ]}
       scrollEnabled={false}
       showsVerticalScrollIndicator={false}
       showsHorizontalScrollIndicator={false}

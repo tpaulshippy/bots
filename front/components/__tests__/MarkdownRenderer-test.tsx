@@ -27,7 +27,11 @@ jest.mock('react-native-webview', () => {
   };
 });
 
-import MarkdownRenderer, { isSafeHttpUrl, linkDomain } from '@/components/MarkdownRenderer';
+import MarkdownRenderer, {
+  isSafeHttpUrl,
+  linkDomain,
+  resetHeightCache,
+} from '@/components/MarkdownRenderer';
 
 const openRequest = (url: string) => mockWebViewProps.onShouldStartLoadWithRequest({ url });
 
@@ -166,5 +170,103 @@ describe('MarkdownRenderer link handling', () => {
     expect(isSafeHttpUrl('javascript:alert(1)')).toBe(false);
     expect(isSafeHttpUrl('custom-scheme://deep/link')).toBe(false);
     expect(isSafeHttpUrl('not-a-url')).toBe(false);
+  });
+});
+
+describe('MarkdownRenderer message bubble sizing', () => {
+  beforeEach(() => {
+    mockWebViewProps = undefined;
+    resetHeightCache();
+  });
+
+  const bubbleStyle = () =>
+    Object.assign({}, ...[screen.getByTestId('markdown-webview').props.style].flat(Infinity));
+
+  const report = (payload: Record<string, unknown>) =>
+    act(() => {
+      mockWebViewProps.onMessage({ nativeEvent: { data: JSON.stringify(payload) } });
+    });
+
+  const layOutAt = (width: number) =>
+    act(() => {
+      mockWebViewProps.onLayout({ nativeEvent: { layout: { width } } });
+    });
+
+  it('paints nothing until a height is measured', () => {
+    // The placeholder cannot be made safe: this message needs 1443px and the
+    // estimate is 1048, while a 70-character message with a heading needs
+    // 2.3px per character against this one's 0.9. Any single rate is wrong by
+    // hundreds of pixels somewhere, and a short frame slices the last line off.
+    render(<MarkdownRenderer content={'A message long enough to be measured.'} />);
+    expect(bubbleStyle().opacity).toBe(0);
+
+    report({ h: 300, w: 286, final: true });
+    expect(bubbleStyle().opacity).toBe(1);
+    expect(bubbleStyle().height).toBe(300);
+  });
+
+  it('shows the bubble anyway if the page never reports', () => {
+    jest.useFakeTimers();
+    render(<MarkdownRenderer content="A page that never answers." />);
+    expect(bubbleStyle().opacity).toBe(0);
+
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+    expect(bubbleStyle().opacity).toBe(1);
+    jest.useRealTimers();
+  });
+
+  it('does not reuse a height measured at a wider width', () => {
+    const content = 'Measured wide, then rendered narrow.';
+    const wide = render(<MarkdownRenderer content={content} />);
+    layOutAt(320);
+    report({ h: 1347, w: 320, final: true });
+    expect(bubbleStyle().height).toBe(1347);
+    wide.unmount();
+
+    render(<MarkdownRenderer content={content} />);
+    layOutAt(286);
+    // 1347 was measured at 320, where the text wraps less. At 286 the same
+    // message needs about 1443, so reusing it would cut the last line off.
+    expect(bubbleStyle().opacity).toBe(0);
+    report({ h: 1443, w: 286, final: true });
+    expect(bubbleStyle().height).toBe(1443);
+  });
+
+  it('reuses a height measured at a narrower width, which cannot clip', () => {
+    const content = 'Measured narrow, then rendered wide.';
+    const narrow = render(<MarkdownRenderer content={content} />);
+    layOutAt(286);
+    report({ h: 1443, w: 286, final: true });
+    narrow.unmount();
+
+    render(<MarkdownRenderer content={content} />);
+    layOutAt(320);
+    // Wider wraps less, so the taller frame is safe and the bubble is ready
+    // immediately instead of flashing empty.
+    expect(bubbleStyle().opacity).toBe(1);
+    expect(bubbleStyle().height).toBe(1443);
+  });
+
+  it('lets a settled report correct a pre-font one by a couple of pixels', () => {
+    render(<MarkdownRenderer content="Fonts land after the first report." />);
+    layOutAt(286);
+    report({ h: 413, w: 286, final: false });
+    expect(bubbleStyle().height).toBe(413);
+
+    // Two pixels, which the jank guard would normally drop. Here the first
+    // number was only ever a guess taken before the webfonts settled, so
+    // keeping it would pin the bubble to the wrong height.
+    report({ h: 415, w: 286, final: true });
+    expect(bubbleStyle().height).toBe(415);
+  });
+
+  it('still ignores trivial corrections between two settled reports', () => {
+    render(<MarkdownRenderer content="Steady after the fonts settle." />);
+    layOutAt(286);
+    report({ h: 413, w: 286, final: true });
+    report({ h: 414, w: 286, final: true });
+    expect(bubbleStyle().height).toBe(413);
   });
 });

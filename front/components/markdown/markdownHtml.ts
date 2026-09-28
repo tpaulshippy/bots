@@ -197,7 +197,18 @@ function postHeight() {
   // viewport y = -scrollY, so the height it needs is the distance from there
   // to the lowest painted pixel.
   var needed = Math.max(bottom, box.bottom) + (window.scrollY || 0);
-  window.ReactNativeWebView.postMessage(JSON.stringify({ h: Math.ceil(needed) }));
+  // Report the width this measurement was taken at, so the app can key the
+  // cached height by it. The same message wraps to a different number of lines
+  // in a wider or narrower bubble, and the bubble is maxWidth: '85%' of a row
+  // whose padding differs per screen, so one message is routinely measured at
+  // more than one width. Reusing a height across widths is what clips.
+  var width = Math.round(box.width);
+  // Webfonts change metrics after load, so a report taken while they are still
+  // loading is provisional: usable, but the app must not treat it as settled.
+  var settled = !(document.fonts && document.fonts.status === 'loading');
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({ h: Math.ceil(needed), w: width, final: settled }),
+  );
 }
 window.addEventListener('load', function () {
   postHeight();
