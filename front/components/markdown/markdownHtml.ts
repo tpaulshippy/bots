@@ -26,6 +26,15 @@ export interface MessageTheme {
 export interface MessageHtmlOptions extends MessageTheme {
   content: string;
   fontSize?: number;
+  /**
+   * Identifies this document, echoed in every measurement it reports. When the
+   * app hands a recycled bubble new content, the previous document is still
+   * live for a moment and can have a measurement already in flight -- its 150ms
+   * timer, or a ResizeObserver callback. Without something to check, that late
+   * report is credited to the new message, and a short message hands its
+   * under-sized height to a long one that then clips.
+   */
+  docId?: string;
 }
 
 // Root class for rendered messages. Every rule is scoped to it so the web
@@ -149,7 +158,7 @@ export function buildMessageStyles(theme: MessageTheme, fontSize = 16): string {
  * raw HTML or TeX in the reply cannot inject markup.
  */
 export function buildMessageHtml(options: MessageHtmlOptions): string {
-  const { content, ...theme } = options;
+  const { content, docId = '', ...theme } = options;
   const bodyHtml = renderMessageBody(content);
   const fontSize = options.fontSize ?? 16;
 
@@ -168,14 +177,8 @@ html, body { margin: 0; padding: 0; overflow: hidden; }
 <body>
 <div class="${MESSAGE_SCOPE_CLASS}" id="message">${bodyHtml}</div>
 <script>
-function fontsSettled() {
-  // KaTeX is the only webfont in this document. While one of its faces is
-  // still loading, math is laid out with fallback metrics and reads a couple
-  // of pixels short of the settled height, so such a report is not safe to
-  // size the bubble from.
-  return !(document.fonts && document.fonts.status === 'loading');
-}
-function postHeight(final) {
+var DOC_ID = ${JSON.stringify(docId)};
+function postHeight() {
   var el = document.getElementById('message');
   if (!el || !window.ReactNativeWebView) return;
   // Range rects are the individual line boxes, so the lowest one is the
@@ -191,35 +194,44 @@ function postHeight(final) {
   }
   var box = el.getBoundingClientRect();
   if (bottom === 0) bottom = box.bottom;
-  // The width travels with the height: the same message reflows to a
-  // different height in a wider or narrower bubble, so a height cached
-  // without its width cannot be reused after a rotation or a layout change.
-  var width = Math.round(box.width || document.documentElement.clientWidth);
-  window.ReactNativeWebView.postMessage(JSON.stringify({
-    h: Math.ceil(bottom - box.top),
-    w: width,
-    // Only a report taken with the fonts settled may be painted from.
-    final: final === true
-  }));
+  // Measure from the top of the DOCUMENT, not from the container's own box.
+  // When a message opens with a heading, that heading's top margin collapses
+  // out of #message, so the container's box starts partway down the frame
+  // while its height does not reach the last line. Subtracting box.top then
+  // throws away exactly the pixels that end up clipped: a message starting
+  // with "### ..." reported 1438 for content painted down to 1446, and the
+  // final line lost its bottom. The WebView frame spans the document, so the
+  // height it needs is the distance from the document's top edge to the lowest
+  // painted pixel.
+  // The WebView frame spans the whole document, whose top edge sits at
+  // viewport y = -scrollY, so the height it needs is the distance from there
+  // to the lowest painted pixel.
+  var needed = Math.max(bottom, box.bottom) + (window.scrollY || 0);
+  // Report the width this measurement was taken at, so the app can key the
+  // cached height by it. The same message wraps to a different number of lines
+  // in a wider or narrower bubble, and the bubble is maxWidth: '85%' of a row
+  // whose padding differs per screen, so one message is routinely measured at
+  // more than one width. Reusing a height across widths is what clips.
+  var width = Math.round(box.width);
+  // Webfonts change metrics after load, so a report taken while they are still
+  // loading is provisional: usable, but the app must not treat it as settled.
+  var settled = !(document.fonts && document.fonts.status === 'loading');
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({ h: Math.ceil(needed), w: width, final: settled, doc: DOC_ID }),
+  );
 }
-// Report as soon as the body is parsed. Every stylesheet is already in
-// <head>, so the text is laid out here and a plain-text bubble gets its real
-// height a frame after mount instead of waiting for the load event (which
-// also waits on the inlined KaTeX fonts). A message with math in it reports
-// again once the fonts land.
-postHeight(fontsSettled());
 window.addEventListener('load', function () {
-  postHeight(true);
+  postHeight();
   // Inlined fonts settle after load and change metrics, so re-measure.
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(function () { postHeight(true); });
+    document.fonts.ready.then(postHeight);
   }
   // React Native pins the bubble to the measured height; late font metrics
   // or KaTeX error text reflows are re-reported.
   if (window.ResizeObserver) {
-    new ResizeObserver(function () { postHeight(true); }).observe(document.documentElement);
+    new ResizeObserver(postHeight).observe(document.documentElement);
   }
-  setTimeout(function () { postHeight(true); }, 150);
+  setTimeout(postHeight, 150);
 });
 </script>
 </body>
