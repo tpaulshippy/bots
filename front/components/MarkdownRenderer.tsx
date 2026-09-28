@@ -76,16 +76,25 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   // This mount's own most recent report. A height the page just measured at the
   // width this bubble is rendering at is correct by construction, so it wins
   // over the cache and does not have to wait for the width to be reconciled.
-  const [reported, setReported] = useState<Measurement | null>(null);
+  // Tagged with the message it describes: a list that recycles this renderer
+  // for a different message must not keep showing the previous one's height,
+  // which for a longer message means a short frame and a clipped last line.
+  const [reported, setReported] = useState<(Measurement & { cacheKey: string }) | null>(
+    null,
+  );
   // Until there is a real height, there is nothing honest to draw: any estimate
   // is wrong by hundreds of pixels in one direction or the other (0.9 px per
   // character for a long message, 2.3 for a short one with a heading), and a
   // frame that is too short slices the last line off, which is the bug this is
-  // all about.
-  const [revealTimedOut, setRevealTimedOut] = useState(false);
+  // all about. Tagged the same way, for the same reason.
+  const [revealTimedOutFor, setRevealTimedOutFor] = useState<string | null>(null);
+  const currentReport = reported?.cacheKey === cacheKey ? reported : undefined;
   const matched = pickMeasurement(readMeasurements(cacheKey), width);
-  const shownHeight = reported?.height ?? matched?.height;
-  const revealed = reported !== null || matched !== undefined || revealTimedOut;
+  const shownHeight = currentReport?.height ?? matched?.height;
+  const revealed =
+    currentReport !== undefined ||
+    matched !== undefined ||
+    revealTimedOutFor === cacheKey;
 
   const onMessage = useCallback(
     (event: { nativeEvent: { data: string } }) => {
@@ -99,7 +108,7 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
           pickMeasurement(readMeasurements(cacheKey), measuredWidth) ??
           // This mount may already have reported at this width, before the
           // value was cached, so compare against what is on screen too.
-          (reported?.width === measuredWidth ? reported : undefined);
+          (currentReport?.width === measuredWidth ? currentReport : undefined);
         // Ignore trivial corrections: re-laying out the chat row for a pixel
         // or two only costs jank. Not when either side is provisional, though:
         // a pre-font height is a guess, and dropping the settled correction
@@ -117,13 +126,13 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         );
         next.push({ width: measuredWidth, height: measured, final });
         rememberMeasurements(cacheKey, next);
-        setReported({ width: measuredWidth, height: measured, final });
+        setReported({ cacheKey, width: measuredWidth, height: measured, final });
         forceRender();
       } catch {
         // Malformed measurement message: keep the current height.
       }
     },
-    [cacheKey, width, reported],
+    [cacheKey, width, currentReport],
   );
 
   // While the bubble is hidden this only decides how much room the row
@@ -151,7 +160,7 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   // a rendering failure.
   useEffect(() => {
     if (revealed) return;
-    const timer = setTimeout(() => setRevealTimedOut(true), REVEAL_FALLBACK_MS);
+    const timer = setTimeout(() => setRevealTimedOutFor(cacheKey), REVEAL_FALLBACK_MS);
     return () => clearTimeout(timer);
   }, [revealed, cacheKey]);
 

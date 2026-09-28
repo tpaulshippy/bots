@@ -33,6 +33,11 @@ export function rememberMeasurements(key: string, measurements: Measurement[]) {
       if (oldest.done) break;
       heightCache.delete(oldest.value);
     }
+  } else {
+    // Re-insert so a message that is still being used moves to the back of the
+    // queue. Map.set on an existing key keeps its original position, which
+    // would leave the busiest messages first in line to be evicted.
+    heightCache.delete(key);
   }
   heightCache.set(key, measurements);
 }

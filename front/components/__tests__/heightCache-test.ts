@@ -69,6 +69,23 @@ describe('height cache: eviction', () => {
     expect(readMeasurements('message-100')).toBeDefined();
   });
 
+  it('keeps a message that is still being used when new ones arrive', () => {
+    for (let i = 0; i < 200; i++) {
+      rememberMeasurements(`message-${i}`, [at(286, 100 + i)]);
+    }
+    // Re-measuring an existing message means it is in active use, so it should
+    // move to the back of the queue. Map.set alone would leave it first in line.
+    rememberMeasurements('message-0', [at(286, 500)]);
+
+    for (let i = 200; i < 205; i++) {
+      rememberMeasurements(`message-${i}`, [at(286, 100)]);
+    }
+
+    expect(readMeasurements('message-0')?.[0].height).toBe(500);
+    // The genuinely idle ones went instead.
+    expect(readMeasurements('message-1')).toBeUndefined();
+  });
+
   it('records each width separately for one message', () => {
     rememberMeasurements('m', [at(320, 1347)]);
     rememberMeasurements('m', [at(320, 1347), at(286, 1443)]);

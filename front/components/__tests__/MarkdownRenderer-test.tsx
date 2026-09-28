@@ -179,6 +179,12 @@ describe('MarkdownRenderer message bubble sizing', () => {
     resetHeightCache();
   });
 
+  afterEach(() => {
+    // A test that fails before its own useRealTimers would otherwise leave the
+    // rest of the file running under fake timers.
+    jest.useRealTimers();
+  });
+
   const bubbleStyle = () =>
     Object.assign({}, ...[screen.getByTestId('markdown-webview').props.style].flat(Infinity));
 
@@ -214,7 +220,6 @@ describe('MarkdownRenderer message bubble sizing', () => {
       jest.advanceTimersByTime(1500);
     });
     expect(bubbleStyle().opacity).toBe(1);
-    jest.useRealTimers();
   });
 
   it('does not reuse a height measured at a wider width', () => {
@@ -247,6 +252,41 @@ describe('MarkdownRenderer message bubble sizing', () => {
     // immediately instead of flashing empty.
     expect(bubbleStyle().opacity).toBe(1);
     expect(bubbleStyle().height).toBe(1443);
+  });
+
+  it('does not carry a timed-out reveal over to a different message', () => {
+    jest.useFakeTimers();
+    const first = render(<MarkdownRenderer content="A page that never answers." />);
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+    expect(bubbleStyle().opacity).toBe(1);
+
+    // The fallback revealed the first message at its placeholder height. That
+    // is no licence to reveal the next one on the same row the same way: this
+    // message has not been measured at all.
+    first.rerender(<MarkdownRenderer content="A different message entirely." />);
+    expect(bubbleStyle().opacity).toBe(0);
+  });
+
+  it('does not carry a height over to a different message on the same row', () => {
+    const short = 'A short one.';
+    const long = 'A considerably longer replacement message that needs far more room than the first.';
+    const view = render(<MarkdownRenderer content={short} />);
+    layOutAt(286);
+    report({ h: 200, w: 286, final: true });
+    expect(bubbleStyle().height).toBe(200);
+
+    // The list recycles this renderer for a different message. Keeping the
+    // previous height would draw the longer text in a 200px frame, which is the
+    // clipped-last-line bug all over again.
+    view.rerender(<MarkdownRenderer content={long} />);
+    expect(bubbleStyle().height).not.toBe(200);
+    expect(bubbleStyle().opacity).toBe(0);
+
+    report({ h: 600, w: 286, final: true });
+    expect(bubbleStyle().height).toBe(600);
+    expect(bubbleStyle().opacity).toBe(1);
   });
 
   it('lets a settled report correct a pre-font one by a couple of pixels', () => {
