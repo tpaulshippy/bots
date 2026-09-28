@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text } from 'react-native';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 jest.mock('@/api/tokens', () => ({
   getTokens: jest.fn().mockResolvedValue({ access: 'a', refresh: 'r' }),
@@ -144,36 +144,54 @@ describe('PinWrapper', () => {
   });
 
   it('re-enables the keypad once lockedUntil passes', async () => {
-    fetchMock.mockResolvedValueOnce(
-      reauthResponse(423, {
-        detail: 'PIN locked. Try again later.',
-        lockedUntil: new Date(Date.now() + 20).toISOString(),
-      })
-    );
+    // The lockout window is 20ms of real time and the effect removes the
+    // message as soon as it elapses. Asserting on that message with waitFor
+    // races it: waitFor polls on a 50ms interval, so on a loaded machine the
+    // first poll lands after the message is already gone. The clock is driven
+    // here instead, so each state is observed deterministically.
+    jest.useFakeTimers();
+    try {
+      fetchMock.mockResolvedValueOnce(
+        reauthResponse(423, {
+          detail: 'PIN locked. Try again later.',
+          lockedUntil: new Date(Date.now() + 20).toISOString(),
+        })
+      );
 
-    const { getByTestId } = render(
-      <PinWrapper>
-        {gatedChildren()}
-      </PinWrapper>
-    );
+      const { getByTestId } = render(
+        <PinWrapper>
+          {gatedChildren()}
+        </PinWrapper>
+      );
 
-    for (const digit of ['0', '0', '0', '0']) {
-      fireEvent.press(getByTestId(`pin-key-${digit}`));
-    }
-    fireEvent.press(getByTestId('pin-submit'));
+      for (const digit of ['0', '0', '0', '0']) {
+        fireEvent.press(getByTestId(`pin-key-${digit}`));
+      }
+      fireEvent.press(getByTestId('pin-submit'));
 
-    await waitFor(() => {
+      // Let the fetch and json promises settle without moving the clock past
+      // the lockout window.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Locked: the message is up and the keypad ignores input.
       expect(getByTestId('pin-error')).toBeTruthy();
-    });
+      fireEvent.press(getByTestId('pin-key-1'));
+      expect(getByTestId('pin-dots').props.children).toBe('···');
 
-    // After the server-side lockout window passes, input works again.
-    await waitFor(
-      () => {
-        fireEvent.press(getByTestId('pin-key-1'));
-        expect(getByTestId('pin-dots').props.children).toContain('●');
-      },
-      { timeout: 2000 }
-    );
+      // Once the server-side lockout window passes, input works again.
+      await act(async () => {
+        jest.advanceTimersByTime(25);
+      });
+      fireEvent.press(getByTestId('pin-key-1'));
+      expect(getByTestId('pin-dots').props.children).toBe('●');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('ignores submit until at least 4 digits are entered', () => {
