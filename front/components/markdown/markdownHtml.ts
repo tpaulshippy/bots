@@ -168,7 +168,14 @@ html, body { margin: 0; padding: 0; overflow: hidden; }
 <body>
 <div class="${MESSAGE_SCOPE_CLASS}" id="message">${bodyHtml}</div>
 <script>
-function postHeight() {
+function fontsSettled() {
+  // KaTeX is the only webfont in this document. While one of its faces is
+  // still loading, math is laid out with fallback metrics and reads a couple
+  // of pixels short of the settled height, so such a report is not safe to
+  // size the bubble from.
+  return !(document.fonts && document.fonts.status === 'loading');
+}
+function postHeight(final) {
   var el = document.getElementById('message');
   if (!el || !window.ReactNativeWebView) return;
   // Range rects are the individual line boxes, so the lowest one is the
@@ -188,25 +195,31 @@ function postHeight() {
   // different height in a wider or narrower bubble, so a height cached
   // without its width cannot be reused after a rotation or a layout change.
   var width = Math.round(box.width || document.documentElement.clientWidth);
-  window.ReactNativeWebView.postMessage(JSON.stringify({ h: Math.ceil(bottom - box.top), w: width }));
+  window.ReactNativeWebView.postMessage(JSON.stringify({
+    h: Math.ceil(bottom - box.top),
+    w: width,
+    // Only a report taken with the fonts settled may be painted from.
+    final: final === true
+  }));
 }
 // Report as soon as the body is parsed. Every stylesheet is already in
-// <head>, so the text is laid out here and the bubble gets its real height
-// a frame after mount instead of waiting for the load event (which also
-// waits on the inlined KaTeX fonts).
-postHeight();
+// <head>, so the text is laid out here and a plain-text bubble gets its real
+// height a frame after mount instead of waiting for the load event (which
+// also waits on the inlined KaTeX fonts). A message with math in it reports
+// again once the fonts land.
+postHeight(fontsSettled());
 window.addEventListener('load', function () {
-  postHeight();
+  postHeight(true);
   // Inlined fonts settle after load and change metrics, so re-measure.
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(postHeight);
+    document.fonts.ready.then(function () { postHeight(true); });
   }
   // React Native pins the bubble to the measured height; late font metrics
   // or KaTeX error text reflows are re-reported.
   if (window.ResizeObserver) {
-    new ResizeObserver(postHeight).observe(document.documentElement);
+    new ResizeObserver(function () { postHeight(true); }).observe(document.documentElement);
   }
-  setTimeout(postHeight, 150);
+  setTimeout(function () { postHeight(true); }, 150);
 });
 </script>
 </body>

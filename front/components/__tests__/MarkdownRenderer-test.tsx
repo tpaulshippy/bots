@@ -31,11 +31,11 @@ import MarkdownRenderer, { isSafeHttpUrl, linkDomain } from '@/components/Markdo
 
 const openRequest = (url: string) => mockWebViewProps.onShouldStartLoadWithRequest({ url });
 
-// The renderer derives the bubble width from the window, so the exact number
-// depends on the mocked Dimensions. Sizing cases use widths far outside any
-// real bubble so the tests read as "narrower"/"wider" rather than depending on
-// that arithmetic.
+// A bubble's real width depends on the screen and on the list it sits in, so
+// the sizing cases use widths far outside any real bubble. That keeps them
+// reading as "narrower"/"wider" instead of depending on that arithmetic.
 const WIDER_THAN_ANY_BUBBLE = 4000;
+const NARROWER_THAN_ANY_BUBBLE = 10;
 
 describe('MarkdownRenderer WebView sizing', () => {
   beforeEach(() => {
@@ -47,11 +47,12 @@ describe('MarkdownRenderer WebView sizing', () => {
     return Object.assign({}, ...[style].flat(Infinity).filter(Boolean));
   };
 
-  // The width the page lays out at, as reported by buildMessageHtml.
-  const report = (h: number, w?: number) =>
+  // A measurement as buildMessageHtml posts it: the height, the width the page
+  // laid out at, and whether the fonts had settled when it was taken.
+  const report = (h: number, w?: number, isFinal = true) =>
     act(() => {
       mockWebViewProps.onMessage({
-        nativeEvent: { data: JSON.stringify(w === undefined ? { h } : { h, w }) },
+        nativeEvent: { data: JSON.stringify(w === undefined ? { h, final: isFinal } : { h, w, final: isFinal }) },
       });
     });
 
@@ -81,39 +82,55 @@ describe('MarkdownRenderer WebView sizing', () => {
   // not scrollable), so a frame shorter than the text clips its last rows off.
   // Nothing may be painted until a real height is known: the placeholder is
   // only ever seen as an empty bubble.
+  //
+  // heightCache is module-level, so every case uses its own content and is
+  // independent of the order the cases run in.
   it('hides the message until it has a measured height, then reveals it', () => {
-    render(<MarkdownRenderer content={'Line one.\n\nLine two is a bit longer than the first.'} />);
+    render(<MarkdownRenderer content={'Reveal gate: line one.\n\nLine two runs on a little.'} />);
 
     expect(renderedStyle().opacity).toBe(0);
 
-    report(96, WIDER_THAN_ANY_BUBBLE);
+    report(96, NARROWER_THAN_ANY_BUBBLE);
     const revealed = renderedStyle();
     expect(revealed.opacity).toBeUndefined();
     expect(revealed.height).toBe(96);
   });
 
-  it('never paints a height measured in a narrower bubble', () => {
-    render(<MarkdownRenderer content="A message that reflows when the bubble changes width." />);
-    // Measured while the bubble was narrow: too small for the current one.
-    report(40, 40);
+  it('keeps a message hidden until the fonts have settled', () => {
+    render(<MarkdownRenderer content={'Font gate: the area is \\( A = \\pi r^2 \\) exactly.'} />);
+
+    // A pre-font report carries a height measured with fallback metrics, which
+    // can be a pixel or two under the settled layout, so it must not paint.
+    report(50, NARROWER_THAN_ANY_BUBBLE, false);
+    expect(renderedStyle().opacity).toBe(0);
+
+    report(52, NARROWER_THAN_ANY_BUBBLE, true);
+    expect(renderedStyle().height).toBe(52);
+    expect(renderedStyle().opacity).toBeUndefined();
+  });
+
+  it('never paints a height measured in a wider bubble', () => {
+    render(<MarkdownRenderer content="Wider cache: text reflows when the bubble changes width." />);
+    // Wider bubble => fewer lines => a shorter height, which is too small here.
+    report(40, WIDER_THAN_ANY_BUBBLE);
 
     expect(renderedStyle().opacity).toBe(0);
 
     // The re-measure the page sends once it is laid out at the real width.
-    report(96, WIDER_THAN_ANY_BUBBLE);
+    report(96, NARROWER_THAN_ANY_BUBBLE);
     expect(renderedStyle().height).toBe(96);
     expect(renderedStyle().opacity).toBeUndefined();
   });
 
-  it('reuses a cached height measured in a wider bubble', () => {
-    const content = 'A message that reflows when the bubble changes width.';
+  it('reuses a cached height measured in a narrower bubble', () => {
+    const content = 'Narrow cache: text reflows when the bubble changes width.';
     const { unmount } = render(<MarkdownRenderer content={content} />);
-    report(140, WIDER_THAN_ANY_BUBBLE);
+    report(140, NARROWER_THAN_ANY_BUBBLE);
     expect(renderedStyle().height).toBe(140);
     unmount();
 
-    // Same message in a narrower bubble: 140 is still a safe frame (text only
-    // ever needs more room), so it paints at once instead of flashing empty.
+    // Same message in a wider bubble: 140 is at worst a little tall, which is
+    // safe, so it paints at once instead of flashing empty.
     render(<MarkdownRenderer content={content} />);
     expect(renderedStyle().height).toBe(140);
     expect(renderedStyle().opacity).toBeUndefined();

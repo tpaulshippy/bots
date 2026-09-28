@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useReducer, useRef } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import React, { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import { StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -20,14 +20,16 @@ interface Measurement {
   // different height in a wider or narrower bubble, so the width has to
   // travel with the height for the entry to be reusable.
   width: number;
+  // A height taken before the KaTeX webfonts loaded can be a pixel or two
+  // under the settled layout, so only a final one may be painted.
+  final: boolean;
 }
 
 const heightCache = new Map<string, Measurement>();
 const MAX_CACHE_ENTRIES = 200;
-// The bubble width derived from the window is a hint that can be off by a
-// point or two (safe-area insets, a parent that is not exactly 85% wide), so
-// a measurement is treated as matching a slightly wider bubble too.
-const WIDTH_TOLERANCE = 4;
+// The laid-out width and the width the page reports are the same number
+// rounded differently, so a measurement counts as matching within a point.
+const WIDTH_TOLERANCE = 2;
 
 function rememberHeight(key: string, measurement: Measurement) {
   if (heightCache.size >= MAX_CACHE_ENTRIES) heightCache.clear();
@@ -51,10 +53,11 @@ const LIST_INDENT = 24; // ul, ol padding-left
 const QUOTE_INDENT = 10; // blockquote padding-left (+ 4px border)
 const TABLE_ROW = LINE_HEIGHT + 17; // 8px cell padding + 1px borders
 const TABLE_SEPARATOR = /^\s*\|?[\s:|-]+\|[\s:|-]*$/;
-// Average glyph advance for 16px system text. Deliberately a shade wide:
-// wrapping a word early only makes the placeholder bubble taller, never
-// shorter than the text it has to hold.
-const CHARS_PER_PIXEL = 1 / 8.5;
+// Average glyph advance for 16px system text, plus 5% slack. The slack is
+// what keeps the placeholder conservative for text set larger than 16px:
+// heading and math glyphs are proportionally wider than lowercase body text,
+// so a capacity derived from body metrics alone reads a few percent long.
+const CHARS_PER_PIXEL = 1 / 8.1;
 const MIN_BUBBLE_HEIGHT = 44;
 // Narrowest bubble worth estimating for: a phone in portrait is ~265.
 const MIN_CONTENT_WIDTH = 132;
@@ -81,10 +84,17 @@ function blockHeight(block: string, contentWidth: number): number {
   }
   const heading = block.match(/^(#{1,3})\s/);
   if (heading) {
-    // h1/h2/h3 are 28/24/20px, so their line boxes are taller than a text line.
+    // h1/h2/h3 are 28/24/20px: their line boxes are taller than a text line,
+    // and each glyph is wider, so the same width holds proportionally fewer
+    // characters. Capacity is taken against the heading's own font size and
+    // then trimmed a further 10%, because heading glyphs are bold as well as
+    // larger and so run wider still than the body-text metrics imply. Without
+    // that a long h1 in a narrow bubble reads a few pixels short.
     const size = { 1: 28, 2: 24, 3: 20 }[heading[1].length]!;
-    const perLine = Math.max(6, contentWidth * CHARS_PER_PIXEL);
-    return Math.max(1, Math.ceil(block.length / perLine)) * Math.round(size * 1.5);
+    const perLine = Math.max(6, contentWidth * CHARS_PER_PIXEL * (FONT_SIZE / size) * 0.9);
+    const lines = Math.max(1, Math.ceil(block.length / perLine));
+    // h1/h2/h3 carry margin on top of their line boxes.
+    return lines * Math.round(size * 1.5) + 8;
   }
   return lines.reduce((total, line) => {
     const indent = isQuote(line) ? QUOTE_INDENT : isListItem(line) ? LIST_INDENT : 0;
@@ -126,15 +136,20 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const { width: windowWidth } = useWindowDimensions();
   const normalizedContent = useMemo(() => normalizeMarkdown(content), [content]);
 
-  // The width the page will lay out at, derived from the bubble the renderer
-  // sits in: the chat row (window - the list's 20px padding) capped at the
-  // bubble's 85% maxWidth, less the bubble's 10px padding and 1px border.
-  // Only a hint: the page reports the width it really got, and that is the
-  // one every decision below is made against.
-  const contentWidth = useMemo(
-    () => Math.max(MIN_CONTENT_WIDTH, (windowWidth - 40) * 0.85 - 22),
-    [windowWidth]
-  );
+  // The width the page lays out at, which is this WebView's own width. It
+  // starts as an estimate from the window so a cached height can be reused on
+  // the first render, and is replaced by the laid-out width as soon as the
+  // view is measured: the bubble geometry differs between screens (the chat
+  // list pads 20, the parent transcript pads 10), so only the real width is
+  // worth acting on.
+  const [laidOutWidth, setLaidOutWidth] = useState<number | null>(null);
+  const contentWidth =
+    laidOutWidth ?? Math.max(MIN_CONTENT_WIDTH, (windowWidth - 40) * 0.85 - 22);
+
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    setLaidOutWidth((current) => (current === null || Math.abs(current - width) > 0.5 ? width : current));
+  }, []);
 
   const theme = useMemo(
     () => ({
@@ -160,13 +175,18 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   // per-component state can drift out of sync with the cache.
   const [, forceRender] = useReducer((tick: number) => tick + 1, 0);
   const cached = heightCache.get(cacheKey);
-  // A measurement taken in a wider bubble is still a safe frame: the text
-  // only ever needs more room, never less. One taken in a narrower bubble is
-  // not, and reusing it is what cut off the last row after a rotation.
+  // A height is only a safe frame for a bubble at least as wide as the one it
+  // was measured in: text wraps into fewer lines as the bubble grows, so a
+  // height measured in a wider bubble is *shorter* than this one needs and
+  // reusing it clips the bottom rows. A height measured in a narrower bubble
+  // is at worst a little tall, which is safe.
   const cachedHeight =
-    cached && cached.width + WIDTH_TOLERANCE >= contentWidth ? cached.height : undefined;
-  // Nothing is painted until the height is known for this width, so a frame
-  // that is briefly too small can never show a half-height message.
+    cached && cached.final && cached.width <= contentWidth + WIDTH_TOLERANCE
+      ? cached.height
+      : undefined;
+  // Nothing is painted until a final height is known for a bubble no wider
+  // than this one, so a frame that is briefly too small can never show a
+  // half-height message.
   const measured = cachedHeight !== undefined;
 
   const onMessage = useCallback(
@@ -181,13 +201,21 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         const width = Number.isFinite(measuredWidth) && measuredWidth > 0
           ? measuredWidth
           : contentWidth;
+        // A pre-font report is recorded (it carries the width, so the next
+        // mount can match on it) but must not be painted from.
+        const isFinal = payload?.final !== false;
         const previous = heightCache.get(cacheKey);
         // Ignore trivial corrections: re-laying out the chat row for a pixel
-        // or two only costs jank.
-        if (previous && Math.abs(previous.height - measuredHeight) < 3 && previous.width === width) {
+        // or two only costs jank. A change in finality is never trivial.
+        if (
+          previous &&
+          previous.final === isFinal &&
+          previous.width === width &&
+          Math.abs(previous.height - measuredHeight) < 3
+        ) {
           return;
         }
-        rememberHeight(cacheKey, { height: measuredHeight, width });
+        rememberHeight(cacheKey, { height: measuredHeight, width, final: isFinal });
         forceRender();
       } catch {
         // Malformed measurement message: keep the estimated height.
@@ -215,6 +243,7 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         { height: cachedHeight ?? estimatedHeight },
         measured ? null : styles.unmeasured,
       ]}
+      onLayout={onLayout}
       scrollEnabled={false}
       showsVerticalScrollIndicator={false}
       showsHorizontalScrollIndicator={false}
