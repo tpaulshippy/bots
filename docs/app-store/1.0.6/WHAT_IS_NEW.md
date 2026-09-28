@@ -21,7 +21,14 @@ Smarter studying, live tutors, and a whole new look!
   safety alerts plus optional daily digests.
 • Guided setup — new 5-step onboarding wizard, easy student-profile
   switching, and profile photos.
+• Maths, typeset — tutors now format LaTeX equations and formulas
+  properly in chat answers, so homework help reads like a textbook.
+• Brand-new app icon, and a brighter dark-mode tint across the app and
+  splash screen.
 • Safer by design — server-side safety filters, crisis detection, and
   link confirmations protect every conversation.
 • Also new: additional AI models to choose from, optional parent PIN,
-  teen login, and lots of bug fixes and performance improvements.
+  teen login, and lots of bug fixes and performance improvements —
+  including a Google sign-in that always asks which account to use on a
+  shared device, teen Settings rows that no longer collapse, and a Log
+  Out / Terms link in the teen menu.

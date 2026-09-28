@@ -19,7 +19,9 @@ SIGN-IN
 WHAT TO TRY
 - Chat: pick a student profile, choose a bot, and send a message. Replies
   stream live; the tutor can create flashcard decks, build study web pages,
-  or search the web (parent-configurable per bot).
+  or search the web (parent-configurable per bot). Ask a maths question
+  (e.g. "solve 3x + 5 = 20" or "show me the quadratic formula") to see
+  LaTeX typeset in the reply.
 - Flashcards: open Flashcards, study a deck with Again/Hard/Good/Easy
   ratings driven by spaced repetition.
 - Study Materials: open the drawer → Study Materials to revisit tutor-built
