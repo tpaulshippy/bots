@@ -15,12 +15,14 @@ interface Report {
   h: number;
   w?: number;
   final?: boolean;
+  doc?: string;
 }
 
 /** The measurement script the page installs, as shipped. */
-function measurementScript(content: string): string {
+function measurementScript(content: string, docId?: string): string {
   const html = buildMessageHtml({
     content,
+    ...(docId === undefined ? {} : { docId }),
     textColor: '#fff',
     backgroundColor: '#1c1c1e',
     mutedText: '#bdbdbd',
@@ -58,8 +60,9 @@ function runMeasurementReports(options: {
   lowestInk: number;
   width?: number;
   fontsStatus?: string;
+  docId?: string;
 }): Report[] {
-  const script = measurementScript('stub');
+  const script = measurementScript('stub', options.docId ?? 'doc-1');
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body><div class="assistant-md" id="message"><p>x</p></div></body></html>`,
     { runScripts: 'dangerously' }
@@ -163,6 +166,21 @@ describe('message height measurement', () => {
       fontsStatus: 'loaded',
     });
     expect(settled.final).toBe(true);
+  });
+
+  it('stamps every report with the id of the document that measured it', () => {
+    // When a recycled bubble gets new content, the previous document can still
+    // have a measurement in flight. The app has to be able to tell whose it is.
+    const reports = runMeasurementReports({
+      boxTop: 0,
+      containerHeight: 100,
+      lowestInk: 100,
+      docId: 'abc123',
+    });
+    expect(reports.length).toBeGreaterThan(0);
+    for (const report of reports) {
+      expect(report.doc).toBe('abc123');
+    }
   });
 
   it('ships the real production message as a fixture for rendering checks', () => {

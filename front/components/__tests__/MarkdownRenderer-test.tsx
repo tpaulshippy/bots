@@ -45,6 +45,9 @@ describe('MarkdownRenderer WebView sizing', () => {
     return Object.assign({}, ...[style].flat(Infinity));
   };
 
+  // The document stamps its own id into every measurement it reports.
+  const docIdOf = (props: any) => /var DOC_ID = "([^"]*)"/.exec(props.source.html)?.[1];
+
   it('fills the bubble width and sizes itself to the reported height', () => {
     render(<MarkdownRenderer content={'A short message with \\( z^2 \\) math.'} />);
 
@@ -53,7 +56,11 @@ describe('MarkdownRenderer WebView sizing', () => {
     expect(typeof before.height).toBe('number');
 
     act(() => {
-      mockWebViewProps.onMessage({ nativeEvent: { data: JSON.stringify({ h: 412.4 }) } });
+      mockWebViewProps.onMessage({
+        nativeEvent: {
+          data: JSON.stringify({ h: 412.4, doc: docIdOf(mockWebViewProps) }),
+        },
+      });
     });
     expect(renderedStyle().height).toBe(413);
   });
@@ -188,9 +195,16 @@ describe('MarkdownRenderer message bubble sizing', () => {
   const bubbleStyle = () =>
     Object.assign({}, ...[screen.getByTestId('markdown-webview').props.style].flat(Infinity));
 
-  const report = (payload: Record<string, unknown>) =>
+  // Read the id the document actually stamps itself with, so the tests
+  // exercise the real contract rather than a hardcoded value.
+  const currentDocId = () =>
+    /var DOC_ID = "([^"]*)"/.exec(mockWebViewProps.source.html)?.[1];
+
+  const report = (payload: Record<string, unknown>, docId = currentDocId()) =>
     act(() => {
-      mockWebViewProps.onMessage({ nativeEvent: { data: JSON.stringify(payload) } });
+      mockWebViewProps.onMessage({
+        nativeEvent: { data: JSON.stringify({ ...payload, doc: docId }) },
+      });
     });
 
   const layOutAt = (width: number) =>
@@ -287,6 +301,24 @@ describe('MarkdownRenderer message bubble sizing', () => {
     report({ h: 600, w: 286, final: true });
     expect(bubbleStyle().height).toBe(600);
     expect(bubbleStyle().opacity).toBe(1);
+  });
+
+  it('ignores a report left over from the previous document', () => {
+    // Handing this bubble new content leaves the old document live for a
+    // moment, and it can still have a measurement in flight -- its 150ms timer,
+    // or a ResizeObserver callback. That report describes the old, shorter
+    // message, so applying it here would draw the new one in a short frame.
+    const view = render(<MarkdownRenderer content="The previous, shorter message." />);
+    layOutAt(286);
+    report({ h: 200, w: 286, final: true });
+    const staleDocId = currentDocId();
+
+    view.rerender(<MarkdownRenderer content={'A much longer message than the one before it.'} />);
+    expect(currentDocId()).not.toBe(staleDocId);
+
+    report({ h: 200, w: 286, final: true }, staleDocId);
+    expect(bubbleStyle().height).not.toBe(200);
+    expect(bubbleStyle().opacity).toBe(0);
   });
 
   it('lets a settled report correct a pre-font one by a couple of pixels', () => {

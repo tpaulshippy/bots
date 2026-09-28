@@ -24,6 +24,20 @@ export { resetHeightCache } from '@/components/markdown/heightCache';
 // milliseconds of load.
 const REVEAL_FALLBACK_MS = 1200;
 
+/**
+ * A short id for one document, so a measurement can be traced back to the
+ * message it came from. Derived from the inputs rather than counted, so it is
+ * stable across re-renders and unique per content + theme.
+ */
+function documentIdFor(content: string, theme: Record<string, string>): string {
+  const key = `${theme.textColor}|${theme.backgroundColor}|${content}`;
+  let hash = 5381;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) + hash + key.charCodeAt(i)) | 0;
+  }
+  return `${key.length.toString(36)}-${(hash >>> 0).toString(36)}`;
+}
+
 function normalizeMarkdown(content: string): string {
   return content
     .replace(/\r\n/g, '\n')
@@ -61,9 +75,18 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   );
 
   const html = useMemo(
-    () => buildMessageHtml({ content: normalizedContent, ...theme }),
+    () =>
+      buildMessageHtml({
+        content: normalizedContent,
+        docId: documentIdFor(normalizedContent, theme),
+        ...theme,
+      }),
     [normalizedContent, theme],
   );
+
+  // Recomputed rather than carried in a ref, so it always matches the document
+  // `html` describes even when React renders the memo more than once.
+  const docId = documentIdFor(normalizedContent, theme);
 
   const cacheKey = `${theme.textColor}|${theme.backgroundColor}|${normalizedContent}`;
   // Re-reads the cache after a report so a recycled chat row (or a remount
@@ -100,6 +123,11 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
     (event: { nativeEvent: { data: string } }) => {
       try {
         const payload = JSON.parse(event.nativeEvent.data);
+        // Handing a recycled bubble new content leaves the previous document
+        // live for a moment, and it can have a measurement already in flight.
+        // Crediting that to the new message would let a short one hand its
+        // under-sized height to a long one, which clips.
+        if (payload?.doc !== docId) return;
         const measured = Math.ceil(Number(payload?.h));
         if (!Number.isFinite(measured) || measured <= 0) return;
         const measuredWidth = Math.round(Number(payload?.w)) || width;
@@ -132,7 +160,7 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         // Malformed measurement message: keep the current height.
       }
     },
-    [cacheKey, width, currentReport],
+    [cacheKey, docId, width, currentReport],
   );
 
   // While the bubble is hidden this only decides how much room the row

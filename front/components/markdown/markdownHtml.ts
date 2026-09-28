@@ -26,6 +26,15 @@ export interface MessageTheme {
 export interface MessageHtmlOptions extends MessageTheme {
   content: string;
   fontSize?: number;
+  /**
+   * Identifies this document, echoed in every measurement it reports. When the
+   * app hands a recycled bubble new content, the previous document is still
+   * live for a moment and can have a measurement already in flight -- its 150ms
+   * timer, or a ResizeObserver callback. Without something to check, that late
+   * report is credited to the new message, and a short message hands its
+   * under-sized height to a long one that then clips.
+   */
+  docId?: string;
 }
 
 // Root class for rendered messages. Every rule is scoped to it so the web
@@ -149,7 +158,7 @@ export function buildMessageStyles(theme: MessageTheme, fontSize = 16): string {
  * raw HTML or TeX in the reply cannot inject markup.
  */
 export function buildMessageHtml(options: MessageHtmlOptions): string {
-  const { content, ...theme } = options;
+  const { content, docId = '', ...theme } = options;
   const bodyHtml = renderMessageBody(content);
   const fontSize = options.fontSize ?? 16;
 
@@ -168,6 +177,7 @@ html, body { margin: 0; padding: 0; overflow: hidden; }
 <body>
 <div class="${MESSAGE_SCOPE_CLASS}" id="message">${bodyHtml}</div>
 <script>
+var DOC_ID = ${JSON.stringify(docId)};
 function postHeight() {
   var el = document.getElementById('message');
   if (!el || !window.ReactNativeWebView) return;
@@ -207,7 +217,7 @@ function postHeight() {
   // loading is provisional: usable, but the app must not treat it as settled.
   var settled = !(document.fonts && document.fonts.status === 'loading');
   window.ReactNativeWebView.postMessage(
-    JSON.stringify({ h: Math.ceil(needed), w: width, final: settled }),
+    JSON.stringify({ h: Math.ceil(needed), w: width, final: settled, doc: DOC_ID }),
   );
 }
 window.addEventListener('load', function () {
