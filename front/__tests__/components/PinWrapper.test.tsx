@@ -158,7 +158,7 @@ describe('PinWrapper', () => {
         })
       );
 
-      const { getByTestId } = render(
+      const { getByTestId, queryByTestId } = render(
         <PinWrapper>
           {gatedChildren()}
         </PinWrapper>
@@ -169,14 +169,17 @@ describe('PinWrapper', () => {
       }
       fireEvent.press(getByTestId('pin-submit'));
 
-      // Let the fetch and json promises settle without moving the clock past
-      // the lockout window.
-      await act(async () => {
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
-      });
+      // Drain the submit chain (getTokens -> fetch -> response.json -> the 423
+      // continuation) until the lockout message has rendered. Draining to the
+      // expected state rather than to a fixed number of ticks: how many awaits
+      // sit inside submitPin is an implementation detail of the component, and
+      // a hardcoded count goes stale the moment that changes. Bounded, so a
+      // genuine failure still fails on the assertion below.
+      for (let tick = 0; tick < 20 && !queryByTestId('pin-error'); tick += 1) {
+        await act(async () => {
+          await Promise.resolve();
+        });
+      }
 
       // Locked: the message is up and the keypad ignores input.
       expect(getByTestId('pin-error')).toBeTruthy();
