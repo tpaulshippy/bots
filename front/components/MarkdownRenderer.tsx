@@ -25,15 +25,48 @@ interface Measurement {
   final: boolean;
 }
 
-const heightCache = new Map<string, Measurement>();
+// Keyed by message and theme, then by the width each height was measured at.
+// One slot per message is not enough: the same message can be on screen at
+// two widths at once (a rotation, or the chat list and the parent transcript
+// sharing a message), and a report from the wider bubble would otherwise
+// replace the entry the narrower one is painting from -- blanking a bubble
+// that was already correct, because a height from a wider bubble is shorter.
+const heightCache = new Map<string, Measurement[]>();
 const MAX_CACHE_ENTRIES = 200;
+// Rotation and split view produce a handful of widths, not hundreds.
+const MAX_WIDTHS_PER_MESSAGE = 4;
 // The laid-out width and the width the page reports are the same number
 // rounded differently, so a measurement counts as matching within a point.
 const WIDTH_TOLERANCE = 2;
 
+/**
+ * A measurement safe to paint in a bubble `contentWidth` wide: one taken at
+ * that same width, or failing that the tightest one taken in a bubble no
+ * wider -- a narrower bubble wraps into more lines, so its height is at worst
+ * a little tall, which is the harmless direction.
+ */
+function reusableHeight(measurements: Measurement[], contentWidth: number): number | undefined {
+  const usable = measurements.filter(
+    (measurement) => measurement.final && measurement.width <= contentWidth + WIDTH_TOLERANCE
+  );
+  if (usable.length === 0) return undefined;
+  return usable.reduce((best, measurement) =>
+    measurement.width > best.width ? measurement : best
+  ).height;
+}
+
 function rememberHeight(key: string, measurement: Measurement) {
-  if (heightCache.size >= MAX_CACHE_ENTRIES) heightCache.clear();
-  heightCache.set(key, measurement);
+  if (!heightCache.has(key) && heightCache.size >= MAX_CACHE_ENTRIES) heightCache.clear();
+  // One entry per width: a re-measure at the same width replaces its own, and
+  // leaves the other widths' bubbles alone.
+  const kept = (heightCache.get(key) ?? []).filter(
+    (existing) => existing.width !== measurement.width
+  );
+  // Narrowest first, so the widths that can be reused in a wider bubble (and
+  // only those) are the ones kept when the list is trimmed.
+  kept.push(measurement);
+  kept.sort((a, b) => a.width - b.width);
+  heightCache.set(key, kept.slice(0, MAX_WIDTHS_PER_MESSAGE));
 }
 
 function normalizeMarkdown(content: string): string {
@@ -174,16 +207,11 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   // while scrolling) can never show the previous message's size, and no
   // per-component state can drift out of sync with the cache.
   const [, forceRender] = useReducer((tick: number) => tick + 1, 0);
-  const cached = heightCache.get(cacheKey);
   // A height is only a safe frame for a bubble at least as wide as the one it
-  // was measured in: text wraps into fewer lines as the bubble grows, so a
-  // height measured in a wider bubble is *shorter* than this one needs and
-  // reusing it clips the bottom rows. A height measured in a narrower bubble
-  // is at worst a little tall, which is safe.
-  const cachedHeight =
-    cached && cached.final && cached.width <= contentWidth + WIDTH_TOLERANCE
-      ? cached.height
-      : undefined;
+  // was measured in, so only a measurement no wider than this bubble is
+  // reusable. Anything wider was measured at a bubble that wrapped the text
+  // into fewer lines, so it is shorter than this one needs.
+  const cachedHeight = reusableHeight(heightCache.get(cacheKey) ?? [], contentWidth);
   // Nothing is painted until a final height is known for a bubble no wider
   // than this one, so a frame that is briefly too small can never show a
   // half-height message.
@@ -204,13 +232,16 @@ const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
         // A pre-font report is recorded (it carries the width, so the next
         // mount can match on it) but must not be painted from.
         const isFinal = payload?.final !== false;
-        const previous = heightCache.get(cacheKey);
+        // Compare against this width's own entry, so a re-measure at another
+        // width is not mistaken for a no-op change here.
+        const previous = (heightCache.get(cacheKey) ?? []).find(
+          (existing) => existing.width === width
+        );
         // Ignore trivial corrections: re-laying out the chat row for a pixel
         // or two only costs jank. A change in finality is never trivial.
         if (
           previous &&
           previous.final === isFinal &&
-          previous.width === width &&
           Math.abs(previous.height - measuredHeight) < 3
         ) {
           return;

@@ -136,6 +136,53 @@ describe('MarkdownRenderer WebView sizing', () => {
     expect(renderedStyle().opacity).toBeUndefined();
   });
 
+  it('keeps a bubble revealed when a wider bubble reports the same content', () => {
+    const content = 'Two bubbles: one message, two different widths.';
+    render(<MarkdownRenderer content={content} />);
+
+    // This bubble is the narrow one (the chat list) and has measured.
+    act(() => {
+      mockWebViewProps.onLayout({ nativeEvent: { layout: { width: 265, height: 0 } } });
+    });
+    report(432, 265);
+    expect(renderedStyle().height).toBe(432);
+    expect(renderedStyle().opacity).toBeUndefined();
+
+    // A second bubble showing the same message at a wider width (a different
+    // screen, or a rotated one) now reports. It must not take the narrow
+    // bubble's measurement with it: a height from a wider bubble is too short
+    // here, so sharing one slot would blank a bubble that was already correct.
+    report(301, 640);
+
+    // The narrow bubble keeps its own measurement rather than going blank.
+    expect(renderedStyle().height).toBe(432);
+    expect(renderedStyle().opacity).toBeUndefined();
+  });
+
+  it('reuses a cached narrow measurement for a wider bubble once both are known', () => {
+    const content = 'Both widths: one message, measured in two bubbles.';
+    const { unmount } = render(<MarkdownRenderer content={content} />);
+    act(() => {
+      mockWebViewProps.onLayout({ nativeEvent: { layout: { width: 265, height: 0 } } });
+    });
+    report(432, 265);
+    expect(renderedStyle().height).toBe(432);
+    unmount();
+
+    // The same message in a wider bubble: its own measurement is not in yet,
+    // so it borrows the narrow one, which is a safe frame (a little tall).
+    render(<MarkdownRenderer content={content} />);
+    act(() => {
+      mockWebViewProps.onLayout({ nativeEvent: { layout: { width: 640, height: 0 } } });
+    });
+    expect(renderedStyle().height).toBe(432);
+    expect(renderedStyle().opacity).toBeUndefined();
+
+    // Its own report then takes over.
+    report(301, 640);
+    expect(renderedStyle().height).toBe(301);
+  });
+
   it('keeps the placeholder from collapsing a long message', () => {
     render(
       <MarkdownRenderer
