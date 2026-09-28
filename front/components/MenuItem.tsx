@@ -36,6 +36,12 @@ export function MenuItem({
   );
   const defaultIconColor = useThemeColor({}, "icon");
   const resolvedIconColor = iconColor ?? defaultIconColor;
+  // Only propagate the background override to the inner row. Passing the
+  // full outer `style` through would also leak layout props (e.g. the old
+  // flex content-height override) and break the inner fill width.
+  const flattenedStyle = StyleSheet.flatten(style);
+  const innerBackgroundColor =
+    flattenedStyle?.backgroundColor ?? backgroundColor;
   return (
     <Pressable
       style={[{ backgroundColor }, styles.container, style]}
@@ -44,10 +50,10 @@ export function MenuItem({
     >
       <IconSymbol name={iconName} style={styles.icon} color={resolvedIconColor} />
       <ThemedView style={[
-        { backgroundColor, borderColor }, 
+        { backgroundColor: innerBackgroundColor, borderColor },
         styles.rightContainer,
         hideChevron ? null : {borderBottomWidth: 1},
-        style]}>
+        ]}>
         <ThemedText style={styles.title}>{title}</ThemedText>
         {!hideChevron && (
           <IconSymbol
@@ -65,7 +71,6 @@ export function MenuItem({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

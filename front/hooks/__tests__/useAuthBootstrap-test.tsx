@@ -288,7 +288,11 @@ describe('useAuthBootstrap profile selection repair', () => {
 
     await bootstrap();
 
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('selectedProfile');
+    // Reseed overwrites via the notifying store (single write, no explicit
+    // remove) so every ProfileSwitcher instance updates together.
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith(
+      'selectedProfile'
+    );
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       'selectedProfile',
       JSON.stringify({ profile_id: 'p1', name: 'Jordan' })

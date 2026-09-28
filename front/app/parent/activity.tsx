@@ -23,6 +23,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  View,
 } from "react-native";
 
 function formatRowTime(inputDate: string | null): string {
@@ -50,8 +51,7 @@ export default function ActivityScreen() {
   const cardBackground = useThemeColor({}, "cardBackground");
   const borderColor = useThemeColor({}, "border");
   const secondaryColor = useThemeColor({}, "icon");
-  // Dark-mode tint (#03465b) is nearly invisible on dark backgrounds, so
-  // selected filters use the brighter accent (matches settings/flashcards).
+  // Selected filters use the brighter accent (matches settings/flashcards).
   const tintColor = useThemeColor({ dark: "#00a4c9" }, "tint");
 
   const load = useCallback(
@@ -150,15 +150,15 @@ export default function ActivityScreen() {
       style={[styles.card, { backgroundColor: cardBackground, borderColor }]}
       onPress={() => openTranscript(item)}
     >
-      <ThemedView style={styles.cardTopRow}>
+      <View style={styles.cardTopRow}>
         <ThemedText numberOfLines={1} style={styles.cardTitle}>
           {item.profile.name} · {item.bot?.name || "Unknown bot"}
         </ThemedText>
         <ThemedText style={[styles.cardTime, { color: secondaryColor }]}>
           {formatRowTime(item.last_message_at)}
         </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.cardBottomRow}>
+      </View>
+      <View style={styles.cardBottomRow}>
         <ThemedText
           numberOfLines={1}
           ellipsizeMode="tail"
@@ -167,14 +167,14 @@ export default function ActivityScreen() {
           {item.last_message_preview ? `"${item.last_message_preview}"` : item.title}
         </ThemedText>
         {item.safety_event_count > 0 && (
-          <ThemedView
+          <View
             testID="activity-shield-badge"
             accessibilityLabel="Has safety events"
           >
             <IconSymbol name="shield.fill" size={16} color="#FF9500" />
-          </ThemedView>
+          </View>
         )}
-      </ThemedView>
+      </View>
     </Pressable>
   );
 

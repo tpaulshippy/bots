@@ -12,7 +12,8 @@ import { AppleSignInButton } from "@/components/AppleSignInButton";
 import * as WebBrowser from 'expo-web-browser';
 import { clearCachedPin, setCachedHasPin } from "@/api/pinStorage";
 import { getAccount } from "@/api/account";
-import { fetchOwnProfile } from "@/api/profiles";
+import { fetchOwnProfile, fetchProfiles } from "@/api/profiles";
+import { setSelectedProfile } from "@/hooks/useSelectedProfile";
 
 
 const WEB_LOGIN_URL =
@@ -36,16 +37,14 @@ const LoginScreen = () => {
   const handleSuccessfulLogin = async () => {
     try {
       // Teen-delegated sessions: never cache a parent PIN, never show a
-      // profile picker — lock straight to the claimed profile.
+      // profile picker — lock straight to the claimed profile. Notifying
+      // store keeps the header and drawer chips in sync.
       const tokens = await getTokens();
       if (tokens?.isTeenDelegated) {
         if (tokens.activeProfileId) {
           const ownProfile =
             (await fetchOwnProfile()) ?? { profile_id: tokens.activeProfileId };
-          await AsyncStorage.setItem(
-            "selectedProfile",
-            JSON.stringify(ownProfile)
-          );
+          await setSelectedProfile(ownProfile);
         }
         router.replace("/");
         return;
@@ -56,6 +55,37 @@ const LoginScreen = () => {
       const account = await getAccount();
       if (account) {
         await setCachedHasPin(!!account.hasPin);
+      }
+      // Parent-session login (including a teen signing in with their own
+      // email bound to their own profile, which the backend intentionally
+      // does NOT delegate): ensure a profile is selected so chat doesn't
+      // start with nothing selected. Preserve a valid stored selection;
+      // otherwise auto-select the first live profile.
+      try {
+        const existing = await AsyncStorage.getItem("selectedProfile");
+        let storedId: string | null = null;
+        if (existing) {
+          try {
+            const parsed = JSON.parse(existing) as { profile_id?: unknown };
+            storedId =
+              typeof parsed?.profile_id === "string" ? parsed.profile_id : null;
+          } catch {
+            await setSelectedProfile(null);
+          }
+        }
+        const profiles = await fetchProfiles().catch(() => null);
+        if (
+          storedId &&
+          profiles?.results.some((p) => p.profile_id === storedId)
+        ) {
+          // Existing selection still valid — keep it.
+        } else if (profiles && profiles.count > 0) {
+          await setSelectedProfile(profiles.results[0]);
+        }
+        // Offline (profiles == null) or empty list: keep whatever is stored;
+        // bootstrap and the chat safety net handle those states.
+      } catch {
+        // Best-effort only.
       }
       router.replace("/");
     } catch (error) {

@@ -104,6 +104,7 @@ jobs:
             paths: >-
               bots/tests/test_delegated_login.py
               bots/tests/test_device_teen_permissions.py
+              bots/tests/test_google_login.py
               bots/tests/test_onboarding.py
               bots/tests/test_flashcard_api.py
               bots/tests/test_safety.py

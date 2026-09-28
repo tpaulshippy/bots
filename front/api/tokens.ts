@@ -58,6 +58,39 @@ export const setTokens = async (tokens: TokenData) => {
     const tokensData = await getTokensFromStorage();
     const newTokens = { ...tokensData, [BASE_URL]: tokens };
     await saveTokensToStorage(newTokens);
+    notifySessionModeChanged();
+};
+
+type SessionModeListener = (mode: SessionMode) => void;
+
+const sessionModeListeners = new Set<SessionModeListener>();
+
+/**
+ * Subscribe to session-mode changes (login/logout/teen delegation switch).
+ * useSessionMode uses this so long-mounted UI (drawer, route guard) updates
+ * without an app restart. Returns an unsubscribe function.
+ */
+export const subscribeToSessionMode = (
+  listener: SessionModeListener
+): (() => void) => {
+  sessionModeListeners.add(listener);
+  return () => {
+    sessionModeListeners.delete(listener);
+  };
+};
+
+const notifySessionModeChanged = () => {
+  void getSessionMode()
+    .then((mode) => {
+      sessionModeListeners.forEach((listener) => {
+        try {
+          listener(mode);
+        } catch {
+          // A failing subscriber must not break token storage.
+        }
+      });
+    })
+    .catch(() => {});
 };
 
 /**

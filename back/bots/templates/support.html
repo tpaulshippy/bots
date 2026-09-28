@@ -6,13 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Support</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="{% static 'favicon.png' %}">
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body class="font-sans text-gray-100">
-    <!-- Logo -->
-    <div class="header-logo" style="background-image: url('{% static 'syft_bg.png' %}'); width: 100%; height: 100px;">
-        <div class="flex justify-center content-center">
-            <img src="{% static 'syft_learning_sm.png' %}" alt="Syft Logo" style="height: 100px">
+    <!-- Logo (wordless bot mark on dark tint #0a7ea4, matches app splash) -->
+    <div class="header-logo" style="width: 100%; height: 100px;">
+        <div class="flex justify-center items-center content-center h-full gap-3">
+            <img src="{% static 'splash-icon.png' %}" alt="Syft Logo" style="height: 80px">
+            <span class="text-3xl font-bold tracking-wide text-white">SYFT LEARNING</span>
         </div>
     </div>
     <div class="container mx-auto px-4 py-8">

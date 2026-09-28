@@ -4,7 +4,9 @@
  */
 
 const tintColorLight = '#00a4c9';
-const tintColorDark = '#03465b';
+// Bright enough for white text/icons to stay visible on dark backgrounds
+// (#03465b was nearly invisible there) while keeping WCAG AA contrast.
+const tintColorDark = '#0a7ea4';
 
 export const Colors = {
   light: {

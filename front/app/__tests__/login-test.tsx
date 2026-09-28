@@ -4,9 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
 import LoginScreen from '../login';
-import { getTokens, setTokens } from '@/api/tokens';
+import { getSessionMode, getTokens, setTokens } from '@/api/tokens';
 import { getAccount } from '@/api/account';
-import { fetchOwnProfile } from '@/api/profiles';
+import { fetchOwnProfile, fetchProfiles } from '@/api/profiles';
 import { clearCachedPin, setCachedHasPin } from '@/api/pinStorage';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -17,6 +17,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/api/tokens', () => ({
   getTokens: jest.fn(),
   setTokens: jest.fn(),
+  getSessionMode: jest.fn(),
 }));
 
 jest.mock('@/api/account', () => ({
@@ -25,6 +26,7 @@ jest.mock('@/api/account', () => ({
 
 jest.mock('@/api/profiles', () => ({
   fetchOwnProfile: jest.fn(),
+  fetchProfiles: jest.fn(),
 }));
 
 jest.mock('@/api/pinStorage', () => ({
@@ -44,6 +46,11 @@ describe('LoginScreen', () => {
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
     (getTokens as jest.Mock).mockResolvedValue(null);
     (getAccount as jest.Mock).mockResolvedValue({ userId: 1, hasPin: false });
+    (getSessionMode as jest.Mock).mockResolvedValue({
+      isTeenDelegated: false,
+      activeProfileId: null,
+    });
+    (fetchProfiles as jest.Mock).mockResolvedValue({ results: [], count: 0 });
     (WebBrowser.openBrowserAsync as jest.Mock).mockResolvedValue({ type: 'dismiss' });
   });
 
@@ -89,6 +96,11 @@ describe('LoginScreen', () => {
       activeProfileId: 'p9',
     });
     (fetchOwnProfile as jest.Mock).mockResolvedValue({ profile_id: 'p9', name: 'Maya' });
+    // The notifying store checks the session lock before writing.
+    (getSessionMode as jest.Mock).mockResolvedValue({
+      isTeenDelegated: true,
+      activeProfileId: 'p9',
+    });
     render(<LoginScreen />);
 
     fireEvent.press(screen.getByTestId('google-sign-in-button'));

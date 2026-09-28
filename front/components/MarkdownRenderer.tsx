@@ -1,144 +1,41 @@
-import React, { useMemo } from 'react';
-import { Linking, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import Markdown from 'react-native-markdown-display';
-import alert from '@/components/Alert';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import { buildMessageHtml } from '@/components/markdown/markdownHtml';
+import {
+  pickMeasurement,
+  readMeasurements,
+  rememberMeasurements,
+  type Measurement,
+} from '@/components/markdown/heightCache';
+import { handleAssistantLink } from '@/components/markdown/links';
 
 interface MarkdownRendererProps {
   content: string;
 }
 
-/**
- * Extract the hostname to show in the outbound-link confirm sheet, e.g.
- * "https://docs.example.com/page" -> "docs.example.com" (and
- * "https://www.example.com/page" -> "example.com"). Falls back to the raw
- * URL when it cannot be parsed.
- */
-export function linkDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
+export { isSafeHttpUrl, linkDomain } from '@/components/markdown/links';
+export { resetHeightCache } from '@/components/markdown/heightCache';
+
+// How long to wait for the page's first report before showing the bubble at
+// the placeholder height anyway. Reports normally land within a few tens of
+// milliseconds of load.
+const REVEAL_FALLBACK_MS = 1200;
 
 /**
- * Assistant links may only be standard web pages. `Linking.openURL` dispatches
- * any registered scheme (tel:, sms:, custom app deep links), so non-HTTP(S)
- * URLs supplied by assistant Markdown are never offered an Open action.
+ * A short id for one document, so a measurement can be traced back to the
+ * message it came from. Derived from the inputs rather than counted, so it is
+ * stable across re-renders and unique per content + theme.
  */
-export function isSafeHttpUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
-  } catch {
-    return false;
+function documentIdFor(content: string, theme: Record<string, string>): string {
+  const key = `${theme.textColor}|${theme.backgroundColor}|${content}`;
+  let hash = 5381;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) + hash + key.charCodeAt(i)) | 0;
   }
-}
-
-function createMarkdownStyles(
-  textColor: string,
-  codeBg: string,
-  borderColor: string,
-  mutedText: string,
-  linkColor: string,
-) {
-  return StyleSheet.create({
-    body: {
-      color: textColor,
-      fontSize: 16,
-      lineHeight: 24,
-    },
-    paragraph: {
-      marginTop: 0,
-      marginBottom: 10,
-    },
-    heading1: {
-      color: textColor,
-      fontSize: 28,
-      marginTop: 8,
-      marginBottom: 12,
-    },
-    heading2: {
-      color: textColor,
-      fontSize: 24,
-      marginTop: 8,
-      marginBottom: 10,
-    },
-    heading3: {
-      color: textColor,
-      fontSize: 20,
-      marginTop: 8,
-      marginBottom: 8,
-    },
-    bullet_list: {
-      marginBottom: 10,
-    },
-    ordered_list: {
-      marginBottom: 10,
-    },
-    list_item: {
-      color: textColor,
-      marginBottom: 4,
-    },
-    blockquote: {
-      borderLeftWidth: 4,
-      borderLeftColor: linkColor,
-      color: mutedText,
-      paddingLeft: 10,
-      marginLeft: 0,
-      marginRight: 0,
-      marginBottom: 10,
-    },
-    code_inline: {
-      backgroundColor: codeBg,
-      color: textColor,
-      borderRadius: 4,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-    },
-    code_block: {
-      backgroundColor: codeBg,
-      color: textColor,
-      borderRadius: 8,
-      padding: 10,
-      marginBottom: 10,
-    },
-    fence: {
-      backgroundColor: codeBg,
-      color: textColor,
-      borderRadius: 8,
-      padding: 10,
-      marginBottom: 10,
-    },
-    hr: {
-      backgroundColor: borderColor,
-      height: 1,
-      marginVertical: 12,
-    },
-    table: {
-      borderWidth: 1,
-      borderColor: borderColor,
-      marginBottom: 10,
-    },
-    th: {
-      borderWidth: 1,
-      borderColor: borderColor,
-      padding: 8,
-      color: textColor,
-      backgroundColor: codeBg,
-    },
-    td: {
-      borderWidth: 1,
-      borderColor: borderColor,
-      padding: 8,
-      color: textColor,
-    },
-    link: {
-      color: linkColor,
-      textDecorationLine: 'underline',
-    },
-  });
+  return `${key.length.toString(36)}-${(hash >>> 0).toString(36)}`;
 }
 
 function normalizeMarkdown(content: string): string {
@@ -148,52 +45,195 @@ function normalizeMarkdown(content: string): string {
     .trim();
 }
 
+/**
+ * Renders one assistant message: markdown + LaTeX math in a single
+ * sandboxed WebView that reports its content height so the chat bubble
+ * wraps it exactly. Native builds use this file; the web build swaps in
+ * MarkdownRenderer.web.tsx, which renders the same HTML directly in the DOM.
+ *
+ * The WebView takes the bubble's full width (the bubble is a definite-width
+ * container) and only the height is negotiated: a WebView has no intrinsic
+ * size, and feeding a measured width back would reflow the document on every
+ * measurement.
+ */
 const MarkdownRenderer = ({ content }: MarkdownRendererProps) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const cardBackground = useThemeColor({}, 'cardBackground');
   const normalizedContent = useMemo(() => normalizeMarkdown(content), [content]);
-  const textColor = isDark ? '#fff' : '#000';
-  const codeBg = isDark ? '#2d2d2d' : '#f2f2f2';
-  const borderColor = isDark ? '#444' : '#ddd';
-  const mutedText = isDark ? '#bdbdbd' : '#555';
-  const linkColor = isDark ? '#6db3f2' : '#03465b';
-  const markdownStyles = useMemo(
-    () => createMarkdownStyles(textColor, codeBg, borderColor, mutedText, linkColor),
-    [textColor, codeBg, borderColor, mutedText, linkColor],
+
+  const theme = useMemo(
+    () => ({
+      textColor: isDark ? '#fff' : '#000',
+      backgroundColor: cardBackground,
+      mutedText: isDark ? '#bdbdbd' : '#555',
+      linkColor: isDark ? '#6db3f2' : '#03465b',
+      codeBg: isDark ? '#2d2d2d' : '#f2f2f2',
+      borderColor: isDark ? '#444' : '#ddd',
+    }),
+    [isDark, cardBackground],
   );
 
-  const handleLinkPress = (url: string) => {
-    // Never open assistant links directly: confirm the destination first.
-    if (!isSafeHttpUrl(url)) {
-      alert(
-        'Blocked link',
-        'Only standard web links can be opened here.',
-        [{ text: 'OK', style: 'cancel', onPress: () => {} }],
-      );
-      return;
-    }
-    alert(`Open ${linkDomain(url)}?`, url, [
-      { text: 'Cancel', style: 'cancel', onPress: () => {} },
-      {
-        text: 'Open',
-        onPress: () => {
-          Linking.openURL(url).catch(() => null);
-        },
-      },
-    ]);
-  };
+  const html = useMemo(
+    () =>
+      buildMessageHtml({
+        content: normalizedContent,
+        docId: documentIdFor(normalizedContent, theme),
+        ...theme,
+      }),
+    [normalizedContent, theme],
+  );
+
+  // Recomputed rather than carried in a ref, so it always matches the document
+  // `html` describes even when React renders the memo more than once.
+  const docId = documentIdFor(normalizedContent, theme);
+
+  const cacheKey = `${theme.textColor}|${theme.backgroundColor}|${normalizedContent}`;
+  // Re-reads the cache after a report so a recycled chat row (or a remount
+  // while scrolling) can never keep showing a stale size.
+  const [, forceRender] = useReducer((tick: number) => tick + 1, 0);
+  // Laid-out width of the WebView, which is the width the page wraps at. Known
+  // from the first layout, well before the page reports, so a remount can find
+  // its cached height immediately instead of flashing.
+  const [width, setWidth] = useState(0);
+  // This mount's own most recent report. A height the page just measured at the
+  // width this bubble is rendering at is correct by construction, so it wins
+  // over the cache and does not have to wait for the width to be reconciled.
+  // Tagged with the message it describes: a list that recycles this renderer
+  // for a different message must not keep showing the previous one's height,
+  // which for a longer message means a short frame and a clipped last line.
+  const [reported, setReported] = useState<(Measurement & { cacheKey: string }) | null>(
+    null,
+  );
+  // Until there is a real height, there is nothing honest to draw: any estimate
+  // is wrong by hundreds of pixels in one direction or the other (0.9 px per
+  // character for a long message, 2.3 for a short one with a heading), and a
+  // frame that is too short slices the last line off, which is the bug this is
+  // all about. Tagged the same way, for the same reason.
+  const [revealTimedOutFor, setRevealTimedOutFor] = useState<string | null>(null);
+  const currentReport = reported?.cacheKey === cacheKey ? reported : undefined;
+  const matched = pickMeasurement(readMeasurements(cacheKey), width);
+  const shownHeight = currentReport?.height ?? matched?.height;
+  const revealed =
+    currentReport !== undefined ||
+    matched !== undefined ||
+    revealTimedOutFor === cacheKey;
+
+  const onMessage = useCallback(
+    (event: { nativeEvent: { data: string } }) => {
+      try {
+        const payload = JSON.parse(event.nativeEvent.data);
+        // Handing a recycled bubble new content leaves the previous document
+        // live for a moment, and it can have a measurement already in flight.
+        // Crediting that to the new message would let a short one hand its
+        // under-sized height to a long one, which clips.
+        if (payload?.doc !== docId) return;
+        const measured = Math.ceil(Number(payload?.h));
+        if (!Number.isFinite(measured) || measured <= 0) return;
+        const measuredWidth = Math.round(Number(payload?.w)) || width;
+        const final = payload?.final !== false;
+        const previous =
+          pickMeasurement(readMeasurements(cacheKey), measuredWidth) ??
+          // This mount may already have reported at this width, before the
+          // value was cached, so compare against what is on screen too.
+          (currentReport?.width === measuredWidth ? currentReport : undefined);
+        // Ignore trivial corrections: re-laying out the chat row for a pixel
+        // or two only costs jank. Not when either side is provisional, though:
+        // a pre-font height is a guess, and dropping the settled correction
+        // because it moved by two pixels would keep the guess.
+        if (
+          previous !== undefined &&
+          previous.final &&
+          final &&
+          Math.abs(previous.height - measured) < 3
+        ) {
+          return;
+        }
+        const next = (readMeasurements(cacheKey) ?? []).filter(
+          (entry) => entry.width !== measuredWidth,
+        );
+        next.push({ width: measuredWidth, height: measured, final });
+        rememberMeasurements(cacheKey, next);
+        setReported({ cacheKey, width: measuredWidth, height: measured, final });
+        forceRender();
+      } catch {
+        // Malformed measurement message: keep the current height.
+      }
+    },
+    [cacheKey, docId, width, currentReport],
+  );
+
+  // While the bubble is hidden this only decides how much room the row
+  // reserves, so it never has to be right -- nothing is painted at this size.
+  // It just keeps the reserved height in the right neighbourhood so the row
+  // does not jump a long way when the real height lands. (An over-estimate
+  // would be worse than useless here: no single per-character rate can
+  // over-shoot both a long message at 0.9 px/char and a short one with a
+  // heading at 2.3, so the honest answer is to paint nothing until measured.)
+  const estimatedHeight = Math.max(
+    44,
+    Math.ceil((normalizedContent.length / 38) * 24) + 16,
+  );
+
+  // The WebView's own document loads as about:blank; only that first
+  // request may pass. A markdown link like [x](about:blank) reaches the
+  // same callback later and must go through the link guard instead of
+  // replacing the rendered message with a blank page.
+  const initialDocumentPending = useRef(true);
+
+  // Never leave a message permanently invisible. The page reports on load and
+  // then again after its fonts settle, so this is only a backstop for a
+  // WebView that never manages to report at all; better a bubble at the
+  // placeholder height than a blank row with no way to tell it apart from
+  // a rendering failure.
+  useEffect(() => {
+    if (revealed) return;
+    const timer = setTimeout(() => setRevealTimedOutFor(cacheKey), REVEAL_FALLBACK_MS);
+    return () => clearTimeout(timer);
+  }, [revealed, cacheKey]);
 
   return (
-    <Markdown
-      style={markdownStyles}
-      onLinkPress={(url: string) => {
-        handleLinkPress(url);
-        return true;
+    <WebView
+      source={{ html }}
+      onLayout={(event) => {
+        const laidOut = Math.round(event.nativeEvent.layout.width);
+        setWidth((current) => (current === laidOut ? current : laidOut));
       }}
-    >
-      {normalizedContent}
-    </Markdown>
+      style={[
+        styles.webView,
+        { height: shownHeight ?? estimatedHeight, opacity: revealed ? 1 : 0 },
+      ]}
+      scrollEnabled={false}
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
+      overScrollMode="never"
+      scalesPageToFit={false}
+      setSupportMultipleWindows={false}
+      // '*' is load-bearing: without it react-native-webview skips
+      // onShouldStartLoadWithRequest for non-http(s) URLs and opens them
+      // with Linking.openURL, which would bypass the HTTP(S) allowlist and
+      // the confirm sheet (tel:, sms:, custom app schemes).
+      originWhitelist={['*']}
+      onLoadStart={() => {
+        initialDocumentPending.current = false;
+      }}
+      onMessage={onMessage}
+      onShouldStartLoadWithRequest={(request) => {
+        if (request.url === 'about:blank' && initialDocumentPending.current) return true;
+        handleAssistantLink(request.url);
+        return false;
+      }}
+    />
   );
 };
+
+const styles = StyleSheet.create({
+  webView: {
+    // The bubble parent has a definite width; the page paints the bubble
+    // background itself so the WebView never flashes white.
+    width: '100%',
+    backgroundColor: 'transparent',
+  },
+});
 
 export default MarkdownRenderer;

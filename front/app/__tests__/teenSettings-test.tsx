@@ -1,6 +1,9 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react-native';
+import { Linking } from 'react-native';
+import { useRouter } from 'expo-router';
 import SettingsScreen from '../settings';
+import { clearUser } from '@/api/tokens';
 import {
   fetchDevice,
   fetchDeviceByToken,
@@ -8,6 +11,14 @@ import {
   getDeviceIdFromStorage,
 } from '@/api/devices';
 import * as Notifications from 'expo-notifications';
+
+jest.mock('expo-router', () => ({
+  useRouter: jest.fn(),
+}));
+
+jest.mock('@/api/tokens', () => ({
+  clearUser: jest.fn(),
+}));
 
 jest.mock('expo-device', () => ({
   isDevice: true,
@@ -47,8 +58,11 @@ const storedDevice = {
 };
 
 describe('Teen SettingsScreen', () => {
+  const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    (useRouter as jest.Mock).mockReturnValue(mockRouter);
     (getDeviceIdFromStorage as jest.Mock).mockResolvedValue(null);
     (fetchDevice as jest.Mock).mockResolvedValue(null);
     (fetchDeviceByToken as jest.Mock).mockResolvedValue(null);
@@ -136,5 +150,38 @@ describe('Teen SettingsScreen', () => {
       expect(screen.getByTestId('teen-study-due-switch').props.disabled).toBe(true)
     );
     expect(screen.getByText(/Paused while Daily digest only is on/)).toBeTruthy();
+  });
+
+  it('logs out back to the login screen', async () => {
+    render(<SettingsScreen />);
+
+    await waitFor(() =>
+      expect(getDeviceIdFromStorage).toHaveBeenCalled()
+    );
+
+    fireEvent.press(screen.getByTestId('teen-log-out'));
+
+    await waitFor(() => expect(clearUser).toHaveBeenCalled());
+    expect(mockRouter.replace).toHaveBeenCalledWith('/login');
+  });
+
+  it('opens the terms and privacy documents', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true as never);
+    render(<SettingsScreen />);
+
+    await waitFor(() =>
+      expect(getDeviceIdFromStorage).toHaveBeenCalled()
+    );
+
+    fireEvent.press(screen.getByTestId('teen-terms-use'));
+    expect(openURL).toHaveBeenCalledWith(
+      'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'
+    );
+
+    fireEvent.press(screen.getByTestId('teen-privacy-policy'));
+    expect(openURL).toHaveBeenCalledWith(
+      'https://www.freeprivacypolicy.com/live/6f20c0b8-408b-481d-a474-d3f589746d7b'
+    );
+    openURL.mockRestore();
   });
 });
