@@ -58,15 +58,18 @@ function reusableHeight(measurements: Measurement[], contentWidth: number): numb
 function rememberHeight(key: string, measurement: Measurement) {
   if (!heightCache.has(key) && heightCache.size >= MAX_CACHE_ENTRIES) heightCache.clear();
   // One entry per width: a re-measure at the same width replaces its own, and
-  // leaves the other widths' bubbles alone.
+  // leaves the other widths' bubbles alone. Re-inserting moves the entry to the
+  // end, so the list is oldest measurement first.
   const kept = (heightCache.get(key) ?? []).filter(
     (existing) => existing.width !== measurement.width
   );
-  // Narrowest first, so the widths that can be reused in a wider bubble (and
-  // only those) are the ones kept when the list is trimmed.
   kept.push(measurement);
-  kept.sort((a, b) => a.width - b.width);
-  heightCache.set(key, kept.slice(0, MAX_WIDTHS_PER_MESSAGE));
+  // Evict the least recently measured entries, never the one just written.
+  // Keeping the narrowest instead would starve the widest bubble: it is
+  // re-trimmed on every report and so could never store the measurement it
+  // needs to become visible at all.
+  const overflow = kept.length - MAX_WIDTHS_PER_MESSAGE;
+  heightCache.set(key, overflow > 0 ? kept.slice(overflow) : kept);
 }
 
 function normalizeMarkdown(content: string): string {

@@ -183,6 +183,33 @@ describe('MarkdownRenderer WebView sizing', () => {
     expect(renderedStyle().height).toBe(301);
   });
 
+  it('lets a fifth width report even when the cache is already full', () => {
+    // Four narrower widths have reported pre-font measurements (a message with
+    // math reports before its fonts land, and a pre-font entry cannot be painted
+    // from). This bubble is then widened to a fifth width and reports for real.
+    // Trimming to the narrowest widths would drop the only entry it can be
+    // painted from -- and since it re-reports the same value on every cycle, it
+    // would be dropped again every time, leaving it blank for good.
+    render(<MarkdownRenderer content="A fifth bubble reporting once the cache is full." />);
+
+    for (const width of [200, 240, 265, 300]) {
+      act(() => {
+        mockWebViewProps.onLayout({ nativeEvent: { layout: { width, height: 0 } } });
+      });
+      report(400, width, false);
+    }
+
+    act(() => {
+      mockWebViewProps.onLayout({ nativeEvent: { layout: { width: 600, height: 0 } } });
+    });
+    // Pre-font entries are not paintable, so there is nothing to show yet.
+    expect(renderedStyle().opacity).toBe(0);
+
+    report(280, 600);
+    expect(renderedStyle().height).toBe(280);
+    expect(renderedStyle().opacity).toBeUndefined();
+  });
+
   it('keeps the placeholder from collapsing a long message', () => {
     render(
       <MarkdownRenderer
