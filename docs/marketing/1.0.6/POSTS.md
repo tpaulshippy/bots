@@ -12,17 +12,29 @@ Prices used here: **Free / Basic $1/mo / Plus $5/mo** — matching
 $4", because the $5 Plus tier exists and an unqualified "under $4" reads as though
 every paid option is below it.
 
-### On the Khanmigo comparison
+### On the price anchor
 
-Khanmigo is **$4/mo** (verified Sep 2026, multiple sources including their own
-pricing page). That is a checkable fact, so it is fair game in public copy — and it
-is the single sharpest line you have. Two rules:
+**Never name a competitor in public copy.** Not in a post, not in an ad, not in the
+App Store description. Naming one hands them free distribution, makes your pricing a
+reaction rather than a position, and creates a public claim you have to keep true
+after they change their price.
 
-- **Do not compare per-child.** One Khanmigo subscription covers up to 10 children.
-  If you push a "cheaper per kid" angle, a parent with three kids will do that
-  division in their head and you lose. Stay on the flat monthly number.
-- **Re-verify before each campaign.** Competitor pricing moves. If Khanmigo changes,
-  every post in this deck needs a pass before it goes out.
+Anchor on the *category* instead. It lands the same number, reads as confident
+rather than comparative, and survives them changing price:
+
+- "AI tutoring for kids usually runs $4/month." — the default anchor, use this.
+- "The best-known AI tutor for kids charges $4/month." — slightly more pointed.
+- "Most AI tutoring apps start at $4/month." — use only if you can substantiate
+  "most"; it is a plural claim and the easiest one to outgrow.
+
+Two rules:
+
+- **Do not compare per-child.** A single subscription at the main competitor covers
+  up to 10 children. If you push a "cheaper per kid" angle, a parent with three
+  kids will do that division in their head and you lose. Stay on the flat monthly
+  number.
+- **Re-verify the $4 before each campaign.** Category pricing moves. If the anchor
+  goes stale, every post in this deck needs a pass before it goes out.
 
 ---
 
@@ -43,8 +55,8 @@ is the single sharpest line you have. Two rules:
 > teaches nothing. One that gets your kid to *say the reasoning out loud* teaches
 > something.
 >
-> Version 1.0.6 just went live on the App Store. Free to start — Khanmigo is
-> $4/month. ⟪LINK⟫
+> Version 1.0.6 just went live on the App Store. Free to start — AI tutoring for
+> kids usually runs $4/month. ⟪LINK⟫
 
 *Threads/IG caption: same text, trimmed to the first paragraph plus the last line.*
 
@@ -64,7 +76,8 @@ is the single sharpest line you have. Two rules:
 > There's a streak and a stats screen now. She's on day four and has not asked to
 > skip it once.
 >
-> Free to start, $1/mo if you want the bigger allowance. Khanmigo is $4/month. ⟪LINK⟫
+> Free to start, $1/mo if you want the bigger allowance. AI tutoring for kids
+> usually runs $4/month. ⟪LINK⟫
 
 ---
 
