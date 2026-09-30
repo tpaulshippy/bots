@@ -118,7 +118,7 @@ Two rules:
 
 ---
 
-### A5 · Sat Oct 3 · 32-second video (IG Reels + FB Reels)
+### A5 · Sat Oct 3 · 28-second video (IG Reels + FB Reels)
 
 **File:** `video/syft-promo-9x16.mp4` (rendered — no shoot needed).
 Fallback `video/syft-promo-16x9.mp4` for LinkedIn and X.

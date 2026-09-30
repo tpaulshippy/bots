@@ -2,72 +2,89 @@
 
 | File | Size | Use |
 |---|---|---|
-| `syft-promo-9x16.mp4` | 1080×1920, 32s | IG Reels, FB Reels, TikTok, Shorts, X |
-| `syft-promo-16x9.mp4` | 1920×1080, 32s | YouTube, LinkedIn, X |
+| `syft-promo-9x16.mp4` | 1080×1920, 28s | IG Reels, FB Reels, TikTok, Shorts, X |
+| `syft-promo-16x9.mp4` | 1920×1080, 28s | YouTube, LinkedIn, X |
 
-The 16:9 cut is rendered with `syftlearning.app` burned into the end card, because
-YouTube description links barely convert and the end card is the only CTA that
-survives. The 9:16 cut has no URL — it is wrong on Reels and TikTok, where nothing
-is tappable anyway. Regenerate the 9:16 cut the same way but without `--end-url`.
-
-Both are 30fps H.264 (yuv420p, faststart) with an AAC stereo bed. The two cuts
-are generated from the same scenes, not exported from one another, so each is
-composed for its own aspect: portrait stacks screen over caption, landscape puts
-the screen left and the caption right.
+30fps H.264 (yuv420p, faststart) with an AAC stereo bed. The two cuts are
+generated from the same scenes, not exported from one another, so each is
+composed for its own aspect.
 
 ## Scenes
 
-| # | Screen | On-screen line | Dur |
+| # | Clip | On-screen line | Dur |
 |---|---|---|---|
-| 1 | `05-chat` | She asked. The tutor asked back. | 6s |
-| 2 | `08-study` | Cards that come back when she'll forget them. | 6s |
-| 3 | `09-stats` | It's not another tab. It's a streak. | 6s |
-| 4 | `11-activity` | You can read every conversation. | 6s |
-| 5 | `03-select-bot` | A tutor per subject. | 6s |
+| 1 | chat — transcript scrolling | She asked. The tutor asked back. | 6.5s |
+| 2 | study — a flashcard being flipped | Cards that come back when she'll forget them. | 4.6s |
+| 3 | stats | It's not another tab. It's a streak. | 4.5s |
+| 4 | activity — inbox scrolling | You can read every conversation. | 5.5s |
+| 5 | bot picker | A tutor per subject. | 4.5s |
 | 6 | end card | Free to start | 5s |
 
-Cross-faded, with a slow push-in on each scene and a 0.5s fade in / 0.6s fade out.
+Cross-faded, 0.5s fade in / 0.7s fade out.
+
+**These are real screen recordings, not stills.** Every scene is a Playwright
+capture of the seeded app driven through the actual UI — the chat transcript
+scrolls, the flashcard flips to reveal the answer and the Again/Hard/Good/Easy
+rating row. An earlier version composited screenshots and read as a slideshow.
+
+The app logo (`front/assets/images/splash-icon.png`, transparent) is burned into
+every scene. The end card is the logo plus the name **once** — the previous
+version spelled the name twice, once as a text wordmark and once as the title.
 
 ## Regenerating
 
-```bash
-# 1. music bed (optional — see below)
-python3 scripts/make-promo-music.py -o /tmp/music.wav -d 48
+Order matters: the recorder needs the app running, the compositor needs the clips.
 
-# 2. vertical cut, no URL on the end card
+```bash
+# 1. backend seeded and running on :8000, web export built to front/dist
+#    (see docs/marketing/1.0.6/README.md for the full local setup)
+python3 back/manage.py seed_promo_demo            # from back/
+
+# 2. record the clips
+python3 scripts/record-promo-clips.py             # -> /tmp/opencode/clips/*.webm
+
+# 3. music bed (optional, see below)
+python3 scripts/make-promo-music.py -o /tmp/music.wav -d 40
+
+# 4. both cuts
 python3 scripts/make-promo-video.py --music /tmp/music.wav \
   -o docs/marketing/1.0.6/video/syft-promo-9x16.mp4
-
-# 3. landscape cut, URL burned in for YouTube/TV
 python3 scripts/make-promo-video.py --music /tmp/music.wav \
   -o docs/marketing/1.0.6/video/syft-promo-16x9.mp4 \
   --width 1920 --height 1080 --end-url syftlearning.app
 ```
 
-Needs ImageMagick (`convert`), `ffmpeg`, `ffprobe`, and the DejaVu fonts — the same
-as `make-marketing-assets.sh`. Frames are staged in `/tmp/opencode/vid`; override
-with `--work`.
+Needs ImageMagick (`convert`), `ffmpeg`, `ffprobe`, the DejaVu fonts, and Python
+with `playwright` + `numpy`. The 16:9 cut is rendered with the domain burned into
+the end card, because YouTube description links barely convert and the end card is
+the only CTA that survives there. The 9:16 cut has no URL — it is wrong on Reels
+and TikTok, where nothing is tappable.
 
 ## The music
 
-`scripts/make-promo-music.py` **synthesises the bed from scratch** — sine/triangle
-stacks, a bell arpeggio, soft kick and shaker, at 84 BPM in Fmaj7–C–G–Am. There is
-no sampled or licensed audio in it, so there are no third-party rights attached
-to the shipped video.
+`scripts/make-promo-music.py` **synthesises the bed from scratch**, so nothing
+licensed is embedded in the shipped video. There is no sampled or third-party
+audio anywhere in it.
 
-It is deliberately plain and sits well under captions. If you have a licensed
-track you like more, pass it instead — nothing downstream depends on where the
-audio came from:
+It is ambient only: a detuned sine pad over Fmaj9–Em7–Am7–Cadd9 at 66 BPM, a soft
+sub breath, sparse high shimmer, and a real convolution reverb (FFT against a
+synthetic exponentially-decaying noise IR) with a 3.4s tail. **No percussion and
+no melody line** — the first version had a 16th-note bell arpeggio over a saw pad
+with only a short delay, which read as a cheap synth loop and fought the captions.
+
+Mix: ~64% low-mid, 2% presence, RMS 0.126, peak −1.7 dBFS. It is meant to sit
+under the captions and be barely noticed. It is still a generated bed, not a
+produced track — if you want something that feels professionally scored, pass your
+own:
 
 ```bash
 python3 scripts/make-promo-video.py --music /path/to/licensed.mp3 -o ...
 ```
 
-Level check on the shipped bed: mean −16 dB, peak −1 dB, present through the
-full runtime.
+Nothing downstream depends on where the audio came from.
 
 ## Copy in the video
 
 The end card reads **"Other AI tutor bots start at $4 per month."** That is the
 category anchor from `POSTS.md`, kept consistent on purpose. Re-verify the figure
-before every campaign — see the caveats in `POSTS.md` § "On the price anchor".
+before every campaign — see `POSTS.md` § "On the price anchor".

@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-Build the Syft Learning promo video from the web-capture screenshots.
+Build the Syft Learning promo video from RECORDED app footage.
 
-Renders each scene as a still (brand gradient + phone + caption), gives it a
-slow push-in, cross-fades the scenes, and lays the music bed underneath.
+The previous version composited stills and read as a slideshow. This one drives
+the real UI: each scene is a Playwright screen recording (chat scrolling, a
+flashcard being flipped, the stats view, the activity inbox, the bot picker), so
+the motion is the app's own.
 
-    python3 make_promo_video.py --music /tmp/opencode/music.wav
+    python3 make-promo-video.py --music /tmp/music.wav
 
-Music: pass --music to use a licensed track instead of the generated bed.
-Nothing downstream depends on which bed is used.
+The app logo (front/assets/images/splash-icon.png, transparent) is burned into
+every scene, and the end card is logo + name once, not the name twice.
 """
 import argparse
-import json
 import os
 import shutil
 import subprocess
@@ -19,7 +20,9 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "docs/marketing/1.0.6/screenshots-web")
+CLIPS = os.environ.get("CLIP_DIR", "/tmp/opencode/clips")
+LOGO = os.path.join(ROOT, "front/assets/images/splash-icon.png")
+
 BRAND = "#0a7ea4"
 ACCENT = "#00a4c9"
 DARK = "#052f42"
@@ -27,179 +30,99 @@ MUTED = "#dff2fa"
 BOLD = "DejaVu-Sans-Bold"
 REG = "DejaVu-Sans"
 
-# Rendered larger than the output so zoompan has real pixels to push into.
-CW, CH = 1350, 2400
-OUT_W, OUT_H = 1080, 1920
 FPS = 30
+FADE = 0.55
 
-# (screenshot, crop fraction of screen height, headline, subline, seconds)
-# The app's list screens are top-heavy — stats, activity and the bot picker are
-# mostly empty below the fold. Cropping to the content keeps the phone filling
-# the frame instead of trailing off into white space.
+# (clip, in-point, duration, headline, subline)
 SCENES = [
-    ("05-chat.png", 1.0, "She asked. The tutor\nasked back.",
-     "Not the answer — the reasoning.", 6.0),
-    ("08-study.png", 0.62, "Cards that come back\nwhen she'll forget them.",
-     "Spaced repetition, built in.", 6.0),
-    ("09-stats.png", 0.46, "It's not another tab.\nIt's a streak.", "Nine days and counting.", 6.0),
-    ("11-activity.png", 0.40, "You can read\nevery conversation.",
-     "Every transcript, in your hands.", 6.0),
-    ("03-select-bot.png", 0.60, "A tutor per subject.",
-     "Each one your kid picks.", 6.0),
+    ("chat", 0.6, 6.5, "She asked. The tutor\nasked back.",
+     "Not the answer — the reasoning."),
+    ("study", 3.4, 4.6, "Cards that come back\nwhen she'll forget them.",
+     "Spaced repetition, built in."),
+    ("stats", 0.4, 4.5, "It's not another tab.\nIt's a streak.", "Nine days and counting."),
+    ("activity", 0.6, 5.5, "You can read\nevery conversation.",
+     "Every transcript, in your hands."),
+    ("bots", 0.4, 4.5, "A tutor per subject.", "Each one your kid picks."),
 ]
-END = ("Syft Learning", "Free to start", 5.0)
+END_DUR = 5.0
 
 
 def run(cmd, **kw):
     return subprocess.run(cmd, check=True, capture_output=True, **kw)
 
 
+def size_of(path):
+    """Dimensions of a still, or of the first video stream of a clip.
+
+    `identify` emits one line per frame for video, which blows up a naive
+    two-value unpack, so clips go through ffprobe.
+    """
+    if path.endswith((".webm", ".mp4", ".mov", ".mkv")):
+        out = run(["ffprobe", "-v", "error", "-select_streams", "v:0",
+                   "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x",
+                   path]).stdout.decode().strip()
+        w, h = out.split("x")
+        return int(w), int(h)
+    w, h = run(["identify", "-format", "%w %h", path]).stdout.decode().split()
+    return int(w), int(h)
+
+
 def cap(width, pts, fill, font, text, out, tmp):
-    """Wrapped + trimmed caption on a transparent background."""
     p = os.path.join(tmp, "cap.png")
-    run(["convert", "-size", f"{width}x1400", "-background", "none", "-fill", fill,
+    run(["convert", "-size", f"{width}x1600", "-background", "none", "-fill", fill,
          "-font", font, "-pointsize", str(pts), "-alpha", "set",
          "caption:" + text, "-trim", "-depth", "8", p])
     run(["convert", p, out])
 
 
-def phone(src, crop, height, radius, out, tmp):
-    """Crop a capture to its content region, then frame it as a device screen."""
-    dims = run(["identify", "-format", "%w %h", src]).stdout.decode().split()
-    sw, sh = int(dims[0]), int(dims[1])
-    ch = max(int(sh * crop), 1)
-    w = int(height) * sw // ch
-    p = os.path.join(tmp, "ph.png")
-    run(["convert", src, "-crop", f"{sw}x{ch}+0+0", "+repage",
-         "-resize", f"{w}x{height}!",
-         "(", "-size", f"{w}x{height}", "xc:none", "-fill", "white",
-         "-draw", f"roundrectangle 0,0,{w-1},{height-1},{radius},{radius}", ")",
-         "-compose", "CopyOpacity", "-composite",
-         "-stroke", "rgba(255,255,255,0.22)", "-strokewidth", "2", "-fill", "none",
-         "-draw", f"roundrectangle 1,1,{w-2},{height-2},{radius},{radius}",
-         "-depth", "8", p])
+def logo(size, out, tmp):
+    p = os.path.join(tmp, "logo.png")
+    run(["convert", LOGO, "-resize", f"{size}x{size}", "-depth", "8", p])
     run(["convert", p, out])
 
 
-def scene_frame(src, crop, head, sub, out, tmp):
-    """Portrait layout: framed screen above, caption below."""
+def make_mask(w, h, radius, out, tmp):
+    """White rounded rect on black, for alphamerge against a screen recording."""
+    run(["convert", "-size", f"{w}x{h}", "xc:black", "-fill", "white",
+         "-draw", f"roundrectangle 0,0,{w-1},{h-1},{radius},{radius}",
+         "-colorspace", "Gray", "-depth", "8", out])
+
+
+def background(W, H, out, tmp):
+    run(["convert", "-size", f"{W}x{H}", f"gradient:{BRAND}-{DARK}",
+         "(", "-size", f"{W}x{H}", "xc:none", "-fill", ACCENT,
+         "-draw", f"circle {W-120},150 {W-120},70", ")",
+         "-alpha", "set", "-compose", "over", "-composite", "-depth", "8", out])
+
+
+def end_card(W, H, out, tmp, end_url):
     bg = os.path.join(tmp, "bg.png")
-    run(["convert", "-size", f"{CW}x{CH}", f"gradient:{BRAND}-{DARK}",
-         "(", "-size", f"{CW}x{CH}", "xc:none", "-fill", ACCENT,
-         "-draw", f"circle {CW-140},170 {CW-140},80", ")",
-         "-alpha", "set", "-compose", "over", "-composite", "-depth", "8", bg])
-
-    # Fit the widest crop into the available box so short crops do not balloon.
-    box_h, box_w = 1500, CW - 220
-    dims = run(["identify", "-format", "%w %h", src]).stdout.decode().split()
-    ar = (int(dims[0]) / (int(dims[1]) * crop))
-    ph_h = min(box_h, int(box_w / ar))
-    ph = os.path.join(tmp, "ph.png")
-    phone(src, crop, ph_h, 46, ph, tmp)
-    pw = int(run(["identify", "-format", "%w", ph]).stdout.decode())
-    px = (CW - pw) // 2
-    py = 290
-
-    wm = os.path.join(tmp, "wm.png")
-    cap(900, 40, ACCENT, BOLD, "SYFT LEARNING", wm, tmp)
-
-    hl = os.path.join(tmp, "hl.png")
-    cap(CW - 260, 78, "white", BOLD, head, hl, tmp)
-    hh = int(run(["identify", "-format", "%h", hl]).stdout.decode())
-    sb = os.path.join(tmp, "sb.png")
-    cap(CW - 300, 40, MUTED, REG, sub, sb, tmp)
-    sh = int(run(["identify", "-format", "%h", sb]).stdout.decode())
-
-    sy = py + ph_h + 130
-    if sy + hh + sh + 60 > CH:
-        sy = CH - sh - hh - 110
-    wm_w = int(run(["identify", "-format", "%w", wm]).stdout.decode())
-    wm_x = (CW - wm_w) // 2
-    run(["convert", bg,
-         ph, "-geometry", f"+{px}+{py}", "-composite",
-         wm, "-geometry", f"+{wm_x}+130", "-composite",
-         hl, "-geometry", f"+200+{sy}", "-composite",
-         sb, "-geometry", f"+200+{sy + hh + 30}", "-composite",
-         "-depth", "8", out])
-
-
-def scene_frame_wide(src, crop, head, sub, out, tmp):
-    """Landscape layout: framed screen on the left, caption on the right.
-
-    Reusing the portrait composition here and cropping to 16:9 collides the
-    wordmark with the phone and clips the subline, so landscape gets its own
-    arrangement rather than the same still at a different output size.
-    """
-    bg = os.path.join(tmp, "bg.png")
-    run(["convert", "-size", f"{CW}x{CH}", f"gradient:{BRAND}-{DARK}",
-         "(", "-size", f"{CW}x{CH}", "xc:none", "-fill", ACCENT,
-         "-draw", f"circle {CW-120},120 {CW-120},50", ")",
-         "-alpha", "set", "-compose", "over", "-composite", "-depth", "8", bg])
-
-    box_h, box_w = CH - 200, int((CW - 200) * 0.42)
-    dims = run(["identify", "-format", "%w %h", src]).stdout.decode().split()
-    ar = (int(dims[0]) / (int(dims[1]) * crop))
-    ph_h = min(box_h, int(box_w / ar))
-    ph = os.path.join(tmp, "ph.png")
-    phone(src, crop, ph_h, 40, ph, tmp)
-    pw = int(run(["identify", "-format", "%w", ph]).stdout.decode())
-    px, py = 110, (CH - ph_h) // 2
-
-    text_x = px + pw + 110
-    text_w = CW - text_x - 110
-
-    wm = os.path.join(tmp, "wm.png")
-    cap(700, 34, ACCENT, BOLD, "SYFT LEARNING", wm, tmp)
-    hl = os.path.join(tmp, "hl.png")
-    cap(text_w, 64, "white", BOLD, head, hl, tmp)
-    hh = int(run(["identify", "-format", "%h", hl]).stdout.decode())
-    sb = os.path.join(tmp, "sb.png")
-    cap(text_w, 34, MUTED, REG, sub, sb, tmp)
-    sh = int(run(["identify", "-format", "%h", sb]).stdout.decode())
-
-    block = hh + sh + 34
-    ty = (CH - block) // 2
-    run(["convert", bg,
-         ph, "-geometry", f"+{px}+{py}", "-composite",
-         wm, "-geometry", f"+{text_x}+{ty - 78}", "-composite",
-         hl, "-geometry", f"+{text_x}+{ty}", "-composite",
-         sb, "-geometry", f"+{text_x}+{ty + hh + 34}", "-composite",
-         "-depth", "8", out])
-
-
-def end_frame(out, tmp, end_url=""):
-    bg = os.path.join(tmp, "bg.png")
-    run(["convert", "-size", f"{CW}x{CH}", f"gradient:{BRAND}-{DARK}",
-         "(", "-size", f"{CW}x{CH}", "xc:none", "-fill", ACCENT,
-         "-draw", f"circle {CW-140},170 {CW-140},80", ")",
-         "-alpha", "set", "-compose", "over", "-composite", "-depth", "8", bg])
-    wm = os.path.join(tmp, "wm.png")
-    cap(1100, 62, ACCENT, BOLD, "SYFT LEARNING", wm, tmp)
+    background(W, H, bg, tmp)
+    lg = os.path.join(tmp, "lg.png")
+    logo(int(H * 0.22), lg, tmp)
+    lgw, lgh = size_of(lg)
     t1 = os.path.join(tmp, "t1.png")
-    cap(CW - 200, 96, "white", BOLD, END[0], t1, tmp)
+    cap(int(W * 0.7), int(H * 0.038), "white", BOLD, "Syft Learning", t1, tmp)
     t2 = os.path.join(tmp, "t2.png")
-    cap(CW - 200, 44, MUTED, REG, "Other AI tutor bots start at $4 per month.", t2, tmp)
+    cap(int(W * 0.78), int(H * 0.019), MUTED, REG,
+        "Other AI tutor bots start at $4 per month.", t2, tmp)
     t3 = os.path.join(tmp, "t3.png")
-    cap(CW - 200, 52, "white", BOLD, "Free to start", t3, tmp)
-    b1 = int(run(["identify", "-format", "%h", wm]).stdout.decode())
-    b2 = int(run(["identify", "-format", "%h", t1]).stdout.decode())
-    b3 = int(run(["identify", "-format", "%h", t2]).stdout.decode())
-    b4 = int(run(["identify", "-format", "%h", t3]).stdout.decode())
-    blocks = [(wm, b1), (t1, b2), (t2, b3), (t3, b4)]
-    # A visible domain is the only CTA that works on YouTube and TV, where the
-    # description link is effectively dead. Opt-in: it looks wrong on Reels and
-    # TikTok, where nobody can tap it anyway.
+    cap(int(W * 0.7), int(H * 0.024), ACCENT, BOLD, "Free to start", t3, tmp)
+    blocks = [(lg, lgh), (t1, size_of(t1)[1]), (t2, size_of(t2)[1]), (t3, size_of(t3)[1])]
     if end_url:
         u = os.path.join(tmp, "u.png")
-        cap(CW - 200, 46, ACCENT, BOLD, end_url, u, tmp)
-        blocks.append((u, int(run(["identify", "-format", "%h", u]).stdout.decode())))
-    total = sum(h for _, h in blocks) + 60 * (len(blocks) - 1)
-    y = (CH - total) // 2
+        cap(int(W * 0.7), int(H * 0.021), "white", BOLD, end_url, u, tmp)
+        blocks.append((u, size_of(u)[1]))
+    gap = int(H * 0.022)
+    total = sum(h for _, h in blocks) + gap * (len(blocks) - 1)
+    y = (H - total) // 2
     args = ["convert", bg]
-    off = y
     for path, h in blocks:
-        args += [path, "-gravity", "north", "-geometry", f"+0+{off}", "-composite"]
-        off += h + 60
+        w = size_of(path)[0]
+        # northwest, not north: with -gravity north the geometry X is an offset
+        # FROM CENTRE, which shoves every block off the right edge.
+        args += [path, "-gravity", "northwest", "-geometry", f"+{(W-w)//2}+{y}", "-composite"]
+        y += h + gap
     args += ["-depth", "8", out]
     run(args)
 
@@ -207,94 +130,145 @@ def end_frame(out, tmp, end_url=""):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--music", default="/tmp/opencode/music.wav")
-    ap.add_argument("-o", "--out", default="/tmp/opencode/syft-promo.mp4")
-    ap.add_argument("--width", type=int, default=OUT_W)
-    ap.add_argument("--height", type=int, default=OUT_H)
-    ap.add_argument("--work", default="/tmp/opencode/vid")
-    ap.add_argument("--end-url", default="",
-                    help="domain burned into the end card, for YouTube/TV where the "
-                         "description link does not convert")
+    ap.add_argument("-o", "--out", default="docs/marketing/1.0.6/video/syft-promo-9x16.mp4")
+    ap.add_argument("--width", type=int, default=1080)
+    ap.add_argument("--height", type=int, default=1920)
+    ap.add_argument("--end-url", default="")
+    ap.add_argument("--work", default="/tmp/opencode/vid2")
     a = ap.parse_args()
 
-    # Compose at the output aspect so the layout is designed for it. Rendering
-    # portrait stills and cropping them to 16:9 collides the wordmark with the
-    # phone and clips the subline.
-    global CW, CH
-    if a.width > a.height:
-        CW, CH = a.width + 240, a.height + 135
-    else:
-        CW, CH = a.width * 5 // 4, a.height * 5 // 4
+    for t in ("convert", "ffmpeg", "ffprobe", "identify"):
+        if not shutil.which(t):
+            sys.exit(f"missing tool: {t}")
+    if not os.path.exists(LOGO):
+        sys.exit(f"logo not found: {LOGO}")
+    for name, *_ in SCENES:
+        if not os.path.exists(os.path.join(CLIPS, f"{name}.webm")):
+            sys.exit(f"missing clip: {CLIPS}/{name}.webm (run record_clips.py first)")
 
-    for tool in ("convert", "ffmpeg", "identify"):
-        if not shutil.which(tool):
-            sys.exit(f"missing required tool: {tool}")
-    if not os.path.exists(a.music):
-        sys.exit(f"music not found: {a.music}")
-
+    W, H = a.width, a.height
+    landscape = W > H
     work = a.work
     shutil.rmtree(work, ignore_errors=True)
     os.makedirs(work, exist_ok=True)
     tmp = tempfile.mkdtemp()
 
-    frames, durs = [], []
-    for i, (src, crop, head, sub, d) in enumerate(SCENES):
-        f = os.path.join(work, f"s{i}.png")
-        layout = scene_frame_wide if a.width > a.height else scene_frame
-        layout(os.path.join(SRC, src), crop, head, sub, f, tmp)
-        frames.append(f)
-        durs.append(d)
-        print(f"  scene {i}: {src} ({d}s)")
-    f = os.path.join(work, "send.png")
-    end_frame(f, tmp, a.end_url)
-    frames.append(f)
-    durs.append(END[2])
-    print(f"  end card ({END[2]}s)")
+    # Phone occupies the left half in landscape, the upper block in portrait.
+    if landscape:
+        ph_h = int(H * 0.86)
+        text_x = int(W * 0.50)
+        text_w = W - text_x - int(W * 0.06)
+    else:
+        ph_h = int(H * 0.615)
+        text_x = int(W * 0.07)
+        text_w = int(W * 0.86)
+    clip_w, clip_h = size_of(os.path.join(CLIPS, f"{SCENES[0][0]}.webm"))
+    # alphamerge into yuva420p needs even dimensions; an odd width here fails
+    # with "Input frame sizes do not match" once the pixel format rounds it down.
+    ph_w = (int(ph_h * clip_w / clip_h) // 2) * 2
+    ph_h = (ph_h // 2) * 2
+    ph_x = int(W * 0.06) if landscape else (W - ph_w) // 2
+    ph_y = (H - ph_h) // 2 if landscape else int(H * 0.145)
 
-    # ---- assemble: slow push-in per scene, cross-faded -----------------------
-    # Each still is fed to zoompan exactly once with d=<frames>. Pairing
-    # `zoompan d=1` with a looped input yields one frame per input frame and
-    # silently produces a 5s freeze inside a 32s container.
-    fade = 0.55
-    frames_n = [max(int(round(d * FPS)), 2) for d in durs]
-    total = sum(frames_n) / FPS - fade * (len(durs) - 1)
+    lg = int(min(W, H) * (0.16 if landscape else 0.125))
+    lg_x = (W - lg) // 2 if not landscape else text_x + 18
+    lg_y = int(H * 0.048) if not landscape else int(H * 0.20)
+
+    # --- per-scene overlay assets -------------------------------------------
+    bg = os.path.join(work, "bg.png")
+    background(W, H, bg, tmp)
+    mask = os.path.join(work, "mask.png")
+    make_mask(ph_w, ph_h, int(ph_w * 0.07), mask, tmp)
+    lg_png = os.path.join(work, "logo.png")
+    logo(lg, lg_png, tmp)
+
+    heads, subs, hh, shmax = [], [], 0, 0
+    for i, (_, _, _, head, sub) in enumerate(SCENES):
+        h = os.path.join(work, f"h{i}.png")
+        s = os.path.join(work, f"s{i}.png")
+        cap(text_w, int(min(W, H) * (0.040 if landscape else 0.050)), "white", BOLD, head, h, tmp)
+        cap(text_w, int(min(W, H) * (0.020 if landscape else 0.024)), MUTED, REG, sub, s, tmp)
+        heads.append(h)
+        subs.append(s)
+        hh = max(hh, size_of(h)[1])
+        shmax = max(shmax, size_of(s)[1])
+
+    end = os.path.join(work, "end.png")
+    end_card(W, H, end, tmp, a.end_url)
+
+    # --- assemble ------------------------------------------------------------
+    # Input order: 0..n-1 clips, n mask, n+1 bg, n+2 end card, n+3 logo,
+    # then 2n headline/sub pairs, then music. Derive the indices from n rather
+    # than hardcoding, or the pairs collide with the shared overlays.
+    n = len(SCENES)
+    I_MASK, I_BG, I_END, I_LOGO = n, n + 1, n + 2, n + 3
+    I_HEAD0 = n + 4
 
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
-    for f in frames:
-        cmd += ["-i", f]
+    for name, *_ in SCENES:
+        cmd += ["-i", os.path.join(CLIPS, f"{name}.webm")]
+    cmd += ["-loop", "1", "-i", mask, "-loop", "1", "-i", bg,
+            "-loop", "1", "-i", end, "-loop", "1", "-i", lg_png]
+    for i in range(n):
+        cmd += ["-loop", "1", "-i", heads[i], "-loop", "1", "-i", subs[i]]
     if a.music:
         cmd += ["-i", a.music]
+    music_idx = I_HEAD0 + 2 * n
 
     parts = []
-    for i, n in enumerate(frames_n):
+    for i, (_, start, dur, _, _) in enumerate(SCENES):
+        h_i, s_i = I_HEAD0 + 2 * i, I_HEAD0 + 2 * i + 1
+        if landscape:
+            # logo sits above the headline in the right-hand column; putting it
+            # over the phone column puts it on top of the screen recording.
+            gap = int(H * 0.028)
+            block = lg + gap + hh + gap + shmax
+            top = (H - block) // 2
+            lg_y, hl_y, sl_y = top, top + lg + gap, top + lg + gap + hh + gap
+        else:
+            hl_y = ph_y + ph_h + int(H * 0.040)
+            sl_y = hl_y + hh + 30
         parts.append(
-            f"[{i}:v]zoompan=z='min(1+0.00045*in,1.06)':"
-            f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-            f"d={n}:s={a.width}x{a.height}:fps={FPS},setsar=1,format=yuv420p[v{i}]"
+            f"[{i}:v]trim=start={start}:duration={dur},setpts=PTS-STARTPTS,"
+            f"fps={FPS},scale={ph_w}:{ph_h}:force_original_aspect_ratio=increase,"
+            f"crop={ph_w}:{ph_h},setsar=1,format=yuva420p[p{i}];"
+            f"[{I_MASK}:v]scale={ph_w}:{ph_h},format=gray[m{i}];"
+            f"[p{i}][m{i}]alphamerge[pm{i}];"
+            f"[{I_BG}:v][pm{i}]overlay={ph_x}:{ph_y}:shortest=1[phv{i}];"
+            f"[phv{i}][{I_LOGO}:v]overlay={lg_x}:{lg_y}:shortest=1[l{i}];"
+            f"[l{i}][{h_i}:v]overlay={text_x}:{hl_y}:shortest=1[hh{i}];"
+            f"[hh{i}][{s_i}:v]overlay={text_x}:{sl_y}:shortest=1[v{i}]"
         )
+
+    end_dur = END_DUR
     prev = "v0"
-    acc = frames_n[0] / FPS
-    for i in range(1, len(frames)):
-        off = acc - fade
-        out_label = f"x{i}"
-        parts.append(f"[{prev}][v{i}]xfade=transition=fade:duration={fade}:offset={off:.3f}[{out_label}]")
-        prev = out_label
-        acc = acc + frames_n[i] / FPS - fade
-    parts.append(
-        f"[{prev}]fade=t=in:st=0:d=0.5,fade=t=out:st={total-0.6:.2f}:d=0.6,format=yuv420p[vout]"
-    )
+    acc = SCENES[0][2]
+    for i in range(1, n):
+        off = acc - FADE
+        parts.append(f"[{prev}][v{i}]xfade=transition=fade:duration={FADE}:offset={off:.3f}[x{i}]")
+        prev = f"x{i}"
+        acc = acc + SCENES[i][2] - FADE
+    total = acc + end_dur - FADE
+    parts.append(f"[{prev}][{n+2}:v]xfade=transition=fade:duration={FADE}:offset={acc-FADE:.3f}[xe]")
+
+    fade_out = total - 0.7
+    parts.append(f"[xe]trim=duration={total:.3f},setpts=PTS-STARTPTS,"
+                 f"fade=t=in:st=0:d=0.5,fade=t=out:st={fade_out:.2f}:d=0.7,format=yuv420p[vout]")
 
     cmd += ["-filter_complex", ";".join(parts), "-map", "[vout]"]
-    cmd += ["-t", f"{total:.3f}"]
     if a.music:
-        cmd += ["-map", f"{len(frames)}:a", "-c:a", "aac", "-b:a", "192k"]
-    cmd += ["-c:v", "libx264", "-preset", "slow", "-crf", "19", "-pix_fmt", "yuv420p",
-            "-movflags", "+faststart", a.out]
+        cmd += ["-map", f"{music_idx}:a"]
+    cmd += ["-t", f"{total:.3f}", "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+            "-pix_fmt", "yuv420p", "-r", str(FPS)]
+    if a.music:
+        cmd += ["-c:a", "aac", "-b:a", "192k"]
+    cmd += ["-movflags", "+faststart", a.out]
 
-    print(f"  total {total:.1f}s -> {a.out}")
+    print(f"  {n} scenes + end card, {total:.1f}s -> {a.out}")
     run(cmd)
-    dur = run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
-               "-of", "default=nw=1:nk=1", a.out]).stdout.decode().strip()
-    print(f"  wrote {a.out}  {dur}s")
+    d = run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=nw=1:nk=1", a.out]).stdout.decode().strip()
+    print(f"  wrote {a.out}  {d}s")
 
 
 if __name__ == "__main__":

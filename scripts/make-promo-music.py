@@ -1,198 +1,179 @@
 #!/usr/bin/env python3
 """
-Generate an original, royalty-free music bed for the Syft Learning promo video.
+Generate the promo music bed. Original synthesis, no sampled or licensed audio,
+so nothing third-party is embedded in the shipped video.
 
-Everything here is synthesised from scratch, so there are no licensing questions
-and no third-party rights attached to the output. Swap in a licensed track by
-passing --music to make-promo-video.py; nothing downstream depends on this file.
+Target feel: calm, spacious, unfocused-attention. Ambient pad, no percussion, no
+melody line. The first attempt had a 16th-note bell arpeggio over a saw pad with
+only a short delay, which read as a cheap synth loop and fought the captions.
 
-Design: warm, optimistic, unhurried. 84 BPM, Fmaj7 - C - G - Am. Sine/triangle
-pad stack, bell arpeggio, soft kick + shaker, rounded by a light soft-clip and
-a short stereo delay. Deliberately sparse - it sits under voiceover/captions
-and must not compete with them.
+What changed and why:
+  - Replaced the delay with a real convolution reverb (FFT, synthetic
+    exponentially-decaying noise IR). The long tail is most of what makes a bed
+    feel like a room rather than a sequencer.
+  - Removed the arpeggio and the kick/shaker entirely. Percussion implies a beat
+    the eye follows, which is the opposite of background music for reading.
+  - Slowed to 66 BPM and gave each chord ~6s with a 1.4s attack, so chords
+    overlap and blur into each other instead of articulating.
+  - Added a sub-bass breath instead of a plucky bass note, and a very quiet
+    high shimmer for air.
+  - Panned the pad and shimmer with independent per-channel detune for width.
+
+Swap in a licensed track with --music on make-promo-video.py; nothing downstream
+depends on this file.
 """
 import argparse
 import math
-import struct
 import wave
 
 import numpy as np
 
 SR = 44100
-BPM = 84.0
-BEAT = 60.0 / BPM
-BAR = 4 * BEAT
+BPM = 66.0
+CHORD_SEC = 6.0
 
 
 def midi(n):
     return 440.0 * (2.0 ** ((n - 69) / 12.0))
 
 
-def adsr(n, a, d, s, r, sus=0.7):
-    """Sample-accurate ADSR over n samples. a/d/r in seconds, s is sustain level."""
-    na, nd, nr = int(a * SR), int(d * SR), int(r * SR)
-    na = max(na, 1)
-    ns = max(n - na - nd - nr, 0)
-    parts = [
-        np.linspace(0, 1, na, endpoint=False),
-        np.linspace(1, s, max(nd, 1), endpoint=False)[: max(n - na - nd - nr, 0) or max(nd, 1)],
-        np.full(ns, s),
-        np.linspace(s, 0, max(nr, 1), endpoint=False),
-    ]
-    env = np.concatenate([p for p in parts if p.size])[:n]
-    if env.size < n:
-        env = np.pad(env, (0, n - env.size))
-    return env
-
-
-def osc(freq, n, kind="sine", detune=0.0, phase=0.0):
+def sine(n, f, detune=0.0, phase=0.0):
     t = np.arange(n) / SR
-    f = freq * (2.0 ** (detune / 1200.0))
-    p = 2 * np.pi * f * t + phase
-    if kind == "sine":
-        return np.sin(p)
-    if kind == "tri":
-        return 2 / np.pi * np.arcsin(np.sin(p))
-    if kind == "saw":  # band-limited-ish via additive rolloff
-        out = np.zeros(n)
-        for k in range(1, 12):
-            out += np.sin(p * k) / (k**1.7)
-        return out * 0.7
-    raise ValueError(kind)
+    return np.sin(2 * np.pi * f * (2.0 ** (detune / 1200.0)) * t + phase)
 
 
-def lowpass(x, cutoff):
-    """One-pole lowpass, cheap and stable."""
-    a = math.exp(-2 * math.pi * cutoff / SR)
-    y = np.empty_like(x)
-    acc = 0.0
-    for i in range(0, len(x), 4096):  # blockwise approximation via lfilter
-        chunk = x[i : i + 4096]
-        # vectorised IIR using lfilter-style recursion
-        out = np.empty_like(chunk)
-        prev = acc
-        for j, v in enumerate(chunk):
-            prev = (1 - a) * v + a * prev
-            out[j] = prev
-        y[i : i + 4096] = out
-        acc = prev
+def env(n, attack, release, sustain=1.0):
+    """Slow swell in, long tail out. Peaks at `sustain`."""
+    na = max(int(attack * SR), 1)
+    nr = max(int(release * SR), 1)
+    na = min(na, n)
+    nr = min(nr, max(n - na, 1))
+    ns = max(n - na - nr, 0)
+    return np.concatenate([
+        np.linspace(0, sustain, na, endpoint=False),
+        np.full(ns, sustain),
+        np.linspace(sustain, 0, nr, endpoint=False),
+    ])[:n]
+
+
+def lowpass(x, cutoff, order=2):
+    """Zero-phase low-pass via repeated FFT smoothing. Cheap and artefact-free
+    enough for a pad, and unlike a one-pole IIR it does not ring or drift."""
+    y = x
+    for _ in range(order):
+        spec = np.fft.rfft(y)
+        f = np.fft.rfftfreq(len(y), 1 / SR)
+        spec *= 1.0 / (1.0 + (f / cutoff) ** 6)
+        y = np.fft.irfft(spec, n=len(y))
     return y
 
 
-def lowpass_fast(x, cutoff):
-    """Same as lowpass() but vectorised via FFT brickwall-ish smoothing."""
-    spec = np.fft.rfft(x)
-    freqs = np.fft.rfftfreq(len(x), 1 / SR)
-    spec *= 1.0 / (1.0 + (freqs / cutoff) ** 4)  # 4th-order rolloff
-    return np.fft.irfft(spec, n=len(x))
+def reverb(x, seconds=3.4, decay=3.2, predelay=0.02):
+    """FFT convolution with a synthetic exponentially-decaying noise IR.
+
+    A short feedback delay sounds like a slap; a real IR with a diffuse tail is
+    what stops the pad sounding like it is being played inside a box.
+    """
+    n = int(seconds * SR)
+    ir = np.random.default_rng(11).normal(0, 1, n)
+    ir *= np.exp(-np.arange(n) / (decay * SR))
+    # Taper the first few ms so the direct impulse is softened, not a click.
+    ir[: int(0.004 * SR)] *= np.linspace(0, 1, int(0.004 * SR))
+    ir /= np.sqrt((ir**2).sum())
+    size = len(x) + n
+    wet = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)[: len(x)]
+    out = np.zeros_like(x)
+    d = int(predelay * SR)
+    out[d:] = wet[d:]
+    return out
 
 
-def add(buf, sig, at):
-    i = int(at * SR)
-    if i >= len(buf):
-        return
-    seg = sig[: len(buf) - i]
-    buf[i : i + len(seg)] += seg
+# Fmaj9 - Em7 - Am7 - Cadd9. Open, unresolved, nothing that wants resolving.
+PROGRESSION = [
+    [53, 60, 64, 67, 72],   # Fmaj9
+    [52, 59, 62, 67, 71],   # Em7
+    [45, 57, 60, 64, 67],   # Am7
+    [48, 55, 62, 64, 69],   # Cadd9
+]
+ROOTS = [41, 40, 33, 36]  # F2, E2, A1, C2
 
 
-def build(duration_s, seed=7):
+def build(duration, seed=5):
     rng = np.random.default_rng(seed)
-    n = int(duration_s * SR)
+    n = int(duration * SR)
     pad = np.zeros(n)
-    arp = np.zeros(n)
-    bass = np.zeros(n)
-    drums = np.zeros(n)
+    sub = np.zeros(n)
+    air = np.zeros(n)
 
-    # Fmaj7 - C - G - Am, two bars each.
-    chords = [
-        ([53, 57, 60, 64], 41),  # Fmaj7 / F
-        ([48, 52, 55, 59], 36),  # C  (C3 root, 48+... use 48)
-        ([55, 59, 62, 67], 43),  # G
-        ([57, 60, 64, 69], 45),  # Am
-    ]
-    bars = int(math.ceil(duration_s / BAR))
-    for b in range(bars):
-        t0 = b * BAR
-        notes, root = chords[b % 4]
-        if t0 > duration_s:
-            break
-        # --- pad: detuned triangle stack, long attack, whole bar
-        dur = BAR * 0.98
-        L = int(dur * SR)
-        for k, m in enumerate(notes):
-            f = midi(m)
-            voice = (
-                osc(f, L, "tri", detune=-6)
-                + osc(f, L, "tri", detune=+6)
-                + 0.5 * osc(f * 2, L, "sine")
-            ) / 2.5
-            voice *= adsr(L, 0.35, 0.25, 0.72, 0.5) * 0.11
-            voice = lowpass_fast(voice, 2200)
-            add(pad, voice, t0 + k * 0.012)
-        # --- bass root on 1 and the "and of 3"
-        for beat in (0.0, 2.5):
-            L = int(1.1 * SR)
-            v = osc(midi(root), L, "sine") * adsr(L, 0.01, 0.25, 0.5, 0.4) * 0.26
-            add(bass, v, t0 + beat * BEAT)
-        # --- bell arpeggio in 8ths, gentle
-        seq = [notes[0], notes[2], notes[1], notes[3], notes[2], notes[1], notes[3], notes[0]]
-        for i, m in enumerate(seq):
-            at = t0 + i * 0.5 * BEAT
-            if at > duration_s:
-                break
-            L = int(0.9 * SR)
-            f = midi(m + 12)
-            v = (osc(f, L, "sine") + 0.25 * osc(f * 3.01, L, "sine")) * adsr(
-                L, 0.004, 0.5, 0.16, 0.35
-            )
-            v *= 0.085 * (0.75 + 0.25 * ((i % 4) == 0))
-            add(arp, v, at)
-        # --- soft kick + shaker
-        for beat in (0.0, 2.0):
-            L = int(0.32 * SR)
-            f = np.linspace(120, 45, L)
-            kick = np.sin(2 * np.pi * np.cumsum(f) / SR) * adsr(L, 0.002, 0.1, 0.0, 0.2)
-            add(drums, kick, t0 + beat * BEAT) if False else None
-            k = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-np.linspace(0, 9, L)) * 0.5
-            add(drums, k, t0 + beat * BEAT)
-        for i in range(8):
-            at = t0 + i * 0.5 * BEAT
-            if at > duration_s:
-                break
-            L = int(0.09 * SR)
-            noise = rng.normal(0, 1, L)
-            sh = lowpass_fast(noise, 6500) * np.exp(-np.linspace(0, 7, L)) * 0.06
-            if i % 2 == 0:
-                sh *= 1.5
-            add(drums, sh, at)
+    chord_len = int(CHORD_SEC * SR)
+    # Start the first chord early so the clip opens already sounding, not on a
+    # silence that has to swell in.
+    t = -int(1.6 * SR)
+    idx = 0
+    while t < n:
+        notes = PROGRESSION[idx % len(PROGRESSION)]
+        root = ROOTS[idx % len(ROOTS)]
+        if t + chord_len > -chord_len:  # skip entirely off-screen chords
+            for k, m in enumerate(notes):
+                f = midi(m)
+                # Octave-down doubling on the bottom notes gives body without
+                # needing a separate sub voice.
+                oct = 0.5 if m < 60 else 1.0
+                for det in (-7, 0, 7):
+                    v = sine(chord_len, f * oct, detune=det)
+                    v *= env(chord_len, 1.4, 2.6) * 0.085
+                    v = lowpass(v, 2200, order=1)
+                    start = t + int(k * 0.09 * SR)
+                    seg = v
+                    a, b = max(start, 0), min(start + len(seg), n)
+                    if b > a:
+                        pad[a:b] += seg[a - start : b - start]
+            sv = sine(chord_len, midi(root), detune=0) * env(chord_len, 1.8, 2.2) * 0.10
+            sv = lowpass(sv, 180, order=1)
+            a, b = max(t, 0), min(t + chord_len, n)
+            if b > a:
+                sub[a:b] += sv[a - t : b - t]
+        t += chord_len
+        idx += 1
 
-    mix = pad + arp + bass + drums
+    # Sparse high shimmer, well under everything else, for air.
+    t = 0
+    while t < n:
+        notes = PROGRESSION[rng.integers(len(PROGRESSION)) % len(PROGRESSION)]
+        m = int(notes[rng.integers(len(notes))]) + 24
+        dur = int(4.0 * SR)
+        v = sine(dur, midi(m), detune=float(rng.uniform(-5, 5)))
+        v *= env(dur, 1.6, 2.4) * 0.030
+        v = lowpass(v, 5200, order=1)
+        a, b = t, min(t + dur, n)
+        if b > a:
+            air[a:b] += v[: b - a]
+        t += int(rng.uniform(2.4, 4.2) * SR)
 
-    # short stereo delay for width
-    dly = int(0.19 * SR)
-    wet = np.zeros_like(mix)
-    wet[dly:] = mix[:-dly] * 0.22
-    left = mix + wet
-    right = np.roll(mix, int(0.07 * SR)) + np.roll(wet, int(0.05 * SR))
+    dry = pad + sub + air
+    wet = reverb(dry, seconds=3.4, decay=3.2)
+    # Mostly wet: this is a bed, not a dry instrument.
+    left = lowpass(dry * 0.35 + wet * 0.85, 7000, order=2)
+    right = lowpass(np.roll(dry, int(0.011 * SR)) * 0.35
+                    + np.roll(wet, int(0.007 * SR)) * 0.85, 7000, order=2)
 
-    # gentle glue + soft clip
+    # Gentle glue, then normalise. Soft-clip before normalising so the peaks
+    # round off instead of hard-limiting.
     def finish(ch):
-        ch = lowpass_fast(ch, 9000)
-        ch = np.tanh(ch * 1.25) * 0.8
-        fade = int(2.0 * SR)
-        ch[:fade] *= np.linspace(0, 1, fade)
-        ch[-fade:] *= np.linspace(1, 0, fade)
+        ch = np.tanh(ch * 1.15) * 0.87
+        fade = int(2.5 * SR)
+        ch[:fade] *= np.linspace(0, 1, fade) ** 0.7
+        ch[-fade:] *= np.linspace(1, 0, fade) ** 1.4
         return ch
 
+    left, right = finish(left), finish(right)
     peak = max(np.abs(left).max(), np.abs(right).max(), 1e-9)
-    gain = 0.89 / peak
-    return (left * gain, right * gain)
+    g = 0.82 / peak
+    return left * g, right * g
 
 
 def write_wav(path, left, right):
-    data = np.stack([left, right], axis=1)
-    pcm = np.clip(data, -1, 1)
-    pcm = (pcm * 32767).astype("<i2")
+    pcm = (np.clip(np.stack([left, right], 1), -1, 1) * 32767).astype("<i2")
     with wave.open(path, "wb") as w:
         w.setnchannels(2)
         w.setsampwidth(2)
@@ -204,7 +185,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--out", default="/tmp/opencode/music.wav")
     ap.add_argument("-d", "--duration", type=float, default=48.0)
-    ap.add_argument("-s", "--seed", type=int, default=7)
+    ap.add_argument("-s", "--seed", type=int, default=5)
     a = ap.parse_args()
     L, R = build(a.duration, a.seed)
     write_wav(a.out, L, R)

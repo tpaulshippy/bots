@@ -183,11 +183,11 @@ Full rationale and regeneration instructions in [`assets/README.md`]. The short 
 - **One template, brand-locked.** `#0a7ea4` → `#052f42` gradient, `#00a4c9` accent,
   taken from `front/app.json`. Wordmark top-left, one headline, one sub-line. Same
   shape everywhere so the three posts read as a set.
-- **The video is the highest-value asset in the whole plan.** A 32-second cut is
+- **The video is the highest-value asset in the whole plan.** A 28-second cut is
   already rendered in [`video/`](video/) in both 9:16 and 16:9, and it will
-  out-reach the six static posts combined. Post it rather than re-shooting one on a
-  Sunday. If you want a human-in-the-loop version instead, the shot list below is
-  the fallback.
+  out-reach the six static posts combined. It is built from real screen recordings
+  of the app — the chat transcript scrolls, a flashcard flips to reveal the answer
+  and the rating row — not from screenshots, so it holds attention. Post it.
 - **Never publish a screenshot containing a real child's conversation.** The current
   set is demo data. If you ever capture from a real family, get written consent
   first and blur the names.
