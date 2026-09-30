@@ -56,6 +56,11 @@ def main():
         api("/chats.json", access),
         api("/decks.json", access),
     )
+    # Science Bot carries a written system prompt, which is the parent-control
+    # story, so the editor shot uses it rather than an arbitrary bot.
+    bot_rows = rows(bots)
+    control_bot = next((b for b in bot_rows if b.get("name") == "Science Bot"), bot_rows[0])
+    control_bot_id = control_bot.get("bot_id") or control_bot.get("id")
     print(f"seeded: {len(rows(profiles))} profiles, {len(rows(bots))} bots, "
           f"{len(rows(chats))} chats, {len(rows(decks))} decks")
 
@@ -99,6 +104,8 @@ def main():
         ("07-stats", "/stats", None),
         ("08-materials", "/studyMaterials", None),
         ("09-activity", "/parent/activity", None),
+        ("10-bot-editor", f"/parent/botEditor?botId={control_bot_id}", None),
+        ("11-notifications", "/parent/notifications", None),
     ]
 
     with sync_playwright() as p:

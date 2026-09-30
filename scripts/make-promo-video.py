@@ -34,15 +34,28 @@ FPS = 30
 FADE = 0.55
 
 # (clip, in-point, duration, headline, subline)
+#
+# Scene order follows the three value propositions rather than a feature tour:
+#   1 educational   - flashcards with spaced repetition, then study materials
+#   2 parent control - transcripts, then notification preferences, then the
+#                      system prompt the parent writes
+#   3 price         - the end card
+#
+# Deliberately absent: "the tutor asks questions back", streaks, and one-bot-per-
+# subject. The first sells the AI rather than the learning, the second is a
+# retention mechanic, and the third is a feature detail. None of them is what
+# this product is for.
 SCENES = [
-    ("chat", 0.6, 6.5, "She asked. The tutor\nasked back.",
-     "Not the answer — the reasoning."),
     ("study", 3.4, 4.6, "Cards that come back\nwhen she'll forget them.",
      "Spaced repetition, built in."),
-    ("stats", 0.4, 4.5, "It's not another tab.\nIt's a streak.", "Nine days and counting."),
-    ("activity", 0.6, 5.5, "You can read\nevery conversation.",
-     "Every transcript, in your hands."),
-    ("bots", 0.4, 4.5, "A tutor per subject.", "Each one your kid picks."),
+    ("materials", 0.6, 4.2, "The tutor builds study pages\nto come back to.",
+     "Made for the student, kept for later."),
+    ("activity", 0.7, 4.8, "Every conversation,\nreadable.",
+     "Full transcripts for every bot."),
+    ("notifications", 0.6, 4.0, "You decide when\nyou're told.",
+     "Straight away, a daily summary, or just study reminders."),
+    ("boteditor", 3.2, 5.0, "You write the system prompt.",
+     "Make a character, or a subject expert."),
 ]
 END_DUR = 5.0
 
@@ -103,11 +116,14 @@ def end_card(W, H, out, tmp, end_url):
     lgw, lgh = size_of(lg)
     t1 = os.path.join(tmp, "t1.png")
     cap(int(W * 0.7), int(H * 0.038), "white", BOLD, "Syft Learning", t1, tmp)
+    # Price is one of the three propositions, so it gets its own line rather
+    # than being a footnote. The category anchor follows it.
     t2 = os.path.join(tmp, "t2.png")
-    cap(int(W * 0.78), int(H * 0.019), MUTED, REG,
-        "Other AI tutor bots start at $4 per month.", t2, tmp)
+    cap(int(W * 0.86), int(H * 0.030), MUTED, REG,
+        "Free to start. $1/mo or $5/mo for more.", t2, tmp)
     t3 = os.path.join(tmp, "t3.png")
-    cap(int(W * 0.7), int(H * 0.024), ACCENT, BOLD, "Free to start", t3, tmp)
+    cap(int(W * 0.86), int(H * 0.019), ACCENT, BOLD,
+        "Other AI tutor bots start at $4 per month.", t3, tmp)
     blocks = [(lg, lgh), (t1, size_of(t1)[1]), (t2, size_of(t2)[1]), (t3, size_of(t3)[1])]
     if end_url:
         u = os.path.join(tmp, "u.png")

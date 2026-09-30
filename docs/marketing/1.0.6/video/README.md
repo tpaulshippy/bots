@@ -2,8 +2,8 @@
 
 | File | Size | Use |
 |---|---|---|
-| `syft-promo-9x16.mp4` | 1080×1920, 28s | IG Reels, FB Reels, TikTok, Shorts, X |
-| `syft-promo-16x9.mp4` | 1920×1080, 28s | YouTube, LinkedIn, X |
+| `syft-promo-9x16.mp4` | 1080×1920, 25s | IG Reels, FB Reels, TikTok, Shorts, X |
+| `syft-promo-16x9.mp4` | 1920×1080, 25s | YouTube, LinkedIn, X |
 
 30fps H.264 (yuv420p, faststart) with an AAC stereo bed. The two cuts are
 generated from the same scenes, not exported from one another, so each is
@@ -11,16 +11,20 @@ composed for its own aspect.
 
 ## Scenes
 
-| # | Clip | On-screen line | Dur |
-|---|---|---|---|
-| 1 | chat — transcript scrolling | She asked. The tutor asked back. | 6.5s |
-| 2 | study — a flashcard being flipped | Cards that come back when she'll forget them. | 4.6s |
-| 3 | stats | It's not another tab. It's a streak. | 4.5s |
-| 4 | activity — inbox scrolling | You can read every conversation. | 5.5s |
-| 5 | bot picker | A tutor per subject. | 4.5s |
-| 6 | end card | Free to start | 5s |
+| # | Clip | On-screen line | Prop | Dur |
+|---|---|---|---|---|
+| 1 | study — a flashcard being flipped | Cards that come back when she'll forget them. | 1 | 4.6s |
+| 2 | study materials — the tutor's pages | The tutor builds study pages to come back to. | 1 | 4.2s |
+| 3 | activity — inbox scrolling | Every conversation, readable. | 2 | 4.8s |
+| 4 | notifications — parent toggles | You decide when you're told. | 2 | 4.0s |
+| 5 | bot editor — system prompt | You write the system prompt. | 2 | 5.0s |
+| 6 | end card | Free to start. $1/mo or $5/mo for more. | 3 | 5s |
 
-Cross-faded, 0.5s fade in / 0.7s fade out.
+Scene order follows the three propositions, not a feature tour. Deliberately absent:
+"the tutor asks questions back", streaks, and one-bot-per-subject — see `ROLLOUT.md`
+§1 "What we stopped leading with".
+
+Cross-faded, 0.5s fade in / 0.7s fade out. 25s total.
 
 **These are real screen recordings, not stills.** Every scene is a Playwright
 capture of the seeded app driven through the actual UI — the chat transcript
@@ -66,16 +70,21 @@ and TikTok, where nothing is tappable.
 licensed is embedded in the shipped video. There is no sampled or third-party
 audio anywhere in it.
 
-It is ambient only: a detuned sine pad over Fmaj9–Em7–Am7–Cadd9 at 66 BPM, a soft
-sub breath, sparse high shimmer, and a real convolution reverb (FFT against a
-synthetic exponentially-decaying noise IR) with a 3.4s tail. **No percussion and
-no melody line** — the first version had a 16th-note bell arpeggio over a saw pad
-with only a short delay, which read as a cheap synth loop and fought the captions.
+It is a **drum groove** at 88 BPM — kick, snare with ghost notes, hats on 8ths, and
+a chord-root bass, over I–V–vi–IV, with a little swing and the bass ducked off each
+kick. Every voice is synthesised: pitch-swept sine kick, noise-over-tone snare,
+highpassed noise hats, and a sparse detuned stab on the hook.
 
-Mix: ~64% low-mid, 2% presence, RMS 0.126, peak −1.7 dBFS. It is meant to sit
-under the captions and be barely noticed. It is still a generated bed, not a
-produced track — if you want something that feels professionally scored, pass your
-own:
+Two earlier attempts were rejected on feedback: an ambient pad, then a bell
+arpeggio. Neither carried a short promo.
+
+Measured: 88 BPM confirmed by onset autocorrelation (0.65 at one beat, 0.86 per
+bar), 17.6% of energy above 4kHz and 6% above 8kHz — a warm lo-fi balance, after a
+first pass left 19% above 12kHz and read as hiss on phone speakers. Mean −17.5 dB,
+peak −1.3 dBFS.
+
+It is still a generated groove, not a produced track. If you want something that
+feels professionally played and mixed, pass your own:
 
 ```bash
 python3 scripts/make-promo-video.py --music /path/to/licensed.mp3 -o ...

@@ -5,41 +5,35 @@ URL from `ROLLOUT.md` §6. Do not post before reading `ROLLOUT.md` §2 (pre-flig
 §7 (compliance).
 
 Base URL: `https://apps.apple.com/us/app/syft-learning/id6742674793`
-With a campaign token: append `?pt=facebook&ct=oct1_parent&mt=8` (and so on per post).
+With a campaign token: append `?pt=facebook&ct=oct1_parent_ig&mt=8` (and so on per post).
 
-Prices used here: **Free / Basic $1/mo / Plus $5/mo** — matching
+Three propositions carry everything: **educational**, **parents observe and
+customise**, **low priced**. Each post below is labelled with which one it does.
+See `ROLLOUT.md` §1 for what we deliberately stopped leading with.
+
+Prices: **Free / Basic $1/mo / Plus $5/mo**, matching
 `front/constants/subscriptions.ts`. Copy says "free, or $1/mo" rather than "under
-$4", because the $5 Plus tier exists and an unqualified "under $4" reads as though
-every paid option is below it.
+$4", because the $5 tier exists and an unqualified "under $4" reads as though every
+paid option is below it.
 
 ### On the price anchor
 
-**Never name a competitor in public copy.** Not in a post, not in an ad, not in the
-App Store description. Naming one hands them free distribution, makes your pricing a
-reaction rather than a position, and creates a public claim you have to keep true
-after they change their price.
-
-Anchor on the *category* instead. It lands the same number, reads as confident
-rather than comparative, and survives them changing price:
+**Never name a competitor in public copy** — not in a post, an ad, or the store
+description. Anchor on the *category*:
 
 - "Other AI tutor bots start at $4 per month." — the default anchor, use this.
-- "Other AI tutor apps start at $4/month." — drop "bots" if the channel reads
-  oddly against "bots" (LinkedIn and X in particular).
-- "The best-known AI tutor for kids charges $4/month." — narrower and vaguer; it
-  names no category floor, so it is easier to defend but does less work.
+- "Other AI tutor apps start at $4/month." — drop "bots" where it reads badly.
 
-Two rules:
+Naming one hands them your distribution, makes your pricing a reaction rather than a
+position, and creates a public claim you must keep true after they change price. Two
+rules:
 
-- **"Start at" claims a category floor, so keep it true.** The wording is stronger
-  than "usually costs" — it asserts an entry price for the category, not an average.
-  That is what makes it land, and it is why it needs re-checking: if a cheaper entry
-  tier appears, the sentence becomes wrong rather than merely dated.
-- **Do not compare per-child.** A single subscription at the main competitor covers
-  up to 10 children. If you push a "cheaper per kid" angle, a parent with three
-  kids will do that division in their head and you lose. Stay on the flat monthly
-  number.
-- **Re-verify the $4 before each campaign.** Category pricing moves. If the anchor
-  goes stale, every post in this deck needs a pass before it goes out.
+- **"Start at" claims a category *floor*, not an average.** That is what gives it
+  force, and it also means the sentence becomes wrong rather than merely dated if a
+  cheaper entry tier appears. Re-verify before each campaign.
+- **Do not compare per-child.** One subscription at the main competitor covers up to
+  10 children. A parent with three kids will do that division in their head and you
+  lose. Stay on the flat monthly number.
 
 ---
 
@@ -47,97 +41,83 @@ Two rules:
 
 ### A1 · Thu Oct 1 · Facebook + Instagram + Threads
 
-**Image:** `parent-fractions.png`
+**Propositions 1 + 3** · **Image:** `parent-flashcards.png`
 
-> The best moment in my tutoring app last week wasn't the answer. It was the question
-> back.
+> The part I didn't expect: my kid revising with an app instead of a textbook.
 >
-> My kid asked why a fraction is half of something. The tutor didn't hand her 1/2 —
-> it asked what she already thought. She said "one piece out of two pieces." The
-> tutor said "exactly" and asked her to take it one step further.
+> Syft Learning builds the flashcards for her. She rates each card — Again, Hard,
+> Good, Easy — and it decides what comes back and when. Cards she's solid on stop
+> showing up. Cards she keeps getting wrong come back later the same day.
 >
-> That's the whole reason I built Syft Learning. An app that finishes the homework
-> teaches nothing. One that gets your kid to *say the reasoning out loud* teaches
-> something.
+> It also builds study pages she can keep going back to, so it's a revision library
+> rather than a chat window.
 >
-> Version 1.0.6 just went live on the App Store. Free to start — other AI tutor
-> bots start at $4 per month. ⟪LINK⟫
+> Free to start. Other AI tutor bots start at $4 per month. ⟪LINK⟫
 
-*Threads/IG caption: same text, trimmed to the first paragraph plus the last line.*
+*Threads/IG: first paragraph plus the last line.*
 
 ---
 
 ### A2 · Wed Oct 7 · Facebook + Instagram
 
-**Image:** `parent-streaks.png`
+**Proposition 2** · **Image:** `parent-control.png`
 
-> I gave my kid a maths flashcard deck and watched her quit on day two.
+> I write the system prompt. That's the whole trick.
 >
-> So I rebuilt the deck system in 1.0.6: cards now get scheduled with spaced
-> repetition, she rates each one Again / Hard / Good / Easy, and the app decides what
-> she sees next and when. Cards she's solid on stop showing up. Cards she keeps
-> missing come back later the same day.
+> I have a science bot that explains things with kitchen analogies, and a story
+> character that will only talk to my daughter in character. I typed both. The app
+> lets me set the model's rules directly, so the tutor is mine, not a stranger's.
 >
-> There's a streak and a stats screen now. She's on day four and has not asked to
-> skip it once.
+> And the other half matters just as much: I can read every conversation, word for
+> word, and choose when I get told about them — straight away, once a day, or only
+> when flashcards are due.
 >
-> Free to start, $1/mo if you want the bigger allowance. Other AI tutor bots
-> start at $4 per month. ⟪LINK⟫
+> The editor even says outright that my custom prompt can't switch off the safety
+> filters. I liked that it told me.
+>
+> Free to start. ⟪LINK⟫
 
 ---
 
 ### A3 · Sat Oct 17 · Facebook + Instagram
 
-**Image:** `parent-bots.png`
+**Proposition 3** · **Image:** `parent-flashcards.png`
 
-> The question I get most about Syft Learning is "which bot do I even pick?"
+> The honest breakdown on price, because it came up in the DMs.
 >
-> So: give them a few. Math, science, writing, a story buddy. Each one has its own
-> colour, icon and personality, and your kid picks who they want to talk to.
+> Syft Learning is free to start — a real free tier, not a trial that expires. When
+> you outgrow it it's $1 a month, or $5 if you're using it heavily across a couple of
+> kids.
 >
-> Turns out the tutor they choose is the one they'll actually open.
->
-> Free to start. ⟪LINK⟫
+> Other AI tutor bots start at $4 a month. I'd rather tell you the number than have
+> you find it at checkout. ⟪LINK⟫
 
 ---
 
-### A4 · optional · Facebook + Instagram
+### A4 · Sat Oct 3 · 25-second video (IG Reels + FB Reels)
 
-**Image:** reuse `parent-fractions.png`, or crop the equation from a live chat.
+**Propositions 1, 2, 3** · **File:** `video/syft-promo-9x16.mp4` (rendered)
 
-> Small thing that made my kid ask why the app "finally looks like my textbook".
->
-> When the tutor writes a maths answer, it used to hand back the raw markup —
-> `\frac{1}{2}` and a pile of backslashes. Now the equations actually typeset.
->
-> It's a rendering fix, not a feature announcement. But every maths answer the
-> tutor gives suddenly looks like maths instead of a broken string, and that
-> matters more than it sounds when the whole point is that your kid reads it.
->
-> Free to start. ⟪LINK⟫
-
----
-
-### A5 · Sat Oct 3 · 28-second video (IG Reels + FB Reels)
-
-**File:** `video/syft-promo-9x16.mp4` (rendered — no shoot needed).
-Fallback `video/syft-promo-16x9.mp4` for LinkedIn and X.
+Scenes, in order: a flashcard flipping to reveal its answer and the Again/Hard/Good/
+Easy row · the study pages the tutor has built · the activity inbox with full
+transcripts · the notification controls · the system prompt editor. Logo throughout,
+price on the end card.
 
 Caption:
 
-> She asked why 2/4 is the same as 1/2. The tutor didn't hand her the answer.
->
-> Free to start — other AI tutor bots start at $4 per month. ⟪LINK⟫
+> She revises with it. You read every word of what she asked, choose when you're
+> told, and you write the system prompt. Free to start. ⟪LINK⟫
 
 ---
 
-### A6 · Sat Oct 3 · YouTube Short (brand channel)
+### A5 · Sat Oct 3 · YouTube Short (brand channel)
 
-**File:** `video/syft-promo-16x9.mp4` — the cut with `syftlearning.app` burned into
-the end card, because a description link will not do this job.
+**Propositions 1, 2, 3** · **File:** `video/syft-promo-16x9.mp4` — the cut with
+`syftlearning.app` burned into the end card, because a description link will not do
+this job.
 
-Upload as a **Short**. Set "Made for Kids" to **off** (see ROLLOUT §4 — the video
-is aimed at parents, and ticking it kills comments and notifications).
+Upload as a **Short**. Set "Made for Kids" to **off** (see `ROLLOUT.md` §4 — the
+video is aimed at parents, and ticking it kills comments and notifications).
 
 **Title** (this is search surface, so write it for the query):
 
@@ -145,12 +125,11 @@ is aimed at parents, and ticking it kills comments and notifications).
 
 **Description:**
 
-> Syft Learning is an AI tutor app for kids. The tutor doesn't hand over answers —
-> it asks your child what they already think, and builds on that. Version 1.0.6
-> adds spaced-repetition flashcards with streaks, proper maths typesetting,
-> tutor-built study pages, and a parent inbox with every conversation transcript.
->
-> Free tier, $1/mo and $5/mo tiers. Other AI tutor bots start at $4 per month.
+> Syft Learning is an AI study app for kids. It builds spaced-repetition flashcards
+> and keeps study pages your child returns to, so the AI is a revision tool rather
+> than a chat window. You read every conversation, choose when you're notified, and
+> write the system prompt that shapes each tutor. Free tier, $1/mo and $5/mo tiers.
+> Other AI tutor bots start at $4 per month.
 >
 > syftlearning.app
 
@@ -158,8 +137,8 @@ is aimed at parents, and ticking it kills comments and notifications).
 
 > iOS: ⟪LINK⟫ · Android and web: syftlearning.app/app
 
-**Tags:** ai tutor for kids, homework help app, spaced repetition flashcards,
-spaced repetition, ai for parents, free ai tutor
+**Tags:** ai tutor for kids, spaced repetition flashcards, study app for kids,
+free ai tutor, ai for parents, revision app
 
 ---
 
@@ -167,22 +146,25 @@ spaced repetition, ai for parents, free ai tutor
 
 ### B1 · Thu Oct 1 · LinkedIn
 
-**Image:** `builder-1.png` · **Link goes in the first comment, not the body.**
+**Proposition 2** · **Image:** `parent-control.png` · **Link in the first comment,
+not the body.**
 
-> Version 1.0.6 of Syft Learning is live on the App Store.
+> Most AI-for-kids products are a black box to the parent. Syft Learning is the one
+> I wanted for my own kid, so it opens up three ways.
 >
-> It's an AI tutor app for kids that I built because the alternatives are a $4/month
-> subscription and a black box. Four things went out in this release:
+> The parent writes the system prompt. There are two editors — a simple one that
+> generates a prompt from a few fields, and an advanced one with the raw text. That
+> is enough to turn a bot into a subject expert or a character, and the editor says
+> on screen that a custom prompt cannot remove the baseline safety layer.
 >
-> — Spaced repetition on the flashcard decks (Again / Hard / Good / Easy, due-date
->   scheduling), with streaks and a stats dashboard on top
-> — Proper maths typesetting: LaTeX equations render as maths in the chat, so a
->   homework answer doesn't come back as a wall of source
-> — A Study Materials library — the tutor builds interactive web pages your kid can
->   come back to
-> — A parent Activity inbox with full conversation transcripts and safety events
+> The parent reads everything. Every conversation is stored and rendered as a
+> transcript, with safety events surfaced separately.
 >
-> Free to start.
+> The parent picks their own noise level. Notification preferences are per device:
+> on new chat, on each message, daily digest only, or study reminders only. Digest
+> mode suppresses the instant pushes rather than duplicating them.
+>
+> Free tier, $1/mo, $5/mo. Other AI tutor bots start at $4/month.
 >
 > What's the next thing you'd want in it?
 
@@ -192,45 +174,49 @@ spaced repetition, ai for parents, free ai tutor
 
 ### B2 · Thu Oct 1 · X (thread) + Bluesky (single post)
 
-**Image:** `og-x-bluesky.png`
+**Propositions 1 + 2** · **Image:** `og-x-bluesky.png`
 
 X, 3 posts:
 
-> 1/ Version 1.0.6 of Syft Learning is live — an AI tutor app for kids. $0 to start.
+> 1/ Version 1.0.6 of Syft Learning is live. It's an AI study app for kids, and two
+> things about it are unusual.
 >
-> 2/ The headline feature: spaced repetition on the flashcard decks. Again / Hard /
-> Good / Easy, due-date scheduling, streaks, a stats dashboard.
+> 2/ The parent writes the system prompt. Simple editor or raw text. Make a subject
+> expert, make a character. The editor tells you your prompt can't disable the
+> baseline safety filters.
 >
-> 3/ Also new: tutor-built study pages, a parent Activity inbox with full
-> transcripts, and streaming replies with a Stop button. ⟪LINK⟫
+> 3/ And the parent reads everything — full transcripts per bot — and picks their own
+> notification level. $0 to start, $1/mo or $5/mo. ⟪LINK⟫
 
 Bluesky, single post (300 char limit):
 
-> Syft Learning 1.0.6 is live on the App Store. Spaced-repetition flashcards, streaks, a stats view, tutor-built study pages, and a parent inbox with every transcript. $0 to start. ⟪LINK⟫
+> Syft Learning 1.0.6: an AI study app for kids. The parent writes the system prompt, reads every transcript, and picks their own notification level. $0 to start, $1 or $5/mo. ⟪LINK⟫
 
 ---
 
-### B3 · Thu Oct 8 · LinkedIn + X
+### B3 · Wed Oct 7 · LinkedIn + X
 
-**Image:** `og-x-bluesky.png` · **Link in the LinkedIn first comment.**
+**Proposition 1** · **Image:** `parent-materials.png` · **Link in the LinkedIn first
+comment.**
 
-> The most requested thing in 1.0.6 wasn't a feature. It was "my kid closes the app
-> after two days."
+> I spent a long time on the wrong half of this.
 >
-> Flashcards are now scheduled with spaced repetition. She rates each card Again /
-> Hard / Good / Easy, and the app decides what she sees next and when. Cards she's
-> solid on stop coming back. Cards she keeps missing come back later the same day.
+> I'd built a good chat — the tutor was responsive, it asked follow-ups, it felt
+> like a tutor. And the retention was bad, because a chat has no shape. You scroll,
+> you're done, and there's nothing to come back to.
 >
-> Streaks and a stats screen sit on top of it. Day four, and she hasn't asked to
-> skip it once.
+> So version 1.0.6 moved the weight onto the parts that persist. Flashcards are
+> scheduled with spaced repetition: the student rates each card Again / Hard / Good
+> / Easy, and the app decides what comes back and when. An Again lapse returns in
+> about four hours, so a card she just missed does not vanish until tomorrow. And
+> the tutor can build study pages — a small interactive site per topic — that stay in
+> a library the student reopens.
 >
-> Implementation notes if you're building something similar: the queue itself is
-> dumb — a single `filter(due_at__lte=now()).order_by('due_at')` — because all the
-> scheduling state is stored on the card (interval, ease, reps, lapses). The part
-> worth stealing is the write path: the review is wrapped in a transaction and takes
-> a row lock before recomputing, so two simultaneous reviews can't both schedule off
-> the same stale counters. And the rating vocabulary is the product. Hard/Good/Easy
-> without Again is a checkbox. Again is what makes it a memory tool.
+> Implementation notes if you're building something similar: the study queue is
+> deliberately dumb, a single `filter(due_at__lte=now()).order_by('due_at')`, because
+> all the scheduling state lives on the card. The part worth stealing is the write
+> path: the review runs in a transaction and takes a row lock before recomputing, so
+> two simultaneous reviews can't both schedule off stale counters.
 >
 > ⟪LINK⟫
 
@@ -238,13 +224,12 @@ Bluesky, single post (300 char limit):
 
 ## Mirroring to `@syftlearning`
 
-Post the same images and the same text, verbatim, on the brand accounts — with one
-edit: swap the first-person framing for third person, and drop any "I built this"
-language, which reads oddly from the brand account.
+Same images, same text, posted in parallel. Swap the first-person framing for third
+person and drop "I built this" language, which reads oddly from the brand account.
 
-> Version 1.0.6 of Syft Learning is live on the App Store. Spaced-repetition
-> flashcards, streaks, a stats dashboard, tutor-built study pages, and a parent
-> Activity inbox with full transcripts. Free to start. ⟪LINK⟫
+> Version 1.0.6 of Syft Learning is live. Spaced-repetition flashcards that decide
+> what comes back and when, study pages your child keeps, full transcripts, and a
+> system prompt you write yourself. Free to start. ⟪LINK⟫
 
 Mirroring is an archive and SEO play, not a reach play. Do it the same day, spend
 five minutes, and do not check the analytics.

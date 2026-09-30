@@ -2,292 +2,254 @@
 
 Written 2026-09-30. The release reached users earlier in September, so this is a
 "what's new" push rather than a launch-day push.
-Source material: [`docs/app-store/1.0.6/WHAT_IS_NEW.md`](../../app-store/1.0.6/WHAT_IS_NEW.md).
-Copy is in [`POSTS.md`](POSTS.md). Images are in [`assets/`](assets/).
+Copy is in [`POSTS.md`](POSTS.md). Images are in [`assets/`](assets/), the video in
+[`video/`](video/).
 
 ---
 
-## 1. The strategy, in four lines
+## 1. The positioning, and what it replaces
 
-1. **Nobody follows you for a version number.** "1.0.6 is out" is not a hook. Lead
-   with an outcome — a parent seeing their kid *ask back* instead of copy answers —
-   and let the version number be a footnote.
-2. **Your personal accounts distribute; the brand account archives.** The
-   `@syftlearning` accounts have almost no followers. They are the durable record
-   and the credibility layer, not the reach. All the reach is in the personal
-   accounts.
-3. **Never make your audience take a second hop.** Post the App Store link natively
-   in the personal post. `personal post → brand post → App Store` loses most of the
-   value. Cross-post to the brand account *as a parallel act*, not as a funnel step.
-4. **Two tracks, two audiences, two different posts.** Parents and builders care
-   about completely different things. One post cannot do both.
+Three propositions carry everything. Every post, card, and video scene maps to one
+of them.
 
-| | Track A — parents | Track B — builders |
+| # | Proposition | Proof on screen |
 |---|---|---|
-| Audience | Parents of school-age kids | Indie hackers, iOS/Android devs, fellow parents-who-build |
-| Primary fear | "Is this safe? Will it just do the homework?" | "What stack? How did you ship it? Is it worth my time?" |
-| Lead with | Trust + it actually teaches | The build + what's in the box |
-| Proof | Screenshot of a real conversation | Feature list, no adjectives |
-| Channels | Facebook, Instagram, Threads, YouTube | LinkedIn, X, Bluesky |
-| CTA | App Store link (plus the burned-in domain on video) | App Store link |
+| 1 | **Educational.** Your student learns *from* and *about* AI. | Spaced-repetition flashcards; study pages the tutor builds and keeps |
+| 2 | **Parents observe and customise.** | Full transcripts; notification controls; the system prompt you write |
+| 3 | **Low priced.** | Free to start; $1/mo or $5/mo for more |
+
+**Proposition 1 leads.** Flashcards and study materials are the product. Chat is
+how you get to them, not the thing itself.
+
+**Proposition 2 is the wedge.** Most AI-for-kids products are a black box to the
+parent. This one shows you every conversation, tells you when to look, and lets you
+write the persona. The honest version is stronger than the vague one: you control
+the character, and the safety layer is not removable — the editor says so on screen.
+
+**Proposition 3 is the close.** Concrete, checkable, and cheaper than the category.
+
+### What we stopped leading with
+
+These were in earlier drafts of this plan. They are cut, on purpose:
+
+- **"The tutor asks questions back."** It sells the AI's behaviour rather than the
+  learning. A parent does not buy Socratic questioning; they buy the outcome.
+- **Streaks.** A retention mechanic for the child's app, not a reason for a parent
+  to buy. It also implies the child's engagement is the product.
+- **One bot per subject.** A feature detail. "A tutor for every subject" makes the
+  product sound like a catalogue.
+
+They are all still true and still in the app. None of them is the pitch.
+
+### The two mistakes already made, so we do not repeat them
+
+- **Don't make your audience take a second hop.** Post the App Store link natively.
+  `personal post → brand post → App Store` loses most of the value. Cross-post to
+  the brand account as a parallel act, not a funnel step.
+- **Don't name a competitor.** Anchor on the category instead — see
+  `POSTS.md` § "On the price anchor".
 
 ---
 
-## 2. Pre-flight — do these before you post anything
+## 2. Pre-flight — before you post anything
 
-Cheap, and each one prevents a real problem.
-
-- [ ] **Do not use `docs/app-store/1.0.6/screenshots/11-activity.png`.** It is stale:
-      it was captured before `ca7b49b` ("activity card rows showing gray in light mode")
-      and still shows the gray-row bug that the shipped app does not have. It was
-      never uploaded to the App Store, so nothing is broken live — but do not use
-      it in a social post or a future store upload until it is re-captured. Every
-      other screenshot in the set is clean. See `assets/README.md`.
-- [ ] **Fix the marketing page's plan numbers.** `front/constants/subscriptions.ts`
-      says Free (~3K tokens/day), Basic **$1/mo** (~312K tokens/day) and **Plus**
-      **$5/mo** (~1.67M tokens/day). `back/bots/templates/marketing.html` says
-      Free 2,000 words, Basic 20,000 words and **Pro** $5/mo. The Free tier roughly
-      matches, but Basic and Plus are understated by roughly 10× and the top tier is
-      misnamed ("Pro" vs "Plus"). Every post in this plan links to the **App Store
-      listing**, not here — but this is the public web page a parent lands on from
-      search and from the in-app web link, so the same correction has to land here
-      or the two contradict each other. Fix the template.
-- [ ] **Qualify the "under $4" line, do not delete it.** `README.md` and
-      `docs/app-store/1.0.6/REVIEW_NOTES.md` both say *"less than $4 a month"*. That
-      is accurate for the tiers it describes — Free and Basic $1/mo — and it is the
-      sharpest competitive point you have, because the closest comparable product
-      charges $4/mo flat. Keep it, but write *"free, or $1/mo"* rather than "under
-      $4": a parent reading an unqualified "under $4" may reasonably assume the $5
-      Plus tier is also under $4. All copy in this plan avoids that ambiguity.
-- [ ] **Check what the live listing actually shows.** You did not upload the
-      in-repo screenshot set, so the store page is running something else. Open it
-      on a phone and confirm the screenshots, the price, and the icon match what
-      you're about to post. Inconsistency between a post and the store page is the
-      fastest way to kill a click.
-- [ ] **Confirm App Store Connect → Version 1.0.6 → What's New is populated** from
-      `WHAT_IS_NEW.md`. That field is the reason a version update gets surfaced to
-      existing users at all, and it is the thing your posts point at.
-- [ ] **Build the attribution links** (see §6). Ten minutes now, and otherwise you
-      cannot tell which post did anything.
+- [ ] **Check the marketing template's plan allowances.** Fixed in this branch, but
+      confirm it still matches `front/constants/subscriptions.ts` — the two drifted
+      by ~10× and misnamed the top tier. That duplication is the root cause and is
+      still there.
+- [ ] **Do not use `docs/app-store/1.0.6/screenshots/11-activity.png`.** Stale: it
+      predates `ca7b49b` ("activity card rows showing gray in light mode") and still
+      shows that bug. Never uploaded to the store, so nothing is broken in
+      production — but it must not be used in a post or a future store upload until
+      it is re-captured. The captures under `screenshots-web/` are current.
+- [ ] **Confirm App Store Connect → 1.0.6 → What's New is populated** from
+      `docs/app-store/1.0.6/WHAT_IS_NEW.md`.
+- [ ] **Build the attributed links** (§6). Ten minutes now, otherwise you cannot
+      tell which post did anything.
 
 ---
 
 ## 3. Timing
 
-The release is already a couple of weeks old, so this is **not** a launch-day push.
-That is fine — "here's what I just added" outperforms "I just launched" for anyone
-who already knows you, and it has a longer shelf life. Do not manufacture urgency.
+**Total spend: about 3 hours, 5 posts, 1 video upload.**
 
-**Total spend: about 3 hours, 6 posts, 1 short video.** Small enough to actually finish.
-
-| Day | Date | What | Where | Asset |
+| Day | Date | Proposition | Where | Asset |
 |---|---|---|---|---|
-| Thu | Oct 1 | Track A launch — the fractions story | Personal FB, IG, Threads | `parent-fractions.png` |
-| Thu | Oct 1 | Track B — what shipped and what's in it | Personal LinkedIn, X, Bluesky | `builder-1.png` |
-| Fri | Oct 2 | Same Track A post, mirrored | `@syftlearning` FB, IG, Threads | `parent-fractions.png` |
-| Sat | Oct 3 | 32-second video, vertical | Personal IG Reels + FB Reels | `video/syft-promo-9x16.mp4` |
-| Sat | Oct 3 | Same video as a YouTube Short, 16:9 with the domain on the end card | Syft Learning YouTube | `video/syft-promo-16x9.mp4` |
-| Wed | Oct 7 | Track A, second angle — streaks and retention | Personal FB, IG | `parent-streaks.png` |
-| Thu | Oct 8 | Track B, deep dive on one feature (spaced repetition) | Personal LinkedIn, X | `og-x-bluesky.png` |
-| Fri | Oct 9 | Same posts, mirrored | `@syftlearning` (all) | matching assets |
-| Sat | Oct 17 | Track A, third and final angle — tutor per subject | Personal FB, IG | `parent-bots.png` |
-| — | optional | Track A, extra angle — maths typesetting (A4) | Personal FB, IG | `parent-fractions.png` |
+| Thu | Oct 1 | 1 + 3 — educational, priced | Personal FB, IG, Threads | `parent-flashcards.png` |
+| Thu | Oct 1 | 2 — parent control | Personal LinkedIn, X, Bluesky | `parent-control.png` |
+| Fri | Oct 2 | Mirror of Oct 1 | `@syftlearning` FB, IG, Threads | matching |
+| Sat | Oct 3 | The video, vertical | Personal IG Reels + FB Reels | `video/syft-promo-9x16.mp4` |
+| Sat | Oct 3 | The video as a YouTube Short | Syft Learning YouTube | `video/syft-promo-16x9.mp4` |
+| Wed | Oct 7 | 2 — the system prompt | Personal FB, IG | `parent-control.png` |
+| Wed | Oct 7 | 1 — study materials | Personal LinkedIn, X | `parent-materials.png` |
+| Thu | Oct 8 | Mirror | `@syftlearning` (all) | matching |
+| Sat | Oct 17 | 3 — price, plainly | Personal FB, IG | `parent-flashcards.png` |
 
-The optional row is genuinely optional — post it only if the campaign has energy
-left after the eight scheduled ones. It is the strongest single-feature proof point
-you have, because a parent can see the before and after in one screenshot.
-
-Then stop. Do not post again for a month. Three parent angles is the ceiling before
-your personal feed starts treating you as a marketing account.
+Each proposition gets exactly one post plus the video. Three posts total per
+audience; more and your personal feed starts treating you as a marketing account.
 
 ### When to post
 
-- **LinkedIn** — Tue/Wed/Thu, 8:00–9:30am your time. Friday and weekends are dead there.
-- **Facebook** — 7–9pm weekdays, or 9–11am Saturday. Parents scroll on a sofa.
-- **Instagram** — 11am–1pm or 7–9pm. The Reel can go any time; the algorithm is not fussy.
-- **X / Bluesky** — late morning, weekday. Tie to whatever is being discussed that day
-  if you can; a standalone product post does much worse.
-- **Threads** — cross-post from the Instagram caption. Do not write a separate one.
+- **LinkedIn** — Tue/Wed/Thu, 8:00–9:30am. Friday and weekends are dead there.
+- **Facebook** — 7–9pm weekdays, or 9–11am Saturday.
+- **Instagram** — 11am–1pm or 7–9pm.
+- **X / Bluesky** — late morning, weekday; tie to whatever is being discussed.
+- **Threads** — cross-post the Instagram caption. Do not write a separate one.
 
 ---
 
 ## 4. Platform notes
 
-**Facebook** — where the parent audience actually is, and the only one of these where
-a plain-text post with a real opinion still reliably outperforms a designed card.
-Post in a conversational register. Consider parent groups you genuinely belong to
-(no drive-by promo drops — that gets you removed and it is the fastest way to make
-enemies of the exact audience you want).
+**Facebook** — where the parent audience actually is, and the only one of these
+where plain text with a real opinion still beats a designed card. Parent groups you
+genuinely belong to: fine. Drive-by promo drops: they get you removed from the exact
+audience you want.
 
-**Instagram** — the Reel is the entire play here; the static card is a supporting
-asset. Organic reach on a static post from a small account is close to zero, so
-spend the 20 minutes on the video, not on the carousel.
+**Instagram** — the video is the entire play. Organic reach on a static post from a
+small account is close to zero, so spend the time on the Reel, not a carousel.
 
-**LinkedIn** — your best builder audience and the one most likely to produce
-genuine peer engagement. Two rules that matter: **put the link in the first
-comment, not the body** (a body link measurably suppresses reach), and open with a
-specific claim rather than a heading. No "Excited to announce" — lead with the thing
-itself. This is also the one platform where saying "I built this" is interesting
-rather than annoying.
+**LinkedIn** — two rules that matter: **put the link in the first comment, not the
+body** (a body link measurably suppresses reach), and open with a specific claim
+rather than a heading. No "excited to announce". This is also where saying "I built
+this" is interesting rather than annoying.
 
-**X** — low ceiling, but near-zero marginal cost. Post the builder angle as a
-2–4 post thread; the standalone link post will get no impressions. Mostly this is
-about existing followers and search, not discovery.
+**X** — low ceiling, near-zero cost. Post as a 3-post thread; a standalone link post
+gets no impressions. Mostly existing followers and search.
 
-**Bluesky** — near-zero reach, but it is where a chunk of indie/dev people you
-actually want to reach are, and it costs one paste. Feeds, not threads.
+**Bluesky** — near-zero reach, but a chunk of the indie/dev audience is there and it
+costs one paste.
 
-**YouTube** — the one platform here where the *archive* is worth more than the
-post. Upload the 16:9 cut as a Short (under 60s, vertical-or-square is fine, and
-Shorts are the only format with real reach for a channel this size). Three things
-are different about YouTube and they will decide whether the upload does anything:
+**Threads** — the Instagram caption, verbatim.
 
-- **Description links do not convert.** Click-through on a YouTube description URL
-  is a fraction of a percent. The CTA has to be on screen, which is why the 16:9
-  cut is rendered with `syftlearning.app` burned into the end card
-  (`--end-url`). Also pin the App Store link as the top comment.
-- **Do not tick "Made for Kids."** This is a video *about* the product, aimed at
-  parents — not content primarily directed at under-13s, which is what the flag
-  means under COPPA. It is also the commercially correct answer: marking it
-  disables comments, notifications and personalised analytics, which would gut
-  the reach. If you ever publish something a child is meant to watch, that
-  changes — see §7.
-- **Title and description are search surface.** People search "free AI tutor for
-  kids" and "AI homework help". Write the title for that, and treat this upload
-  as something that can still surface in a year. A Short is not a launch post; it
-  is a durable entry.
+**YouTube** — the one platform where the *archive* beats the post. Upload the 16:9
+cut as a Short. Three things differ and they decide whether it does anything:
 
-**Do not start a long-form channel for this.** One 32-second upload, no
-playlists, no thumbnails to maintain. A kids-app channel that goes quiet is worse
-than no channel, and it is a real ongoing commitment. Revisit only if the app
-earns weekly-active families.
+- **Description links do not convert.** The CTA has to be on screen, which is why
+  that cut is rendered with `syftlearning.app` burned into the end card
+  (`--end-url`). Pin the App Store link as the top comment.
+- **Do not tick "Made for Kids."** It means the content is *primarily directed at*
+  under-13s. This is a video *about* the product for parents. It is also the
+  commercially correct answer — ticking it disables comments, notifications and
+  personalised analytics. See §7.
+- **Title and description are search surface.** "free AI tutor for kids" is a real
+  query. This upload can still surface in a year.
 
-**Threads** — literally the same caption as Instagram. 60 seconds of effort.
+**Do not start a long-form channel for this.** One 25-second upload, no playlists, no
+thumbnails to maintain. A kids-app channel that goes quiet is worse than no channel.
 
-**`@syftlearning` (all six)** — post the same content. Expect almost no reach and do
-not judge the campaign on it. Its job is to be the permanent record that a follower
-who lands on you can scroll back to, and to be indexed.
+**`@syftlearning` (all six)** — same content, posted in parallel. Expect almost no
+reach. Its job is the permanent record and search indexing.
 
 ---
 
 ## 5. Imaging strategy
 
-Full rationale and regeneration instructions in [`assets/README.md`]. The short version:
+Full rationale and regeneration in [`assets/README.md`](assets/README.md); the video
+in [`video/README.md`](video/README.md).
 
-- **Source of truth is the App Store screenshot set** already in the repo. It was
-  captured against seeded demo data (profiles "Maya", "Jordan", "Sam") — no real
-  children, which is exactly why it is safe to publish. Do not re-shoot.
-- **Three parent angles, one per post**, each on a different screen so the campaign
-  does not look like one idea repeated: `05-chat` (teaching), `09-stats` (retention),
-  `03-select-bot` (choice).
-- **One template, brand-locked.** `#0a7ea4` → `#052f42` gradient, `#00a4c9` accent,
-  taken from `front/app.json`. Wordmark top-left, one headline, one sub-line. Same
-  shape everywhere so the three posts read as a set.
-- **The video is the highest-value asset in the whole plan.** A 28-second cut is
-  already rendered in [`video/`](video/) in both 9:16 and 16:9, and it will
-  out-reach the six static posts combined. It is built from real screen recordings
-  of the app — the chat transcript scrolls, a flashcard flips to reveal the answer
-  and the rating row — not from screenshots, so it holds attention. Post it.
-- **Never publish a screenshot containing a real child's conversation.** The current
-  set is demo data. If you ever capture from a real family, get written consent
-  first and blur the names.
+- **Source of truth is `screenshots-web/`**, captured from the real app with
+  Playwright. Demo data only (profiles "Maya", "Jordan", "Sam"), which is what makes
+  it safe to publish. Do not re-shoot.
+- **Three static cards, one per proposition**: `parent-flashcards` (learning),
+  `parent-materials` (learning, second angle), `parent-control` (parent control).
+  The wide link cards and the reel cover carry the same messages.
+- **One template, brand-locked** to `#0a7ea4` / `#00a4c9` from `front/app.json`.
+  Wordmark top-left, one headline, one sub-line.
+- **The video is the highest-value asset here.** It is built from real screen
+  recordings — a flashcard flips to reveal the answer and the rating row, the
+  notification toggles are on screen, the system prompt is editable. It holds
+  attention in a way a slideshow cannot.
+- **Never publish a capture containing a real child's conversation.** The current set
+  is demo data and must stay that way. If you ever capture from a real family, get
+  written consent first and blur the names.
 
 ---
 
 ## 6. Measurement
 
-Add campaign tokens to the App Store link so App Store Connect attributes installs.
-Append them to the app URL:
+Append campaign tokens to the App Store link so App Store Connect attributes
+installs:
 
 ```
 ?pt=facebook&ct=oct1_parent_ig&mt=8
 ```
 
-`pt` is the **provider token** from App Store Connect → the app's Analytics
-configuration, not the social network's name — use the exact value Apple assigns
-(`facebook`, `instagram`, `linkedin`, `x`, `bluesky`, … as listed there). `ct` is
-where you record *which* post, e.g. `ct=oct1_parent_ig`, and `mt=8` is the iOS
-marketing template. Use a distinct `ct` per post so you can read the numbers
-separately in **App Store Connect → App Analytics → Sources**.
+`pt` is the **provider token** from App Store Connect's Analytics configuration, not
+the social network's name — use the exact value Apple assigns. `ct` is where you
+record *which* post, e.g. `ct=oct1_parent_ig`. `mt=8` is the iOS marketing template.
+A distinct `ct` per post lets you read the numbers separately in
+**App Store Connect → App Analytics → Sources**.
 
-What to actually look at, in order:
+In order of usefulness:
 
-1. **Product Page Views → Downloads conversion**, per source. This is the real
-   health check. A high page-view/low-download ratio means the post over-promised
-   or the store page does not match it.
-2. **Downloads, days 0–7 vs. your trailing baseline.** There is no baseline yet, so
-   the first honest baseline is this campaign. Save the number; the next release
-   compares against it.
-3. **Per-`ct` breakdown.** Expect Facebook and Instagram to do the work on installs
-   and LinkedIn to do the work on credibility. LinkedIn may produce almost no
-   installs and still be the highest-value post you wrote.
+1. **Product Page Views → Downloads conversion**, per source. A high
+   page-view/low-download ratio means the post over-promised or the store page does
+   not match it.
+2. **Downloads, days 0–7** against your trailing baseline. There isn't one yet, so
+   this campaign establishes it. Save the number.
+3. **Per-`ct` breakdown.** Expect Facebook and Instagram to carry installs and
+   LinkedIn to carry credibility. LinkedIn may produce almost no installs and still
+   be the most valuable post you wrote.
 
-### Set expectations honestly
-
-A few hundred installs from a personal network is a good result. This is a
-version-update post, not a launch, and your accounts are small. The realistic return
-is: some installs, one or two people you can actually talk to about the product, and
-a reusable asset set for next time. If you want materially more than that, the next
-lever is a paid parent-targeted campaign (§7) or a real launch, not a better tweet.
+**Set expectations honestly.** A few hundred installs from a personal network is a
+good result. This is a version-update push, not a launch, and the accounts are
+small. The realistic return is some installs, one or two people worth talking to, and
+a reusable asset set. For materially more you need paid parent-targeted promotion
+(§7) or a real launch, not a better post.
 
 ---
 
 ## 7. Compliance — read this once, it is not optional
 
 Syft Learning is a Kids Category app, age rating 4+, with server-side safety filters
-and crisis detection. That shapes what you are allowed to say.
+and crisis detection.
 
-- **Market to parents. Never to children.** Every asset and every sentence here is
+- **Market to parents. Never to children.** Every asset and sentence here is
   parent-directed. No child models or faces, no "kids, download this", no art
   direction that reads as child-directed. This is both an Apple Kids Category
   expectation and a COPPA posture, and it is the line you do not cross.
 - **If you ever run paid ads, target parents — explicitly.** Do not target or
   interest-target under-13s. Meta and Google will reject a kids-directed ad for a
-  kids app, and you would also be building the wrong audience. The organic plan
-  above needs none of this.
+  kids app, and you would be building the wrong audience.
 - **YouTube "Made for Kids" is a COPPA question, not a marketing one.** The flag
-  means the content is *primarily directed at* under-13s. Every video in this plan
-  is aimed at parents, so it must stay unticked — which is also better for reach,
-  since ticking it disables comments and notifications. If you ever publish
-  something a child is meant to watch, the answer flips and you must tick it,
-  accept the lost features, and stop using ad targeting on that video entirely.
-- **Keep the kids path free of third-party trackers.** Apple requires no
-  third-party analytics or ad SDKs in the Kids Category app. Keep the web app
-  (`syftlearning.app/app`) consistent — do not bolt an analytics tag onto the
-  student-facing route.
-- **Comparative claims: prices are fine, safety is not — but never name them.** A
-  price comparison is verifiable and it is your sharpest line, because the closest
-  comparable product is $4/mo and you are free or $1/mo. Use it as a *category*
-  anchor — "Other AI tutor bots start at $4 per month" — not as a named comparison.
-  Naming a competitor hands them free distribution, makes your pricing a reaction
-  rather than a position, and creates a public claim you must keep true after they
-  change their price. "Safer than ChatGPT for kids" is a claim you cannot
-  substantiate at all; use the factual description instead ("server-side safety
-  filters, crisis detection, and a full transcript you can read"). Re-verify the $4
-  anchor before each campaign — category pricing moves.
-- **Only claim what is in 1.0.6.** LaTeX/math typesetting is in scope and worth
-  posting about: it merged to `main` after the App Store binary build, but it is
-  pure JavaScript and the app has EAS Update enabled on the production channel
-  (`checkAutomatically: "ON_LOAD"`), so it reached users over the air without a new
-  build. `WHAT_IS_NEW.md` already advertises it on the store page, so the posts and
-  the listing agree. Anything genuinely unshipped, leave out.
-- **Prices in public copy must match the app.** Free / $1 / $5. See §2.
+  means content *primarily directed at* under-13s. Every video here is aimed at
+  parents, so it stays unticked — which is also better for reach. If you ever publish
+  something a child is meant to watch, the answer flips: tick it, accept the lost
+  features, and stop ad-targeting that video.
+- **Keep the kids path free of third-party trackers.** Apple requires no third-party
+  analytics or ad SDKs in a Kids Category app. Keep the web app
+  (`syftlearning.app/app`) consistent.
+- **Comparative claims: prices are fine, safety is not, and never by name.** A price
+  comparison is verifiable and is proposition 3. Use it as a *category* anchor —
+  "Other AI tutor bots start at $4 per month" — never as a named comparison. Naming
+  one hands them your distribution, makes your pricing a reaction rather than a
+  position, and creates a public claim you must keep true after they change price.
+  "Safer than ChatGPT for kids" is not substantiable at all; use the factual
+  description instead. Re-verify the $4 anchor before each campaign.
+- **Only claim what is in 1.0.6.** LaTeX/math typesetting is in scope: it merged to
+  `main` after the binary build, but it is pure JavaScript and EAS Update is enabled
+  on the production channel, so it reached users over the air. `WHAT_IS_NEW.md`
+  already advertises it.
+- **When you talk about parent control, be exact.** The parent chooses the
+  notification level — instant on new chat, per message, daily digest, or study
+  reminders only. Do not claim it always notifies; it is a setting, and that is a
+  better story. Likewise: the parent writes the system prompt, and the editor states
+  on screen that baseline safety cannot be removed by it. Both halves of that sentence
+  are true and saying them builds trust.
 
 ---
 
 ## 8. If it flops
 
-It probably will, on raw numbers, and that is the expected outcome — see §6. Two
-responses, in order:
+It probably will, on raw numbers, and that is expected — see §6. Two responses, in
+order:
 
-1. **Do not boost it.** Paying to promote a post to your own followers is a bad
-   trade at this audience size, and it will not produce a durable gain.
-2. **Reuse the assets.** The images and the copy are not version-specific in the way
-   the post is. The next time you ship something, drop the new screenshots into the
-   same template (`./scripts/make-marketing-assets.sh`) and re-run this plan with
-   new dates.
+1. **Do not boost it.** Paying to promote a post to your own followers is a bad trade
+   at this audience size and will not produce a durable gain.
+2. **Reuse the assets.** The images, the video and the copy are not tied to this
+   version. Next release, drop new captures in, re-run the two scripts, re-date the
+   calendar.
 
-The single highest-leverage thing in this whole document is not a post. It is that
-the App Store product page now has screenshots, a populated What's New, and a price
-that matches the app. Every post here is a doorway to that page. If you only do one
-thing, make it that.
+The highest-leverage thing in this document is not a post. It is that the App Store
+product page has screenshots, a populated What's New, and a price matching the app.
+Every post is a doorway to that page.

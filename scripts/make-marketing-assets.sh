@@ -93,32 +93,32 @@ card45() { # <src> <headline> <sub> <outfile>
 }
 
 # --- 2. Wide link cards (X, Bluesky, LinkedIn, Facebook) ---------------------
-# Three phones fanned right-to-left, hero (05-chat) on top. Text on the left.
+# Three phones fanned right-to-left, hero (bot editor) on top. Text on the left.
 wide() { # <w> <h> <outfile>   -- phones scaled to fit the card height
   local W=$1 H=$2 out=$3
   local mg=$(( W > 1400 ? 72 : 48 ))
   local ph=$(( H * 78 / 100 ))
   local h3 w3 h2 w2 h1 w1
-  h3=$(( ph * 88 / 100 )); w3=$(phw "$SRC/03-select-bot.png" "$h3")
-  h2=$(( ph * 93 / 100 )); w2=$(phw "$SRC/09-stats.png" "$h2")
-  h1=$(( ph * 80 / 100 )); w1=$(phw "$SRC/05-chat.png" "$h1")
+  h3=$(( ph * 88 / 100 )); w3=$(phw "$SRC/06-study.png" "$h3")
+  h2=$(( ph * 93 / 100 )); w2=$(phw "$SRC/08-materials.png" "$h2")
+  h1=$(( ph * 80 / 100 )); w1=$(phw "$SRC/10-bot-editor.png" "$h1")
   local step=$(( (w1 + w2) / 2 - 120 ))
   bg $W $H > "$T/bg.png"
   wordmark > "$T/wm.png"
   # back to front: 03 (bots) -> 09 (stats) -> 05 (chat)
-  phone "$SRC/03-select-bot.png"  "$h3" 34 > "$T/p3.png"
-  phone "$SRC/09-stats.png"       "$h2" 34 > "$T/p2.png"
-  phone "$SRC/05-chat.png"        "$h1" 34 > "$T/p1.png"
+  phone "$SRC/06-study.png"       "$h3" 34 > "$T/p3.png"
+  phone "$SRC/08-materials.png" "$h2" 34 > "$T/p2.png"
+  phone "$SRC/10-bot-editor.png"  "$h1" 34 > "$T/p1.png"
   local x1 x2 x3
   x1=$(( W - w1 - mg )); x2=$(( x1 - step )); x3=$(( x2 - step ))
   local y1=$(( (H - h1) / 2 )) y2=$(( (H - h2) / 2 )) y3=$(( (H - h3) / 2 ))
   cap "$(( W > 1400 ? 620 : 560 ))" $(( W > 1400 ? 60 : 48 )) white "$BOLD" \
-      "Parents get the tutor. And the transcript." > "$T/hl.png"
+      "You see everything. And you set the rules." > "$T/hl.png"
   local hlh sy
   hlh=$(identify -format '%h' "$T/hl.png")
   sy=$(( H / 2 - hlh / 2 - 40 ))
   cap "$(( W > 1400 ? 620 : 560 ))" $(( W > 1400 ? 30 : 24 )) "$MUTED" "$REG" \
-      "1.0.6: spaced-repetition flashcards, streaks, a Stats view, and a parent Activity inbox." > "$T/sub.png"
+      "Free to start. Read every conversation, and write the system prompt yourself." > "$T/sub.png"
   convert "$T/bg.png" \
           "$T/p3.png" -geometry "+${x3}+${y3}" -composite \
           "$T/p2.png" -geometry "+${x2}+${y2}" -composite \
@@ -133,12 +133,12 @@ wide() { # <w> <h> <outfile>   -- phones scaled to fit the card height
 reel() {
   local W=1080 H=1920 out=$1
   local ph=1120 pw
-  pw=$(phw "$SRC/05-chat.png" "$ph")
+  pw=$(phw "$SRC/06-study.png" "$ph")
   bg $W $H > "$T/bg.png"
   wordmark > "$T/wm.png"
-  phone "$SRC/05-chat.png" $ph 42 > "$T/ph.png"
-  cap 900 74 white "$BOLD" "Ask it anything. Watch it teach." > "$T/hl.png"
-  cap 900 36 "$MUTED" "$REG" "A safe AI tutor for your kid — from \$0." > "$T/sub.png"
+  phone "$SRC/06-study.png" $ph 42 > "$T/ph.png"
+  cap 900 74 white "$BOLD" "They learn. You see it all." > "$T/hl.png"
+  cap 900 36 "$MUTED" "$REG" "Free to start. \$1 or \$5 a month for more." > "$T/sub.png"
   local hh
   hh=$(identify -format '%h' "$T/hl.png")
   convert "$T/bg.png" \
@@ -153,16 +153,16 @@ reel() {
 square() {
   local W=1200 H=1200 out=$1
   local mg=72 txw=620 ph=904 pw
-  pw=$(phw "$SRC/05-chat.png" "$ph")
+  pw=$(phw "$SRC/06-study.png" "$ph")
   bg $W $H > "$T/bg.png"
   wordmark > "$T/wm.png"
-  phone "$SRC/05-chat.png" $ph 42 > "$T/ph.png"
-  cap "$txw" 62 white "$BOLD" "Version 1.0.6 shipped." > "$T/hl.png"
+  phone "$SRC/06-study.png" $ph 42 > "$T/ph.png"
+  cap "$txw" 62 white "$BOLD" "A safe AI tutor. \$0 to start." > "$T/hl.png"
   local hlh sy
   hlh=$(identify -format '%h' "$T/hl.png")
   sy=$(( 460 + hlh + 30 ))
   cap "$txw" 30 "$MUTED" "$REG" \
-      "Spaced repetition, streaks, a Stats dashboard, tutor-built study pages, and a parent Activity inbox — all in one release." > "$T/sub.png"
+      "Spaced-repetition flashcards, tutor-built study pages, full transcripts, and a system prompt you write yourself." > "$T/sub.png"
   convert "$T/bg.png" \
           "$T/ph.png" -geometry "+$(( W - pw - 64 ))+$(( (H - ph) / 2 ))" -composite \
           "$T/wm.png" -geometry "+${mg}+80" -composite \
@@ -172,19 +172,23 @@ square() {
 }
 
 # --- build -------------------------------------------------------------------
-card45 "$SRC/05-chat.png" "She asked. It didn’t hand her the answer." \
-  "A tutor that asks back, instead of finishing the homework." \
-  "$OUT/parent-fractions.png"
+# The three parent angles follow the three value propositions: learning,
+# parent control, price. They deliberately do NOT lead with "the tutor asks
+# questions back", streaks, or one-bot-per-subject.
+card45 "$SRC/06-study.png" \
+  "Cards that come back when she'll forget them." \
+  "Spaced repetition, so revision lands when it matters." \
+  "$OUT/parent-flashcards.png"
 
-card45 "$SRC/09-stats.png" \
-  "It’s not another tab. It’s a streak." \
-  "Spaced-repetition flashcards that decide what comes back, and when." \
-  "$OUT/parent-streaks.png"
+card45 "$SRC/08-materials.png" \
+  "The tutor builds study pages to come back to." \
+  "Made for your student, kept for later." \
+  "$OUT/parent-materials.png"
 
-card45 "$SRC/03-select-bot.png" \
-  "A tutor per subject." \
-  "Math, science, writing, story time — each bot customizable, each one your kid picks." \
-  "$OUT/parent-bots.png"
+card45 "$SRC/10-bot-editor.png" \
+  "You write the system prompt." \
+  "Make a character, or a subject expert. You stay in control." \
+  "$OUT/parent-control.png"
 
 wide 1600 900 "$OUT/og-x-bluesky.png"
 wide 1200 630 "$OUT/og-facebook.png"

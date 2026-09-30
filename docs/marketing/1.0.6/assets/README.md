@@ -14,13 +14,13 @@ re-run any time, including after new screenshots are captured.
 
 | File | Size | Use | Source screen |
 |---|---|---|---|
-| `parent-fractions.png` | 1080×1350 | IG/FB feed, Threads. Post A1 | `05-chat` |
-| `parent-streaks.png` | 1080×1350 | IG/FB feed. Post A2 | `09-stats` |
-| `parent-bots.png` | 1080×1350 | IG/FB feed. Post A3 | `03-select-bot` |
+| `parent-flashcards.png` | 1080×1350 | IG/FB feed, Threads. Prop 1. Post A1 | `08-study` |
+| `parent-materials.png` | 1080×1350 | IG/FB feed. Prop 1, second angle. Post B3 | `10-study-materials` |
+| `parent-control.png` | 1080×1350 | IG/FB feed. Prop 2. Post A2 | `10-bot-editor` |
 | `og-x-bluesky.png` | 1600×900 | X, Bluesky, LinkedIn link cards | all three, fanned |
 | `og-facebook.png` | 1200×630 | Facebook link previews | all three, fanned |
-| `reel-cover.png` | 1080×1920 | IG/FB Reel cover (still-post use) | `05-chat` |
-| `builder-1.png` | 1200×1200 | LinkedIn / X square. Post B1 | `05-chat` |
+| `reel-cover.png` | 1080×1920 | IG/FB Reel cover (still-post use) | `08-study` |
+| `builder-1.png` | 1200×1200 | LinkedIn / X square. Post B1 | `08-study` |
 
 Sizing follows current platform specs: 4:5 for feed posts (largest screen area
 before the fold), 16:9 for link cards, 9:16 for vertical video.
