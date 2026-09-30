@@ -8,7 +8,21 @@ Base URL: `https://apps.apple.com/us/app/syft-learning/id6742674793`
 With a campaign token: append `?pt=facebook&ct=oct1_parent&mt=8` (and so on per post).
 
 Prices used here: **Free / Basic $1/mo / Plus $5/mo** — matching
-`front/constants/subscriptions.ts`. Not "under $4".
+`front/constants/subscriptions.ts`. Copy says "free, or $1/mo" rather than "under
+$4", because the $5 Plus tier exists and an unqualified "under $4" reads as though
+every paid option is below it.
+
+### On the Khanmigo comparison
+
+Khanmigo is **$4/mo** (verified Sep 2026, multiple sources including their own
+pricing page). That is a checkable fact, so it is fair game in public copy — and it
+is the single sharpest line you have. Two rules:
+
+- **Do not compare per-child.** One Khanmigo subscription covers up to 10 children.
+  If you push a "cheaper per kid" angle, a parent with three kids will do that
+  division in their head and you lose. Stay on the flat monthly number.
+- **Re-verify before each campaign.** Competitor pricing moves. If Khanmigo changes,
+  every post in this deck needs a pass before it goes out.
 
 ---
 
@@ -29,7 +43,8 @@ Prices used here: **Free / Basic $1/mo / Plus $5/mo** — matching
 > teaches nothing. One that gets your kid to *say the reasoning out loud* teaches
 > something.
 >
-> Version 1.0.6 just went live on the App Store. Free to start. ⟪LINK⟫
+> Version 1.0.6 just went live on the App Store. Free to start — Khanmigo is
+> $4/month. ⟪LINK⟫
 
 *Threads/IG caption: same text, trimmed to the first paragraph plus the last line.*
 
@@ -49,7 +64,7 @@ Prices used here: **Free / Basic $1/mo / Plus $5/mo** — matching
 > There's a streak and a stats screen now. She's on day four and has not asked to
 > skip it once.
 >
-> Free to start, $1/mo if you want the bigger allowance. ⟪LINK⟫
+> Free to start, $1/mo if you want the bigger allowance. Khanmigo is $4/month. ⟪LINK⟫
 
 ---
 

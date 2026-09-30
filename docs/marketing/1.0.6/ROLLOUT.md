@@ -42,12 +42,20 @@ Cheap, and each one prevents a real problem.
       never uploaded to the App Store, so nothing is broken live — but do not use
       it in a social post or a future store upload until it is re-captured. Every
       other screenshot in the set is clean. See `assets/README.md`.
-- [ ] **Fix the price claim.** `front/constants/subscriptions.ts` says
-      **Free / Basic $1/mo / Plus $5/mo**. But `README.md` and
-      `docs/app-store/1.0.6/REVIEW_NOTES.md` both say *"less than $4 a month"*, and
-      the marketing page says "Pro $5/mo". The "under $4" line is wrong for the top
-      tier and is a claim in a document you hand to Apple. All copy here uses the
-      real prices. Fix the two docs.
+- [ ] **Fix the marketing page's plan numbers.** `front/constants/subscriptions.ts`
+      says Free (~3K tokens/day), Basic **$1/mo** (~312K tokens/day) and **Plus**
+      **$5/mo** (~1.67M tokens/day). `back/bots/templates/marketing.html` says
+      Free 2,000 words, Basic 20,000 words and **Pro** $5/mo. The Free tier roughly
+      matches, but Basic and Plus are understated by roughly 10× and the top tier is
+      misnamed ("Pro" vs "Plus"). This is the parent-facing page every post in this
+      plan points at, and it undersells what parents actually get. Fix the template.
+- [ ] **Qualify the "under $4" line, do not delete it.** `README.md` and
+      `docs/app-store/1.0.6/REVIEW_NOTES.md` both say *"less than $4 a month"*. That
+      is accurate for the tiers it describes — Free and Basic $1/mo — and it is the
+      sharpest competitive point you have, because Khanmigo charges $4/mo flat. Keep
+      it, but write *"free, or $1/mo"* rather than "under $4": a parent reading an
+      unqualified "under $4" may reasonably assume the $5 Plus tier is also under
+      $4. All copy in this plan avoids that ambiguity.
 - [ ] **Check what the live listing actually shows.** You did not upload the
       in-repo screenshot set, so the store page is running something else. Open it
       on a phone and confirm the screenshots, the price, and the icon match what
@@ -202,10 +210,13 @@ and crisis detection. That shapes what you are allowed to say.
   third-party analytics or ad SDKs in the Kids Category app. Keep the web app
   (`syftlearning.app/app`) consistent — do not bolt an analytics tag onto the
   student-facing route.
-- **No unverifiable comparisons.** "Safer than ChatGPT for kids" is a comparative
-  claim you cannot substantiate. "Server-side safety filters, crisis detection, and
-  a full transcript you can read" is a factual description of what is built — use
-  that instead.
+- **Comparative claims: prices are fine, safety is not.** A price comparison is
+  verifiable, and it is your sharpest line — Khanmigo is $4/mo and you are free or
+  $1/mo. Use it. "Safer than ChatGPT for kids" is a claim you cannot substantiate;
+  use the factual description instead ("server-side safety filters, crisis detection,
+  and a full transcript you can read"). Re-check the Khanmigo number before each
+  campaign: competitor pricing moves, and a stale comparison in public copy is the
+  kind of thing that ages badly against you.
 - **Only claim what is in 1.0.6.** Notably: LaTeX/math rendering (`PR #88`) merged to
   `main` on 2026-09-25, *after* build 74 shipped on 2026-09-14, so it is almost
   certainly not in the release you are announcing. Do not mention it.
