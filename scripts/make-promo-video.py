@@ -35,6 +35,16 @@ FADE = 0.55
 
 # (clip, in-point, duration, headline, subline)
 #
+# The in-points are not arbitrary: each window starts just before the scene's
+# interaction and ends just after its result, so the edit shows the feature
+# happening rather than a screen sitting still. Measured off the recorded clips:
+#   study         card front 4.6s, flipped 6.4s, next card 8.0s
+#   materials     list until 6.5s, study page opens 7.5s
+#   activity      list until 5.5s, transcript open 6.2s
+#   notifications chat toggle 6.0s, digest toggle 7.2s (which switches the chat
+#                 toggle back off - digest suppresses instant pushes)
+#   boteditor     typing runs 6.2s to 9.1s
+#
 # Scene order follows the three value propositions rather than a feature tour:
 #   1 educational   - flashcards with spaced repetition, then study materials
 #   2 parent control - transcripts, then notification preferences, then the
@@ -46,18 +56,18 @@ FADE = 0.55
 # retention mechanic, and the third is a feature detail. None of them is what
 # this product is for.
 SCENES = [
-    ("study", 3.4, 4.6, "Cards that come back\nwhen she'll forget them.",
+    ("study", 4.4, 4.0, "Cards that come back\nwhen she'll forget them.",
      "Spaced repetition, built in."),
-    ("materials", 0.6, 4.2, "The tutor builds study pages\nto come back to.",
+    ("materials", 4.4, 4.2, "The tutor builds study pages\nto come back to.",
      "Made for the student, kept for later."),
-    ("activity", 0.7, 4.8, "Every conversation,\nreadable.",
+    ("activity", 4.2, 4.4, "Every conversation,\nreadable.",
      "Full transcripts for every bot."),
-    ("notifications", 0.6, 4.0, "You decide when\nyou're told.",
+    ("notifications", 5.1, 4.0, "You decide when\nyou're told.",
      "Straight away, a daily summary, or just study reminders."),
-    ("boteditor", 3.2, 5.0, "You write the system prompt.",
+    ("boteditor", 5.0, 5.0, "You write the system prompt.",
      "Make a character, or a subject expert."),
 ]
-END_DUR = 5.0
+END_DUR = 4.0
 
 
 def run(cmd, **kw):
