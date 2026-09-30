@@ -41,7 +41,7 @@ phone() {
   local src=$1 h=$2 r=$3 w
   w=$(( h * 1320 / 2868 ))
   convert "$src" -resize "${w}x${h}!" \
-    \( -size "${w}x${h}" xc:black -fill white -alpha off \
+    \( -size "${w}x${h}" xc:none -fill white \
        -draw "roundrectangle 0,0,$((w-1)),$((h-1)),${r},${r}" \) \
     -compose CopyOpacity -composite \
     -stroke 'rgba(255,255,255,0.22)' -strokewidth 2 -fill none \
@@ -163,7 +163,7 @@ square() {
 }
 
 # --- build -------------------------------------------------------------------
-card45 "$SRC/05-chat.png" \  "She asked. It didn’t hand her the answer." \
+card45 "$SRC/05-chat.png" "She asked. It didn’t hand her the answer." \
   "A tutor that asks back, instead of finishing the homework." \
   "$OUT/parent-fractions.png"
 

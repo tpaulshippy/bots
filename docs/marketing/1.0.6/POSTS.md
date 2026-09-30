@@ -71,7 +71,7 @@ Two rules:
 > So I rebuilt the deck system in 1.0.6: cards now get scheduled with spaced
 > repetition, she rates each one Again / Hard / Good / Easy, and the app decides what
 > she sees next and when. Cards she's solid on stop showing up. Cards she keeps
-> missing come back tomorrow.
+> missing come back later the same day.
 >
 > There's a streak and a stats screen now. She's on day four and has not asked to
 > skip it once.
@@ -96,7 +96,24 @@ Two rules:
 
 ---
 
-### A4 · Sat Oct 3 · 20-second Reel (IG + FB)
+### A4 · optional · Facebook + Instagram
+
+**Image:** reuse `parent-fractions.png`, or crop the equation from a live chat.
+
+> Small thing that made my kid ask why the app "finally looks like my textbook".
+>
+> When the tutor writes a maths answer, it used to hand back the raw markup —
+> `\frac{1}{2}` and a pile of backslashes. Now the equations actually typeset.
+>
+> It's a rendering fix, not a feature announcement. But every maths answer the
+> tutor gives suddenly looks like maths instead of a broken string, and that
+> matters more than it sounds when the whole point is that your kid reads it.
+>
+> Free to start. ⟪LINK⟫
+
+---
+
+### A5 · Sat Oct 3 · 20-second Reel (IG + FB)
 
 **Cover:** `reel-cover.png`
 
@@ -124,16 +141,19 @@ Shot list, no voiceover, captions burned in:
 
 > Version 1.0.6 of Syft Learning is live on the App Store.
 >
-> It's an AI tutor app for kids that I built because the alternatives were either
-> $20/month or a black box. Three things went out in this release:
+> It's an AI tutor app for kids that I built because AI tutoring for this age group
+> usually means a $4/month subscription and a black box. Four things went out in
+> this release:
 >
 > — Spaced repetition on the flashcard decks (Again / Hard / Good / Easy, due-date
 >   scheduling), with streaks and a stats dashboard on top
+> — Proper maths typesetting: LaTeX equations render as maths in the chat, so a
+>   homework answer doesn't come back as a wall of source
 > — A Study Materials library — the tutor builds interactive web pages your kid can
 >   come back to
 > — A parent Activity inbox with full conversation transcripts and safety events
 >
-> Free tier, $1/mo and $5/mo tiers, RevenueCat on the paywall. Free to start: ⟨LINK⟩
+> Free to start.
 >
 > What's the next thing you'd want in it?
 
@@ -153,11 +173,11 @@ X, 3 posts:
 > Good / Easy, due-date scheduling, streaks, a stats dashboard.
 >
 > 3/ Also new: tutor-built study pages, a parent Activity inbox with full
-> transcripts, and streaming replies with a Stop button. ⟨LINK⟩
+> transcripts, and streaming replies with a Stop button. ⟪LINK⟫
 
 Bluesky, single post (300 char limit):
 
-> Syft Learning 1.0.6 is live on the App Store. Spaced-repetition flashcards, streaks, a stats view, tutor-built study pages, and a parent inbox with every transcript. $0 to start. ⟨LINK⟩
+> Syft Learning 1.0.6 is live on the App Store. Spaced-repetition flashcards, streaks, a stats view, tutor-built study pages, and a parent inbox with every transcript. $0 to start. ⟪LINK⟫
 
 ---
 
@@ -170,17 +190,20 @@ Bluesky, single post (300 char limit):
 >
 > Flashcards are now scheduled with spaced repetition. She rates each card Again /
 > Hard / Good / Easy, and the app decides what she sees next and when. Cards she's
-> solid on stop coming back. Cards she keeps missing come back tomorrow.
+> solid on stop coming back. Cards she keeps missing come back later the same day.
 >
 > Streaks and a stats screen sit on top of it. Day four, and she hasn't asked to
 > skip it once.
 >
-> Implementation notes if you're building something similar: the whole scheduling
-> decision is a single query — due date, last rating, interval — and it's fast at
-> this scale, but the rating vocabulary is the product. Hard/Good/Easy without Again
-> is a checkbox. Again is what makes it a memory tool.
+> Implementation notes if you're building something similar: the queue itself is
+> dumb — a single `filter(due_at__lte=now()).order_by('due_at')` — because all the
+> scheduling state is stored on the card (interval, ease, reps, lapses). The part
+> worth stealing is the write path: the review is wrapped in a transaction and takes
+> a row lock before recomputing, so two simultaneous reviews can't both schedule off
+> the same stale counters. And the rating vocabulary is the product. Hard/Good/Easy
+> without Again is a checkbox. Again is what makes it a memory tool.
 >
-> ⟨LINK⟩
+> ⟪LINK⟫
 
 ---
 
@@ -192,7 +215,7 @@ language, which reads oddly from the brand account.
 
 > Version 1.0.6 of Syft Learning is live on the App Store. Spaced-repetition
 > flashcards, streaks, a stats dashboard, tutor-built study pages, and a parent
-> Activity inbox with full transcripts. Free to start. ⟨LINK⟩
+> Activity inbox with full transcripts. Free to start. ⟪LINK⟫
 
 Mirroring is an archive and SEO play, not a reach play. Do it the same day, spend
 five minutes, and do not check the analytics.

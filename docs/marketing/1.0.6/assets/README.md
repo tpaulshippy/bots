@@ -30,14 +30,21 @@ before the fold), 16:9 for link cards, 9:16 for vertical video.
 One template so the three parent posts read as a set.
 
 - Background: `#0a7ea4` → `#052f42` vertical gradient
-- Accent: `#00a4c9` (also the app's splash and adaptive-icon background)
+- Accent / wordmark: `#00a4c9`, taken from `front/constants/Colors.ts`
+  (`tintColorLight`) and `back/bots/templates/marketing.html`
+- `#0a7ea4` is the app's splash-screen and adaptive-icon background, from
+  `front/app.json`
+- `#052f42` (gradient end) and `#dff2fa` (muted body text) are **asset-specific** —
+  they are not defined in the app or the site. They are chosen here for contrast
+  against the `#0a7ea4` top of the gradient.
 - Wordmark top-left, one headline (52pt bold), one sub-line (30pt)
 - Screenshots sit in a rounded-corner frame with a hairline border, in the source
   app's own light theme — no restyling of the UI
 
-Every colour is taken from `front/app.json` and `back/bots/templates/marketing.html`.
-If the brand tint changes there, change `BRAND`/`ACCENT`/`DARK` at the top of the
-script and re-run.
+Every colour is taken from `front/app.json`, `front/constants/Colors.ts` and
+`back/bots/templates/marketing.html`, except the two marked above as
+asset-specific. If the brand tint changes in the app, change `BRAND`/`ACCENT` at the
+top of the script and re-run.
 
 ## Regenerating after the next release
 

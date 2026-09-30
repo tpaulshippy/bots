@@ -1,6 +1,7 @@
 # Syft Learning 1.0.6 — marketing rollout
 
-Written 2026-09-30, one day after 1.0.6 went live in the App Store.
+Written 2026-09-30. The release reached users earlier in September, so this is a
+"what's new" push rather than a launch-day push.
 Source material: [`docs/app-store/1.0.6/WHAT_IS_NEW.md`](../../app-store/1.0.6/WHAT_IS_NEW.md).
 Copy is in [`POSTS.md`](POSTS.md). Images are in [`assets/`](assets/).
 
@@ -47,8 +48,10 @@ Cheap, and each one prevents a real problem.
       **$5/mo** (~1.67M tokens/day). `back/bots/templates/marketing.html` says
       Free 2,000 words, Basic 20,000 words and **Pro** $5/mo. The Free tier roughly
       matches, but Basic and Plus are understated by roughly 10× and the top tier is
-      misnamed ("Pro" vs "Plus"). This is the parent-facing page every post in this
-      plan points at, and it undersells what parents actually get. Fix the template.
+      misnamed ("Pro" vs "Plus"). Every post in this plan links to the **App Store
+      listing**, not here — but this is the public web page a parent lands on from
+      search and from the in-app web link, so the same correction has to land here
+      or the two contradict each other. Fix the template.
 - [ ] **Qualify the "under $4" line, do not delete it.** `README.md` and
       `docs/app-store/1.0.6/REVIEW_NOTES.md` both say *"less than $4 a month"*. That
       is accurate for the tiers it describes — Free and Basic $1/mo — and it is the
@@ -87,6 +90,11 @@ who already knows you, and it has a longer shelf life. Do not manufacture urgenc
 | Thu | Oct 8 | Track B, deep dive on one feature (spaced repetition) | Personal LinkedIn, X | `og-x-bluesky.png` |
 | Fri | Oct 9 | Same posts, mirrored | `@syftlearning` (all) | matching assets |
 | Sat | Oct 17 | Track A, third and final angle — tutor per subject | Personal FB, IG | `parent-bots.png` |
+| — | optional | Track A, extra angle — maths typesetting (A4) | Personal FB, IG | `parent-fractions.png` |
+
+The optional row is genuinely optional — post it only if the campaign has energy
+left after the eight scheduled ones. It is the strongest single-feature proof point
+you have, because a parent can see the before and after in one screenshot.
 
 Then stop. Do not post again for a month. Three parent angles is the ceiling before
 your personal feed starts treating you as a marketing account.
@@ -162,13 +170,17 @@ Full rationale and regeneration instructions in [`assets/README.md`]. The short 
 ## 6. Measurement
 
 Add campaign tokens to the App Store link so App Store Connect attributes installs.
-The standard format, appended to the app URL:
+Append them to the app URL:
 
 ```
-?pt=provider&ct=oct1_parent&mt=8        # e.g. pt=facebook / pt=instagram / pt=linkedin
+?pt=facebook&ct=oct1_parent_ig&mt=8
 ```
 
-Shortened links work fine. Put a distinct `ct` per post so you can read the numbers
+`pt` is the **provider token** from App Store Connect → the app's Analytics
+configuration, not the social network's name — use the exact value Apple assigns
+(`facebook`, `instagram`, `linkedin`, `x`, `bluesky`, … as listed there). `ct` is
+where you record *which* post, e.g. `ct=oct1_parent_ig`, and `mt=8` is the iOS
+marketing template. Use a distinct `ct` per post so you can read the numbers
 separately in **App Store Connect → App Analytics → Sources**.
 
 What to actually look at, in order:
@@ -220,9 +232,12 @@ and crisis detection. That shapes what you are allowed to say.
   substantiate at all; use the factual description instead ("server-side safety
   filters, crisis detection, and a full transcript you can read"). Re-verify the $4
   anchor before each campaign — category pricing moves.
-- **Only claim what is in 1.0.6.** Notably: LaTeX/math rendering (`PR #88`) merged to
-  `main` on 2026-09-25, *after* build 74 shipped on 2026-09-14, so it is almost
-  certainly not in the release you are announcing. Do not mention it.
+- **Only claim what is in 1.0.6.** LaTeX/math typesetting is in scope and worth
+  posting about: it merged to `main` after the App Store binary build, but it is
+  pure JavaScript and the app has EAS Update enabled on the production channel
+  (`checkAutomatically: "ON_LOAD"`), so it reached users over the air without a new
+  build. `WHAT_IS_NEW.md` already advertises it on the store page, so the posts and
+  the listing agree. Anything genuinely unshipped, leave out.
 - **Prices in public copy must match the app.** Free / $1 / $5. See §2.
 
 ---
