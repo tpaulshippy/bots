@@ -20,7 +20,6 @@ safe to run against a throwaway database.
 Usage: python manage.py seed_promo_demo
 """
 
-import uuid
 from datetime import timedelta
 
 from django.contrib.auth.models import User
