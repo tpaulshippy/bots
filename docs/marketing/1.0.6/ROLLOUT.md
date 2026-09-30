@@ -225,7 +225,7 @@ and crisis detection. That shapes what you are allowed to say.
 - **Comparative claims: prices are fine, safety is not — but never name them.** A
   price comparison is verifiable and it is your sharpest line, because the closest
   comparable product is $4/mo and you are free or $1/mo. Use it as a *category*
-  anchor — "AI tutoring for kids usually runs $4/month" — not as a named comparison.
+  anchor — "Other AI tutor bots start at $4 per month" — not as a named comparison.
   Naming a competitor hands them free distribution, makes your pricing a reaction
   rather than a position, and creates a public claim you must keep true after they
   change their price. "Safer than ChatGPT for kids" is a claim you cannot

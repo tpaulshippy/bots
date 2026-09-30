@@ -22,13 +22,18 @@ after they change their price.
 Anchor on the *category* instead. It lands the same number, reads as confident
 rather than comparative, and survives them changing price:
 
-- "AI tutoring for kids usually runs $4/month." — the default anchor, use this.
-- "The best-known AI tutor for kids charges $4/month." — slightly more pointed.
-- "Most AI tutoring apps start at $4/month." — use only if you can substantiate
-  "most"; it is a plural claim and the easiest one to outgrow.
+- "Other AI tutor bots start at $4 per month." — the default anchor, use this.
+- "Other AI tutor apps start at $4/month." — drop "bots" if the channel reads
+  oddly against "bots" (LinkedIn and X in particular).
+- "The best-known AI tutor for kids charges $4/month." — narrower and vaguer; it
+  names no category floor, so it is easier to defend but does less work.
 
 Two rules:
 
+- **"Start at" claims a category floor, so keep it true.** The wording is stronger
+  than "usually costs" — it asserts an entry price for the category, not an average.
+  That is what makes it land, and it is why it needs re-checking: if a cheaper entry
+  tier appears, the sentence becomes wrong rather than merely dated.
 - **Do not compare per-child.** A single subscription at the main competitor covers
   up to 10 children. If you push a "cheaper per kid" angle, a parent with three
   kids will do that division in their head and you lose. Stay on the flat monthly
@@ -55,8 +60,8 @@ Two rules:
 > teaches nothing. One that gets your kid to *say the reasoning out loud* teaches
 > something.
 >
-> Version 1.0.6 just went live on the App Store. Free to start — AI tutoring for
-> kids usually runs $4/month. ⟪LINK⟫
+> Version 1.0.6 just went live on the App Store. Free to start — other AI tutor
+> bots start at $4 per month. ⟪LINK⟫
 
 *Threads/IG caption: same text, trimmed to the first paragraph plus the last line.*
 
@@ -76,8 +81,8 @@ Two rules:
 > There's a streak and a stats screen now. She's on day four and has not asked to
 > skip it once.
 >
-> Free to start, $1/mo if you want the bigger allowance. AI tutoring for kids
-> usually runs $4/month. ⟪LINK⟫
+> Free to start, $1/mo if you want the bigger allowance. Other AI tutor bots
+> start at $4 per month. ⟪LINK⟫
 
 ---
 
@@ -141,9 +146,8 @@ Shot list, no voiceover, captions burned in:
 
 > Version 1.0.6 of Syft Learning is live on the App Store.
 >
-> It's an AI tutor app for kids that I built because AI tutoring for this age group
-> usually means a $4/month subscription and a black box. Four things went out in
-> this release:
+> It's an AI tutor app for kids that I built because the alternatives are a $4/month
+> subscription and a black box. Four things went out in this release:
 >
 > — Spaced repetition on the flashcard decks (Again / Hard / Good / Easy, due-date
 >   scheduling), with streaks and a stats dashboard on top
