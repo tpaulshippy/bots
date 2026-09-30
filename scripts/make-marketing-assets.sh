@@ -31,9 +31,9 @@ REG='DejaVu-Sans'
 
 # bg <w> <h>  -> brand gradient with a soft accent glow, on stdout
 bg() {
-  convert -size "${1}x${2}" gradient:"$BRAND-$DARK" \
-    \( -size "${1}x${2}" xc:none -fill "$ACCENT" -draw "circle $(($1 - 96)),96 $(($1 - 96)),26" \) \
-    -alpha set -compose over -composite -depth 8 png:-
+  # Plain gradient. The accent circle that used to sit in the top-right corner
+  # read as a stray UI element rather than decoration, so it is gone.
+  convert -size "${1}x${2}" gradient:"$BRAND-$DARK" -depth 8 png:-
 }
 
 # phw <src> <height> -> pixel width for a screenshot scaled to <height> tall.

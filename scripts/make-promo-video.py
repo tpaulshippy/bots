@@ -102,10 +102,10 @@ def make_mask(w, h, radius, out, tmp):
 
 
 def background(W, H, out, tmp):
+    # Plain gradient. An accent circle used to sit in the top-right corner; it
+    # read as a stray UI element rather than decoration, so it is gone.
     run(["convert", "-size", f"{W}x{H}", f"gradient:{BRAND}-{DARK}",
-         "(", "-size", f"{W}x{H}", "xc:none", "-fill", ACCENT,
-         "-draw", f"circle {W-120},150 {W-120},70", ")",
-         "-alpha", "set", "-compose", "over", "-composite", "-depth", "8", out])
+         "-depth", "8", out])
 
 
 def end_card(W, H, out, tmp, end_url):
