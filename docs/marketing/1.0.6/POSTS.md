@@ -131,6 +131,38 @@ Caption:
 
 ---
 
+### A6 · Sat Oct 3 · YouTube Short (brand channel)
+
+**File:** `video/syft-promo-16x9.mp4` — the cut with `syftlearning.app` burned into
+the end card, because a description link will not do this job.
+
+Upload as a **Short**. Set "Made for Kids" to **off** (see ROLLOUT §4 — the video
+is aimed at parents, and ticking it kills comments and notifications).
+
+**Title** (this is search surface, so write it for the query):
+
+> Free AI tutor for kids — $0 to start | Syft Learning
+
+**Description:**
+
+> Syft Learning is an AI tutor app for kids. The tutor doesn't hand over answers —
+> it asks your child what they already think, and builds on that. Version 1.0.6
+> adds spaced-repetition flashcards with streaks, proper maths typesetting,
+> tutor-built study pages, and a parent inbox with every conversation transcript.
+>
+> Free tier, $1/mo and $5/mo tiers. Other AI tutor bots start at $4 per month.
+>
+> syftlearning.app
+
+**Pinned comment:**
+
+> iOS: ⟪LINK⟫ · Android and web: syftlearning.app/app
+
+**Tags:** ai tutor for kids, homework help app, spaced repetition flashcards,
+spaced repetition, ai for parents, free ai tutor
+
+---
+
 ## Track B — builders
 
 ### B1 · Thu Oct 1 · LinkedIn

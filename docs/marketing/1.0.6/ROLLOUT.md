@@ -28,8 +28,8 @@ Copy is in [`POSTS.md`](POSTS.md). Images are in [`assets/`](assets/).
 | Primary fear | "Is this safe? Will it just do the homework?" | "What stack? How did you ship it? Is it worth my time?" |
 | Lead with | Trust + it actually teaches | The build + what's in the box |
 | Proof | Screenshot of a real conversation | Feature list, no adjectives |
-| Channels | Facebook, Instagram, Threads | LinkedIn, X, Bluesky |
-| CTA | App Store link | App Store link |
+| Channels | Facebook, Instagram, Threads, YouTube | LinkedIn, X, Bluesky |
+| CTA | App Store link (plus the burned-in domain on video) | App Store link |
 
 ---
 
@@ -85,7 +85,8 @@ who already knows you, and it has a longer shelf life. Do not manufacture urgenc
 | Thu | Oct 1 | Track A launch — the fractions story | Personal FB, IG, Threads | `parent-fractions.png` |
 | Thu | Oct 1 | Track B — what shipped and what's in it | Personal LinkedIn, X, Bluesky | `builder-1.png` |
 | Fri | Oct 2 | Same Track A post, mirrored | `@syftlearning` FB, IG, Threads | `parent-fractions.png` |
-| Sat | Oct 3 | 20-second short: screen recording of one tutoring exchange | Personal IG Reels + FB Reels | `reel-cover.png` |
+| Sat | Oct 3 | 32-second video, vertical | Personal IG Reels + FB Reels | `video/syft-promo-9x16.mp4` |
+| Sat | Oct 3 | Same video as a YouTube Short, 16:9 with the domain on the end card | Syft Learning YouTube | `video/syft-promo-16x9.mp4` |
 | Wed | Oct 7 | Track A, second angle — streaks and retention | Personal FB, IG | `parent-streaks.png` |
 | Thu | Oct 8 | Track B, deep dive on one feature (spaced repetition) | Personal LinkedIn, X | `og-x-bluesky.png` |
 | Fri | Oct 9 | Same posts, mirrored | `@syftlearning` (all) | matching assets |
@@ -135,6 +136,31 @@ about existing followers and search, not discovery.
 
 **Bluesky** — near-zero reach, but it is where a chunk of indie/dev people you
 actually want to reach are, and it costs one paste. Feeds, not threads.
+
+**YouTube** — the one platform here where the *archive* is worth more than the
+post. Upload the 16:9 cut as a Short (under 60s, vertical-or-square is fine, and
+Shorts are the only format with real reach for a channel this size). Three things
+are different about YouTube and they will decide whether the upload does anything:
+
+- **Description links do not convert.** Click-through on a YouTube description URL
+  is a fraction of a percent. The CTA has to be on screen, which is why the 16:9
+  cut is rendered with `syftlearning.app` burned into the end card
+  (`--end-url`). Also pin the App Store link as the top comment.
+- **Do not tick "Made for Kids."** This is a video *about* the product, aimed at
+  parents — not content primarily directed at under-13s, which is what the flag
+  means under COPPA. It is also the commercially correct answer: marking it
+  disables comments, notifications and personalised analytics, which would gut
+  the reach. If you ever publish something a child is meant to watch, that
+  changes — see §7.
+- **Title and description are search surface.** People search "free AI tutor for
+  kids" and "AI homework help". Write the title for that, and treat this upload
+  as something that can still surface in a year. A Short is not a launch post; it
+  is a durable entry.
+
+**Do not start a long-form channel for this.** One 32-second upload, no
+playlists, no thumbnails to maintain. A kids-app channel that goes quiet is worse
+than no channel, and it is a real ongoing commitment. Revisit only if the app
+earns weekly-active families.
 
 **Threads** — literally the same caption as Instagram. 60 seconds of effort.
 
@@ -219,6 +245,12 @@ and crisis detection. That shapes what you are allowed to say.
   interest-target under-13s. Meta and Google will reject a kids-directed ad for a
   kids app, and you would also be building the wrong audience. The organic plan
   above needs none of this.
+- **YouTube "Made for Kids" is a COPPA question, not a marketing one.** The flag
+  means the content is *primarily directed at* under-13s. Every video in this plan
+  is aimed at parents, so it must stay unticked — which is also better for reach,
+  since ticking it disables comments and notifications. If you ever publish
+  something a child is meant to watch, the answer flips and you must tick it,
+  accept the lost features, and stop using ad targeting on that video entirely.
 - **Keep the kids path free of third-party trackers.** Apple requires no
   third-party analytics or ad SDKs in the Kids Category app. Keep the web app
   (`syftlearning.app/app`) consistent — do not bolt an analytics tag onto the

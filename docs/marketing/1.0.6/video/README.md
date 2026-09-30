@@ -3,7 +3,12 @@
 | File | Size | Use |
 |---|---|---|
 | `syft-promo-9x16.mp4` | 1080×1920, 32s | IG Reels, FB Reels, TikTok, Shorts, X |
-| `syft-promo-16x9.mp4` | 1920×1080, 32s | LinkedIn, YouTube, X |
+| `syft-promo-16x9.mp4` | 1920×1080, 32s | YouTube, LinkedIn, X |
+
+The 16:9 cut is rendered with `syftlearning.app` burned into the end card, because
+YouTube description links barely convert and the end card is the only CTA that
+survives. The 9:16 cut has no URL — it is wrong on Reels and TikTok, where nothing
+is tappable anyway. Regenerate the 9:16 cut the same way but without `--end-url`.
 
 Both are 30fps H.264 (yuv420p, faststart) with an AAC stereo bed. The two cuts
 are generated from the same scenes, not exported from one another, so each is
@@ -29,11 +34,14 @@ Cross-faded, with a slow push-in on each scene and a 0.5s fade in / 0.6s fade ou
 # 1. music bed (optional — see below)
 python3 scripts/make-promo-music.py -o /tmp/music.wav -d 48
 
-# 2. both cuts
+# 2. vertical cut, no URL on the end card
 python3 scripts/make-promo-video.py --music /tmp/music.wav \
   -o docs/marketing/1.0.6/video/syft-promo-9x16.mp4
+
+# 3. landscape cut, URL burned in for YouTube/TV
 python3 scripts/make-promo-video.py --music /tmp/music.wav \
-  -o docs/marketing/1.0.6/video/syft-promo-16x9.mp4 --width 1920 --height 1080
+  -o docs/marketing/1.0.6/video/syft-promo-16x9.mp4 \
+  --width 1920 --height 1080 --end-url syftlearning.app
 ```
 
 Needs ImageMagick (`convert`), `ffmpeg`, `ffprobe`, and the DejaVu fonts — the same

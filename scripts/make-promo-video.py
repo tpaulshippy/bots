@@ -167,7 +167,7 @@ def scene_frame_wide(src, crop, head, sub, out, tmp):
          "-depth", "8", out])
 
 
-def end_frame(out, tmp):
+def end_frame(out, tmp, end_url=""):
     bg = os.path.join(tmp, "bg.png")
     run(["convert", "-size", f"{CW}x{CH}", f"gradient:{BRAND}-{DARK}",
          "(", "-size", f"{CW}x{CH}", "xc:none", "-fill", ACCENT,
@@ -185,14 +185,23 @@ def end_frame(out, tmp):
     b2 = int(run(["identify", "-format", "%h", t1]).stdout.decode())
     b3 = int(run(["identify", "-format", "%h", t2]).stdout.decode())
     b4 = int(run(["identify", "-format", "%h", t3]).stdout.decode())
-    total = b1 + b2 + b3 + b4 + 60 * 3
+    blocks = [(wm, b1), (t1, b2), (t2, b3), (t3, b4)]
+    # A visible domain is the only CTA that works on YouTube and TV, where the
+    # description link is effectively dead. Opt-in: it looks wrong on Reels and
+    # TikTok, where nobody can tap it anyway.
+    if end_url:
+        u = os.path.join(tmp, "u.png")
+        cap(CW - 200, 46, ACCENT, BOLD, end_url, u, tmp)
+        blocks.append((u, int(run(["identify", "-format", "%h", u]).stdout.decode())))
+    total = sum(h for _, h in blocks) + 60 * (len(blocks) - 1)
     y = (CH - total) // 2
-    run(["convert", bg,
-         wm, "-gravity", "north", "-geometry", f"+0+{y}", "-composite",
-         t1, "-gravity", "north", "-geometry", f"+0+{y + b1 + 60}", "-composite",
-         t2, "-gravity", "north", "-geometry", f"+0+{y + b1 + b2 + 120}", "-composite",
-         t3, "-gravity", "north", "-geometry", f"+0+{y + b1 + b2 + b3 + 180}", "-composite",
-         "-depth", "8", out])
+    args = ["convert", bg]
+    off = y
+    for path, h in blocks:
+        args += [path, "-gravity", "north", "-geometry", f"+0+{off}", "-composite"]
+        off += h + 60
+    args += ["-depth", "8", out]
+    run(args)
 
 
 def main():
@@ -202,6 +211,9 @@ def main():
     ap.add_argument("--width", type=int, default=OUT_W)
     ap.add_argument("--height", type=int, default=OUT_H)
     ap.add_argument("--work", default="/tmp/opencode/vid")
+    ap.add_argument("--end-url", default="",
+                    help="domain burned into the end card, for YouTube/TV where the "
+                         "description link does not convert")
     a = ap.parse_args()
 
     # Compose at the output aspect so the layout is designed for it. Rendering
@@ -233,7 +245,7 @@ def main():
         durs.append(d)
         print(f"  scene {i}: {src} ({d}s)")
     f = os.path.join(work, "send.png")
-    end_frame(f, tmp)
+    end_frame(f, tmp, a.end_url)
     frames.append(f)
     durs.append(END[2])
     print(f"  end card ({END[2]}s)")
