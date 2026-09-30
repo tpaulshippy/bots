@@ -13,6 +13,7 @@ The app logo (front/assets/images/splash-icon.png, transparent) is burned into
 every scene, and the end card is logo + name once, not the name twice.
 """
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -35,15 +36,20 @@ FADE = 0.55
 
 # (clip, in-point, duration, headline, subline)
 #
-# The in-points are not arbitrary: each window starts just before the scene's
-# interaction and ends just after its result, so the edit shows the feature
-# happening rather than a screen sitting still. Measured off the recorded clips:
-#   study         card front 4.6s, flipped 6.4s, next card 8.0s
-#   materials     list until 6.5s, study page opens 7.5s
-#   activity      list until 5.5s, transcript open 6.2s
-#   notifications chat toggle 6.0s, digest toggle 7.2s (which switches the chat
+# The in-points are not arbitrary: each window opens just before its scene's
+# interaction and closes just after the result, so the edit shows the feature
+# happening rather than a screen sitting still. They are measured off the
+# recorded footage, and check_windows() fails the build if a window would end
+# before the interaction does -- load time moves these by a second between
+# recording runs, which silently cut the bot-editor shot off mid-word once.
+#
+# Measured (actions.json, 30fps source):
+#   study         flip 6.0s, rated 7.6s, next card follows
+#   materials     study page opens 6.8-7.3s
+#   activity      transcript opens 6.4s
+#   notifications chat toggle 6.0s, digest toggle 7.5s (which switches the chat
 #                 toggle back off - digest suppresses instant pushes)
-#   boteditor     typing runs 6.2s to 9.1s
+#   boteditor     typing runs 7.3s to 10.6s
 #
 # Scene order follows the three value propositions rather than a feature tour:
 #   1 educational   - flashcards with spaced repetition, then study materials
@@ -56,18 +62,33 @@ FADE = 0.55
 # retention mechanic, and the third is a feature detail. None of them is what
 # this product is for.
 SCENES = [
-    ("study", 4.4, 4.0, "Cards that come back\nwhen she'll forget them.",
+    ("study", 4.6, 4.6, "Cards that come back\nwhen she'll forget them.",
      "Spaced repetition, built in."),
-    ("materials", 4.4, 4.2, "The tutor builds study pages\nto come back to.",
+    ("materials", 4.6, 4.4, "The tutor builds study pages\nto come back to.",
      "Made for the student, kept for later."),
-    ("activity", 4.2, 4.4, "Every conversation,\nreadable.",
+    ("activity", 4.6, 3.8, "Every conversation,\nreadable.",
      "Full transcripts for every bot."),
-    ("notifications", 5.1, 4.0, "You decide when\nyou're told.",
+    ("notifications", 4.4, 4.2, "You decide when\nyou're told.",
      "Straight away, a daily summary, or just study reminders."),
-    ("boteditor", 5.0, 5.0, "You write the system prompt.",
+    ("boteditor", 5.4, 5.8, "You write the system prompt.",
      "Make a character, or a subject expert."),
 ]
 END_DUR = 4.0
+# Every scene used to cut the instant its last action finished, so the payoff
+# frame flashed past -- the bot-editor shot in particular cut while the prompt
+# was still being typed. tpad clones the final frame for HOLD seconds, giving
+# each beat a moment to land before the crossfade starts. HOLD has to exceed
+# FADE by a clear margin or the freeze is entirely consumed by the dissolve and
+# nothing actually holds.
+HOLD = 1.2
+# A window must run at least this far past the end of its last visible action,
+# otherwise the frozen hold frame shows a half-finished interaction.
+MIN_TAIL = 0.4
+
+
+def scene_len(i):
+    """Seconds a scene occupies on the timeline, including its hold."""
+    return SCENES[i][2] + HOLD
 
 
 def run(cmd, **kw):
@@ -118,7 +139,7 @@ def background(W, H, out, tmp):
          "-depth", "8", out])
 
 
-def end_card(W, H, out, tmp, end_url):
+def end_card(W, H, out, tmp, end_url, credit=""):
     bg = os.path.join(tmp, "bg.png")
     background(W, H, bg, tmp)
     lg = os.path.join(tmp, "lg.png")
@@ -139,6 +160,18 @@ def end_card(W, H, out, tmp, end_url):
         u = os.path.join(tmp, "u.png")
         cap(int(W * 0.7), int(H * 0.021), "white", BOLD, end_url, u, tmp)
         blocks.append((u, size_of(u)[1]))
+    # Music credit. CC BY 4.0 requires attribution wherever the video is
+    # published, and social captions get truncated, so it is burned into the
+    # card rather than left to the caption. Small and low contrast -- it has to
+    # be legible to comply, not to compete with the price line.
+    if credit:
+        c = os.path.join(tmp, "c.png")
+        cap(int(W * 0.62), int(H * 0.0135), "#7fa6b8", REG, credit, c, tmp)
+        cw, ch = size_of(c)
+        args_c = [c, "-gravity", "northwest",
+                  "-geometry", f"+{(W - cw) // 2}+{int(H * 0.935)}", "-composite"]
+    else:
+        args_c = []
     gap = int(H * 0.022)
     total = sum(h for _, h in blocks) + gap * (len(blocks) - 1)
     y = (H - total) // 2
@@ -149,13 +182,72 @@ def end_card(W, H, out, tmp, end_url):
         # FROM CENTRE, which shoves every block off the right edge.
         args += [path, "-gravity", "northwest", "-geometry", f"+{(W-w)//2}+{y}", "-composite"]
         y += h + gap
+    args += args_c
     args += ["-depth", "8", out]
     run(args)
 
 
+def timeline_total():
+    """Runtime of the finished cut, needed before the music bed is cut to size."""
+    acc = scene_len(0)
+    for i in range(1, len(SCENES)):
+        acc += scene_len(i) - FADE
+    return acc + END_DUR - FADE
+
+
+def music_bed(src, out, total, start):
+    """Cut a bar-aligned, loudness-normalised bed the exact length of the video.
+
+    These tracks are longer than the cut, so a plain in-point avoids any loop
+    seam -- the video fades to black at both ends anyway, which covers the
+    boundaries. The segment starts on a bar rather than an arbitrary second, or
+    the downbeat lands mid-shot.
+    """
+    run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+         "-ss", f"{start:.3f}", "-t", f"{total + 0.6:.3f}", "-i", src,
+         "-af", f"afade=t=in:st=0:d=0.6,afade=t=out:st={total - 0.4:.3f}:d=1.0,"
+                "loudnorm=I=-14:TP=-1.5:LRA=11",
+         "-ar", "44100", "-ac", "2", out])
+
+
+def check_windows():
+    """Refuse to build a window that cuts an interaction off mid-action.
+
+    The in-points below are measured off the recorded footage, and load time
+    varies between recording runs enough to move the interactions by a second
+    or more -- the bot-editor typing once started 1.3s later than the window
+    assumed, so the shot cut off in the middle of a word. record-promo-clips.py
+    writes actions.json with the measured time of every visible action, which
+    turns that from something to notice by eye into something that fails.
+    """
+    path = os.path.join(CLIPS, "actions.json")
+    if not os.path.exists(path):
+        print(f"  note: no {path}, skipping window check")
+        return
+    with open(path) as f:
+        data = json.load(f)
+    bad = []
+    for name, start, dur, *_ in SCENES:
+        info = data.get(name) or {}
+        acts = info.get("actions") or []
+        if not acts:
+            continue
+        last = max(a[1] for a in acts)
+        clip = info.get("duration") or 0
+        need = last + MIN_TAIL
+        if start + dur < need:
+            bad.append(f"  {name}: window {start:.1f}+{dur:.1f} ends at {start + dur:.1f}s "
+                       f"but the action runs to {last:.1f}s -> duration must be "
+                       f"at least {need - start:.1f}s (clip is {clip:.1f}s)")
+    if bad:
+        sys.exit("scene window cuts an interaction short:\n" + "\n".join(bad))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--music", default="/tmp/opencode/music.wav")
+    ap.add_argument("--music", default="")
+    ap.add_argument("--music-start", type=float, default=0.0)
+    ap.add_argument("--credit", default="")
     ap.add_argument("-o", "--out", default="docs/marketing/1.0.6/video/syft-promo-9x16.mp4")
     ap.add_argument("--width", type=int, default=1080)
     ap.add_argument("--height", type=int, default=1920)
@@ -171,6 +263,7 @@ def main():
     for name, *_ in SCENES:
         if not os.path.exists(os.path.join(CLIPS, f"{name}.webm")):
             sys.exit(f"missing clip: {CLIPS}/{name}.webm (run record_clips.py first)")
+    check_windows()
 
     W, H = a.width, a.height
     landscape = W > H
@@ -220,7 +313,7 @@ def main():
         shmax = max(shmax, size_of(s)[1])
 
     end = os.path.join(work, "end.png")
-    end_card(W, H, end, tmp, a.end_url)
+    end_card(W, H, end, tmp, a.end_url, a.credit)
 
     # --- assemble ------------------------------------------------------------
     # Input order: 0..n-1 clips, n mask, n+1 bg, n+2 end card, n+3 logo,
@@ -230,6 +323,16 @@ def main():
     I_MASK, I_BG, I_END, I_LOGO = n, n + 1, n + 2, n + 3
     I_HEAD0 = n + 4
 
+    if a.music and not os.path.exists(a.music):
+        sys.exit(f"music not found: {a.music}")
+    music = a.music
+    if music and a.music_start:
+        # Cut the bed to the finished runtime, which depends on the hold
+        # lengths above, so this has to happen once the timeline is known.
+        bed = os.path.join(work, "bed.wav")
+        music_bed(music, bed, timeline_total(), a.music_start)
+        music = bed
+
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
     for name, *_ in SCENES:
         cmd += ["-i", os.path.join(CLIPS, f"{name}.webm")]
@@ -237,8 +340,8 @@ def main():
             "-loop", "1", "-i", end, "-loop", "1", "-i", lg_png]
     for i in range(n):
         cmd += ["-loop", "1", "-i", heads[i], "-loop", "1", "-i", subs[i]]
-    if a.music:
-        cmd += ["-i", a.music]
+    if music:
+        cmd += ["-i", music]
     music_idx = I_HEAD0 + 2 * n
 
     parts = []
@@ -255,7 +358,8 @@ def main():
             hl_y = ph_y + ph_h + int(H * 0.040)
             sl_y = hl_y + hh + 30
         parts.append(
-            f"[{i}:v]trim=start={start}:duration={dur},setpts=PTS-STARTPTS,"
+            f"[{i}:v]trim=start={start}:duration={dur},"
+            f"tpad=stop_mode=clone:stop_duration={HOLD},setpts=PTS-STARTPTS,"
             f"fps={FPS},scale={ph_w}:{ph_h}:force_original_aspect_ratio=increase,"
             f"crop={ph_w}:{ph_h},setsar=1,format=yuva420p[p{i}];"
             f"[{I_MASK}:v]scale={ph_w}:{ph_h},format=gray[m{i}];"
@@ -268,13 +372,14 @@ def main():
 
     end_dur = END_DUR
     prev = "v0"
-    acc = SCENES[0][2]
+    acc = scene_len(0)
     for i in range(1, n):
         off = acc - FADE
         parts.append(f"[{prev}][v{i}]xfade=transition=fade:duration={FADE}:offset={off:.3f}[x{i}]")
         prev = f"x{i}"
-        acc = acc + SCENES[i][2] - FADE
+        acc = acc + scene_len(i) - FADE
     total = acc + end_dur - FADE
+    assert abs(total - timeline_total()) < 1e-6, (total, timeline_total())
     parts.append(f"[{prev}][{n+2}:v]xfade=transition=fade:duration={FADE}:offset={acc-FADE:.3f}[xe]")
 
     fade_out = total - 0.7
@@ -282,11 +387,11 @@ def main():
                  f"fade=t=in:st=0:d=0.5,fade=t=out:st={fade_out:.2f}:d=0.7,format=yuv420p[vout]")
 
     cmd += ["-filter_complex", ";".join(parts), "-map", "[vout]"]
-    if a.music:
+    if music:
         cmd += ["-map", f"{music_idx}:a"]
     cmd += ["-t", f"{total:.3f}", "-c:v", "libx264", "-preset", "medium", "-crf", "19",
             "-pix_fmt", "yuv420p", "-r", str(FPS)]
-    if a.music:
+    if music:
         cmd += ["-c:a", "aac", "-b:a", "192k"]
     cmd += ["-movflags", "+faststart", a.out]
 

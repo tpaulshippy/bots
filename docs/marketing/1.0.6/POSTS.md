@@ -133,6 +133,19 @@ video is aimed at parents, and ticking it kills comments and notifications).
 >
 > syftlearning.app
 
+**Description must also carry the music credit.** The bed is CC BY 4.0, and Kevin
+MacLeod's catalogue is pre-registered with YouTube Content ID — so this upload
+*will* draw a copyright claim. It is released within 72 hours, but only if the
+credit is already in the description when you dispute it. Add to the description:
+
+> Groundwork by Kevin MacLeod (incompetech.com)
+> Licensed under Creative Commons: By Attribution 4.0
+> https://creativecommons.org/licenses/by/4.0/
+
+Then dispute the claim via YouTube's instructions once it appears. It is not a
+strike, but ad revenue is held until it clears. Putting the credit in place first
+is what makes the release fast. See `video/README.md`.
+
 **Pinned comment:**
 
 > iOS: ⟪LINK⟫ · Android and web: syftlearning.app/app

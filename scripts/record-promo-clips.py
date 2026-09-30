@@ -139,6 +139,10 @@ def manifest_js(token=None):
             (bot.get("bot_id") or bot.get("id")), page_url)
 
 
+# Action kinds whose effect is visible on screen, and so must be fully inside
+# an edit window. "wait" is not one: it only pads.
+VISIBLE_ACTIONS = {"sel", "nthsel", "type", "goto_page"}
+
 SCROLL_JS = """() => {
   const els=[...document.querySelectorAll('*')].filter(e=>e.scrollHeight>e.clientHeight+80);
   if(!els.length) return 0;
@@ -169,9 +173,9 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     js, chat_id, deck_id, bot_id, page_url = manifest_js()
     print(f"chat={chat_id} deck={deck_id} bot={bot_id} page={'yes' if page_url else 'no'}")
-    print(f"chat={chat_id} deck={deck_id}")
 
     made = []
+    timings = {}
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--force-color-profile=srgb"])
         for name, route, settle, actions in SCENES:
@@ -183,12 +187,19 @@ def main():
             # broke the old rename-by-mtime pairing.
             sdir = os.path.join(OUT, name)
             os.makedirs(sdir, exist_ok=True)
+            t0 = time.monotonic()
             ctx = browser.new_context(
                 viewport=VP, device_scale_factor=2, is_mobile=True, has_touch=True,
                 color_scheme="light", record_video_dir=sdir, record_video_size=VP,
             )
             ctx.add_init_script(js)
             page = ctx.new_page()
+            # Playwright starts the video when the context's first page is
+            # created, so this is the clip's t=0. Action times are recorded
+            # against it because the edit windows in make-promo-video.py are
+            # measured off this footage, and load time varies enough between
+            # runs to move the interactions by a second or more.
+            act_log = []
             try:
                 page.goto(url, wait_until="networkidle", timeout=45000)
             except Exception as e:
@@ -196,6 +207,7 @@ def main():
             page.wait_for_timeout(settle)
             for act in actions:
                 kind, arg = act
+                a0 = time.monotonic()
                 try:
                     if kind == "wait":
                         page.wait_for_timeout(arg)
@@ -236,10 +248,14 @@ def main():
                     print(f"      url  = {page.url}")
                     print(f"      body = {page.inner_text('body')[:100]!r}")
                     print(f"      err  = {str(e).splitlines()[0][:90]}")
+                if kind in VISIBLE_ACTIONS:
+                    act_log.append([round(a0 - t0, 3), round(time.monotonic() - t0, 3)])
             page.wait_for_timeout(400)
             ctx.close()  # flushes the video
+            timings[name] = {"actions": act_log}
             made.append(name)
-            print(f"  recorded {name}")
+            print(f"  recorded {name}"
+                  + (f"  actions {act_log[0][0]:.1f}-{act_log[-1][1]:.1f}s" if act_log else ""))
 
         browser.close()
 
@@ -252,8 +268,24 @@ def main():
             continue
         # Largest is the real page; a stray popup page records a near-empty clip.
         src = max(vids, key=lambda f: os.path.getsize(os.path.join(sdir, f)))
-        shutil.move(os.path.join(sdir, src), os.path.join(OUT, f"{name}.webm"))
+        dst = os.path.join(OUT, f"{name}.webm")
+        shutil.move(os.path.join(sdir, src), dst)
         shutil.rmtree(sdir, ignore_errors=True)
+        d = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                            "-of", "default=nw=1:nk=1", dst], capture_output=True, text=True)
+        if name in timings:
+            timings[name]["duration"] = round(float(d.stdout.strip()), 3)
+
+    # make-promo-video.py reads this to check its edit windows do not cut an
+    # interaction off partway through.
+    with open(os.path.join(OUT, "actions.json"), "w") as f:
+        json.dump(timings, f, indent=1)
+    for name in made:
+        t = timings.get(name, {})
+        acts = t.get("actions") or []
+        if acts:
+            print(f"  {name}: actions {acts[0][0]:.1f}-{acts[-1][1]:.1f}s"
+                  f"  clip {t.get('duration', 0):.1f}s")
     for f in sorted(os.listdir(OUT)):
         p = os.path.join(OUT, f)
         if os.path.isfile(p):
