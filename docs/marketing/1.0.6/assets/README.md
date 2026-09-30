@@ -19,7 +19,7 @@ re-run any time, including after new screenshots are captured.
 | `parent-bots.png` | 1080×1350 | IG/FB feed. Post A3 | `03-select-bot` |
 | `og-x-bluesky.png` | 1600×900 | X, Bluesky, LinkedIn link cards | all three, fanned |
 | `og-facebook.png` | 1200×630 | Facebook link previews | all three, fanned |
-| `reel-cover.png` | 1080×1920 | IG/FB Reel cover. Post A4 | `05-chat` |
+| `reel-cover.png` | 1080×1920 | IG/FB Reel cover (still-post use) | `05-chat` |
 | `builder-1.png` | 1200×1200 | LinkedIn / X square. Post B1 | `05-chat` |
 
 Sizing follows current platform specs: 4:5 for feed posts (largest screen area

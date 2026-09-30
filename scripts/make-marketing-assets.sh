@@ -13,7 +13,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="$ROOT/docs/app-store/1.0.6/screenshots"
+SRC="$ROOT/docs/marketing/1.0.6/screenshots-web"
 OUT="$ROOT/docs/marketing/1.0.6/assets"
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
@@ -36,10 +36,20 @@ bg() {
     -alpha set -compose over -composite -depth 8 png:-
 }
 
+# phw <src> <height> -> pixel width for a screenshot scaled to <height> tall.
+# Read from the file rather than hardcoded, so a capture at a different device
+# size cannot silently skew the phone frames. Multiply before dividing: bash
+# evaluates left to right, so "h * w / h" is correct where "h * (w / h)" is not.
+phw() {
+  local dims
+  dims=$(identify -format '%w %h' "$1")
+  echo $(( $2 * ${dims% *} / ${dims#* } ))
+}
+
 # phone <src> <height> <radius>  -> rounded, hairline-bordered screenshot, on stdout
 phone() {
   local src=$1 h=$2 r=$3 w
-  w=$(( h * 1320 / 2868 ))
+  w=$(phw "$src" "$h")
   convert "$src" -resize "${w}x${h}!" \
     \( -size "${w}x${h}" xc:none -fill white \
        -draw "roundrectangle 0,0,$((w-1)),$((h-1)),${r},${r}" \) \
@@ -66,7 +76,7 @@ wordmark() {
 card45() { # <src> <headline> <sub> <outfile>
   local src=$1 out=$4
   local W=1080 H=1350 mg=64 txw=430 ty=440 ph=1087 pw
-  pw=$(( ph * 1320 / 2868 ))
+  pw=$(phw "$src" "$ph")
   cap "$txw" 52 white "$BOLD" "$2" > "$T/hl.png"
   local hlh sy
   hlh=$(identify -format '%h' "$T/hl.png")
@@ -87,13 +97,12 @@ card45() { # <src> <headline> <sub> <outfile>
 wide() { # <w> <h> <outfile>   -- phones scaled to fit the card height
   local W=$1 H=$2 out=$3
   local mg=$(( W > 1400 ? 72 : 48 ))
-  local ph=$(( H * 78 / 100 )) pw
-  pw=$(( ph * 1320 / 2868 ))
-  local step=$(( pw - 120 ))
+  local ph=$(( H * 78 / 100 ))
   local h3 w3 h2 w2 h1 w1
-  h3=$(( ph * 88 / 100 )); w3=$(( h3 * 1320 / 2868 ))
-  h2=$(( ph * 93 / 100 )); w2=$(( h2 * 1320 / 2868 ))
-  h1=$(( ph * 80 / 100 )); w1=$(( h1 * 1320 / 2868 ))
+  h3=$(( ph * 88 / 100 )); w3=$(phw "$SRC/03-select-bot.png" "$h3")
+  h2=$(( ph * 93 / 100 )); w2=$(phw "$SRC/09-stats.png" "$h2")
+  h1=$(( ph * 80 / 100 )); w1=$(phw "$SRC/05-chat.png" "$h1")
+  local step=$(( (w1 + w2) / 2 - 120 ))
   bg $W $H > "$T/bg.png"
   wordmark > "$T/wm.png"
   # back to front: 03 (bots) -> 09 (stats) -> 05 (chat)
@@ -124,7 +133,7 @@ wide() { # <w> <h> <outfile>   -- phones scaled to fit the card height
 reel() {
   local W=1080 H=1920 out=$1
   local ph=1120 pw
-  pw=$(( ph * 1320 / 2868 ))
+  pw=$(phw "$SRC/05-chat.png" "$ph")
   bg $W $H > "$T/bg.png"
   wordmark > "$T/wm.png"
   phone "$SRC/05-chat.png" $ph 42 > "$T/ph.png"
@@ -144,7 +153,7 @@ reel() {
 square() {
   local W=1200 H=1200 out=$1
   local mg=72 txw=620 ph=904 pw
-  pw=$(( ph * 1320 / 2868 ))
+  pw=$(phw "$SRC/05-chat.png" "$ph")
   bg $W $H > "$T/bg.png"
   wordmark > "$T/wm.png"
   phone "$SRC/05-chat.png" $ph 42 > "$T/ph.png"

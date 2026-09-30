@@ -118,23 +118,16 @@ Two rules:
 
 ---
 
-### A5 · Sat Oct 3 · 20-second Reel (IG + FB)
+### A5 · Sat Oct 3 · 32-second video (IG Reels + FB Reels)
 
-**Cover:** `reel-cover.png`
+**File:** `video/syft-promo-9x16.mp4` (rendered — no shoot needed).
+Fallback `video/syft-promo-16x9.mp4` for LinkedIn and X.
 
-Shot list, no voiceover, captions burned in:
+Caption:
 
-| Sec | Screen | Caption on screen |
-|---|---|---|
-| 0–3 | Chat, empty input | "She: help me with fractions" |
-| 3–7 | Her message sent | "One piece out of two pieces?" |
-| 7–13 | Tutor replying, streaming | "Exactly. What if I cut it in half?" |
-| 13–17 | Flashcards, deck list | "Cards that come back when she'll forget them" |
-| 17–20 | Stats, streak | "Free to start" |
-
-**Caption:**
-
-> Twenty seconds of what it actually looks like. ⟪LINK⟫
+> She asked why 2/4 is the same as 1/2. The tutor didn't hand her the answer.
+>
+> Free to start — other AI tutor bots start at $4 per month. ⟪LINK⟫
 
 ---
 
