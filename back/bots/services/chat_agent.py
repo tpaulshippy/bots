@@ -1,4 +1,6 @@
+import json
 import logging
+import re
 
 from django.conf import settings
 from django.db import transaction
@@ -66,6 +68,107 @@ def _mark_system_cacheable(message_list, model_id):
             }])
     return messages
 
+
+
+# Nova 2 Lite intermittently emits its internal tool-call dialect as plain text
+# instead of a Converse toolUse block; Bedrock reports those turns with
+# stopReason "malformed_tool_use" and the payload is left intact in the text
+# (vercel/ai#16926, closed as not planned upstream — every Bedrock consumer has
+# to recover it). Both agent loops below detect the marker while streaming so the
+# markup never reaches the client or the message table, then replay the recovered
+# call through the normal tool path.
+DIALECT_MARKER = "<__function="
+
+# Characters held back so a marker split across two chunks is still caught:
+# "<__functi" + "on=save_html_page>" must not slip through.
+DIALECT_HOLD = len(DIALECT_MARKER) - 1
+
+_DIALECT_CALL_RE = re.compile(
+    r"<__function=(?P<name>[\w.-]+)>(?P<body>.*?)(?:</__function>|\Z)",
+    re.DOTALL,
+)
+_DIALECT_PARAM_RE = re.compile(
+    r"<__parameter=(?P<key>[\w.-]+)>(?P<val>.*?)"
+    r"(?:</__parameter>|(?=<__parameter=)|(?=<__function=)|\Z)",
+    re.DOTALL,
+)
+
+
+def _coerce_dialect_value(raw):
+    """Nova emits parameter values as raw text, not JSON. Decode only when the
+    value is clearly a JSON container so structured args (create_flashcard_deck's
+    `flashcards` list) still bind, while HTML and titles stay verbatim."""
+    value = raw.strip()
+    if value[:1] in ("{", "["):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return raw
+    return raw
+
+
+def _parse_nova_dialect(text):
+    """Recover (name, args, cleaned_text) from Nova's text tool-call dialect.
+
+    Returns None when the text holds no parsable call. `cleaned_text` is the
+    input with the markup removed, so replayed context matches what the user saw.
+    """
+    if DIALECT_MARKER not in text:
+        return None
+
+    match = _DIALECT_CALL_RE.search(text)
+    if match is None:
+        return None
+
+    name = match.group("name")
+    args = {}
+    for param in _DIALECT_PARAM_RE.finditer(match.group("body")):
+        key = param.group("key")
+        if key not in args:  # first wins, matching the SDKs' dialect behavior
+            args[key] = _coerce_dialect_value(param.group("val"))
+
+    if not args:
+        return None
+
+    # Strip the call plus its optional <tools> wrapper.
+    cleaned = _DIALECT_CALL_RE.sub("", text)
+    cleaned = re.sub(r"</?tools>", "", cleaned).strip()
+    return name, args, cleaned
+
+
+def _recover_malformed_tool_call(message, iteration):
+    """Fold a text-dialect turn into a real tool call on `message`.
+
+    Returns True when a call was recovered. Mutates message.content (dialect
+    stripped) and message.tool_calls so the caller's existing dispatch runs it.
+    """
+    from langchain_core.messages import AIMessage
+
+    if getattr(message, "tool_calls", None):
+        return False
+    metadata = getattr(message, "response_metadata", None) or {}
+    if metadata.get("stopReason") != "malformed_tool_use":
+        return False
+
+    recovered = _parse_nova_dialect(ChatAgentService._message_text(message))
+    if recovered is None:
+        logger.error(
+            "🔍 AGENT_MALFORMED_TOOL_USE: turn %s flagged malformed with no parsable call",
+            iteration,
+        )
+        return False
+
+    name, args, cleaned = recovered
+    logger.warning("🔍 AGENT_MALFORMED_TOOL_USE: recovered %s from text dialect", name)
+    if isinstance(message, AIMessage):
+        message.content = cleaned
+    message.tool_calls = [{
+        "name": name,
+        "args": args,
+        "id": f"recovered_{name}_{iteration}",
+        "type": "tool_call",
+    }]
+    return True
 
 
 WEB_SEARCH_UNAVAILABLE = "Web search is not available."
@@ -369,6 +472,11 @@ class ChatAgentService:
             logger.info(f"🤖 AGENT_STREAM_ITERATION: {iteration}")
 
             merged_chunk = None
+            # Unemitted tail, so a marker split across two chunks is still caught.
+            # Once the dialect trips, everything from the marker on is dropped and
+            # only the leading prose is emitted.
+            held = ""
+            dialect_seen = False
             for chunk in model_with_tools.stream(messages):
                 # Per-chunk deltas must keep their whitespace: Bedrock streams
                 # list content blocks like {"type": "text", "text": " Hey"},
@@ -385,13 +493,34 @@ class ChatAgentService:
                     if after_tool and yielded_text and not yielded_text[-1].isspace() and not delta[0].isspace():
                         delta = " " + delta
                     after_tool = False
-                    yielded_text += delta
-                    yield {"type": "token", "text": delta}
+                    held += delta
+                    if not dialect_seen and DIALECT_MARKER in held:
+                        # Nova fell back to its text dialect. Emit the prose that
+                        # led up to it — that is real content — then drop the rest
+                        # so no markup reaches the client.
+                        dialect_seen = True
+                        prefix, held = held.split(DIALECT_MARKER, 1)
+                        if prefix:
+                            yielded_text += prefix
+                            yield {"type": "token", "text": prefix}
+                    elif not dialect_seen and len(held) > DIALECT_HOLD:
+                        emit, held = held[:-DIALECT_HOLD], held[-DIALECT_HOLD:]
+                        yielded_text += emit
+                        yield {"type": "token", "text": emit}
                 merged_chunk = chunk if merged_chunk is None else merged_chunk + chunk
 
             response = self._chunk_to_ai_message(merged_chunk)
             messages.append(response)
             self._accumulate_usage(usage_totals, response)
+
+            if not dialect_seen and held:
+                yielded_text += held
+                yield {"type": "token", "text": held}
+                held = ""
+            # Replay a text-dialect turn as a normal tool call. The markup was
+            # never emitted, so nothing needs stripping from yielded_text; only
+            # the replayed context is cleaned (inside the helper).
+            _recover_malformed_tool_call(response, iteration)
 
             if not response.tool_calls:
                 logger.info(f"🤖 AGENT_STREAM_COMPLETE: no more tool calls after {iteration} iterations")
@@ -448,6 +577,7 @@ class ChatAgentService:
             logger.info(f"🤖 AGENT_LOOP_ITERATION: {iteration}")
 
             response = model_with_tools.invoke(messages)
+            _recover_malformed_tool_call(response, iteration)
             messages.append(response)
 
             if not response.tool_calls:
@@ -522,6 +652,10 @@ class ChatAgentService:
             return AIMessage(
                 content=chunk.content,
                 additional_kwargs=getattr(chunk, "additional_kwargs", {}),
+                # stopReason lives here and is load-bearing: it is how a Nova
+                # text-dialect turn is told apart from a normal one. Dropping it
+                # loses metrics and modelId too.
+                response_metadata=getattr(chunk, "response_metadata", {}),
                 tool_calls=getattr(chunk, "tool_calls", None) or [],
                 **kwargs,
             )
