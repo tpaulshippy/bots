@@ -299,6 +299,30 @@ class ChatAgentService:
             messages.insert(0, catalog)
         return messages
 
+    def _turn_route(self, message_list):
+        """Compute the pre-agent turn route once per turn (or None)."""
+        try:
+            from bots.services.turn_router import (
+                last_user_text,
+                route_turn,
+                router_enabled,
+            )
+        except Exception:
+            return None
+        if not router_enabled():
+            return None
+        try:
+            route = route_turn(last_user_text(message_list), self.chat.bot)
+            logger.info(
+                "TURN_ROUTE=search=%s flash=%s html=%s off_task=%s frust=%s subj=%s conf=%s",
+                route.needs_web_search, route.needs_flashcard, route.needs_html_page,
+                route.off_task, route.frustrated, route.subject, route.confidences,
+            )
+            return route
+        except Exception:
+            logger.exception("TURN_ROUTE_FAILED")
+            return None
+
     def respond(self, message_list):
         tools = {
             "create_flashcard_deck": self._create_flashcard_deck_tool(),
@@ -306,10 +330,14 @@ class ChatAgentService:
         }
         self._preview_count = 0
 
-        web_search = self._create_web_search_tool()
+        route = self._turn_route(message_list)
+        web_search = None
+        if route is None or route.needs_web_search:
+            web_search = self._create_web_search_tool()
         if web_search:
             tools["web_search"] = web_search
-        tools.update(self._html_tools())
+        if route is None or route.needs_html_page:
+            tools.update(self._html_tools())
         # Mark the stable prompt cacheable FIRST, then fold the volatile
         # page catalog in as an uncached block (same SystemMessage) so page
         # saves don't invalidate the cached prefix.
@@ -347,12 +375,16 @@ class ChatAgentService:
             "create_flashcard": self._create_flashcard_tool(),
         }
         self._preview_count = 0
-        web_search = self._create_web_search_tool()
+        route = self._turn_route(message_list)
+        web_search = None
+        if route is None or route.needs_web_search:
+            web_search = self._create_web_search_tool()
         has_web_search = False
         if web_search:
             tools["web_search"] = web_search
             has_web_search = True
-        tools.update(self._html_tools())
+        if route is None or route.needs_html_page:
+            tools.update(self._html_tools())
 
         model_with_tools = self.ai_client.bind_tools(list(tools.values()))
         # Same ordering as respond(): stable prompt cached first, volatile
