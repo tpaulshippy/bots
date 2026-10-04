@@ -208,6 +208,7 @@ def main():
             for act in actions:
                 kind, arg = act
                 a0 = time.monotonic()
+                ok = False
                 try:
                     if kind == "wait":
                         page.wait_for_timeout(arg)
@@ -226,7 +227,12 @@ def main():
                         target, text = arg.split("|", 1)
                         loc = page.locator(target).first
                         loc.wait_for(state="attached", timeout=20000)
-                        loc.click(timeout=8000)
+                        # focus(), not click(): the editor sits inside a
+                        # KeyboardAvoidingView + ScrollView, so click() can fail
+                        # Playwright's actionability check even though the field
+                        # is plainly on screen, and a raised click would skip the
+                        # typing entirely and leave the clip showing nothing.
+                        loc.focus(timeout=8000)
                         page.keyboard.type(text, delay=45)
                     elif kind == "goto_page":
                         if not page_url:
