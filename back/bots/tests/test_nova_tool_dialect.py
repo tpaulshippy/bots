@@ -14,13 +14,21 @@ the client or the message table.
 import pytest
 from django.contrib.auth.models import User
 from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.tools import tool as tool_dec
 
 from bots.models import Bot, Chat, HtmlPage, Profile
 from bots.services.chat_agent import (
     DIALECT_MARKER,
+    DIALECT_REDACTION,
     ChatAgentService,
     _parse_nova_dialect,
 )
+
+
+@tool_dec
+def _stub_web_search(query: str) -> str:
+    """Search the web."""
+    return "- Lucid dreaming: techniques"
 
 PAGE_HTML = "<html><body><h1>Lucid Dreaming</h1></body></html>"
 
@@ -105,33 +113,51 @@ def _tokens(events):
 @pytest.mark.django_db
 def describe_parse_nova_dialect():
     def it_parses_name_and_parameters():
-        name, args, cleaned = _parse_nova_dialect(DIALECT_TURN)
-        assert name == "save_html_page"
-        assert args == {"title": "Lucid Dreaming Guide", "html": PAGE_HTML}
+        calls, cleaned = _parse_nova_dialect(DIALECT_TURN)
+        assert calls == [("save_html_page", {
+            "title": "Lucid Dreaming Guide", "html": PAGE_HTML,
+        })]
         assert DIALECT_MARKER not in cleaned
 
     def it_strips_the_tools_wrapper_and_keeps_prose():
-        _, _, cleaned = _parse_nova_dialect(DIALECT_TURN)
-        assert "Lucid dreaming is a fun experience." in cleaned
-        assert "<tools>" not in cleaned and "</tools>" not in cleaned
+        _, cleaned = _parse_nova_dialect(DIALECT_TURN)
+        assert cleaned == "Lucid dreaming is a fun experience."
 
     def it_parses_without_a_closing_tag():
         # Nova truncates the dialect when it runs out of tokens mid-call.
-        name, args, _ = _parse_nova_dialect(
+        calls, _ = _parse_nova_dialect(
             "<__function=save_html_page><__parameter=title>Dino</__parameter><__parameter=html><html></html>"
         )
-        assert name == "save_html_page"
-        assert args["title"] == "Dino"
-        assert args["html"] == "<html></html>"
+        assert calls == [("save_html_page", {"title": "Dino", "html": "<html></html>"})]
+
+    def it_recovers_every_call_in_the_turn():
+        # Stripping markup for a call we never execute would silently drop it.
+        calls, _ = _parse_nova_dialect(
+            "<tools>"
+            "<__function=web_search><__parameter=query>dreams</__parameter></__function>"
+            "<__function=save_html_page><__parameter=title>Dino</__parameter></__function>"
+            "</tools>"
+        )
+        assert [name for name, _ in calls] == ["web_search", "save_html_page"]
+        assert calls[1][1] == {"title": "Dino"}
+
+    def it_drops_prose_that_follows_the_dialect():
+        # Streaming suppresses everything from the marker on, so replayed context
+        # must not reintroduce it.
+        _, cleaned = _parse_nova_dialect(
+            DIALECT_TURN + "  And here is your page!"
+        )
+        assert "And here is your page!" not in cleaned
+        assert cleaned == "Lucid dreaming is a fun experience."
 
     def it_decodes_json_containers_but_leaves_html_alone():
-        _, args, _ = _parse_nova_dialect(
+        calls, _ = _parse_nova_dialect(
             '<__function=create_flashcard_deck>'
             '<__parameter=name>Bio</__parameter>'
             '<__parameter=flashcards>[{"front": "a", "back": "b"}]</__parameter>'
             '</__function>'
         )
-        assert args["flashcards"] == [{"front": "a", "back": "b"}]
+        assert calls[0][1]["flashcards"] == [{"front": "a", "back": "b"}]
 
     def it_returns_none_for_normal_text():
         assert _parse_nova_dialect("Just a normal reply about dreams.") is None
@@ -185,7 +211,7 @@ def describe_malformed_turn_in_stream():
 
     def it_keeps_preamble_that_shared_the_markers_chunk(profile):
         # Preamble before the marker is real content, so it survives whether or
-        # not it shares a chunk with the markup. Only the dialect is dropped.
+        # not it shares a chunk with the markup.
         chat = _chat(profile)
         events = list(chat.stream_response(ai=DialectStreamClient()))
         streamed = _tokens(events)
@@ -193,6 +219,33 @@ def describe_malformed_turn_in_stream():
         assert "Lucid dreaming is a fun experience." in streamed
         assert DIALECT_MARKER not in streamed
         assert "Saved it!" in streamed
+        assert HtmlPage.objects.count() == 1
+
+    def it_never_leaks_the_tools_wrapper(profile):
+        # The wrapper sits between preamble and marker, so it used to ride along
+        # in the emitted prefix as raw markup.
+        chat = _chat(profile)
+        streamed = _tokens(list(chat.stream_response(ai=DialectStreamClient())))
+        assert "<tools>" not in streamed
+        assert "</tools>" not in streamed
+
+    def it_drops_prose_that_follows_the_dialect(profile):
+        # Documented behavior: everything from the marker onward is suppressed,
+        # including genuine prose the model wrote after the markup. Not ideal,
+        # but we cannot un-stream, so the trade is deliberate.
+        chat = _chat(profile)
+        chunks = [
+            _text_chunk("Here you go. <tools><__function=save_html_page>"),
+            _text_chunk("<__parameter=title>Dino</__parameter>"),
+            _text_chunk("<__parameter=html>" + PAGE_HTML + "</__parameter></__function></tools>"),
+            _text_chunk(" Hope that helps!"),
+            _text_chunk("", "malformed_tool_use"),
+        ]
+        streamed = _tokens(list(chat.stream_response(ai=DialectStreamClient(dialect_chunks=chunks))))
+
+        assert "Here you go." in streamed
+        assert "Hope that helps!" not in streamed
+        assert DIALECT_MARKER not in streamed
         assert HtmlPage.objects.count() == 1
 
     def it_catches_a_marker_split_across_chunks(profile):
@@ -215,6 +268,58 @@ def describe_malformed_turn_in_stream():
         events = list(chat.stream_response(ai=client))
         assert "Plain reply." in _tokens(events)
         assert HtmlPage.objects.count() == 0
+
+
+def it_executes_every_call_when_the_turn_contains_several(profile, monkeypatch):
+        chat = _chat(profile)
+        monkeypatch.setattr(
+            ChatAgentService, "_create_web_search_tool",
+            lambda self: _stub_web_search(),
+        )
+        chunks = [
+            _text_chunk("<tools>"),
+            _text_chunk("<__function=web_search><__parameter=query>lucid dreaming</__parameter></__function>"),
+            _text_chunk("<__function=save_html_page><__parameter=title>Dino</__parameter>"),
+            _text_chunk("<__parameter=html>" + PAGE_HTML + "</__parameter></__function></tools>"),
+            _text_chunk("", "malformed_tool_use"),
+        ]
+        events = list(chat.stream_response(ai=DialectStreamClient(dialect_chunks=chunks)))
+
+        # Both run. Stripping the second call's markup without executing it would
+        # have produced neither chip.
+        assert [e["tool"] for e in events if e["type"] == "tool_start"] == [
+            "web_search", "save_html_page",
+        ]
+        assert HtmlPage.objects.count() == 1
+        assert "<tools>" not in _tokens(events)
+
+
+@pytest.mark.django_db
+def describe_unparsable_malformed_turn():
+    def it_redacts_rather_than_returning_markup(profile):
+        # Legacy path: unparsable markup would become the final response and be
+        # persisted and replayed verbatim.
+        chat = _chat(profile)
+        client = DialectStreamClient(dialect_chunks=[
+            _text_chunk("<tools><__function=mystery_tool></__function></tools>"),
+            _text_chunk("", "malformed_tool_use"),
+        ])
+        text, _usage = ChatAgentService(chat, client).respond([])
+
+        assert DIALECT_MARKER not in text
+        assert "mystery_tool" not in text
+        assert text == DIALECT_REDACTION
+
+    def it_redacts_on_the_streaming_path_too(profile):
+        chat = _chat(profile)
+        client = DialectStreamClient(dialect_chunks=[
+            _text_chunk("<tools><__function=mystery_tool></__function></tools>"),
+            _text_chunk("", "malformed_tool_use"),
+        ])
+        streamed = _tokens(list(chat.stream_response(ai=client)))
+
+        assert DIALECT_MARKER not in streamed
+        assert "mystery_tool" not in streamed
 
 
 @pytest.mark.django_db

@@ -93,6 +93,10 @@ _DIALECT_PARAM_RE = re.compile(
     re.DOTALL,
 )
 
+# Stands in for a malformed turn we could not parse. Better a bland sentence the
+# kid sees than raw markup persisted and replayed from history forever.
+DIALECT_REDACTION = "Sorry, something went wrong generating that. Please try again."
+
 
 def _coerce_dialect_value(raw):
     """Nova emits parameter values as raw text, not JSON. Decode only when the
@@ -108,39 +112,46 @@ def _coerce_dialect_value(raw):
 
 
 def _parse_nova_dialect(text):
-    """Recover (name, args, cleaned_text) from Nova's text tool-call dialect.
+    """Recover ([(name, args), ...], cleaned_text) from Nova's text dialect.
 
-    Returns None when the text holds no parsable call. `cleaned_text` is the
-    input with the markup removed, so replayed context matches what the user saw.
+    Returns None when the text holds no parsable call. Every call in the turn is
+    returned, not just the first: stripping one call's markup while dropping the
+    other would execute nothing and log nothing. `cleaned_text` is only the prose
+    preceding the first call, matching what streaming actually emitted — anything
+    after the first call was suppressed on the wire and must not come back as
+    replayed context.
     """
     if DIALECT_MARKER not in text:
         return None
 
-    match = _DIALECT_CALL_RE.search(text)
-    if match is None:
+    calls = []
+    for match in _DIALECT_CALL_RE.finditer(text):
+        args = {}
+        for param in _DIALECT_PARAM_RE.finditer(match.group("body")):
+            key = param.group("key")
+            if key not in args:  # first wins, matching the SDKs' dialect behavior
+                args[key] = _coerce_dialect_value(param.group("val"))
+        if args:
+            calls.append((match.group("name"), args))
+
+    if not calls:
         return None
 
-    name = match.group("name")
-    args = {}
-    for param in _DIALECT_PARAM_RE.finditer(match.group("body")):
-        key = param.group("key")
-        if key not in args:  # first wins, matching the SDKs' dialect behavior
-            args[key] = _coerce_dialect_value(param.group("val"))
-
-    if not args:
-        return None
-
-    # Strip the call plus its optional <tools> wrapper.
-    cleaned = _DIALECT_CALL_RE.sub("", text)
-    cleaned = re.sub(r"</?tools>", "", cleaned).strip()
-    return name, args, cleaned
+    # Keep only the prose before the first call, minus the optional <tools>
+    # wrapper that opens the dialect.
+    cleaned = text[:_DIALECT_CALL_RE.search(text).start()]
+    cleaned = re.sub(r"</?tools>\s*", "", cleaned).strip()
+    return calls, cleaned
 
 
 def _recover_malformed_tool_call(message, iteration):
-    """Fold a text-dialect turn into a real tool call on `message`.
+    """Fold a text-dialect turn into real tool calls on `message`.
 
-    Returns True when a call was recovered. Mutates message.content (dialect
-    stripped) and message.tool_calls so the caller's existing dispatch runs it.
+    Returns True when at least one call was recovered. Mutates message.content
+    (dialect stripped) and message.tool_calls so the caller's existing dispatch
+    runs them. A malformed turn whose markup cannot be parsed still has its
+    content redacted: on the legacy path that text becomes the final response, so
+    returning it unchanged would persist and replay the markup verbatim.
     """
     from langchain_core.messages import AIMessage
 
@@ -150,24 +161,30 @@ def _recover_malformed_tool_call(message, iteration):
     if metadata.get("stopReason") != "malformed_tool_use":
         return False
 
-    recovered = _parse_nova_dialect(ChatAgentService._message_text(message))
+    text = ChatAgentService._message_text(message)
+    recovered = _parse_nova_dialect(text)
     if recovered is None:
         logger.error(
             "🔍 AGENT_MALFORMED_TOOL_USE: turn %s flagged malformed with no parsable call",
             iteration,
         )
+        if isinstance(message, AIMessage) and DIALECT_MARKER in text:
+            message.content = DIALECT_REDACTION
         return False
 
-    name, args, cleaned = recovered
-    logger.warning("🔍 AGENT_MALFORMED_TOOL_USE: recovered %s from text dialect", name)
+    calls, cleaned = recovered
+    logger.warning(
+        "🔍 AGENT_MALFORMED_TOOL_USE: recovered %s from text dialect",
+        ", ".join(name for name, _ in calls),
+    )
     if isinstance(message, AIMessage):
         message.content = cleaned
     message.tool_calls = [{
         "name": name,
         "args": args,
-        "id": f"recovered_{name}_{iteration}",
+        "id": f"recovered_{name}_{iteration}_{position}",
         "type": "tool_call",
-    }]
+    } for position, (name, args) in enumerate(calls)]
     return True
 
 
@@ -497,9 +514,12 @@ class ChatAgentService:
                     if not dialect_seen and DIALECT_MARKER in held:
                         # Nova fell back to its text dialect. Emit the prose that
                         # led up to it — that is real content — then drop the rest
-                        # so no markup reaches the client.
+                        # so no markup reaches the client. The optional <tools>
+                        # wrapper sits between the prose and the marker, so it
+                        # goes too; same cleanup _parse_nova_dialect applies.
                         dialect_seen = True
                         prefix, held = held.split(DIALECT_MARKER, 1)
+                        prefix = re.sub(r"</?tools>\s*", "", prefix)
                         if prefix:
                             yielded_text += prefix
                             yield {"type": "token", "text": prefix}
