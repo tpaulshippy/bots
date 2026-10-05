@@ -64,6 +64,15 @@ jobs:
           key: jest-${{ runner.os }}-${{ hashFiles('front/package-lock.json') }}-${{ hashFiles('front/babel.config.js', 'front/jest.setup.js', 'front/package.json') }}
           restore-keys: |
             jest-${{ runner.os }}-${{ hashFiles('front/package-lock.json') }}-
+          # Jest keys each transform entry on file content, so editing a source
+          # file adds a new entry without disturbing the existing ones. Without
+          # this, an exact key hit skips the save and those new entries are
+          # thrown away, leaving every later run to recompile the same edited
+          # files. Hashing the sources into the key instead would work but
+          # would change the key on every edit, so the save would happen anyway
+          # and exact hits would become rare. The cache is ~9MB, cheap enough to
+          # rewrite each run.
+          save-always: true
 
       - name: Run tests
         run: |
