@@ -2,6 +2,13 @@ import json
 import secrets
 
 import pytest
+from django.contrib.auth.hashers import (
+    PBKDF2PasswordHasher,
+    check_password,
+    get_hashers,
+    identify_hasher,
+    make_password,
+)
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
@@ -9,6 +16,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from bots.models import Bot, Chat, Device, Profile, RevenueCatWebhookEvent
+from bots.services.parent_reauth import hash_pin, verify_pin
 
 
 @pytest.fixture
@@ -143,6 +151,63 @@ class TestRevenueCatWebhookAuth:
         user_a.user_account.refresh_from_db()
         assert user_a.user_account.subscription_level == 2
         assert RevenueCatWebhookEvent.objects.count() == 1
+
+
+# Deliberately low-entropy. These assertions are about the shape of the stored
+# hash, never its strength, and a credential-shaped literal sitting next to a
+# password-named call is what secret scanners are built to flag.
+_PLAINTEXT = 'abc123'
+
+
+@pytest.mark.django_db
+class TestPasswordHasherConfiguration:
+    """The suite swaps in a fast hasher for encoding (see bots/tests/conftest.py).
+
+    The swap is only safe while PBKDF2 stays in PASSWORD_HASHERS: check_password
+    dispatches on the algorithm embedded in the stored string and resolves it
+    from that list, so dropping PBKDF2 makes production-hashed rows unreadable
+    with a ValueError instead of simply slower.
+    """
+
+    def test_encoding_uses_the_fast_hasher(self):
+        assert get_hashers()[0].algorithm == 'md5'
+        assert identify_hasher(make_password('pass')).algorithm == 'md5'
+
+    def test_production_pbkdf2_hash_still_verifies(self):
+        # Encoded by a PBKDF2 hasher directly, rather than via make_password,
+        # which would use the suite's fast default instead. Iterations are
+        # dialled right down: only the algorithm name in the encoded string
+        # matters for dispatch, and at the production count this test alone
+        # cost more than 2s -- the exact problem this hasher swap removes.
+        prod_hash = PBKDF2PasswordHasher().encode('1234', salt='salt', iterations=1000)
+
+        assert identify_hasher(prod_hash).algorithm == 'pbkdf2_sha256'
+        assert check_password('1234', prod_hash) is True
+        assert check_password('9999', prod_hash) is False
+
+    def test_password_round_trips_without_truncation(self):
+        user = User.objects.create(username='hashercheck')
+        user.set_password(_PLAINTEXT)
+        user.save()
+        user.refresh_from_db()
+        field_max = User._meta.get_field('password').max_length
+
+        assert len(user.password) <= field_max
+        assert user.check_password(_PLAINTEXT) is True
+        assert user.check_password('nope') is False
+        assert _PLAINTEXT not in user.password
+
+    def test_pin_hash_round_trips_without_truncation(self, user_a):
+        account = user_a.user_account
+        field_max = account._meta.get_field('pin_hash').max_length
+        account.pin_hash = hash_pin('1234')
+        account.save()
+        account.refresh_from_db()
+
+        assert len(account.pin_hash) <= field_max
+        assert '1234' not in account.pin_hash
+        assert verify_pin(account, '1234') is True
+        assert verify_pin(account, '9999') is False
 
 
 @pytest.mark.django_db

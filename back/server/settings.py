@@ -10,11 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import sys
 from datetime import timedelta
 from pathlib import Path
 
 import environ
-import sentry_sdk
 
 # Initialize environ
 env = environ.Env(
@@ -24,18 +24,33 @@ env = environ.Env(
 # Read from .env file
 environ.Env.read_env('.env')
 
-sentry_sdk.init(
-    dsn=env('SENTRY_DSN', default=None),
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for tracing.
-    traces_sample_rate=1.0,
-    _experiments={
-        # Set continuous_profiling_auto_start to True
-        # to automatically start the profiler on when
-        # possible.
-        "continuous_profiling_auto_start": True,
-    },
-)
+# Skip Sentry under test runs. init() auto-discovers every installed
+# integration, and its langchain integration imports langchain_openai + openai
+# + aiohttp (~0.5s of import time inside django.setup()) for a client no test
+# reports to. Its Django integration also wraps every query in a span and
+# breadcrumb, which showed up as ~1.6s of profiling overhead across the run.
+# Tests exercise our code paths, not the telemetry pipeline.
+#
+# pytest is already in sys.modules by the time settings load; the argv check
+# additionally covers `manage.py test`, which passes "test" as its first
+# argument.
+_RUNNING_TESTS = 'pytest' in sys.modules or sys.argv[1:2] == ['test']
+
+if not _RUNNING_TESTS:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=env('SENTRY_DSN', default=None),
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for tracing.
+        traces_sample_rate=1.0,
+        _experiments={
+            # Set continuous_profiling_auto_start to True
+            # to automatically start the profiler on when
+            # possible.
+            "continuous_profiling_auto_start": True,
+        },
+    )
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
