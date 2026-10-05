@@ -27,6 +27,17 @@ jobs:
           cd front
           npm ci --legacy-peer-deps
 
+      - name: Cache Jest transform output
+        uses: actions/cache@v4
+        with:
+          # Matches the cacheDirectory in front/package.json. Babel output is
+          # what costs the most on a cold run (~19s vs ~10s warm), and it only
+          # changes when a dependency or a transformed file changes.
+          path: front/node_modules/.cache/jest
+          key: jest-${{ runner.os }}-${{ hashFiles('front/package-lock.json') }}-${{ hashFiles('front/babel.config.js', 'front/jest.setup.js', 'front/package.json') }}
+          restore-keys: |
+            jest-${{ runner.os }}-${{ hashFiles('front/package-lock.json') }}-
+
       - name: Run lint
         run: |
           cd front
