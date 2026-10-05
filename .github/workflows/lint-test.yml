@@ -9,7 +9,34 @@ on:
     branches: [main, 'feature/**']
 
 jobs:
-  frontend:
+  # Lint and the test suite are independent, and running them one after the
+  # other in a single job cost the sum of both. Separate jobs let them run on
+  # separate runners at the same time, and each reports its own status on the
+  # PR instead of one combined pass/fail.
+  frontend-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd front
+          npm ci --legacy-peer-deps
+
+      - name: Run lint
+        run: |
+          cd front
+          npm run lint
+
+  frontend-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -38,36 +65,10 @@ jobs:
           restore-keys: |
             jest-${{ runner.os }}-${{ hashFiles('front/package-lock.json') }}-
 
-      # Lint and tests do not depend on each other, and running them one after
-      # the other added lint's full duration to every build. Start lint in the
-      # background so it overlaps the suite, then report both exit codes. They
-      # share this step because GitHub tears down background processes when a
-      # step ends, which would kill lint before it finished.
-      - name: Run lint and tests
+      - name: Run tests
         run: |
           cd front
-          npm run lint &
-          lint_pid=$!
-
-          set +e
           npm test -- --passWithNoTests --coverage=false --watchAll=false
-          test_status=$?
-
-          wait "$lint_pid"
-          lint_status=$?
-          set -e
-
-          echo "lint exit: $lint_status"
-          echo "test exit: $test_status"
-          if [ "$lint_status" -ne 0 ]; then
-            echo "::error::npm run lint failed with exit $lint_status"
-          fi
-          if [ "$test_status" -ne 0 ]; then
-            echo "::error::npm test failed with exit $test_status"
-          fi
-          if [ "$lint_status" -ne 0 ] || [ "$test_status" -ne 0 ]; then
-            exit 1
-          fi
 
   backend-lint:
     runs-on: ubuntu-latest
