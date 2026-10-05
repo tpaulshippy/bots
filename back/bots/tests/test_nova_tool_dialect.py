@@ -269,12 +269,11 @@ def describe_malformed_turn_in_stream():
         assert "Plain reply." in _tokens(events)
         assert HtmlPage.objects.count() == 0
 
-
-def it_executes_every_call_when_the_turn_contains_several(profile, monkeypatch):
+    def it_executes_every_call_when_the_turn_contains_several(profile, monkeypatch):
         chat = _chat(profile)
         monkeypatch.setattr(
             ChatAgentService, "_create_web_search_tool",
-            lambda self: _stub_web_search(),
+            lambda self: _stub_web_search,
         )
         chunks = [
             _text_chunk("<tools>"),
