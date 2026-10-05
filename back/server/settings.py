@@ -24,13 +24,17 @@ env = environ.Env(
 # Read from .env file
 environ.Env.read_env('.env')
 
-# Skip Sentry entirely under pytest. init() auto-discovers every installed
+# Skip Sentry under test runs. init() auto-discovers every installed
 # integration, and its langchain integration imports langchain_openai + openai
 # + aiohttp (~0.5s of import time inside django.setup()) for a client no test
 # reports to. Its Django integration also wraps every query in a span and
 # breadcrumb, which showed up as ~1.6s of profiling overhead across the run.
 # Tests exercise our code paths, not the telemetry pipeline.
-_RUNNING_TESTS = 'pytest' in sys.modules
+#
+# pytest is already in sys.modules by the time settings load; the argv check
+# additionally covers `manage.py test`, which passes "test" as its first
+# argument.
+_RUNNING_TESTS = 'pytest' in sys.modules or sys.argv[1:2] == ['test']
 
 if not _RUNNING_TESTS:
     import sentry_sdk
