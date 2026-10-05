@@ -30,23 +30,44 @@ jobs:
       - name: Cache Jest transform output
         uses: actions/cache@v4
         with:
-          # Matches the cacheDirectory in front/package.json. Babel output is
-          # what costs the most on a cold run (~19s vs ~10s warm), and it only
-          # changes when a dependency or a transformed file changes.
+          # Matches the cacheDirectory in front/package.json. Babel output for
+          # the dependency tree is the bulk of a cold suite run, and it only
+          # changes when a dependency or the Babel/Jest config changes.
           path: front/node_modules/.cache/jest
           key: jest-${{ runner.os }}-${{ hashFiles('front/package-lock.json') }}-${{ hashFiles('front/babel.config.js', 'front/jest.setup.js', 'front/package.json') }}
           restore-keys: |
             jest-${{ runner.os }}-${{ hashFiles('front/package-lock.json') }}-
 
-      - name: Run lint
+      # Lint and tests do not depend on each other, and running them one after
+      # the other added lint's full duration to every build. Start lint in the
+      # background so it overlaps the suite, then report both exit codes. They
+      # share this step because GitHub tears down background processes when a
+      # step ends, which would kill lint before it finished.
+      - name: Run lint and tests
         run: |
           cd front
-          npm run lint
+          npm run lint &
+          lint_pid=$!
 
-      - name: Run tests
-        run: |
-          cd front
+          set +e
           npm test -- --passWithNoTests --coverage=false --watchAll=false
+          test_status=$?
+
+          wait "$lint_pid"
+          lint_status=$?
+          set -e
+
+          echo "lint exit: $lint_status"
+          echo "test exit: $test_status"
+          if [ "$lint_status" -ne 0 ]; then
+            echo "::error::npm run lint failed with exit $lint_status"
+          fi
+          if [ "$test_status" -ne 0 ]; then
+            echo "::error::npm test failed with exit $test_status"
+          fi
+          if [ "$lint_status" -ne 0 ] || [ "$test_status" -ne 0 ]; then
+            exit 1
+          fi
 
   backend-lint:
     runs-on: ubuntu-latest
