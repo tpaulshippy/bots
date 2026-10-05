@@ -202,10 +202,14 @@ def music_bed(src, out, total, start):
     seam -- the video fades to black at both ends anyway, which covers the
     boundaries. The segment starts on a bar rather than an arbitrary second, or
     the downbeat lands mid-shot.
+
+    The out-fade has to reach silence exactly at `total`. Running it past that
+    point means the encoder's -t cut lands mid-fade at full-ish amplitude, which
+    steps the audio down audibly at the last frame.
     """
     run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-         "-ss", f"{start:.3f}", "-t", f"{total + 0.6:.3f}", "-i", src,
-         "-af", f"afade=t=in:st=0:d=0.6,afade=t=out:st={total - 0.4:.3f}:d=1.0,"
+         "-ss", f"{start:.3f}", "-t", f"{total:.3f}", "-i", src,
+         "-af", f"afade=t=in:st=0:d=0.6,afade=t=out:st={total - 1.0:.3f}:d=1.0,"
                 "loudnorm=I=-14:TP=-1.5:LRA=11",
          "-ar", "44100", "-ac", "2", out])
 
@@ -222,8 +226,11 @@ def check_windows():
     """
     path = os.path.join(CLIPS, "actions.json")
     if not os.path.exists(path):
-        print(f"  note: no {path}, skipping window check")
-        return
+        # Fail closed. Without the manifest there is no way to know whether a
+        # window ends before its interaction does, and silently skipping turned
+        # the guarantee into a suggestion.
+        sys.exit(f"missing {path} -- re-run scripts/record-promo-clips.py so the "
+                 f"clip timings can be checked (it writes actions.json)")
     with open(path) as f:
         data = json.load(f)
     bad = []

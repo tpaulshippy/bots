@@ -249,12 +249,22 @@ def main():
                         page.evaluate(
                             "() => { if(window.__scroller) window.__scroller.scrollTop = window.__scroller.scrollHeight }"
                         )
+                    else:
+                        raise ValueError(f"unknown action kind {kind!r}")
+                    # Reached only if the branch above ran without raising. This
+                    # is a statement after the chain, not an else: an else would
+                    # fire for unrecognised kinds and skip every real action.
+                    ok = True
                 except Exception as e:
                     print(f"    {name}: action {kind}={str(arg)[:40]} failed")
                     print(f"      url  = {page.url}")
                     print(f"      body = {page.inner_text('body')[:100]!r}")
                     print(f"      err  = {str(e).splitlines()[0][:90]}")
-                if kind in VISIBLE_ACTIONS:
+                # Only a visible action that actually happened may be timed.
+                # Logging a failed one would hand check_windows() a plausible
+                # end time for an interaction that never reached the screen,
+                # which is the exact failure that check exists to catch.
+                if ok and kind in VISIBLE_ACTIONS:
                     act_log.append([round(a0 - t0, 3), round(time.monotonic() - t0, 3)])
             page.wait_for_timeout(400)
             ctx.close()  # flushes the video
@@ -277,10 +287,19 @@ def main():
         dst = os.path.join(OUT, f"{name}.webm")
         shutil.move(os.path.join(sdir, src), dst)
         shutil.rmtree(sdir, ignore_errors=True)
-        d = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                            "-of", "default=nw=1:nk=1", dst], capture_output=True, text=True)
         if name in timings:
-            timings[name]["duration"] = round(float(d.stdout.strip()), 3)
+            # Duration is a convenience for humans reading the report, not an
+            # input to the window check, so a missing ffprobe must not throw
+            # after the clips are already recorded and moved -- that would cost
+            # a full re-record on the next run.
+            try:
+                d = subprocess.run(
+                    ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                     "-of", "default=nw=1:nk=1", dst],
+                    check=True, capture_output=True, text=True).stdout.strip()
+                timings[name]["duration"] = round(float(d), 3)
+            except (subprocess.CalledProcessError, ValueError):
+                pass
 
     # make-promo-video.py reads this to check its edit windows do not cut an
     # interaction off partway through.

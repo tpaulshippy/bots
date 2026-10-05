@@ -46,6 +46,28 @@ version spelled the name twice, once as a text wordmark and once as the title.
 
 Order matters: the recorder needs the app running, the compositor needs the clips.
 
+The music bed is **not** vendored — it is CC BY 4.0, not public domain, so it does
+not belong in the repo. Fetch it, and keep the copy you ship against:
+
+```bash
+mkdir -p /tmp/opencode/music
+curl -L -o /tmp/opencode/music/Groundwork.mp3 \
+  'https://incompetech.com/music/royalty-free/mp3-royaltyfree/Groundwork.mp3'
+```
+
+Verify you got the track you think you did before trusting the output. The
+in-point in the commands below assumes a bar length of 2.353s (102 BPM), so a
+different file silently lands the music off-beat:
+
+```bash
+ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 \
+  /tmp/opencode/music/Groundwork.mp3    # expect ~169s
+```
+
+Re-check the licence text before every campaign; it is at
+<https://incompetech.com/music/royalty-free/licenses/> and the terms have changed
+before.
+
 ```bash
 # 1. backend seeded and running on :8000, web export built to front/dist
 #    (see docs/marketing/1.0.6/README.md for the full local setup)
@@ -57,12 +79,12 @@ python3 scripts/record-promo-clips.py
 # 3. both cuts
 python3 scripts/make-promo-video.py \
   --music /tmp/opencode/music/Groundwork.mp3 --music-start 101.2 \
-  --credit "Groundwork by Kevin MacLeod (incompetech.com) · CC BY 4.0 — creativecommons.org/licenses/by/4.0/" \
+  --credit "Groundwork by Kevin MacLeod (incompetech.com) · Licensed under Creative Commons: By Attribution 4.0 · creativecommons.org/licenses/by/4.0/" \
   -o docs/marketing/1.0.6/video/syft-promo-9x16.mp4
 
 python3 scripts/make-promo-video.py \
   --music /tmp/opencode/music/Groundwork.mp3 --music-start 101.2 \
-  --credit "Groundwork by Kevin MacLeod (incompetech.com) · CC BY 4.0 — creativecommons.org/licenses/by/4.0/" \
+  --credit "Groundwork by Kevin MacLeod (incompetech.com) · Licensed under Creative Commons: By Attribution 4.0 · creativecommons.org/licenses/by/4.0/" \
   -o docs/marketing/1.0.6/video/syft-promo-16x9.mp4 \
   --width 1920 --height 1080 --end-url syftlearning.app
 ```
@@ -114,6 +136,16 @@ The licence is **CC BY 4.0**. Concretely:
 - **It is royalty-free, not public domain.** All of the catalogue is copyrighted.
 
 Use the credit exactly as prescribed:
+
+Burned into the end card, and the identical wording goes in the YouTube
+description (`POSTS.md` §A5). Keep them the same -- the burned-in and posted
+credits differing is what makes an auditor distrust the credit:
+
+```
+Groundwork by Kevin MacLeod (incompetech.com) · Licensed under Creative Commons: By Attribution 4.0 · creativecommons.org/licenses/by/4.0/
+```
+
+The description form wraps onto three lines, which is how it should read there:
 
 ```
 Groundwork by Kevin MacLeod (incompetech.com)

@@ -16,8 +16,13 @@ Voices, all synthesised:
   bass    triangle/sine on chord roots, ducked by the kick for pump
   stab    soft detuned square pair, sparse, only on the hook
 
-88 BPM boom-bap. I - V - vi - IV, the most consonant loop there is, with a
-little swing so it does not sound mechanical.
+88 BPM boom-bap. I - V - vi - IV, the most consonant loop there is.
+
+Straight sixteenths: every step in every pattern lands on an even 16th, so the
+SWING offset below is currently inert. It applies to off-16ths only (odd step
+indices), and none of the voices use any. Put a hat or a bass note on an odd
+step and the groove will swing; until then SWING does nothing and this bed is
+not swung.
 """
 import argparse
 import math
@@ -29,7 +34,8 @@ SR = 44100
 BPM = 88.0
 BEAT = 60.0 / BPM
 STEP = BEAT / 4.0          # 16th note
-SWING = 0.055              # fraction of a step pushed late
+SWING = 0.055              # fraction of an OFF-16th pushed late; inert while
+                            # every pattern step is even (see module docstring)
 BAR = 16 * STEP
 
 
