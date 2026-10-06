@@ -219,7 +219,11 @@ in [`video/README.md`](video/README.md).
   it safe to publish. Do not re-shoot.
 - **Three static cards, one per proposition**: `parent-flashcards` (learning),
   `parent-materials` (learning, second angle), `parent-control` (parent control).
-  The wide link cards and the reel cover carry the same messages.
+  These three plus `og-x-bluesky.png` are the whole working set.
+  `og-facebook.png`, `reel-cover.png` and `builder-1.png` are generated but
+  **unused** — every Facebook post is a 4:5 card, IG/FB take the Reel cover from
+  the video itself, and B1 posts `parent-control.png`. Do not reach for them
+  because they exist on disk; see `assets/README.md`.
 - **One template, brand-locked** to `#0a7ea4` / `#00a4c9` from `front/app.json`.
   Wordmark top-left, one headline, one sub-line.
 - **The video is the highest-value asset here.** It is built from real screen

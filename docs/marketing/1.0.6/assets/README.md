@@ -19,7 +19,7 @@ re-run any time, including after new screenshots are captured.
 | `parent-control.png` | 1080×1350 | IG/FB feed. Prop 2. Post A2 | `10-bot-editor` |
 | `og-x-bluesky.png` | 1600×900 | X, Bluesky, LinkedIn link cards | all three, fanned |
 | `og-facebook.png` | 1200×630 | Facebook link previews. **Unused** — every Facebook post is the 4:5 `parent-*` card, so nothing links this | all three, fanned |
-| `reel-cover.png` | 1080×1920 | IG/FB Reel cover only — the promo video's first frame serves as the cover. **Not a still-post asset** | `06-study` |
+| `reel-cover.png` | 1080×1920 | **Unused** — IG/FB take the cover frame from the video itself, so this is not uploaded anywhere. Not a still-post asset either; feed posts are the 4:5 cards | `06-study` |
 | `builder-1.png` | 1200×1200 | LinkedIn / X square. **Unused** — B1 posts `parent-control.png` | `06-study` |
 
 Sizing follows current platform specs: 4:5 for feed posts (largest screen area

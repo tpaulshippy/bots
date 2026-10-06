@@ -219,10 +219,41 @@ carries the description-credit wording for that case.
 This one is 29.97s and the cut is 31.57s, so the bed is looped with a
 crossfaded seam to cover the remainder. A hard butt would be audible — this track
 starts at 49% of peak and finishes at 77%, so it never resolves to silence. The
-crossfade is over 1.2s, and the measured step across the seam is 0.0005 against
-a 0.998 peak.
+crossfade is over 1.2s. Verified with a DC test — a buffer that is 1.0 for the
+first half and 0.0 for the second, where any seam must ramp: the step across the
+seam was 1.000 before the fix and 0.000 after. On the shipped track the worst
+step across two seams is 0.0298 against a 0.9975 peak.
+
+The blend is applied to the **end** of the cycle so it meets the start of the
+next one. Crossfading the head instead leaves the joins between repeats as raw
+`src[-1] -> src[0]`, which is the discontinuity the crossfade exists to remove —
+and it still measures clean if you sample in the wrong place, which is how the
+first version of this passed.
 
 `loop_to()` does this for any short track, so a future 20s bed would work too.
+
+### The synthesised fallback
+
+`scripts/make-promo-music.py` still generates a bed from scratch and embeds no
+third-party audio, so it carries no attribution obligation. It is **not what
+ships** — the Suno track above is — but it is the fallback when no licensed track
+is available.
+
+Two things to know before using it, both of which have bitten a draft here:
+
+It runs at a **fixed 88 BPM** and has no `--bpm` flag. Pass `--bpm 88` to the
+compositor so the cut is snapped to its grid; without it the edit is unsynced.
+
+Its `--out` default is `/tmp/music.wav` while the compositor's `--music` default
+is empty, so the two-command workflow needs both paths stated explicitly:
+
+```bash
+python3 scripts/make-promo-music.py -o /tmp/opencode/synth.wav -d 40
+python3 scripts/make-promo-video.py --music /tmp/opencode/synth.wav --bpm 88 -o ...
+```
+
+`--seed` genuinely varies the output — it reaches the three noise voices. That
+was not always true, and an inert flag is worse than none.
 
 ## Copy in the video
 
