@@ -14,13 +14,13 @@ re-run any time, including after new screenshots are captured.
 
 | File | Size | Use | Source screen |
 |---|---|---|---|
-| `parent-flashcards.png` | 1080×1350 | IG/FB feed, Threads. Prop 1. Post A1 | `08-study` |
-| `parent-materials.png` | 1080×1350 | IG/FB feed. Prop 1, second angle. Post B3 | `10-study-materials` |
+| `parent-flashcards.png` | 1080×1350 | IG/FB feed, Threads. Prop 1. Post A1 | `06-study` |
+| `parent-materials.png` | 1080×1350 | IG/FB feed. Prop 1, second angle. Post B3 | `08-materials` |
 | `parent-control.png` | 1080×1350 | IG/FB feed. Prop 2. Post A2 | `10-bot-editor` |
 | `og-x-bluesky.png` | 1600×900 | X, Bluesky, LinkedIn link cards | all three, fanned |
-| `og-facebook.png` | 1200×630 | Facebook link previews | all three, fanned |
-| `reel-cover.png` | 1080×1920 | IG/FB Reel cover (still-post use) | `08-study` |
-| `builder-1.png` | 1200×1200 | LinkedIn / X square. Post B1 | `08-study` |
+| `og-facebook.png` | 1200×630 | Facebook link previews. **Unused** — every Facebook post is the 4:5 `parent-*` card, so nothing links this | all three, fanned |
+| `reel-cover.png` | 1080×1920 | IG/FB Reel cover only — the promo video's first frame serves as the cover. **Not a still-post asset** | `06-study` |
+| `builder-1.png` | 1200×1200 | LinkedIn / X square. **Unused** — B1 posts `parent-control.png` | `06-study` |
 
 Sizing follows current platform specs: 4:5 for feed posts (largest screen area
 before the fold), 16:9 for link cards, 9:16 for vertical video.

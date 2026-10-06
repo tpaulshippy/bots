@@ -78,10 +78,11 @@ Six posts, not five: `POSTS.md` defines A1–A5 and B1–B3, of which A4 and A5 
 the same video on two platforms. That is 6 feed posts (A1–A3, B1–B3) and 1
 uploaded video shared across Reels and YouTube.
 
-Rescheduled 2026-10-06. The previous dates (Oct 1, 2, 3, 7, 8) had all passed, so
-the sequence restarts on Wed Oct 7 and keeps the same shape: launch on the two
-personal audiences, mirror, video on a Saturday, mid-campaign pair, mirror, then
-price.
+Rescheduled 2026-10-06. The previous dates (Oct 1, 2 and 3) had all passed by
+then, so the sequence restarts on Wed Oct 7 — which was still a day away — and
+keeps the same shape: launch on the two personal audiences, mirror, video on a
+Saturday, mid-campaign pair, mirror, then price. Oct 7, 8, 10, 14, 15 and 17 were
+future dates at the time of the rewrite and are used below.
 
 **All times are MST (Arizona, UTC-7, no DST).** Import
 [`rollout-schedule.ics`](rollout-schedule.ics) — it carries the same 11 entries
@@ -116,8 +117,9 @@ much urgency.
 
 The parent posts go out **17:00 MST**, which is 20:00 ET — the weekday-evening
 window when Facebook and Instagram engagement for this audience peaks, and after
-the school run. It is 22:00 in Arizona, so these are late-ish; if you would
-rather not post at 10pm, 15:00 MST (18:00 ET) still lands in the evening band.
+the school run. Note that 17:00 is 17:00 locally; Arizona and Eastern are three
+hours apart in October, so the late slots here are not late here. If you want a
+little more margin, 16:00 MST is 19:00 ET, the start of the band.
 
 The video goes on a **Saturday**, late morning. Weekend daytime is when Reels and
 Shorts get consumed rather than scrolled past, and Saturday gives the Short a day
@@ -139,18 +141,14 @@ Two things to watch, both flagged rather than solved:
 
 ### When to post
 
-- **LinkedIn** — Tue/Wed/Thu, 10:00–11:30 ET.
+Windows are Eastern, since that is where the audience is; Arizona is ET−3 in
+October and ET−2 after Nov 1. The table above already applies the conversion.
+
+- **LinkedIn** — Tue/Wed/Thu, 08:00–09:30 ET is the peak; 10:00–11:30 ET is a
+  strong-window slot. Friday and weekends are dead there.
 - **Facebook** — 19:00–21:00 ET weekdays, or 09:00–11:00 ET Saturday.
 - **Instagram** — 11:00–13:00 or 19:00–21:00 ET.
 - **X / Bluesky** — late morning ET, weekday; tie to whatever is being discussed.
-- **Threads** — cross-post the Instagram caption. Do not write a separate one.
-
-### When to post
-
-- **LinkedIn** — Tue/Wed/Thu, 8:00–9:30am. Friday and weekends are dead there.
-- **Facebook** — 7–9pm weekdays, or 9–11am Saturday.
-- **Instagram** — 11am–1pm or 7–9pm.
-- **X / Bluesky** — late morning, weekday; tie to whatever is being discussed.
 - **Threads** — cross-post the Instagram caption. Do not write a separate one.
 
 ---
@@ -290,15 +288,15 @@ and crisis detection.
   users over the air. `WHAT_IS_NEW.md` already advertises it on the store page.
   Do not carry the same claim into a *screenshot* — see the `11-activity.png`
   note in §2, which is a different problem.
-- **When you talk about parent control, be exact.** These are four independent
-  per-device switches, not a single level you pick from: notify on new chat,
-  notify on each message, daily digest instead, and study reminders when cards
-  are due. New-chat and per-message can be on together. Digest-only is the one
-  that overrides — it disables the other three, replacing the instant pushes
-  with a daily summary rather than duplicating them. Do not claim it always
-  notifies; it is a setting, and that is a better story. Likewise: the parent writes the system prompt, and the editor states
-  on screen that baseline safety cannot be removed by it. Both halves of that sentence
-  are true and saying them builds trust.
+- **When you talk about parent control, be exact.** Four per-device switches, not
+  one level you pick from: notify on new chat, notify on each message, study
+  reminders when cards are due, and daily digest instead of the lot. New-chat
+  and per-message can be on together. Digest is the one that overrides — the UI
+  disables the other three while it is on, so do not promise reminders
+  alongside it. Do not claim it always notifies; it is a setting, and that is a
+  better story. Likewise: the parent writes the system prompt, and the editor
+  states on screen that baseline safety cannot be removed by it. Both halves of
+  that sentence are true and saying them builds trust.
 
 ---
 

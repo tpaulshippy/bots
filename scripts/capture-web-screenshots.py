@@ -132,7 +132,7 @@ def main():
                 page.evaluate(
                     "() => { const els=[...document.querySelectorAll('*')]"
                     ".filter(e=>e.scrollHeight>e.clientHeight+80);"
-                    ".forEach(e=>e.scrollTop=e.scrollHeight); }"
+                    "for (const e of els) { e.scrollTop = e.scrollHeight } }"
                 )
                 page.wait_for_timeout(1200)
             # A failed nav or a non-2xx response still leaves something on screen

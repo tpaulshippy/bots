@@ -297,13 +297,17 @@ def loop_to(src, needed, sr=44100, cross=1.2):
     if want <= n:
         return src[:want]
     c = min(int(cross * sr), n // 2)
-    loop = src.copy()
     ramp = np.linspace(0.0, 1.0, c, dtype=np.float32)[:, None]
-    loop[:c] = loop[:c] * (1 - ramp) + src[-c:] * ramp
-    period = n - c
-    reps = -(-want // period)
-    out = np.concatenate([loop] * reps, axis=0)
-    return out[:want]
+    # One cycle is the body with its tail crossfaded into its own head, so the
+    # cycle ENDS where the next one begins. Crossfading the head instead leaves
+    # a repeating buffer whose ends are still raw src[-1] -> src[0]: a hard
+    # discontinuity at every cycle boundary, which is exactly the jump the
+    # crossfade was meant to remove. Cycle length is n - c, not n.
+    body = src[c:n - c]
+    tail = src[n - c:] * (1 - ramp) + src[:c] * ramp
+    cycle = np.concatenate([body, tail], axis=0)
+    reps = -(-want // len(cycle))
+    return np.concatenate([cycle] * reps, axis=0)[:want]
 
 
 def music_bed(src, out, total, start):
@@ -320,8 +324,13 @@ def music_bed(src, out, total, start):
     """
     # The in-point is bar-aligned, so on a track shorter than the cut it can land
     # past the end. Take what is there, then loop it to length.
-    seg = _decode(src, start)
+    #
+    # Capped at what is needed, plus enough to know whether looping is required.
+    # Without the cap a long track decodes in full and loudnorm then processes
+    # minutes of audio that the render discards -- 37s of wasted work on a 31s
+    # cut with Groundwork.
     need = total + 0.6
+    seg = _decode(src, start, need)
     if len(seg) < need * 44100:
         seg = loop_to(seg, need)
     raw = seg.astype(np.float32).tobytes()

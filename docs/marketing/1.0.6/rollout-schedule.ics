@@ -22,8 +22,8 @@ DTSTART;TZID=America/Phoenix:20261007T070000
 DURATION:PT30M
 SUMMARY:Syft 1.0.6 — B1 · LinkedIn (prop 2: parent control)
 DESCRIPTION:Personal LinkedIn. Image: parent-control.png. Link in first com
- ment. Tue-Thu 7am MST = 10am ET\, the East-coast LinkedIn peak. Copy: POST
- S.md B1.
+ ment. 07:00 MST = 10:00 ET. LinkedIn peaks 08:00-09:30 ET\; this is a stro
+ ng-window slot an hour past the peak. Copy: POSTS.md B1.
 STATUS:CONFIRMED
 TRANSP:TRANSPARENT
 BEGIN:VALARM

@@ -190,6 +190,11 @@ card45 "$SRC/10-bot-editor.png" \
   "Make a character, or a subject expert. You stay in control." \
   "$OUT/parent-control.png"
 
+# Post A3 is the only proposition that does not get its own card: it argues price,
+# and the flashcards card carries the educational claim, not a price one. The
+# copy says the number outright, so the image does not have to -- but the
+# schedule maps A3 to this file, which is why it is named here.
+
 wide 1600 900 "$OUT/og-x-bluesky.png"
 wide 1200 630 "$OUT/og-facebook.png"
 

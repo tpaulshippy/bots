@@ -179,9 +179,9 @@ not the body.**
 > transcript, with safety events surfaced separately.
 >
 > Notification preferences are per device, and they are switches rather than one
-> dial: on new chat, on each message, a daily digest instead, and a nudge when
-> flashcards are due. Digest mode replaces the instant pushes rather than
-> duplicating them.
+> dial: on new chat, on each message, a nudge when flashcards are due, or a daily
+> digest instead of the lot. Digest mode replaces the instant pushes rather than
+> duplicating them, and pauses the study nudge while it is on.
 >
 > Free tier, $1/mo, $5/mo. Other AI tutor bots start at $4/month.
 >
