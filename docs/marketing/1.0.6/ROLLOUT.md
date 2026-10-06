@@ -1,9 +1,10 @@
 # Syft Learning 1.0.6 — marketing rollout
 
-Written 2026-09-30. The release reached users earlier in September, so this is a
-"what's new" push rather than a launch-day push.
+Written 2026-09-30; timing rescheduled 2026-10-06 (§3). The release reached users
+earlier in September, so this is a "what's new" push rather than a launch-day push.
 Copy is in [`POSTS.md`](POSTS.md). Images are in [`assets/`](assets/), the video in
-[`video/`](video/).
+[`video/`](video/). To load the schedule, import
+[`rollout-schedule.ics`](rollout-schedule.ics).
 
 ---
 
@@ -77,21 +78,72 @@ Six posts, not five: `POSTS.md` defines A1–A5 and B1–B3, of which A4 and A5 
 the same video on two platforms. That is 6 feed posts (A1–A3, B1–B3) and 1
 uploaded video shared across Reels and YouTube.
 
-| Day | Date | Proposition | Where | Asset |
-|---|---|---|---|---|
-| Thu | Oct 1 | 1 + 3 — educational, priced | Personal FB, IG, Threads | `parent-flashcards.png` |
-| Thu | Oct 1 | 2 — parent control | Personal LinkedIn | `parent-control.png` |
-| Thu | Oct 1 | 2 — parent control | Personal X + Bluesky | `og-x-bluesky.png` |
-| Fri | Oct 2 | Mirror of Oct 1 | `@syftlearning` FB, IG, Threads | matching |
-| Sat | Oct 3 | The video, vertical | Personal IG Reels + FB Reels | `video/syft-promo-9x16.mp4` |
-| Sat | Oct 3 | The video as a YouTube Short | Syft Learning YouTube | `video/syft-promo-9x16.mp4` (vertical — see POSTS.md A5) |
-| Wed | Oct 7 | 2 — the system prompt | Personal FB, IG | `parent-control.png` |
-| Wed | Oct 7 | 1 — study materials | Personal LinkedIn, X | `parent-materials.png` |
-| Thu | Oct 8 | Mirror | `@syftlearning` (all) | matching |
-| Sat | Oct 17 | 3 — price, plainly | Personal FB, IG | `parent-flashcards.png` |
+Rescheduled 2026-10-06. The previous dates (Oct 1, 2, 3, 7, 8) had all passed, so
+the sequence restarts on Wed Oct 7 and keeps the same shape: launch on the two
+personal audiences, mirror, video on a Saturday, mid-campaign pair, mirror, then
+price.
+
+**All times are MST (Arizona, UTC-7, no DST).** Import
+[`rollout-schedule.ics`](rollout-schedule.ics) — it carries the same 11 entries
+with reminders, so nothing has to be transcribed.
+
+| Day | Date | MST | ET | Proposition | Where | Asset |
+|---|---|---|---|---|---|---|
+| Wed | Oct 7 | 07:00 | 10:00 | 2 — parent control | Personal LinkedIn | `parent-control.png` |
+| Wed | Oct 7 | 08:30 | 11:30 | 2 — parent control | Personal X + Bluesky | `og-x-bluesky.png` |
+| Wed | Oct 7 | 17:00 | 20:00 | 1 + 3 — educational, priced | Personal FB, IG, Threads | `parent-flashcards.png` |
+| Thu | Oct 8 | 09:00 | 12:00 | Mirror of Oct 7 | `@syftlearning` FB, IG, Threads | matching |
+| Sat | Oct 10 | 09:00 | 12:00 | The video, as a Short | Syft Learning YouTube | `video/syft-promo-9x16.mp4` |
+| Sat | Oct 10 | 11:00 | 14:00 | The video, vertical | Personal IG Reels + FB Reels | `video/syft-promo-9x16.mp4` |
+| Wed | Oct 14 | 07:00 | 10:00 | 1 — study materials | Personal LinkedIn | `parent-materials.png` |
+| Wed | Oct 14 | 08:30 | 11:30 | 1 — study materials | Personal X | `parent-materials.png` |
+| Wed | Oct 14 | 17:00 | 20:00 | 2 — the system prompt | Personal FB, IG | `parent-control.png` |
+| Thu | Oct 15 | 09:00 | 12:00 | Mirror of Oct 14 | `@syftlearning` (all) | matching |
+| Sat | Oct 17 | 10:00 | 13:00 | 3 — price, plainly | Personal FB, IG | `parent-flashcards.png` |
 
 Each proposition gets exactly one post plus the video. Three posts total per
 audience; more and your personal feed starts treating you as a marketing account.
+
+### Why these slots
+
+The builder posts go out **Wed mornings, 07:00 and 08:30 MST**. LinkedIn's peak
+for this audience is Tue–Thu 08:00–09:30 *Eastern*; from Arizona that is 05:00–
+06:30 MST, which is not a defensible hour to ask anyone to post. 07:00 MST is
+10:00 ET — an hour past the peak but still inside the strong window, and it is a
+reasonable time to be at a desk. 07:00 MST also beats posting at 05:00 MST,
+which reaches the peak but means a 5am alarm for a post that does not need that
+much urgency.
+
+The parent posts go out **17:00 MST**, which is 20:00 ET — the weekday-evening
+window when Facebook and Instagram engagement for this audience peaks, and after
+the school run. It is 22:00 in Arizona, so these are late-ish; if you would
+rather not post at 10pm, 15:00 MST (18:00 ET) still lands in the evening band.
+
+The video goes on a **Saturday**, late morning. Weekend daytime is when Reels and
+Shorts get consumed rather than scrolled past, and Saturday gives the Short a day
+to gather views before the week starts. It is uploaded before the Reels post so
+YouTube has the longer runway to a morning audience.
+
+Sat Oct 17 for price is deliberately the **last** post, three days before the
+campaign ends. Price is the objection-clearing post, and it should land after the
+audience has already seen the product rather than first.
+
+Two things to watch, both flagged rather than solved:
+
+- **Wed and Sat carry three entries each.** That is the plan working as intended,
+  not drift — but if the day goes sideways, drop the X/Bluesky half of a builder
+  pair rather than the evening parent post, which is the higher-reach one.
+- **Oct 8 and Oct 15 mirrors are same-day-as-nothing.** They exist to be the
+  permanent record, so if a mirror is missed it costs nothing real. Skip rather
+  than compress them into a busy day.
+
+### When to post
+
+- **LinkedIn** — Tue/Wed/Thu, 10:00–11:30 ET.
+- **Facebook** — 19:00–21:00 ET weekdays, or 09:00–11:00 ET Saturday.
+- **Instagram** — 11:00–13:00 or 19:00–21:00 ET.
+- **X / Bluesky** — late morning ET, weekday; tie to whatever is being discussed.
+- **Threads** — cross-post the Instagram caption. Do not write a separate one.
 
 ### When to post
 
