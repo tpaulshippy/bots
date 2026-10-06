@@ -91,6 +91,11 @@ def bar_len(bpm):
     return 4 * 60.0 / bpm
 
 
+def _cumulative(offsets, i):
+    """Timeline position where scene i starts."""
+    return offsets[i - 1] if i else 0.0
+
+
 def quantize_up(t, bpm):
     """Smallest beat-grid boundary at or after t. Identity without a tempo."""
     if not bpm:
@@ -117,11 +122,6 @@ def quantize(dur, bpm, beats_per_cut=1):
         return dur
     step = bar_len(bpm) * beats_per_cut / 4.0
     return step * max(1, math.ceil(round(dur / step, 6)))
-
-
-def scene_len(i, bpm=None):
-    """Seconds a scene occupies on the timeline, including its hold."""
-    return quantize(SCENES[i][2] + HOLD, bpm)
 
 
 def run(cmd, **kw):
@@ -238,8 +238,8 @@ def plan_timeline(bpm=None):
     # the scene gets truncated mid-content -- which is how the first attempt at
     # this silently cut scenes to 2.9s when their window was 5.6s.
     #
-    # The required length is the *raw* window, not scene_len(): scene_len
-    # already rounds up to the grid, and rounding again here inflated the cut
+    # The required length is the *raw* window, not a pre-rounded one: rounding
+    # here and again in quantize_up() inflated the cut by a further 3-8%.
     # by a further 3-8%.
     for i, (_, _, dur, _, _) in enumerate(SCENES):
         earliest = (offsets[-1] if offsets else 0.0) + dur + HOLD - FADE
@@ -325,8 +325,8 @@ def main():
     ap.add_argument("--music", default="")
     ap.add_argument("--music-start", type=float, default=0.0)
     ap.add_argument("--bpm", type=float, default=0.0,
-                    help="tempo of --music; snaps scene cuts to the bar grid. "
-                         "0 disables (fixed durations)")
+                    help="tempo of --music; snaps scene cuts to the beat "
+                         "grid (quarter notes). 0 disables (fixed durations)")
     ap.add_argument("--credit", default="")
     ap.add_argument("-o", "--out", default="docs/marketing/1.0.6/video/syft-promo-9x16.mp4")
     ap.add_argument("--width", type=int, default=1080)
@@ -426,8 +426,12 @@ def main():
     music_idx = I_HEAD0 + 2 * n
 
     parts = []
+    offsets, total = plan_timeline(a.bpm)
     for i, (_, start, dur, _, _) in enumerate(SCENES):
         h_i, s_i = I_HEAD0 + 2 * i, I_HEAD0 + 2 * i + 1
+        # Long enough that this scene's own footage, its hold, the fade the next
+        # xfade takes, and the grid's rounding slack are all covered.
+        pad = HOLD + FADE + max(0.0, (offsets[i] - FADE) - _cumulative(offsets, i))
         if landscape:
             # logo sits above the headline in the right-hand column; putting it
             # over the phone column puts it on top of the screen recording.
@@ -439,8 +443,13 @@ def main():
             hl_y = ph_y + ph_h + int(H * 0.040)
             sl_y = hl_y + hh + 30
         parts.append(
+            # The clone has to cover HOLD plus the FADE that the *next* xfade
+            # consumes from the end of this stream, plus whatever slack the beat
+            # grid adds. Padding only to HOLD left each outgoing fade running past
+            # its own last frame, which is why the cut out of `study` was short
+            # by over a second.
             f"[{i}:v]trim=start={start}:duration={dur},"
-            f"tpad=stop_mode=clone:stop_duration={HOLD},setpts=PTS-STARTPTS,"
+            f"tpad=stop_mode=clone:stop_duration={pad},setpts=PTS-STARTPTS,"
             f"fps={FPS},scale={ph_w}:{ph_h}:force_original_aspect_ratio=increase,"
             f"crop={ph_w}:{ph_h},setsar=1,format=yuva420p[p{i}];"
             f"[{I_MASK}:v]scale={ph_w}:{ph_h},format=gray[m{i}];"
@@ -453,7 +462,6 @@ def main():
 
     # Transitions come from plan_timeline() so the bed, the filter graph and the
     # -t flag cannot disagree about how long the video is.
-    offsets, total = plan_timeline(a.bpm)
     prev = "v0"
     for i in range(1, n):
         parts.append(f"[{prev}][v{i}]xfade=transition=fade:duration={FADE}"

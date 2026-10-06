@@ -134,6 +134,11 @@ Only transitions are synced. The interactions inside each scene are screen
 recordings, so a flashcard flip cannot be placed on the snare without
 re-recording with beat-locked cues.
 
+Each scene's cloned hold (`tpad`) covers `HOLD` + `FADE` + the grid's rounding
+slack. Padding only to `HOLD` left each outgoing fade running past the end of its
+own stream — the cut out of `study` was over a second short, and the fade visibly
+snapped rather than dissolving.
+
 `check_timeline()` fails the build if snapping would truncate a scene below its
 own window. An early attempt did exactly that — it cut scenes to 2.9s when their
 window was 5.6s — and the failure is now impossible to ship.
