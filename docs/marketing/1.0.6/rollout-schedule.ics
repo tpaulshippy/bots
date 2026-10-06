@@ -66,19 +66,52 @@ DESCRIPTION:Syft 1.0.6 — A1 · FB + IG + Threads (props 1 + 3)
 END:VALARM
 END:VEVENT
 BEGIN:VEVENT
-UID:6835c952f4e031a1@syftlearning.app
+UID:94885929791a9cc7@syftlearning.app
 DTSTAMP:20261006T120000Z
-DTSTART;TZID=America/Phoenix:20261008T090000
+DTSTART;TZID=America/Phoenix:20261008T070000
 DURATION:PT30M
-SUMMARY:Syft 1.0.6 — mirror launch set to @syftlearning
-DESCRIPTION:Mirror Oct 7 to @syftlearning FB\, IG\, Threads. Low reach expe
- cted\; it is the permanent record and search indexing.
+SUMMARY:Syft 1.0.6 — mirror B1 to @syftlearning LinkedIn
+DESCRIPTION:Brand LinkedIn. Same content and asset as the personal B1 post 
+ (Oct 7). Low reach expected\; this is the permanent record and search inde
+ xing.
 STATUS:CONFIRMED
 TRANSP:TRANSPARENT
 BEGIN:VALARM
 ACTION:DISPLAY
 TRIGGER:-PT30M
-DESCRIPTION:Syft 1.0.6 — mirror launch set to @syftlearning
+DESCRIPTION:Syft 1.0.6 — mirror B1 to @syftlearning LinkedIn
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:e6ed3e64b88e691e@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261008T083000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror B2 to @syftlearning X + Bluesky
+DESCRIPTION:Brand X and Bluesky. Same content and asset as the personal B2 
+ post (Oct 7).
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror B2 to @syftlearning X + Bluesky
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:1b09e17a5d1346ac@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261008T090000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror A1 to @syftlearning FB\, IG\, Threads
+DESCRIPTION:Brand Facebook\, Instagram\, Threads. Same content and asset as
+  the personal A1 post (Oct 7).
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror A1 to @syftlearning FB\, IG\, Threads
 END:VALARM
 END:VEVENT
 BEGIN:VEVENT
@@ -163,18 +196,51 @@ DESCRIPTION:Syft 1.0.6 — A2 · FB + IG (prop 2: system prompt)
 END:VALARM
 END:VEVENT
 BEGIN:VEVENT
-UID:14180d31b3f15643@syftlearning.app
+UID:5c996b937761e171@syftlearning.app
 DTSTAMP:20261006T120000Z
-DTSTART;TZID=America/Phoenix:20261015T090000
+DTSTART;TZID=America/Phoenix:20261015T070000
 DURATION:PT30M
-SUMMARY:Syft 1.0.6 — mirror mid-campaign to @syftlearning
-DESCRIPTION:Mirror the Oct 14 set to @syftlearning across all channels.
+SUMMARY:Syft 1.0.6 — mirror B3 to @syftlearning LinkedIn
+DESCRIPTION:Brand LinkedIn. Same content and asset as the personal B3 post 
+ (Oct 14).
 STATUS:CONFIRMED
 TRANSP:TRANSPARENT
 BEGIN:VALARM
 ACTION:DISPLAY
 TRIGGER:-PT30M
-DESCRIPTION:Syft 1.0.6 — mirror mid-campaign to @syftlearning
+DESCRIPTION:Syft 1.0.6 — mirror B3 to @syftlearning LinkedIn
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:b4add45d6b97eef5@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261015T083000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror B3 to @syftlearning X
+DESCRIPTION:Brand X. Same content and asset as the personal B3 post (Oct 14
+ ).
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror B3 to @syftlearning X
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:03603a075632c9e5@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261015T090000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror A2 to @syftlearning FB\, IG\, Threads
+DESCRIPTION:Brand Facebook\, Instagram\, Threads. Same content and asset as
+  the personal A2 post (Oct 14).
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror A2 to @syftlearning FB\, IG\, Threads
 END:VALARM
 END:VEVENT
 BEGIN:VEVENT

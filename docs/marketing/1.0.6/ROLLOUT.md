@@ -72,11 +72,12 @@ They are all still true and still in the app. None of them is the pitch.
 
 ## 3. Timing
 
-**Total spend: about 3 hours, 6 posts, 1 video upload.**
+**Total spend: about 3 hours, 9 personal posts, 6 brand mirrors, 1 video upload.**
 
-Six posts, not five: `POSTS.md` defines A1–A5 and B1–B3, of which A4 and A5 are
-the same video on two platforms. That is 6 feed posts (A1–A3, B1–B3) and 1
-uploaded video shared across Reels and YouTube.
+`POSTS.md` defines A1–A5 and B1–B3, of which A4 and A5 are the same video on two
+platforms. That is 6 personal feed posts (A1–A3, B1–B3), 1 video uploaded twice,
+and 6 brand mirrors — one per surface per mirror day — because a mirror is a real
+post that has to be made on each channel, not a single act of reposting.
 
 Rescheduled 2026-10-06. The previous dates (Oct 1, 2 and 3) had all passed by
 then, so the sequence restarts on Wed Oct 7 — which was still a day away — and
@@ -85,7 +86,7 @@ Saturday, mid-campaign pair, mirror, then price. Oct 7, 8, 10, 14, 15 and 17 wer
 future dates at the time of the rewrite and are used below.
 
 **All times are MST (Arizona, UTC-7, no DST).** Import
-[`rollout-schedule.ics`](rollout-schedule.ics) — it carries the same 11 entries
+[`rollout-schedule.ics`](rollout-schedule.ics) — it carries the same 15 entries
 with reminders, so nothing has to be transcribed.
 
 | Day | Date | MST | ET | Proposition | Where | Asset |
@@ -93,13 +94,17 @@ with reminders, so nothing has to be transcribed.
 | Wed | Oct 7 | 07:00 | 10:00 | 2 — parent control | Personal LinkedIn | `parent-control.png` |
 | Wed | Oct 7 | 08:30 | 11:30 | 2 — parent control | Personal X + Bluesky | `og-x-bluesky.png` |
 | Wed | Oct 7 | 17:00 | 20:00 | 1 + 3 — educational, priced | Personal FB, IG, Threads | `parent-flashcards.png` |
-| Thu | Oct 8 | 09:00 | 12:00 | Mirror of Oct 7 | `@syftlearning` FB, IG, Threads | matching |
+| Thu | Oct 8 | 07:00 | 10:00 | Mirror of Oct 7 (LinkedIn) | `@syftlearning` LinkedIn | matching |
+| Thu | Oct 8 | 08:30 | 11:30 | Mirror of Oct 7 (X) | `@syftlearning` X + Bluesky | matching |
+| Thu | Oct 8 | 09:00 | 12:00 | Mirror of Oct 7 (parents) | `@syftlearning` FB, IG, Threads | matching |
 | Sat | Oct 10 | 09:00 | 12:00 | The video, as a Short | Syft Learning YouTube | `video/syft-promo-9x16.mp4` |
 | Sat | Oct 10 | 11:00 | 14:00 | The video, vertical | Personal IG Reels + FB Reels | `video/syft-promo-9x16.mp4` |
 | Wed | Oct 14 | 07:00 | 10:00 | 1 — study materials | Personal LinkedIn | `parent-materials.png` |
 | Wed | Oct 14 | 08:30 | 11:30 | 1 — study materials | Personal X | `parent-materials.png` |
 | Wed | Oct 14 | 17:00 | 20:00 | 2 — the system prompt | Personal FB, IG | `parent-control.png` |
-| Thu | Oct 15 | 09:00 | 12:00 | Mirror of Oct 14 | `@syftlearning` (all) | matching |
+| Thu | Oct 15 | 07:00 | 10:00 | Mirror of Oct 14 (LinkedIn) | `@syftlearning` LinkedIn | matching |
+| Thu | Oct 15 | 08:30 | 11:30 | Mirror of Oct 14 (X) | `@syftlearning` X | matching |
+| Thu | Oct 15 | 09:00 | 12:00 | Mirror of Oct 14 (parents) | `@syftlearning` FB, IG, Threads | matching |
 | Sat | Oct 17 | 10:00 | 13:00 | 3 — price, plainly | Personal FB, IG | `parent-flashcards.png` |
 
 Each proposition gets exactly one post plus the video. Three posts total per
@@ -130,14 +135,20 @@ Sat Oct 17 for price is deliberately the **last** post, three days before the
 campaign ends. Price is the objection-clearing post, and it should land after the
 audience has already seen the product rather than first.
 
-Two things to watch, both flagged rather than solved:
+Three things to watch, all flagged rather than solved:
 
 - **Wed and Sat carry three entries each.** That is the plan working as intended,
   not drift — but if the day goes sideways, drop the X/Bluesky half of a builder
   pair rather than the evening parent post, which is the higher-reach one.
-- **Oct 8 and Oct 15 mirrors are same-day-as-nothing.** They exist to be the
-  permanent record, so if a mirror is missed it costs nothing real. Skip rather
-  than compress them into a busy day.
+- **The Oct 8 and Oct 15 mirror blocks are self-contained.** Six events across
+  two days, one per surface, and they exist to be the permanent record rather
+  than to be seen. If one is missed it costs nothing real, so skip rather than
+  compress a mirror into a personal-post day.
+- **The brand LinkedIn posts are the ones most likely to get skipped**, since a
+  brand account with no followers gives no feedback and it is tempting to
+  deprioritise. That is precisely what makes them worth doing: they are the
+  search-indexed record, and they are the only place the builder-track content
+  exists on a surface that outlives your personal feed.
 
 ### When to post
 
