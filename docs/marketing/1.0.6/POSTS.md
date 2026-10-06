@@ -174,8 +174,9 @@ not the body.**
 > transcript, with safety events surfaced separately.
 >
 > The parent picks their own noise level. Notification preferences are per device:
-> on new chat, on each message, daily digest only, or study reminders only. Digest
-> mode suppresses the instant pushes rather than duplicating them.
+> on new chat, on each message, or daily digest instead — plus study reminders when
+> flashcards are due. Digest mode replaces the instant pushes rather than
+> duplicating them.
 >
 > Free tier, $1/mo, $5/mo. Other AI tutor bots start at $4/month.
 >

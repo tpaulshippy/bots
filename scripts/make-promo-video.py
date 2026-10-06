@@ -13,6 +13,7 @@ The app logo (front/assets/images/splash-icon.png, transparent) is burned into
 every scene, and the end card is logo + name once, not the name twice.
 """
 import argparse
+import math
 import json
 import os
 import shutil
@@ -86,9 +87,41 @@ HOLD = 1.2
 MIN_TAIL = 0.4
 
 
-def scene_len(i):
+def bar_len(bpm):
+    return 4 * 60.0 / bpm
+
+
+def quantize_up(t, bpm):
+    """Smallest beat-grid boundary at or after t. Identity without a tempo."""
+    if not bpm:
+        return t
+    beat = bar_len(bpm) / 4.0
+    return beat * math.ceil(round(t / beat, 6))
+
+
+def quantize(dur, bpm, beats_per_cut=1):
+    """Round a duration up to a whole beat multiple of the track's tempo.
+
+    This is what makes the edit follow the music. Scene lengths and transition
+    points are snapped to the beat grid, so every cut lands on a beat instead of
+    wherever the footage happened to run out. Derived from whatever track is
+    passed in, so a different tempo re-times the whole cut rather than needing
+    the SCENES table edited by hand.
+
+    The grid is a quarter note, not a bar. Snapping to whole bars cost 15-25%
+    runtime (37.6s from a 30.1s cut at 102 BPM) because every scene rounded up
+    by most of a bar. A beat grid costs 3-5% and still puts every cut on the
+    beat, which is what actually reads as synchronised.
+    """
+    if not bpm:
+        return dur
+    step = bar_len(bpm) * beats_per_cut / 4.0
+    return step * max(1, math.ceil(round(dur / step, 6)))
+
+
+def scene_len(i, bpm=None):
     """Seconds a scene occupies on the timeline, including its hold."""
-    return SCENES[i][2] + HOLD
+    return quantize(SCENES[i][2] + HOLD, bpm)
 
 
 def run(cmd, **kw):
@@ -187,12 +220,49 @@ def end_card(W, H, out, tmp, end_url, credit=""):
     run(args)
 
 
-def timeline_total():
-    """Runtime of the finished cut, needed before the music bed is cut to size."""
-    acc = scene_len(0)
-    for i in range(1, len(SCENES)):
-        acc += scene_len(i) - FADE
-    return acc + END_DUR - FADE
+def plan_timeline(bpm=None):
+    """Transition offsets and total runtime. Single source of truth.
+
+    The music bed has to be cut to exactly the finished runtime, and that number
+    is needed before the ffmpeg command is assembled, so the timeline is computed
+    here once and both the bed and the filter graph read from it. Computing it
+    twice is how the bed ended up 0.6s longer than the video once already.
+
+    With a tempo, transitions are snapped to the bar grid. Per-scene quantising
+    is not enough on its own: every xfade overlaps by FADE, so each join shifts
+    the running total off the grid and the drift compounds.
+    """
+    end_dur = quantize(END_DUR, bpm)
+    offsets = []
+    # A boundary can never fall earlier than the scene it terminates needs, or
+    # the scene gets truncated mid-content -- which is how the first attempt at
+    # this silently cut scenes to 2.9s when their window was 5.6s.
+    #
+    # The required length is the *raw* window, not scene_len(): scene_len
+    # already rounds up to the grid, and rounding again here inflated the cut
+    # by a further 3-8%.
+    for i, (_, _, dur, _, _) in enumerate(SCENES):
+        earliest = (offsets[-1] if offsets else 0.0) + dur + HOLD - FADE
+        offsets.append(quantize_up(earliest, bpm))
+    return offsets, offsets[-1] + end_dur
+
+
+def timeline_total(bpm=None):
+    return plan_timeline(bpm)[1]
+
+
+def check_timeline(bpm=None):
+    """Fail if snapping to the grid would truncate any scene."""
+    offsets, total = plan_timeline(bpm)
+    t = 0.0
+    for i, (name, _, dur, _, _) in enumerate(SCENES):
+        got = (offsets[i] - t) + FADE
+        need = dur + HOLD
+        if got < need - 1e-6:
+            sys.exit(f"tempo {bpm} would truncate scene {i} ({name}): "
+                     f"gets {got:.2f}s, needs {need:.2f}s")
+        t = offsets[i]
+    return offsets, total
 
 
 def music_bed(src, out, total, start):
@@ -254,6 +324,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--music", default="")
     ap.add_argument("--music-start", type=float, default=0.0)
+    ap.add_argument("--bpm", type=float, default=0.0,
+                    help="tempo of --music; snaps scene cuts to the bar grid. "
+                         "0 disables (fixed durations)")
     ap.add_argument("--credit", default="")
     ap.add_argument("-o", "--out", default="docs/marketing/1.0.6/video/syft-promo-9x16.mp4")
     ap.add_argument("--width", type=int, default=1080)
@@ -271,6 +344,7 @@ def main():
         if not os.path.exists(os.path.join(CLIPS, f"{name}.webm")):
             sys.exit(f"missing clip: {CLIPS}/{name}.webm (run record_clips.py first)")
     check_windows()
+    check_timeline(a.bpm)
 
     W, H = a.width, a.height
     landscape = W > H
@@ -337,7 +411,7 @@ def main():
         # Cut the bed to the finished runtime, which depends on the hold
         # lengths above, so this has to happen once the timeline is known.
         bed = os.path.join(work, "bed.wav")
-        music_bed(music, bed, timeline_total(), a.music_start)
+        music_bed(music, bed, timeline_total(a.bpm), a.music_start)
         music = bed
 
     cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
@@ -377,17 +451,16 @@ def main():
             f"[hh{i}][{s_i}:v]overlay={text_x}:{sl_y}:shortest=1[v{i}]"
         )
 
-    end_dur = END_DUR
+    # Transitions come from plan_timeline() so the bed, the filter graph and the
+    # -t flag cannot disagree about how long the video is.
+    offsets, total = plan_timeline(a.bpm)
     prev = "v0"
-    acc = scene_len(0)
     for i in range(1, n):
-        off = acc - FADE
-        parts.append(f"[{prev}][v{i}]xfade=transition=fade:duration={FADE}:offset={off:.3f}[x{i}]")
+        parts.append(f"[{prev}][v{i}]xfade=transition=fade:duration={FADE}"
+                     f":offset={offsets[i-1]:.3f}[x{i}]")
         prev = f"x{i}"
-        acc = acc + scene_len(i) - FADE
-    total = acc + end_dur - FADE
-    assert abs(total - timeline_total()) < 1e-6, (total, timeline_total())
-    parts.append(f"[{prev}][{n+2}:v]xfade=transition=fade:duration={FADE}:offset={acc-FADE:.3f}[xe]")
+    parts.append(f"[{prev}][{n+2}:v]xfade=transition=fade:duration={FADE}"
+                 f":offset={offsets[-1]:.3f}[xe]")
 
     fade_out = total - 0.7
     parts.append(f"[xe]trim=duration={total:.3f},setpts=PTS-STARTPTS,"

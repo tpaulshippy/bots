@@ -2,8 +2,8 @@
 
 | File | Size | Use |
 |---|---|---|
-| `syft-promo-9x16.mp4` | 1080×1920, 30s | IG Reels, FB Reels, TikTok, Shorts, X |
-| `syft-promo-16x9.mp4` | 1920×1080, 30s | YouTube, LinkedIn, X |
+| `syft-promo-9x16.mp4` | 1080×1920, 31.2s | IG Reels, FB Reels, TikTok, Shorts, X |
+| `syft-promo-16x9.mp4` | 1920×1080, 31.2s | YouTube, LinkedIn, X |
 
 30fps H.264 (yuv420p, faststart) with an AAC stereo bed. The two cuts are
 generated from the same scenes, not exported from one another, so each is
@@ -24,7 +24,8 @@ Scene order follows the three propositions, not a feature tour. Deliberately abs
 "the tutor asks questions back", streaks, and one-bot-per-subject — see `ROLLOUT.md`
 §1 "What we stopped leading with".
 
-Cross-faded (0.55s), 0.5s fade in / 0.7s fade out. 30.05s total.
+Cross-faded (0.55s), 0.5s fade in / 0.7s fade out. 31.18s total, cut on
+the beat grid at 102 BPM.
 
 **Every scene holds for 1.2s on its final frame** (`tpad=stop_mode=clone`) before
 the crossfade starts. Cutting the instant an action finished made the payoff frame
@@ -76,14 +77,14 @@ before.
 #    /tmp/opencode/clips/*.webm plus actions.json
 python3 scripts/record-promo-clips.py
 
-# 3. both cuts
+# 3. both cuts. --bpm snaps every cut to the track's beat grid; see below.
 python3 scripts/make-promo-video.py \
-  --music /tmp/opencode/music/Groundwork.mp3 --music-start 101.2 \
+  --music /tmp/opencode/music/Groundwork.mp3 --music-start 101.2 --bpm 102 \
   --credit "Groundwork by Kevin MacLeod (incompetech.com) · Licensed under Creative Commons: By Attribution 4.0 · creativecommons.org/licenses/by/4.0/" \
   -o docs/marketing/1.0.6/video/syft-promo-9x16.mp4
 
 python3 scripts/make-promo-video.py \
-  --music /tmp/opencode/music/Groundwork.mp3 --music-start 101.2 \
+  --music /tmp/opencode/music/Groundwork.mp3 --music-start 101.2 --bpm 102 \
   --credit "Groundwork by Kevin MacLeod (incompetech.com) · Licensed under Creative Commons: By Attribution 4.0 · creativecommons.org/licenses/by/4.0/" \
   -o docs/marketing/1.0.6/video/syft-promo-16x9.mp4 \
   --width 1920 --height 1080 --end-url syftlearning.app
@@ -94,6 +95,39 @@ with `playwright` + `numpy`. The 16:9 cut is rendered with the domain burned int
 the end card, because YouTube description links barely convert and the end card is
 the only CTA that survives there. The 9:16 cut has no URL — it is wrong on Reels
 and TikTok, where nothing is tappable.
+
+## Staying in sync with the music
+
+`--bpm` snaps every scene boundary and the end card to the track's beat grid, so
+the cuts land on beats instead of wherever the footage happened to run out. It is
+derived from the tempo you pass, not baked in, so a different track re-times the
+whole cut with no edit to `SCENES`. Without it, durations are used as authored.
+
+This is what makes a Suno track a drop-in later: generate at whatever tempo it
+comes out, pass `--bpm <tempo>`, and the edit follows. Nothing else changes.
+
+The grid is a **quarter note, not a bar**. Snapping to whole bars costs 15-25%
+runtime — 37.6s from a 30.1s cut at 102 BPM — because each scene rounds up by
+most of a bar. A beat grid costs 3-5% and still puts every cut on a beat, which
+is what actually reads as synchronised.
+
+| Grid | 102 BPM runtime | vs 30.1s unsynced |
+|---|---|---|
+| bar | 37.6s | +25% |
+| half-bar | 34.1s | +14% |
+| **beat (quarter note)** | **31.2s** | **+4%** |
+
+Only transitions are synced. The interactions inside each scene are screen
+recordings, so a flashcard flip cannot be placed on the snare without
+re-recording with beat-locked cues.
+
+`check_timeline()` fails the build if snapping would truncate a scene below its
+own window. An early attempt did exactly that — it cut scenes to 2.9s when their
+window was 5.6s — and the failure is now impossible to ship.
+
+`plan_timeline()` is the single source of truth for the runtime. It is read by
+both the music bed and the filter graph, because computing it twice is how the
+bed once ended up 0.6s longer than the video.
 
 ### Scene windows are checked, not eyeballed
 

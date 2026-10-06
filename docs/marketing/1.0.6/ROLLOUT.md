@@ -231,9 +231,11 @@ and crisis detection.
   on the production channel, so it reached users over the air. `WHAT_IS_NEW.md`
   already advertises it.
 - **When you talk about parent control, be exact.** The parent chooses the
-  notification level — instant on new chat, per message, daily digest, or study
-  reminders only. Do not claim it always notifies; it is a setting, and that is a
-  better story. Likewise: the parent writes the system prompt, and the editor states
+  notification level — instant on new chat, per message, or a daily digest
+  instead, plus study reminders when cards are due. Study reminders are their own
+  per-device toggle, not a fourth mutually exclusive mode: the switch is disabled
+  while digest-only is on. Do not claim it always notifies; it is a setting, and
+  that is a better story. Likewise: the parent writes the system prompt, and the editor states
   on screen that baseline safety cannot be removed by it. Both halves of that sentence
   are true and saying them builds trust.
 

@@ -212,6 +212,12 @@ class Command(BaseCommand):
             user=user, name='Maya', defaults={'deleted_at': None})
         sam, _ = Profile.objects.update_or_create(
             user=user, name='Sam', defaults={'deleted_at': None})
+        # Creating the user fires post_save -> provision_default_content, which
+        # makes a profile named user.first_name -- empty here, so it arrives
+        # nameless. Left in place it is a third selectable profile that shows no
+        # seeded content. The promo wants exactly Maya and Sam.
+        Profile.objects.filter(user=user).exclude(
+            name__in=['Maya', 'Sam']).delete()
 
         bots = {}
         for name, color, icon, prompt in BOTS:
