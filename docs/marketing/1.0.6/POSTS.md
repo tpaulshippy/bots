@@ -141,18 +141,15 @@ parents, and ticking it kills comments and notifications).
 >
 > syftlearning.app
 
-**Description must also carry the music credit.** The bed is CC BY 4.0, and Kevin
-MacLeod's catalogue is pre-registered with YouTube Content ID — so this upload
-*will* draw a copyright claim. It is released within 72 hours, but only if the
-credit is already in the description when you dispute it. Add to the description:
+**No music credit is needed in the description.** The bed is a Suno-generated
+instrumental, which carries no third-party attribution requirement, and no
+Content ID claim is expected. The previous library track did require both — see
+`video/README.md` § "The music" for what to restore if a licensed library track
+is ever substituted.
 
-> Groundwork by Kevin MacLeod (incompetech.com)
-> Licensed under Creative Commons: By Attribution 4.0
-> https://creativecommons.org/licenses/by/4.0/
-
-Then dispute the claim via YouTube's instructions once it appears. It is not a
-strike, but ad revenue is held until it clears. Putting the credit in place first
-is what makes the release fast. See `video/README.md`.
+Before this ships commercially, confirm the track was generated while a paid
+Suno plan was active: those rights are not retroactive, so a track made on the
+free plan stays non-commercial.
 
 **Pinned comment:**
 
@@ -181,8 +178,8 @@ not the body.**
 > The parent reads everything. Every conversation is stored and rendered as a
 > transcript, with safety events surfaced separately.
 >
-> The parent picks their own noise level. Notification preferences are per device:
-> on new chat, on each message, or daily digest instead — plus study reminders when
+> Notification preferences are per device, and they are switches rather than one
+> dial: on new chat, on each message, a daily digest instead, and a nudge when
 > flashcards are due. Digest mode replaces the instant pushes rather than
 > duplicating them.
 >

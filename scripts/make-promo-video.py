@@ -21,6 +21,8 @@ import subprocess
 import sys
 import tempfile
 
+import numpy as np
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLIPS = os.environ.get("CLIP_DIR", "/tmp/opencode/clips")
 LOGO = os.path.join(ROOT, "front/assets/images/splash-icon.png")
@@ -265,23 +267,69 @@ def check_timeline(bpm=None):
     return offsets, total
 
 
+def _decode(src, ss=0.0, dur=None):
+    """Decode any input ffmpeg understands to float32 stereo at 44100."""
+    cmd = ["ffmpeg", "-v", "error"]
+    if ss:
+        cmd += ["-ss", f"{ss:.3f}"]
+    if dur:
+        cmd += ["-t", f"{dur:.3f}"]
+    cmd += ["-i", src, "-ac", "2", "-ar", "44100", "-f", "f32le", "-"]
+    raw = subprocess.run(cmd, check=True, capture_output=True).stdout
+    a = np.frombuffer(raw, dtype=np.float32)
+    return a.reshape(-1, 2)
+
+
+def loop_to(src, needed, sr=44100, cross=1.2):
+    """Repeat `src` with a crossfaded seam until it covers `needed` seconds.
+
+    Needed because a promo track is often shorter than the cut: a 29.97s track
+    cannot cover a 31.2s video, and simply trimming leaves the music stopping
+    while the picture is still on screen.
+
+    The seam is crossfaded rather than butted because these tracks do not end in
+    silence -- one measured here starts at 49% of peak and finishes at 77%, so a
+    hard butt would be an audible jump from a loud ending into a mid-level
+    start. Crossfading the tail over the head makes the join continuous.
+    """
+    n = len(src)
+    want = int(needed * sr)
+    if want <= n:
+        return src[:want]
+    c = min(int(cross * sr), n // 2)
+    loop = src.copy()
+    ramp = np.linspace(0.0, 1.0, c, dtype=np.float32)[:, None]
+    loop[:c] = loop[:c] * (1 - ramp) + src[-c:] * ramp
+    period = n - c
+    reps = -(-want // period)
+    out = np.concatenate([loop] * reps, axis=0)
+    return out[:want]
+
+
 def music_bed(src, out, total, start):
     """Cut a bar-aligned, loudness-normalised bed the exact length of the video.
 
-    These tracks are longer than the cut, so a plain in-point avoids any loop
-    seam -- the video fades to black at both ends anyway, which covers the
-    boundaries. The segment starts on a bar rather than an arbitrary second, or
-    the downbeat lands mid-shot.
+    The segment starts on a bar rather than an arbitrary second, or the downbeat
+    lands mid-shot. If the track is shorter than the cut it is looped to cover
+    it, since a bed that stops while the picture is still running is worse than
+    a seam.
 
     The out-fade has to reach silence exactly at `total`. Running it past that
     point means the encoder's -t cut lands mid-fade at full-ish amplitude, which
     steps the audio down audibly at the last frame.
     """
+    # The in-point is bar-aligned, so on a track shorter than the cut it can land
+    # past the end. Take what is there, then loop it to length.
+    seg = _decode(src, start)
+    need = total + 0.6
+    if len(seg) < need * 44100:
+        seg = loop_to(seg, need)
+    raw = seg.astype(np.float32).tobytes()
     run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-         "-ss", f"{start:.3f}", "-t", f"{total:.3f}", "-i", src,
+         "-f", "f32le", "-ar", "44100", "-ac", "2", "-i", "pipe:0",
          "-af", f"afade=t=in:st=0:d=0.6,afade=t=out:st={total - 1.0:.3f}:d=1.0,"
                 "loudnorm=I=-14:TP=-1.5:LRA=11",
-         "-ar", "44100", "-ac", "2", out])
+         "-ar", "44100", "-ac", "2", out], input=raw)
 
 
 def check_windows():
@@ -407,9 +455,10 @@ def main():
     if a.music and not os.path.exists(a.music):
         sys.exit(f"music not found: {a.music}")
     music = a.music
-    if music and a.music_start:
-        # Cut the bed to the finished runtime, which depends on the hold
-        # lengths above, so this has to happen once the timeline is known.
+    if music:
+        # Always build the bed when music is given, even with --music-start 0:
+        # the bed is what fades, normalises, and loops the track up to the cut
+        # length. Gating this on a non-zero start silently skipped all of that.
         bed = os.path.join(work, "bed.wav")
         music_bed(music, bed, timeline_total(a.bpm), a.music_start)
         music = bed
@@ -484,10 +533,15 @@ def main():
     cmd += ["-movflags", "+faststart", a.out]
 
     print(f"  {n} scenes + end card, {total:.1f}s -> {a.out}")
-    run(cmd)
-    d = run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
-             "-of", "default=nw=1:nk=1", a.out]).stdout.decode().strip()
-    print(f"  wrote {a.out}  {d}s")
+    try:
+        run(cmd)
+        d = run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=nw=1:nk=1", a.out]).stdout.decode().strip()
+        print(f"  wrote {a.out}  {d}s")
+    finally:
+        # Every render was leaving its intermediate PNGs in the system temp
+        # directory; --work was cleaned up but this was not.
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

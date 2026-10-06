@@ -2,8 +2,8 @@
 
 | File | Size | Use |
 |---|---|---|
-| `syft-promo-9x16.mp4` | 1080×1920, 31.2s | IG Reels, FB Reels, TikTok, Shorts, X |
-| `syft-promo-16x9.mp4` | 1920×1080, 31.2s | YouTube, LinkedIn, X |
+| `syft-promo-9x16.mp4` | 1080×1920, 31.6s | IG Reels, FB Reels, TikTok, Shorts, X |
+| `syft-promo-16x9.mp4` | 1920×1080, 31.6s | YouTube, LinkedIn, X |
 
 30fps H.264 (yuv420p, faststart) with an AAC stereo bed. The two cuts are
 generated from the same scenes, not exported from one another, so each is
@@ -20,12 +20,17 @@ composed for its own aspect.
 | 5 | bot editor — system prompt typed | You write the system prompt. | 2 | 5.8s | 1.2s |
 | 6 | end card | Free to start. $1/mo or $5/mo for more. | 3 | 4.0s | — |
 
+Those are the authored windows. With `--bpm 116` they are quantised up to the
+beat grid, which lands the cuts at 5.69s, 10.86s, 15.52s, 20.69s and 27.41s —
+beats 11, 21, 30, 40 and 53 at that tempo. Each cut is a whole number of
+quarter notes; `plan_timeline()` is what computes them.
+
 Scene order follows the three propositions, not a feature tour. Deliberately absent:
 "the tutor asks questions back", streaks, and one-bot-per-subject — see `ROLLOUT.md`
 §1 "What we stopped leading with".
 
-Cross-faded (0.55s), 0.5s fade in / 0.7s fade out. 31.18s total, cut on
-the beat grid at 102 BPM.
+Cross-faded (0.55s), 0.5s fade in / 0.7s fade out. 31.57s total, cut on
+the beat grid at 116 BPM.
 
 **Every scene holds for 1.2s on its final frame** (`tpad=stop_mode=clone`) before
 the crossfade starts. Cutting the instant an action finished made the payoff frame
@@ -47,27 +52,11 @@ version spelled the name twice, once as a text wordmark and once as the title.
 
 Order matters: the recorder needs the app running, the compositor needs the clips.
 
-The music bed is **not** vendored — it is CC BY 4.0, not public domain, so it does
-not belong in the repo. Fetch it, and keep the copy you ship against:
-
-```bash
-mkdir -p /tmp/opencode/music
-curl -L -o /tmp/opencode/music/Groundwork.mp3 \
-  'https://incompetech.com/music/royalty-free/mp3-royaltyfree/Groundwork.mp3'
-```
-
-Verify you got the track you think you did before trusting the output. The
-in-point in the commands below assumes a bar length of 2.353s (102 BPM), so a
-different file silently lands the music off-beat:
-
-```bash
-ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 \
-  /tmp/opencode/music/Groundwork.mp3    # expect ~169s
-```
-
-Re-check the licence text before every campaign; it is at
-<https://incompetech.com/music/royalty-free/licenses/> and the terms have changed
-before.
+The music bed is **not** vendored — it is a licensed track, so it does not belong in
+the repo. Point `--music` at your copy and pass `--bpm` with its tempo; see
+"Staying in sync with the music" below. If you swap the track, re-measure the
+tempo: `--bpm` is not stored anywhere, and a wrong value puts the cuts between
+beats without failing the build.
 
 ```bash
 # 1. backend seeded and running on :8000, web export built to front/dist.
@@ -81,13 +70,11 @@ python3 scripts/record-promo-clips.py
 
 # 3. both cuts. --bpm snaps every cut to the track's beat grid; see below.
 python3 scripts/make-promo-video.py \
-  --music /tmp/opencode/music/Groundwork.mp3 --music-start 101.2 --bpm 102 \
-  --credit "Groundwork by Kevin MacLeod (incompetech.com) · Licensed under Creative Commons: By Attribution 4.0 · creativecommons.org/licenses/by/4.0/" \
+  --music <track> --bpm 116 \
   -o docs/marketing/1.0.6/video/syft-promo-9x16.mp4
 
 python3 scripts/make-promo-video.py \
-  --music /tmp/opencode/music/Groundwork.mp3 --music-start 101.2 --bpm 102 \
-  --credit "Groundwork by Kevin MacLeod (incompetech.com) · Licensed under Creative Commons: By Attribution 4.0 · creativecommons.org/licenses/by/4.0/" \
+  --music <track> --bpm 116 \
   -o docs/marketing/1.0.6/video/syft-promo-16x9.mp4 \
   --width 1920 --height 1080 --end-url syftlearning.app
 ```
@@ -116,8 +103,8 @@ the cuts land on beats instead of wherever the footage happened to run out. It i
 derived from the tempo you pass, not baked in, so a different track re-times the
 whole cut with no edit to `SCENES`. Without it, durations are used as authored.
 
-This is what makes a Suno track a drop-in later: generate at whatever tempo it
-comes out, pass `--bpm <tempo>`, and the edit follows. Nothing else changes.
+This is what makes a track a drop-in: generate at whatever tempo it comes out,
+pass `--bpm <tempo>`, and the edit follows. Nothing else changes.
 
 The grid is a **quarter note, not a bar**. Snapping to whole bars costs 15-25%
 runtime — 37.6s from a 30.1s cut at 102 BPM — because each scene rounds up by
@@ -129,6 +116,33 @@ is what actually reads as synchronised.
 | bar | 37.6s | +25% |
 | half-bar | 34.1s | +14% |
 | **beat (quarter note)** | **31.2s** | **+4%** |
+
+### Picking the tempo
+
+`--bpm` is passed by hand and nothing validates it, so a wrong value puts cuts
+between beats and the build still succeeds. Two things to check before shipping:
+
+Onset autocorrelation is not enough on its own. This track's candidates were 68
+and 137 (the same pulse), plus 86, 103 and 120 — no clear winner.
+
+Scoring each candidate tempo by how much onset energy actually lands under the
+five cut points is what settled it. Random cut positions score 0.49; 116 BPM
+scored 2.52 with every one of the five cuts positive, against 0.80 for a rounder
+120 BPM. With only five cuts this is noisy, so treat a clear winner as usable and
+a marginal one as not.
+
+Two templates to re-run against a new track:
+
+```python
+# 1. tempo candidates
+flux = onset_strength_envelope(audio)          # STFT -> positive spectral flux
+ac = np.correlate(flux, flux, "full")[len(flux)-1:]
+
+# 2. which candidate actually puts cuts on transients
+for bpm in range(64, 181):
+    cuts = plan_timeline(bpm)[0]
+    score = mean(onset_strength_at(t) for t in cuts)
+```
 
 Only transitions are synced. The interactions inside each scene are screen
 recordings, so a flashcard flip cannot be placed on the snare without
@@ -169,92 +183,46 @@ rather than trimming the clip.
 
 ## The music
 
-The bed is **"Groundwork" by Kevin MacLeod** (incompetech.com), trimmed from 101.2s
-and normalised to −14 LUFS. That is bar 43, where the track's longest stretch of
-full-energy bars begins, so the cut starts on a downbeat with the arrangement
-already up instead of on a sparse intro.
+The bed is a Suno-generated instrumental supplied by the project owner, trimmed
+and normalised to −14 LUFS, cut on its beat grid at **116 BPM**.
 
 ### Licensing — read before publishing
 
-The licence is **CC BY 4.0**. Concretely:
+**This track carries no third-party attribution requirement.** Suno output is
+owned by the account that generated it, so there is nothing to credit in the
+video, the caption or the description. The `--credit` flag is therefore not
+passed for the shipped cuts, and the end card carries no music line.
 
-- **Commercial use is permitted**, including monetised YouTube. Both are explicitly
-  allowed, and the track does not need to be purchased.
-- **Attribution is required**, placed so that "a person who wants to know where the
-  music came more or less should have no difficulty in finding it." For video, in
-  the video itself *or* in the description both qualify.
-- **Trimming does not need disclosing.** He states there is no need to mention cut
-  or splice, which is what `--music-start` does.
-- **It is royalty-free, not public domain.** All of the catalogue is copyrighted.
+The obligation is on the other side and is not optional: Suno's commercial-use
+rights apply to songs generated **while a paid plan is active**, and they are
+not retroactive. A track generated on the free plan stays non-commercial even
+after upgrading. Confirm the track in hand was made on Pro or Premier before it
+ships in a paid campaign.
 
-Use the credit exactly as prescribed:
+That is also why this section exists at all. The previous bed was Kevin MacLeod's
+"Groundwork" under CC BY 4.0, which *did* require attribution — burned into the
+end card, with a matching description credit for YouTube, and a Content ID
+dispute to expect on upload. All of that is gone with the swap, and it is worth
+knowing what it bought: no claim to dispute and no licence text to maintain.
 
-Burned into the end card, and the identical wording goes in the YouTube
-description (`POSTS.md` §A5). Keep them the same -- the burned-in and posted
-credits differing is what makes an auditor distrust the credit:
+If a licensed library track is ever substituted, put the credit back:
 
-```
-Groundwork by Kevin MacLeod (incompetech.com) · Licensed under Creative Commons: By Attribution 4.0 · creativecommons.org/licenses/by/4.0/
-```
-
-The description form wraps onto three lines, which is how it should read there:
-
-```
-Groundwork by Kevin MacLeod (incompetech.com)
-Licensed under Creative Commons: By Attribution 4.0
-https://creativecommons.org/licenses/by/4.0/
+```bash
+--credit "<title> by <author> — <licence> <url>"
 ```
 
-It is burned into the end card via `--credit`, because social captions get truncated
-and a licence condition that depends on the caption surviving is not one to rely on.
+and check whether the source registers with YouTube Content ID. `POSTS.md` §A5
+carries the description-credit wording for that case.
 
-**The YouTube problem, which is not hypothetical.** The catalogue is now
-pre-registered with YouTube Content ID, deliberately, to stop other people falsely
-claiming it. Uploading the Shorts in `POSTS.md` §A5 *will* draw a copyright claim.
-It is released within 72 hours, and much faster, **but only if the credit is already
-in the video description before you dispute it** — a burned-in credit is not
-machine-readable, which is the usual reason the release stalls. Not a strike; ad
-revenue is simply held until it clears. The description credit and the dispute step
-are written into `POSTS.md` §A5 for that reason.
+### Why the track is looped
 
-If the Content ID friction is not worth it, he points at **Pixabay** for
-public-domain music instead, where there is no claim to dispute. Pixabay returns
-403 to scripted requests, so it has to be done by hand.
+This one is 29.97s and the cut is 31.57s, so the bed is looped with a
+crossfaded seam to cover the remainder. A hard butt would be audible — this track
+starts at 49% of peak and finishes at 77%, so it never resolves to silence. The
+crossfade is over 1.2s, and the measured step across the seam is 0.0005 against
+a 0.998 peak.
 
-### Choosing the track
-
-Tracks were scored on the two ways the earlier beds failed — harshness and fatigue:
-
-| Track | BPM | >4kHz | Crest | 1s-RMS CV | |
-|---|---|---|---|---|---|
-| Newer Wave | 110 | 4.3% | 1.75 | 0.23 | hissy, rejected |
-| Look Busy | 100 | 0.5% | 3.18 | 0.40 | uneven, rejected |
-| Happy Alley | 112 | 0.2% | 1.80 | 0.29 | muffled, rejected |
-| Super Friendly | 108 | 0.2% | 3.01 | 0.30 | muffled, rejected |
-| **Groundwork** | 102 | 1.1% | 1.99 | **0.10** | used |
-| Blue Ska | 110 | 1.0% | 1.91 | 0.22 | runner-up, catchier beat |
-| How it Begins | 96 | 0.7% | 2.51 | 0.26 | runner-up, calmest |
-
-Crest factor is what separates a drum you can hear from a dense mix that tires;
-the 1s-RMS coefficient of variation is evenness. Newer Wave carries 4.3% of its
-energy above 4kHz, which is what reads as hiss on a phone speaker, and Look Busy
-swings 40% between adjacent seconds.
-
-Passing `--music-start` makes the script cut the bed to the finished runtime, with
-fades, rather than using the track as-is. Omit it and the file is used directly.
-The tracks are all longer than the cut, so there is no loop seam to hide.
-
-`scripts/make-promo-music.py` still synthesises a bed from scratch and is kept as a
-fallback for when no licensed track is available — it embeds no third-party audio
-at all, so it carries no attribution obligation. But it is a generated groove, not
-a produced track, and it is no longer what ships.
-
-It also takes `--bpm`, so a generated bed can be cut to the grid like any other
-track. `--seed` genuinely varies the output (it reaches the three noise voices);
-before that it was accepted and ignored, producing byte-identical WAVs.
-
-Nothing downstream depends on where the audio came from. The bed measures
-−13.5 LUFS integrated, LRA 1.4 LU on the finished video.
+`loop_to()` does this for any short track, so a future 20s bed would work too.
 
 ## Copy in the video
 

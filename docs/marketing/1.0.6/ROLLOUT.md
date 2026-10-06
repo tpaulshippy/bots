@@ -232,16 +232,19 @@ and crisis detection.
   position, and creates a public claim you must keep true after they change price.
   "Safer than ChatGPT for kids" is not substantiable at all; use the factual
   description instead. Re-verify the $4 anchor before each campaign.
-- **Only claim what is in 1.0.6.** LaTeX/math typesetting is in scope: it merged to
-  `main` after the binary build, but it is pure JavaScript and EAS Update is enabled
-  on the production channel, so it reached users over the air. `WHAT_IS_NEW.md`
-  already advertises it.
-- **When you talk about parent control, be exact.** The parent chooses the
-  notification level — instant on new chat, per message, or a daily digest
-  instead, plus study reminders when cards are due. Study reminders are their own
-  per-device toggle, not a fourth mutually exclusive mode: the switch is disabled
-  while digest-only is on. Do not claim it always notifies; it is a setting, and
-  that is a better story. Likewise: the parent writes the system prompt, and the editor states
+- **Only claim what is in 1.0.6.** LaTeX/math typesetting is in scope, and it may
+  be said publicly: it merged to `main` after the binary build, but it is pure
+  JavaScript and EAS Update is enabled on the production channel, so it reached
+  users over the air. `WHAT_IS_NEW.md` already advertises it on the store page.
+  Do not carry the same claim into a *screenshot* — see the `11-activity.png`
+  note in §2, which is a different problem.
+- **When you talk about parent control, be exact.** These are four independent
+  per-device switches, not a single level you pick from: notify on new chat,
+  notify on each message, daily digest instead, and study reminders when cards
+  are due. New-chat and per-message can be on together. Digest-only is the one
+  that overrides — it disables the other three, replacing the instant pushes
+  with a daily summary rather than duplicating them. Do not claim it always
+  notifies; it is a setting, and that is a better story. Likewise: the parent writes the system prompt, and the editor states
   on screen that baseline safety cannot be removed by it. Both halves of that sentence
   are true and saying them builds trust.
 
