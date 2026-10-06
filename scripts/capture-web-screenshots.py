@@ -118,10 +118,13 @@ def main():
         page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda e: errors.append(f"PAGEERROR {e}"))
 
+        failed = []
         for name, route, scroll in routes:
             url = f"{WEB}{route}"
+            status = None
             try:
-                page.goto(url, wait_until="networkidle", timeout=45000)
+                resp = page.goto(url, wait_until="networkidle", timeout=45000)
+                status = resp.status if resp else None
             except Exception as e:
                 print(f"  {name}: nav warn {str(e)[:70]}")
             page.wait_for_timeout(3500)
@@ -129,11 +132,24 @@ def main():
                 page.evaluate(
                     "() => { const els=[...document.querySelectorAll('*')]"
                     ".filter(e=>e.scrollHeight>e.clientHeight+80);"
-                    "els.forEach(e=>e.scrollTop=e.scrollHeight); }"
+                    ".forEach(e=>e.scrollTop=e.scrollHeight); }"
                 )
                 page.wait_for_timeout(1200)
+            # A failed nav or a non-2xx response still leaves something on screen
+            # -- a 404 page, or the previous route still rendered -- and that
+            # would be saved as a marketing asset. Every PNG in this directory
+            # gets composited into published cards, so refuse rather than
+            # silently shipping an error page.
+            if status is not None and not (200 <= status < 300):
+                print(f"  {name}: SKIPPED, HTTP {status} for {route}")
+                failed.append((name, status))
+                continue
             page.screenshot(path=f"{OUT}/{name}.png")
             print(f"  saved {name}  <- {route}")
+
+        if failed:
+            sys.exit(f"{len(failed)} screenshot(s) failed and were not written: "
+                     + ", ".join(f"{n} (HTTP {s})" for n, s in failed))
 
         browser.close()
         if errors:

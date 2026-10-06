@@ -94,7 +94,7 @@ rules:
 
 ---
 
-### A4 · Sat Oct 3 · 25-second video (IG Reels + FB Reels)
+### A4 · Sat Oct 3 · 31-second video (IG Reels + FB Reels)
 
 **Propositions 1, 2, 3** · **File:** `video/syft-promo-9x16.mp4` (rendered)
 
@@ -112,12 +112,20 @@ Caption:
 
 ### A5 · Sat Oct 3 · YouTube Short (brand channel)
 
-**Propositions 1, 2, 3** · **File:** `video/syft-promo-16x9.mp4` — the cut with
-`syftlearning.app` burned into the end card, because a description link will not do
-this job.
+**Propositions 1, 2, 3** · **File:** `video/syft-promo-9x16.mp4` — the **vertical**
+cut, not the 16:9 one.
 
-Upload as a **Short**. Set "Made for Kids" to **off** (see `ROLLOUT.md` §4 — the
-video is aimed at parents, and ticking it kills comments and notifications).
+Upload as a **Short**, and it must be the 9:16 file: YouTube only classifies an
+upload as a Short when it is square or vertical, so the 16:9 cut uploads as an
+ordinary watchable video and gets none of the Shorts surface. The 16:9 cut is still
+worth posting, but as a normal upload — that is what it is for, and the domain
+burned into its end card is the CTA there.
+
+There is no way to get both: the burned-in domain only exists on the 16:9 cut, and
+the description link does not convert on YouTube. Vertical reach won.
+
+Set "Made for Kids" to **off** (see `ROLLOUT.md` §4 — the video is aimed at
+parents, and ticking it kills comments and notifications).
 
 **Title** (this is search surface, so write it for the query):
 

@@ -70,11 +70,13 @@ Re-check the licence text before every campaign; it is at
 before.
 
 ```bash
-# 1. backend seeded and running on :8000, web export built to front/dist
-#    (see docs/marketing/1.0.6/README.md for the full local setup)
+# 1. backend seeded and running on :8000, web export built to front/dist.
+#    The recorder re-seeds the demo data itself (see "Seeding" below), so
+#    running the seed command by hand is optional -- run it only to inspect the
+#    data by hand. Note the path is relative to the repo root, not back/.
+python3 back/manage.py seed_promo_demo
 
-# 2. record the clips — re-seeds the demo data itself, then writes
-#    /tmp/opencode/clips/*.webm plus actions.json
+# 2. record the clips -> /tmp/opencode/clips/*.webm plus actions.json
 python3 scripts/record-promo-clips.py
 
 # 3. both cuts. --bpm snaps every cut to the track's beat grid; see below.
@@ -90,11 +92,22 @@ python3 scripts/make-promo-video.py \
   --width 1920 --height 1080 --end-url syftlearning.app
 ```
 
-Needs ImageMagick (`convert`), `ffmpeg`, `ffprobe`, the DejaVu fonts, and Python
-with `playwright` + `numpy`. The 16:9 cut is rendered with the domain burned into
-the end card, because YouTube description links barely convert and the end card is
-the only CTA that survives there. The 9:16 cut has no URL — it is wrong on Reels
-and TikTok, where nothing is tappable.
+### Prerequisites
+
+```bash
+pip install playwright numpy     # numpy is not in back/requirements.txt
+python3 -m playwright install chromium   # the package alone does not fetch it
+```
+
+Also needs ImageMagick (`convert`), `ffmpeg`, `ffprobe`, and the DejaVu fonts. The
+`playwright install` step is not optional: installing the Python package does not
+download the browser, and `record-promo-clips.py` fails at
+`BrowserType.launch: Executable doesn't exist` without it.
+
+The 16:9 cut is rendered with the domain burned into the end card, because YouTube
+description links barely convert and the end card is the only CTA that survives
+there. The 9:16 cut has no URL — it is wrong on Reels and TikTok, where nothing is
+tappable.
 
 ## Staying in sync with the music
 
@@ -230,6 +243,10 @@ The tracks are all longer than the cut, so there is no loop seam to hide.
 fallback for when no licensed track is available — it embeds no third-party audio
 at all, so it carries no attribution obligation. But it is a generated groove, not
 a produced track, and it is no longer what ships.
+
+It also takes `--bpm`, so a generated bed can be cut to the grid like any other
+track. `--seed` genuinely varies the output (it reaches the three noise voices);
+before that it was accepted and ignored, producing byte-identical WAVs.
 
 Nothing downstream depends on where the audio came from. The bed measures
 −13.5 LUFS integrated, LRA 1.4 LU on the finished video.

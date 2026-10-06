@@ -71,15 +71,20 @@ They are all still true and still in the app. None of them is the pitch.
 
 ## 3. Timing
 
-**Total spend: about 3 hours, 5 posts, 1 video upload.**
+**Total spend: about 3 hours, 6 posts, 1 video upload.**
+
+Six posts, not five: `POSTS.md` defines A1–A5 and B1–B3, of which A4 and A5 are
+the same video on two platforms. That is 6 feed posts (A1–A3, B1–B3) and 1
+uploaded video shared across Reels and YouTube.
 
 | Day | Date | Proposition | Where | Asset |
 |---|---|---|---|---|
 | Thu | Oct 1 | 1 + 3 — educational, priced | Personal FB, IG, Threads | `parent-flashcards.png` |
-| Thu | Oct 1 | 2 — parent control | Personal LinkedIn, X, Bluesky | `parent-control.png` |
+| Thu | Oct 1 | 2 — parent control | Personal LinkedIn | `parent-control.png` |
+| Thu | Oct 1 | 2 — parent control | Personal X + Bluesky | `og-x-bluesky.png` |
 | Fri | Oct 2 | Mirror of Oct 1 | `@syftlearning` FB, IG, Threads | matching |
 | Sat | Oct 3 | The video, vertical | Personal IG Reels + FB Reels | `video/syft-promo-9x16.mp4` |
-| Sat | Oct 3 | The video as a YouTube Short | Syft Learning YouTube | `video/syft-promo-16x9.mp4` |
+| Sat | Oct 3 | The video as a YouTube Short | Syft Learning YouTube | `video/syft-promo-9x16.mp4` (vertical — see POSTS.md A5) |
 | Wed | Oct 7 | 2 — the system prompt | Personal FB, IG | `parent-control.png` |
 | Wed | Oct 7 | 1 — study materials | Personal LinkedIn, X | `parent-materials.png` |
 | Thu | Oct 8 | Mirror | `@syftlearning` (all) | matching |
@@ -134,10 +139,11 @@ cut as a Short. Three things differ and they decide whether it does anything:
 - **Title and description are search surface.** "free AI tutor for kids" is a real
   query. This upload can still surface in a year.
 
-**Do not start a long-form channel for this.** One 25-second upload, no playlists, no
+**Do not start a long-form channel for this.** One 31-second upload, no playlists, no
 thumbnails to maintain. A kids-app channel that goes quiet is worse than no channel.
 
-**`@syftlearning` (all six)** — same content, posted in parallel. Expect almost no
+**`@syftlearning` (all seven)** — same content, posted in parallel. Seven brand
+surfaces: FB, IG, Threads, LinkedIn, X, Bluesky, YouTube. Expect almost no
 reach. Its job is the permanent record and search indexing.
 
 ---

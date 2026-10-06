@@ -4,8 +4,8 @@
 #
 #   ./scripts/make-marketing-assets.sh
 #
-# Source images are the App Store screenshots captured by
-# scripts/capture-appstore-screenshots.js (demo data only, no real children).
+# Source images are the web captures from scripts/capture-web-screenshots.py
+# (demo data only, no real children), in docs/marketing/1.0.6/screenshots-web.
 # See docs/marketing/1.0.6/assets/README.md for what each image is for.
 #
 # Requires: ImageMagick 6 (`convert`).  Fonts: DejaVu Sans / DejaVu Sans Bold.
@@ -105,7 +105,7 @@ wide() { # <w> <h> <outfile>   -- phones scaled to fit the card height
   local step=$(( (w1 + w2) / 2 - 120 ))
   bg $W $H > "$T/bg.png"
   wordmark > "$T/wm.png"
-  # back to front: 03 (bots) -> 09 (stats) -> 05 (chat)
+  # back to front: 06 (study) -> 08 (materials) -> 10 (bot editor)
   phone "$SRC/06-study.png"       "$h3" 34 > "$T/p3.png"
   phone "$SRC/08-materials.png" "$h2" 34 > "$T/p2.png"
   phone "$SRC/10-bot-editor.png"  "$h1" 34 > "$T/p1.png"
