@@ -70,11 +70,11 @@ python3 scripts/record-promo-clips.py
 
 # 3. both cuts. --bpm snaps every cut to the track's beat grid; see below.
 python3 scripts/make-promo-video.py \
-  --music <track> --bpm 163 \
+  --music <track> --music-start 1.47 --bpm 163 \
   -o docs/marketing/1.0.6/video/syft-promo-9x16.mp4
 
 python3 scripts/make-promo-video.py \
-  --music <track> --bpm 163 \
+  --music <track> --music-start 1.47 --bpm 163 \
   -o docs/marketing/1.0.6/video/syft-promo-16x9.mp4 \
   --width 1920 --height 1080 --end-url syftlearning.app
 ```
@@ -189,8 +189,14 @@ rather than trimming the clip.
 
 ## The music
 
-The bed is a Treblo-generated instrumental supplied by the project owner, used
-from 0s and normalised to −14 LUFS, cut on its beat grid at **163 BPM**.
+The bed is a Treblo-generated instrumental supplied by the project owner, taken
+from **1.47s** and normalised to −14 LUFS, cut on its beat grid at **163 BPM**.
+
+The source is a 33.7s excerpt of a longer Treblo generation. It starts
+mid-phrase — onset strength 0.30 at 0s against 1.41 one bar in — so the bed is
+entered a bar later rather than from the top, which puts the music's first
+downbeat under the video's first frame. Any bar-aligned start preserves "cuts
+land on beats"; this one additionally starts on a real onset.
 
 ### Licensing — read before publishing
 
@@ -238,8 +244,8 @@ See "Picking the tempo" above.
 
 ### Short tracks still work
 
-This one is 104s and the cut is 31.3s, so the bed is taken straight from the top
-and nothing is looped. `loop_to()` remains for the opposite case: a bed shorter
+This one is 33.7s against a 31.3s cut, so the bed is taken straight through and
+nothing is looped. `loop_to()` remains for the opposite case: a bed shorter
 than the cut is repeated with a crossfaded seam, since music that stops while the
 picture is still running is worse than a seam.
 

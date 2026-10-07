@@ -65,14 +65,14 @@ FADE = 0.55
 # retention mechanic, and the third is a feature detail. None of them is what
 # this product is for.
 SCENES = [
-    ("study", 4.6, 4.6, "Cards that come back\nwhen she'll forget them.",
+    ("study", 4.6, 4.6, "Cards that come back\nwhen she forgets them.",
      "Spaced repetition, built in."),
     ("materials", 4.6, 4.4, "The tutor builds study pages\nto come back to.",
      "Made for the student, kept for later."),
     ("activity", 4.6, 3.8, "Every conversation,\nreadable.",
      "Full transcripts for every bot."),
     ("notifications", 4.4, 4.2, "You decide when\nyou're told.",
-     "Straight away, a daily summary, or just study reminders."),
+     "Every chat, every message, or just a daily summary."),
     ("boteditor", 5.4, 5.8, "You write the system prompt.",
      "Make a character, or a subject expert."),
 ]
