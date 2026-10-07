@@ -39,7 +39,7 @@ rules:
 
 ## Track A — parents
 
-### A1 · Thu Oct 1 · Facebook + Instagram + Threads
+### A1 · Wed Oct 7 · 17:00 MST · Facebook + Instagram + Threads
 
 **Propositions 1 + 3** · **Image:** `parent-flashcards.png`
 
@@ -58,7 +58,7 @@ rules:
 
 ---
 
-### A2 · Wed Oct 7 · Facebook + Instagram
+### A2 · Wed Oct 14 · 17:00 MST · Facebook + Instagram
 
 **Proposition 2** · **Image:** `parent-control.png`
 
@@ -79,7 +79,7 @@ rules:
 
 ---
 
-### A3 · Sat Oct 17 · Facebook + Instagram
+### A3 · Sat Oct 17 · 10:00 MST · Facebook + Instagram
 
 **Proposition 3** · **Image:** `parent-flashcards.png`
 
@@ -94,7 +94,7 @@ rules:
 
 ---
 
-### A4 · Sat Oct 3 · 31-second video (IG Reels + FB Reels)
+### A4 · Sat Oct 10 · 11:00 MST · 31-second video (IG Reels + FB Reels)
 
 **Propositions 1, 2, 3** · **File:** `video/syft-promo-9x16.mp4` (rendered)
 
@@ -110,7 +110,7 @@ Caption:
 
 ---
 
-### A5 · Sat Oct 3 · YouTube Short (brand channel)
+### A5 · Sat Oct 10 · 09:00 MST · YouTube Short (brand channel)
 
 **Propositions 1, 2, 3** · **File:** `video/syft-promo-9x16.mp4` — the **vertical**
 cut, not the 16:9 one.
@@ -162,7 +162,7 @@ free ai tutor, ai for parents, revision app
 
 ## Track B — builders
 
-### B1 · Thu Oct 1 · LinkedIn
+### B1 · Wed Oct 7 · 07:00 MST · LinkedIn
 
 **Proposition 2** · **Image:** `parent-control.png` · **Link in the first comment,
 not the body.**
@@ -191,7 +191,7 @@ not the body.**
 
 ---
 
-### B2 · Thu Oct 1 · X (thread) + Bluesky (single post)
+### B2 · Wed Oct 7 · 08:30 MST · X (thread) + Bluesky (single post)
 
 **Propositions 1 + 2** · **Image:** `og-x-bluesky.png`
 
@@ -213,7 +213,7 @@ Bluesky, single post (300 char limit):
 
 ---
 
-### B3 · Wed Oct 7 · LinkedIn + X
+### B3 · Wed Oct 14 · 07:00 and 08:30 MST · LinkedIn + X
 
 **Proposition 1** · **Image:** `parent-materials.png` · **Link in the LinkedIn first
 comment.**

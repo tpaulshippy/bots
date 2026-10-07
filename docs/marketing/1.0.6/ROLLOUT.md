@@ -89,6 +89,15 @@ future dates at the time of the rewrite and are used below.
 [`rollout-schedule.ics`](rollout-schedule.ics) — it carries the same 15 entries
 with reminders, so nothing has to be transcribed.
 
+The date lives in three places: these headers in `POSTS.md`, the table above, and
+the calendar. They are edited separately, so they drift — the October reschedule
+moved the table and the calendar but left the `POSTS.md` headers on October 1 and
+3. Run this after touching any of them:
+
+```bash
+python3 scripts/check-rollout-schedule.py
+```
+
 | Day | Date | MST | ET | Proposition | Where | Asset |
 |---|---|---|---|---|---|---|
 | Wed | Oct 7 | 07:00 | 10:00 | 2 — parent control | Personal LinkedIn | `parent-control.png` |
