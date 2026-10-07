@@ -43,9 +43,7 @@ rules:
 
 **Propositions 1 + 3** · **Image:** `parent-flashcards.png`
 
-> The part I didn't expect: my kid revising with an app instead of a textbook.
->
-> Syft Learning builds the flashcards for her. She rates each card — Again, Hard,
+> Syft Learning can now build flashcards for my daughter. She can rate each card — Again, Hard,
 > Good, Easy — and it decides what comes back and when. Cards she's solid on stop
 > showing up. Cards she keeps getting wrong come back later the same day.
 >
@@ -62,18 +60,15 @@ rules:
 
 **Proposition 2** · **Image:** `parent-control.png`
 
-> I write the system prompt. That's the whole trick.
+> I customize the system prompt. So I have full control.
 >
-> I have a science bot that explains things with kitchen analogies, and a story
-> character that will only talk to my daughter in character. I typed both. The app
-> lets me set the model's rules directly, so the tutor is mine, not a stranger's.
+> I can have a science bot that explains things with kitchen analogies, and a story
+> character that will only talk to my daughter in character. The app
+> lets me set the model's rules directly, so the tutor is mine, customized for my family's needs.
 >
-> And the other half matters just as much: I can read every conversation, word for
-> word, and choose when I get told about them — straight away, once a day, or only
-> when flashcards are due.
+> And just as important: I can read every conversation, word for
+> word, and choose when I get told about them — every message, every conversation, or a summary once a day
 >
-> The editor even says outright that my custom prompt can't switch off the safety
-> filters. I liked that it told me.
 >
 > Free to start. ⟪LINK⟫
 
@@ -83,14 +78,13 @@ rules:
 
 **Proposition 3** · **Image:** `parent-flashcards.png`
 
-> The honest breakdown on price, because it came up in the DMs.
+> The honest breakdown on price, because it is one of the key reasons I started the app.
 >
 > Syft Learning is free to start — a real free tier, not a trial that expires. When
 > you outgrow it it's $1 a month, or $5 if you're using it heavily across a couple of
 > kids.
 >
-> Other AI tutor bots start at $4 a month. I'd rather tell you the number than have
-> you find it at checkout. ⟪LINK⟫
+> Other AI tutor bots start at $4 a month. Try Syft! ⟪LINK⟫
 
 ---
 
@@ -179,9 +173,8 @@ not the body.**
 > transcript, with safety events surfaced separately.
 >
 > Notification preferences are per device, and they are switches rather than one
-> dial: on new chat, on each message, a nudge when flashcards are due, or a daily
-> digest instead of the lot. Digest mode replaces the instant pushes rather than
-> duplicating them, and pauses the study nudge while it is on.
+> dial: on new chat, on each message, or a daily
+> digest instead of the lot. 
 >
 > Free tier, $1/mo, $5/mo. Other AI tutor bots start at $4/month.
 >
