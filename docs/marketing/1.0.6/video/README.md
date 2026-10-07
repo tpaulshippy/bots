@@ -137,6 +137,19 @@ When the two disagree, trust the autocorrelation. Use the cut-point score only t
 confirm a clear winner — where it puts every cut above zero and well clear of the
 random baseline — and treat a marginal one as undecided.
 
+Or just run the scorer, which does all of this and reports a verdict:
+
+```bash
+python3 scripts/score-track.py candidate.mp3          # it picks the tempo
+python3 scripts/score-track.py candidate.mp3 --bpm 100  # or you decide
+```
+
+It reads the scene table out of `make-promo-video.py`, so the cut positions it
+checks are the ones a render would really use — move `HOLD` or the tempo and this
+follows. It will also tell you when `--bpm` you passed matches neither the
+measured pulse nor its half or double, which is the failure that builds cleanly
+and still cuts every scene between beats.
+
 Two templates to re-run against a new track:
 
 ```python
