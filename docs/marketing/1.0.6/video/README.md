@@ -2,8 +2,8 @@
 
 | File | Size | Use |
 |---|---|---|
-| `syft-promo-9x16.mp4` | 1080×1920, 31.6s | IG Reels, FB Reels, TikTok, Shorts, X |
-| `syft-promo-16x9.mp4` | 1920×1080, 31.6s | YouTube, LinkedIn, X |
+| `syft-promo-9x16.mp4` | 1080×1920, 31.3s | IG Reels, FB Reels, TikTok, Shorts, X |
+| `syft-promo-16x9.mp4` | 1920×1080, 31.3s | YouTube, LinkedIn, X |
 
 30fps H.264 (yuv420p, faststart) with an AAC stereo bed. The two cuts are
 generated from the same scenes, not exported from one another, so each is
@@ -20,17 +20,17 @@ composed for its own aspect.
 | 5 | bot editor — system prompt typed | You write the system prompt. | 2 | 5.8s | 1.2s |
 | 6 | end card | Free to start. $1/mo or $5/mo for more. | 3 | 4.0s | — |
 
-Those are the authored windows. With `--bpm 116` they are quantised up to the
-beat grid, which lands the cuts at 5.69s, 10.86s, 15.52s, 20.69s and 27.41s —
-beats 11, 21, 30, 40 and 53 at that tempo. Each cut is a whole number of
+Those are the authored windows. With `--bpm 163` they are quantised up to the
+beat grid, which lands the cuts at 5.52s, 10.67s, 15.46s, 20.61s and 27.24s —
+beats 15, 29, 42, 56 and 74 at that tempo. Each cut is a whole number of
 quarter notes; `plan_timeline()` is what computes them.
 
 Scene order follows the three propositions, not a feature tour. Deliberately absent:
 "the tutor asks questions back", streaks, and one-bot-per-subject — see `ROLLOUT.md`
 §1 "What we stopped leading with".
 
-Cross-faded (0.55s), 0.5s fade in / 0.7s fade out. 31.57s total, cut on
-the beat grid at 116 BPM.
+Cross-faded (0.55s), 0.5s fade in / 0.7s fade out. 31.29s total, cut on
+the beat grid at 163 BPM.
 
 **Every scene holds for 1.2s on its final frame** (`tpad=stop_mode=clone`) before
 the crossfade starts. Cutting the instant an action finished made the payoff frame
@@ -70,11 +70,11 @@ python3 scripts/record-promo-clips.py
 
 # 3. both cuts. --bpm snaps every cut to the track's beat grid; see below.
 python3 scripts/make-promo-video.py \
-  --music <track> --bpm 116 \
+  --music <track> --bpm 163 \
   -o docs/marketing/1.0.6/video/syft-promo-9x16.mp4
 
 python3 scripts/make-promo-video.py \
-  --music <track> --bpm 116 \
+  --music <track> --bpm 163 \
   -o docs/marketing/1.0.6/video/syft-promo-16x9.mp4 \
   --width 1920 --height 1080 --end-url syftlearning.app
 ```
@@ -122,14 +122,20 @@ is what actually reads as synchronised.
 `--bpm` is passed by hand and nothing validates it, so a wrong value puts cuts
 between beats and the build still succeeds. Two things to check before shipping:
 
-Onset autocorrelation is not enough on its own. This track's candidates were 68
-and 137 (the same pulse), plus 86, 103 and 120 — no clear winner.
+**Autocorrelation is the primary measure.** Restrict it to the strongest few
+percent of onsets — kick and snare rather than hats — and a real tempo usually
+separates cleanly from its own half- or double-time. On the current track that
+gives 163 BPM at 1.000 against 81 at 0.542.
 
-Scoring each candidate tempo by how much onset energy actually lands under the
-five cut points is what settled it. Random cut positions score 0.49; 116 BPM
-scored 2.52 with every one of the five cuts positive, against 0.80 for a rounder
-120 BPM. With only five cuts this is noisy, so treat a clear winner as usable and
-a marginal one as not.
+A secondary check scores each candidate by how much onset energy lands under the
+five cut points. It is worth running, and worth distrusting: on the current track
+it scores 79 BPM at 3.09 and 80 BPM at 0.34, which cannot both be true of
+neighbouring tempos. Five cut points is a sample too small to discriminate, and a
+one-BPM difference moving the score tenfold is a warning sign, not a result.
+
+When the two disagree, trust the autocorrelation. Use the cut-point score only to
+confirm a clear winner — where it puts every cut above zero and well clear of the
+random baseline — and treat a marginal one as undecided.
 
 Two templates to re-run against a new track:
 
@@ -183,60 +189,73 @@ rather than trimming the clip.
 
 ## The music
 
-The bed is a Suno-generated instrumental supplied by the project owner, trimmed
-and normalised to −14 LUFS, cut on its beat grid at **116 BPM**.
+The bed is a Treblo-generated instrumental supplied by the project owner, used
+from 0s and normalised to −14 LUFS, cut on its beat grid at **163 BPM**.
 
 ### Licensing — read before publishing
 
-**This track carries no third-party attribution requirement.** Suno output is
-owned by the account that generated it, so there is nothing to credit in the
-video, the caption or the description. The `--credit` flag is therefore not
-passed for the shipped cuts, and the end card carries no music line.
+**No attribution is required and no third-party claim is expected.** Treblo output
+is supplied as unrestricted for commercial use, so `--credit` is not passed for
+the shipped cuts and the end card carries no music line.
 
-The obligation is on the other side and is not optional: Suno's commercial-use
-rights apply to songs generated **while a paid plan is active**, and they are
-not retroactive. A track generated on the free plan stays non-commercial even
-after upgrading. Confirm the track in hand was made on Pro or Premier before it
-ships in a paid campaign.
+Unlike the Suno track this replaced, there is no paid-plan condition to check:
+those rights were not retroactive, so a track generated on a free plan stayed
+non-commercial even after upgrading. Nothing here depends on which plan the
+generating account was on.
 
-That is also why this section exists at all. The previous bed was Kevin MacLeod's
-"Groundwork" under CC BY 4.0, which *did* require attribution — burned into the
-end card, with a matching description credit for YouTube, and a Content ID
-dispute to expect on upload. All of that is gone with the swap, and it is worth
-knowing what it bought: no claim to dispute and no licence text to maintain.
+Two earlier beds, and what each cost:
 
-If a licensed library track is ever substituted, put the credit back:
+**Kevin MacLeod, "Groundwork" (CC BY 4.0).** Required attribution — burned into
+the end card, with a matching description credit for YouTube — and his catalogue
+is pre-registered with Content ID, so the Shorts upload drew a claim to dispute.
+Real cost in maintenance and in ad revenue held until it cleared.
+
+**A Suno instrumental.** No attribution and no claim, but commercial rights apply
+only to songs generated while a paid plan was active, and not retroactively.
+
+If a licensed library track is ever substituted, put the credit back and check
+whether the source registers with Content ID:
 
 ```bash
 --credit "<title> by <author> — <licence> <url>"
 ```
 
-and check whether the source registers with YouTube Content ID. `POSTS.md` §A5
-carries the description-credit wording for that case.
+`POSTS.md` §A5 carries description-credit wording for that case.
 
-### Why the track is looped
+### Why the tempo is 163 and not 81
 
-This one is 29.97s and the cut is 31.57s, so the bed is looped with a
-crossfaded seam to cover the remainder. A hard butt would be audible — this track
-starts at 49% of peak and finishes at 77%, so it never resolves to silence. The
-crossfade is over 1.2s. Verified with a DC test — a buffer that is 1.0 for the
-first half and 0.0 for the second, where any seam must ramp: the step across the
-seam was 1.000 before the fix and 0.000 after. On the shipped track the worst
-step across two seams is 0.0298 against a 0.9975 peak.
+Autocorrelation on the full onset envelope gives 163 BPM at 0.976 strength, with
+81 as its half-time at 0.541 — the same pulse, felt at half speed. Restricting to
+the strongest 3% of onsets (kick and snare rather than hats) settles it: 163
+scores 1.000 and 81 still 0.542.
 
-The blend is applied to the **end** of the cycle so it meets the start of the
-next one. Crossfading the head instead leaves the joins between repeats as raw
-`src[-1] -> src[0]`, which is the discontinuity the crossfade exists to remove —
-and it still measures clean if you sample in the wrong place, which is how the
-first version of this passed.
+The five-cut alignment metric that settled the previous track is *not* reliable
+enough to choose between them. On this track it scores 79 BPM at 3.09 and 80 BPM
+at 0.34 — a one-BPM difference producing a tenfold gap, which is not a real
+signal. Where the two methods disagree this strongly, trust the autocorrelation:
+it uses every onset, while five cut points is a sample too small to discriminate.
+See "Picking the tempo" above.
 
-`loop_to()` does this for any short track, so a future 20s bed would work too.
+### Short tracks still work
+
+This one is 104s and the cut is 31.3s, so the bed is taken straight from the top
+and nothing is looped. `loop_to()` remains for the opposite case: a bed shorter
+than the cut is repeated with a crossfaded seam, since music that stops while the
+picture is still running is worse than a seam.
+
+If you use it, crossfade the **end** of the cycle so it meets the start of the
+next one. Crossfading the head leaves the joins between repeats as raw
+`src[-1] -> src[0]` — the discontinuity the crossfade exists to remove — and it
+still measures clean if you sample in the wrong place, which is how the first
+version of this passed. A DC test catches it: a buffer that is 1.0 for the first
+half and 0.0 for the second must ramp across the seam, and it went from a step of
+1.000 to 0.000 once the blend moved.
 
 ### The synthesised fallback
 
 `scripts/make-promo-music.py` still generates a bed from scratch and embeds no
 third-party audio, so it carries no attribution obligation. It is **not what
-ships** — the Suno track above is — but it is the fallback when no licensed track
+ships** — the Treblo track above is — but it is the fallback when no licensed track
 is available.
 
 Two things to know before using it, both of which have bitten a draft here:

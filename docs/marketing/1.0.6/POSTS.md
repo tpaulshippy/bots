@@ -135,15 +135,14 @@ parents, and ticking it kills comments and notifications).
 >
 > syftlearning.app
 
-**No music credit is needed in the description.** The bed is a Suno-generated
-instrumental, which carries no third-party attribution requirement, and no
-Content ID claim is expected. The previous library track did require both — see
-`video/README.md` § "The music" for what to restore if a licensed library track
-is ever substituted.
+**No music credit is needed in the description, and no Content ID claim is
+expected.** The bed is a Treblo-generated instrumental supplied as unrestricted
+for commercial use, so there is nothing to attribute.
 
-Before this ships commercially, confirm the track was generated while a paid
-Suno plan was active: those rights are not retroactive, so a track made on the
-free plan stays non-commercial.
+There is also no plan condition to check, which the previous Suno bed did have:
+those rights applied only to tracks generated while a paid plan was active and
+were not retroactive. If a licensed library track is ever substituted, the credit
+and dispute steps come back — see `video/README.md` § "The music".
 
 **Pinned comment:**
 
