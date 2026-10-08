@@ -2,8 +2,8 @@
 
 | File | Size | Use |
 |---|---|---|
-| `syft-promo-9x16.mp4` | 1080×1920, 31.3s | IG Reels, FB Reels, TikTok, Shorts, X |
-| `syft-promo-16x9.mp4` | 1920×1080, 31.3s | YouTube, LinkedIn, X |
+| `syft-promo-9x16.mp4` | 1080×1920, 31.6s | IG Reels, FB Reels, TikTok, Shorts, X |
+| `syft-promo-16x9.mp4` | 1920×1080, 31.6s | YouTube, LinkedIn, X |
 
 30fps H.264 (yuv420p, faststart) with an AAC stereo bed. The two cuts are
 generated from the same scenes, not exported from one another, so each is
@@ -20,9 +20,9 @@ composed for its own aspect.
 | 5 | bot editor — system prompt typed | You write the system prompt. | 2 | 5.8s | 1.2s |
 | 6 | end card | Free to start. $1/mo or $5/mo for more. | 3 | 4.0s | — |
 
-Those are the authored windows. With `--bpm 163` they are quantised up to the
-beat grid, which lands the cuts at 5.52s, 10.67s, 15.46s, 20.61s and 27.24s —
-beats 15, 29, 42, 56 and 74 at that tempo. Each cut is a whole number of
+Those are the authored windows. With `--bpm 152` they are quantised up to the
+beat grid, which lands the cuts at 5.53s, 10.66s, 15.39s, 20.53s and 27.24s —
+beats 14, 27, 39, 52 and 69 at that tempo. Each cut is a whole number of
 quarter notes; `plan_timeline()` is what computes them.
 
 Scene order follows the three propositions, not a feature tour. Deliberately absent:
@@ -30,7 +30,7 @@ Scene order follows the three propositions, not a feature tour. Deliberately abs
 §1 "What we stopped leading with".
 
 Cross-faded (0.55s), 0.5s fade in / 0.7s fade out. 31.29s total, cut on
-the beat grid at 163 BPM.
+the beat grid at 152 BPM.
 
 **Every scene holds for 1.2s on its final frame** (`tpad=stop_mode=clone`) before
 the crossfade starts. Cutting the instant an action finished made the payoff frame
@@ -202,14 +202,15 @@ rather than trimming the clip.
 
 ## The music
 
-The bed is a Treblo-generated instrumental supplied by the project owner, taken
-from **1.47s** and normalised to −14 LUFS, cut on its beat grid at **163 BPM**.
+The bed is a second Treblo-generated instrumental supplied by the project owner,
+taken from **18.95s** and normalised to −14 LUFS, cut on its beat grid at
+**152 BPM**.
 
-The source is a 33.7s excerpt of a longer Treblo generation. It starts
-mid-phrase — onset strength 0.30 at 0s against 1.41 one bar in — so the bed is
-entered a bar later rather than from the top, which puts the music's first
-downbeat under the video's first frame. Any bar-aligned start preserves "cuts
-land on beats"; this one additionally starts on a real onset.
+The source is 132.7s, so no looping is needed. It opens mid-phrase — onset
+strength −0.32 at 0s against 4.19 at bar 12 — so the bed is entered there rather
+than from the top, which puts a real onset under the video's first frame. Any
+bar-aligned start preserves "cuts land on beats"; this one additionally starts
+on one.
 
 ### Licensing — read before publishing
 
@@ -241,12 +242,17 @@ whether the source registers with Content ID:
 
 `POSTS.md` §A5 carries description-credit wording for that case.
 
-### Why the tempo is 163 and not 81
+### Why the tempo is 152 and not 75
 
-Autocorrelation on the full onset envelope gives 163 BPM at 0.976 strength, with
-81 as its half-time at 0.541 — the same pulse, felt at half speed. Restricting to
-the strongest 3% of onsets (kick and snare rather than hats) settles it: 163
-scores 1.000 and 81 still 0.542.
+Autocorrelation on the strongest 3% of onsets gives 152 BPM at 0.969 against
+0.736 for its half-time at 75 — a clear read, and the 152-vs-153 comparison
+collapses to 0.025, so the tempo is precise to the BPM. The previous bed was
+settled the same way (163 at 1.000 against 0.542 for 81).
+
+A note on what 75 would have meant: it is the same pulse at half speed, so cuts
+on a 75 grid still land on real downbeats, just spaced wider apart. It would
+have been musically valid but a different edit — slower breathing, longer holds.
+152 was chosen because the strong-onset evidence is decisive, not close.
 
 The five-cut alignment metric that settled the previous track is *not* reliable
 enough to choose between them. On this track it scores 79 BPM at 3.09 and 80 BPM
@@ -257,8 +263,9 @@ See "Picking the tempo" above.
 
 ### Short tracks still work
 
-This one is 33.7s against a 31.3s cut, so the bed is taken straight through and
-nothing is looped. `loop_to()` remains for the opposite case: a bed shorter
+The previous bed was a 33.7s excerpt against a 31.3s cut, taken straight through
+with nothing looped. This one is 132.7s against a 31.6s cut — also straight
+through, from the 18.95s in-point. `loop_to()` remains for the opposite case: a bed shorter
 than the cut is repeated with a crossfaded seam, since music that stops while the
 picture is still running is worse than a seam.
 
