@@ -176,8 +176,8 @@ square() {
 # parent control, price. They deliberately do NOT lead with "the tutor asks
 # questions back", streaks, or one-bot-per-subject.
 card45 "$SRC/06-study.png" \
-  "Cards that come back when she'll forget them." \
-  "Spaced repetition, so revision lands when it matters." \
+  "Cards that come back when she forgets them." \
+  "Spaced repetition, built in." \
   "$OUT/parent-flashcards.png"
 
 card45 "$SRC/08-materials.png" \
