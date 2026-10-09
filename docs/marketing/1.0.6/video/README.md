@@ -2,8 +2,8 @@
 
 | File | Size | Use |
 |---|---|---|
-| `syft-promo-9x16.mp4` | 1080×1920, 31.6s | IG Reels, FB Reels, TikTok, Shorts, X |
-| `syft-promo-16x9.mp4` | 1920×1080, 31.6s | YouTube, LinkedIn, X |
+| `syft-promo-9x16.mp4` | 1080×1920, 31.4s | IG Reels, FB Reels, TikTok, Shorts, X |
+| `syft-promo-16x9.mp4` | 1920×1080, 31.4s | YouTube, LinkedIn, X |
 
 30fps H.264 (yuv420p, faststart) with an AAC stereo bed. The two cuts are
 generated from the same scenes, not exported from one another, so each is
@@ -20,9 +20,9 @@ composed for its own aspect.
 | 5 | bot editor — system prompt typed | You write the system prompt. | 2 | 5.8s | 1.2s |
 | 6 | end card | Free to start. $1/mo or $5/mo for more. | 3 | 4.0s | — |
 
-Those are the authored windows. With `--bpm 152` they are quantised up to the
-beat grid, which lands the cuts at 5.53s, 10.66s, 15.39s, 20.53s and 27.24s —
-beats 14, 27, 39, 52 and 69 at that tempo. Each cut is a whole number of
+Those are the authored windows. With `--bpm 132` they are quantised up to the
+beat grid, which lands the cuts at 5.45s, 10.91s, 15.45s, 20.45s and 27.27s —
+beats 12, 24, 34, 45 and 60 at that tempo. Each cut is a whole number of
 quarter notes; `plan_timeline()` is what computes them.
 
 Scene order follows the three propositions, not a feature tour. Deliberately absent:
@@ -30,7 +30,7 @@ Scene order follows the three propositions, not a feature tour. Deliberately abs
 §1 "What we stopped leading with".
 
 Cross-faded (0.55s), 0.5s fade in / 0.7s fade out. 31.29s total, cut on
-the beat grid at 152 BPM.
+the beat grid at 132 BPM.
 
 **Every scene holds for 1.2s on its final frame** (`tpad=stop_mode=clone`) before
 the crossfade starts. Cutting the instant an action finished made the payoff frame
@@ -202,15 +202,15 @@ rather than trimming the clip.
 
 ## The music
 
-The bed is a second Treblo-generated instrumental supplied by the project owner,
-taken from **18.95s** and normalised to −14 LUFS, cut on its beat grid at
-**152 BPM**.
+The bed is a third Treblo-generated instrumental supplied by the project owner,
+taken **from the top** and normalised to −14 LUFS, cut on its beat grid at
+**132 BPM**.
 
-The source is 132.7s, so no looping is needed. It opens mid-phrase — onset
-strength −0.32 at 0s against 4.19 at bar 12 — so the bed is entered there rather
-than from the top, which puts a real onset under the video's first frame. Any
-bar-aligned start preserves "cuts land on beats"; this one additionally starts
-on one.
+The source is 144.9s, so no looping is needed. The first 30 seconds are the
+quieter opening section — RMS sits 19–24 dB below peak until a swell starts at
+~30s, which lands just as the end card arrives. That swell-into-the-price-reveal
+is inherent to the requested section, not a mixing choice; if it fights the
+fade, the fix is a different in-point, not more gain riding.
 
 ### Licensing — read before publishing
 
