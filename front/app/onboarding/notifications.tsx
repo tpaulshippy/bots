@@ -212,12 +212,12 @@ export default function OnboardingNotifications() {
         // is already used by another profile). Nothing was saved — stay on
         // this step and say so, pointing back at Step 2 where the email
         // lives. The stack keeps the earlier steps' inputs intact.
-        setSaving(false);
         const fieldError = response
           ? fieldMessage(response.data, "studentEmail") ??
             fieldMessage(response.data, "profileName")
           : null;
         if (fieldError) {
+          setSaving(false);
           setSaveError(
             `${fieldError} Use the back arrow to fix it in Step 2 — your other choices are kept.`
           );
@@ -227,11 +227,21 @@ export default function OnboardingNotifications() {
           // apiClient) gets a guided exit instead of a generic error.
           // The server detail is "Onboarding is completed by the parent
           // account." — no Sentry noise for this expected denial.
-          let teen = false;
-          try {
-            teen = await isTeenDelegatedSession();
-          } catch {
-            teen = false;
+          // Trust the server body as well as the local session lookup so a
+          // client-side token read/decode failure can't misreport the
+          // expected teen denial as an error. Keep `saving` enabled while
+          // the lookup runs so a second tap can't issue a duplicate
+          // bootstrap.
+          const serverDetail = (response.data as { detail?: unknown } | null)?.detail;
+          const serverSaysTeen =
+            serverDetail === "Onboarding is completed by the parent account.";
+          let teen = serverSaysTeen;
+          if (!teen) {
+            try {
+              teen = await isTeenDelegatedSession();
+            } catch {
+              teen = false;
+            }
           }
           if (teen) {
             Alert.alert(
@@ -240,6 +250,7 @@ export default function OnboardingNotifications() {
             );
             router.replace("/chat" as never);
           } else {
+            setSaving(false);
             Sentry.captureException?.(
               new Error(`Onboarding bootstrap failed (403)`)
             );
@@ -249,6 +260,7 @@ export default function OnboardingNotifications() {
             );
           }
         } else {
+          setSaving(false);
           Sentry.captureException?.(
             new Error(
               `Onboarding bootstrap failed (${response?.status ?? "offline"})`

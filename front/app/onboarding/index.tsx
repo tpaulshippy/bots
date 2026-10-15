@@ -22,7 +22,8 @@ export default function OnboardingWelcome() {
     let active = true;
     (async () => {
       try {
-        if (active && (await isTeenDelegatedSession())) {
+        const teen = await isTeenDelegatedSession();
+        if (active && teen) {
           router.replace("/chat" as never);
         }
       } catch {
