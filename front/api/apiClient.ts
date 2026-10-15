@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react-native";
-import { getTokens, setTokens, TokenData } from "./tokens";
+import { decodeJwtPayload, getTokens, setTokens, TokenData } from "./tokens";
 import { getParentSession } from "./pinStorage";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -18,10 +18,13 @@ export class UnauthorizedError extends Error {
     }
 }
 
-export class ForbiddenError extends Error {
-    constructor() {
+export class ForbiddenError<T = unknown> extends Error {
+    status = 403;
+    data: T | null;
+    constructor(data: T | null = null) {
         super('Forbidden');
         this.name = 'ForbiddenError';
+        this.data = data;
     }
 }
 
@@ -125,7 +128,7 @@ export const apiClient = async <T>(
         }
 
         if (response.status === 403) {
-            throw new ForbiddenError();
+            throw new ForbiddenError(response.data);
         }
 
         if (options.method === 'DELETE') {
@@ -165,8 +168,34 @@ export const refreshWithRefreshToken = async (tokens: TokenData | null) => {
     const text = await response.text();
     const refreshedTokens = JSON.parse(text);
 
+    // The refreshed access token inherits the teen-delegation claims
+    // server-side (SimpleJWT copies custom claims on refresh), so the stored
+    // session flag must be preserved. Dropping it misclassifies a teen as a
+    // parent: the onboarding gate then routes them into the wizard and the
+    // bootstrap 403s (Sentry: "Onboarding bootstrap failed (403)").
+    // Prefer the fresh JWT's own claims, falling back to the previous flags
+    // so legacy/odd tokens never widen access by accident.
+    let isTeenDelegated = tokens.isTeenDelegated;
+    let activeProfileId = tokens.activeProfileId;
+    try {
+        const payload = decodeJwtPayload(refreshedTokens.access);
+        if (payload?.is_teen_delegated === true) {
+            isTeenDelegated = true;
+            const claimed = payload?.active_profile_id;
+            activeProfileId =
+                typeof claimed === "string" ? claimed : (activeProfileId ?? null);
+        } else if (payload && "is_teen_delegated" in payload) {
+            isTeenDelegated = false;
+            activeProfileId = null;
+        }
+    } catch {
+        // Keep the previous flags.
+    }
+
     await setTokens({
         access: refreshedTokens.access,
         refresh: tokens.refresh,
+        isTeenDelegated,
+        activeProfileId,
     });
 };
