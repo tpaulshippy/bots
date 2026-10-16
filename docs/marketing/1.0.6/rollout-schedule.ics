@@ -1,0 +1,263 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Syft Learning//Marketing 1.0.6 rollout//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Syft Learning 1.0.6 rollout
+X-WR-TIMEZONE:America/Phoenix
+BEGIN:VTIMEZONE
+TZID:America/Phoenix
+X-LIC-LOCATION:America/Phoenix
+BEGIN:STANDARD
+DTSTART:19700101T000000
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0700
+TZNAME:MST
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:2bf601934f636405@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261007T070000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — B1 · LinkedIn (prop 2: parent control)
+DESCRIPTION:Personal LinkedIn. Image: parent-control.png. Link in first com
+ ment. 07:00 MST = 10:00 ET. LinkedIn peaks 08:00-09:30 ET\; this is a stro
+ ng-window slot an hour past the peak. Copy: POSTS.md B1.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — B1 · LinkedIn (prop 2: parent control)
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:42d270e64800ebce@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261007T083000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — B2 · X thread + Bluesky (prop 2)
+DESCRIPTION:Personal X and Bluesky. Image: og-x-bluesky.png. Late morning E
+ T. Copy: POSTS.md B2.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — B2 · X thread + Bluesky (prop 2)
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:5a1dbcfd042bb2bf@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261007T170000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — A1 · FB + IG + Threads (props 1 + 3)
+DESCRIPTION:Personal Facebook\, Instagram\, Threads. Image: parent-flashcar
+ ds.png. 5pm MST = 8pm ET\, weekday-evening parent window. Threads cross-po
+ sts the IG caption. Copy: POSTS.md A1.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT60M
+DESCRIPTION:Syft 1.0.6 — A1 · FB + IG + Threads (props 1 + 3)
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:94885929791a9cc7@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261008T070000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror B1 to @syftlearning LinkedIn
+DESCRIPTION:Brand LinkedIn. Same content and asset as the personal B1 post 
+ (Oct 7). Low reach expected\; this is the permanent record and search inde
+ xing.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror B1 to @syftlearning LinkedIn
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:e6ed3e64b88e691e@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261008T083000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror B2 to @syftlearning X + Bluesky
+DESCRIPTION:Brand X and Bluesky. Same content and asset as the personal B2 
+ post (Oct 7).
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror B2 to @syftlearning X + Bluesky
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:1b09e17a5d1346ac@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261008T090000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror A1 to @syftlearning FB\, IG\, Threads
+DESCRIPTION:Brand Facebook\, Instagram\, Threads. Same content and asset as
+  the personal A1 post (Oct 7).
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror A1 to @syftlearning FB\, IG\, Threads
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:6cf2986632d8eed4@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261010T090000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — A5 · YouTube Short
+DESCRIPTION:Syft Learning YouTube. File: syft-promo-9x16.mp4 (VERTICAL - a 
+ 16:9 upload is not classified as a Short). Set Made for Kids OFF. No music
+  credit needed. Copy: POSTS.md A5.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT60M
+DESCRIPTION:Syft 1.0.6 — A5 · YouTube Short
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:5ffaf8608a51f57a@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261010T110000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — A4 · IG Reels + FB Reels
+DESCRIPTION:Personal. File: syft-promo-9x16.mp4. Saturday late morning. Cop
+ y: POSTS.md A4.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT60M
+DESCRIPTION:Syft 1.0.6 — A4 · IG Reels + FB Reels
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:1fae8ffeeb5d8e16@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261014T070000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — B3 · LinkedIn (prop 1: study materials)
+DESCRIPTION:Personal LinkedIn. Image: parent-materials.png. The LinkedIn ha
+ lf of the B3 pair\; X goes out at 08:30. Copy: POSTS.md B3.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — B3 · LinkedIn (prop 1: study materials)
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:249913158d7274ae@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261014T083000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — B3 · X (prop 1: study materials)
+DESCRIPTION:Personal X. Image: parent-materials.png. The X half of the B3 p
+ air\; LinkedIn goes out at 07:00. Copy: POSTS.md B3.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — B3 · X (prop 1: study materials)
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:3525344bee8c553a@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261014T170000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — A2 · FB + IG (prop 2: system prompt)
+DESCRIPTION:Personal Facebook and Instagram. Image: parent-control.png. Cop
+ y: POSTS.md A2.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT60M
+DESCRIPTION:Syft 1.0.6 — A2 · FB + IG (prop 2: system prompt)
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:5c996b937761e171@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261015T070000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror B3 to @syftlearning LinkedIn
+DESCRIPTION:Brand LinkedIn. Same content and asset as the personal B3 post 
+ (Oct 14).
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror B3 to @syftlearning LinkedIn
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:b4add45d6b97eef5@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261015T083000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror B3 to @syftlearning X
+DESCRIPTION:Brand X. Same content and asset as the personal B3 post (Oct 14
+ ).
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror B3 to @syftlearning X
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:03603a075632c9e5@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261015T090000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — mirror A2 to @syftlearning FB\, IG\, Threads
+DESCRIPTION:Brand Facebook\, Instagram\, Threads. Same content and asset as
+  the personal A2 post (Oct 14).
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT30M
+DESCRIPTION:Syft 1.0.6 — mirror A2 to @syftlearning FB\, IG\, Threads
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:101ff1d7b2798e13@syftlearning.app
+DTSTAMP:20261006T120000Z
+DTSTART;TZID=America/Phoenix:20261017T100000
+DURATION:PT30M
+SUMMARY:Syft 1.0.6 — A3 · FB + IG (prop 3: price\, plainly)
+DESCRIPTION:Personal Facebook and Instagram. Image: parent-flashcards.png. 
+ RE-VERIFY the $4 category anchor before posting - see POSTS.md 'On the pri
+ ce anchor'. Copy: POSTS.md A3.
+STATUS:CONFIRMED
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT120M
+DESCRIPTION:Syft 1.0.6 — A3 · FB + IG (prop 3: price\, plainly)
+END:VALARM
+END:VEVENT
+END:VCALENDAR
