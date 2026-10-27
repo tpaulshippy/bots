@@ -1,9 +1,11 @@
-// Migrates rows from the Django SQLite database (back/db.sqlite3) into D1.
+// Migrates rows from a Django SQLite database file into D1.
 //
 // Usage:
-//   node scripts/migrate-from-sqlite.mjs [path/to/db.sqlite3] > /tmp/seed.sql
+//   node scripts/migrate-from-sqlite.mjs /path/to/db.sqlite3 > /tmp/seed.sql
 //   wrangler d1 execute syft-db --local --file=/tmp/seed.sql     # verify locally
 //   wrangler d1 execute syft-db --remote --file=/tmp/seed.sql    # cutover
+// (back/ was removed from this repo; copy db.sqlite3 from your server or a
+// pre-removal checkout before running.)
 //
 // Notes:
 //   - Run AFTER `migrations/0001_initial.sql` (schema must exist; ids are
@@ -22,7 +24,12 @@ const require = createRequire(import.meta.url);
 const { DatabaseSync } = require("node:sqlite");
 const { readFileSync, existsSync } = require("node:fs");
 
-const SRC = process.argv[2] ?? new URL("../../back/db.sqlite3", import.meta.url).pathname;
+const SRC = process.argv[2];
+if (!SRC) {
+  console.error("Usage: node scripts/migrate-from-sqlite.mjs /path/to/db.sqlite3 > /tmp/seed.sql");
+  console.error("(back/ was removed from this repo; copy db.sqlite3 from your server or a pre-removal checkout.)");
+  process.exit(1);
+}
 if (!existsSync(SRC)) {
   console.error(`SQLite database not found: ${SRC}`);
   process.exit(1);

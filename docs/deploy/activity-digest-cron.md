@@ -1,5 +1,9 @@
 # Activity digest — cron wiring (roadmap 04)
 
+> **Status:** the Django management commands are gone. Both crons now run as
+> the Worker's `scheduled` handler (`worker/src/index.ts`, `triggers.crons`
+> in `worker/wrangler.toml`). The behavior notes below still apply.
+
 `send_activity_digests` is Celery-less by design; schedule it from the
 host cron or a GitHub Action. It is idempotent-safe to run more often
 than needed but sends at most one push per digest-only device per run,

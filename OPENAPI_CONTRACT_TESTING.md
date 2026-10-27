@@ -1,5 +1,12 @@
 # OpenAPI Contract Testing
 
+> **Status:** the Django backend (`back/`) was removed in favor of `worker/`
+> (Cloudflare Workers + D1). The API contract below is preserved verbatim —
+> `front/api/schema.yaml` is now a frozen reference and the executable
+> contract is `worker/tests/api.test.ts`. Django-only commands in this doc
+> (`manage.py spectacular`, `pytest`, `scripts/generate_openapi_schema.sh`)
+> no longer apply.
+
 This document describes the OpenAPI-based contract testing setup to catch frontend/backend API mismatches early.
 
 ## Overview

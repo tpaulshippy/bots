@@ -38,9 +38,10 @@ npm install
 npm test            # 34 tests, no network
 npm run typecheck
 
-# local D1 like prod:
+# Local D1 like prod (dump from your pre-removal checkout or server backup —
+# `back/` no longer lives in this repo, so copy `db.sqlite3` out first):
 npx wrangler d1 execute syft-db --local --file=./migrations/0001_initial.sql
-node scripts/migrate-from-sqlite.mjs ../back/db.sqlite3 > /tmp/seed.sql
+node scripts/migrate-from-sqlite.mjs /path/to/back/db.sqlite3 > /tmp/seed.sql
 npx wrangler d1 execute syft-db --local --file=/tmp/seed.sql
 npx wrangler dev   # serves http://localhost:8787
 ```
@@ -53,7 +54,9 @@ Point the app at it: `EXPO_PUBLIC_API_BASE_URL=http://localhost:8787/api`.
 npx wrangler d1 create syft-db        # put the id in wrangler.toml
 npx wrangler r2 bucket create syft-images
 npx wrangler d1 execute syft-db --remote --file=./migrations/0001_initial.sql
-node scripts/migrate-from-sqlite.mjs ../back/db.sqlite3 > /tmp/seed.sql
+# One-time seed from the Django database (copy db.sqlite3 from your server
+# or pre-removal checkout first — back/ is gone from this repo):
+node scripts/migrate-from-sqlite.mjs /path/to/back/db.sqlite3 > /tmp/seed.sql
 npx wrangler d1 execute syft-db --remote --file=/tmp/seed.sql
 npx wrangler secret put JWT_SECRET    # MUST equal Django SECRET_KEY for cutover
 # …then every secret listed in wrangler.toml…
