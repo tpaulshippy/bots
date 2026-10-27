@@ -117,19 +117,31 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-// Verifies a Django-format password/PIN hash. Unknown formats -> false.
+// Thrown when the KDF itself fails (unsupported parameters, platform
+// limits) as opposed to a clean password mismatch. Callers must surface
+// this as a 500, never as an authentication failure: mapping it to `false`
+// would turn an outage into silent 401s (and burn PIN attempts).
+export class KdfError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "KdfError";
+  }
+}
+// Verifies a Django-format password/PIN hash. Unknown formats and clean
+// mismatches -> false; KDF operational failures -> throws KdfError.
 export async function verifyDjangoHash(password: string, encoded: string): Promise<boolean> {
   const m = DJANGO_HASH_RE.exec(encoded) as unknown as [string, string, string, string, string] | null;
   if (!m) return false;
   const [, algo, iterStr, salt, hashB64] = m;
   const iterations = parseInt(iterStr!, 10);
   if (!Number.isFinite(iterations) || iterations <= 0) return false;
+  let derived: Uint8Array;
   try {
-    const derived = await pbkdf2(password, salt!, iterations, algo === "sha256" ? "SHA-256" : "SHA-1");
-    return constantTimeEqual(derived, b64ToBytes(hashB64!));
-  } catch {
-    return false;
+    derived = await pbkdf2(password, salt!, iterations, algo === "sha256" ? "SHA-256" : "SHA-1");
+  } catch (e) {
+    throw new KdfError(`PBKDF2 failed: ${e instanceof Error ? e.message : String(e)}`);
   }
+  return constantTimeEqual(derived, b64ToBytes(hashB64!));
 }
 
 // New hashes use the same Django format. The default work factor stays at

@@ -34,7 +34,10 @@ export interface ConverseResult {
 
 function endpoint(env: Env, modelId: string): string {
   const region = env.AWS_REGION ?? "us-east-1";
-  return `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(modelId)}/converse`;
+  // Model IDs (and application-inference-profile ARNs) are passed through
+  // verbatim, exactly as langchain_aws sent them: encoding would mangle
+  // the colons/slashes ARNs contain.
+  return `https://bedrock-runtime.${region}.amazonaws.com/model/${modelId}/converse`;
 }
 
 function creds(env: Env) {

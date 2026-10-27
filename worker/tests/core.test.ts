@@ -67,7 +67,7 @@ describe("pin hashing policy", () => {
     const h = await hashPin("1234");
     const iterations = parseInt(h.split("$")[1]!, 10);
     expect(iterations).toBe(PIN_HASH_ITERATIONS);
-    expect(iterations).toBeLessThanOrEqual(5000);
+    expect(iterations).toBeLessThanOrEqual(10000);
     expect(await verifyPin(h, "1234")).toBe(true);
     expect(await verifyPin(h, "0000")).toBe(false);
   });
@@ -95,5 +95,19 @@ describe("crypto", () => {
     expect(await verifyJwt(good, "other")).toBeNull();
     const expired = await signJwt({ user_id: 1, exp: 1 }, "s");
     expect(await verifyJwt(expired, "s")).toBeNull();
+  });
+
+  it("verifies externally minted HS256 tokens (Django-compat fixture)", async () => {
+    // Minted with Python stdlib hmac (independent of this signer):
+    // {"token_type":"access","user_id":7,"iat":1893456000,"exp":1893459600,
+    //  "jti":"550e8400-e29b-41d4-a716-446655440000"}, secret "fixture-...".
+    const djangoStyle =
+      "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ0b2tlbl90eXBlIjogImFjY2VzcyIsICJ1c2VyX2lkIjogNywgImlhdCI6IDE4OTM0NTYwMDAsICJleHAiOiAxODkzNDU5NjAwLCAianRpIjogIjU1MGU4NDAwLWUyOWItNDFkNC1hNzE2LTQ0NjY1NTQ0MDAwMCJ9.2f6OtaWOeULg7eq1mF9mmzn5O1hODmmyWmA4266gPCk";
+    const payload = await verifyJwt(djangoStyle, "fixture-secret-for-django-compat-test");
+    expect(payload?.["user_id"]).toBe(7);
+    expect(payload?.["token_type"]).toBe("access");
+    expect(payload?.["exp"]).toBe(1893459600);
+    // Wrong secret must fail even for a well-formed external token.
+    expect(await verifyJwt(djangoStyle, "wrong-secret")).toBeNull();
   });
 });

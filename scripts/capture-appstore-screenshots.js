@@ -19,8 +19,8 @@
  *      && python manage.py seed_e2e_streaming_chat &&
  *      python manage.py seed_e2e_spaced_repetition, then runserver.)
  *   2. Simulator build of the app with EXPO_PUBLIC_API_BASE_URL pointing at
- *      that backend, e.g.:
- *        EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api \
+ *      that backend, e.g. (Worker local dev runs on 8787):
+ *        EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8787/api \
  *          npx expo run:ios --configuration Release --device "<udid>"
  *      (Release so no __DEV__ Developer Options / warning toast appear.
  *      The build needs NSAllowsLocalNetworking for cleartext http to
@@ -29,7 +29,7 @@
  * Usage:
  *   node scripts/capture-appstore-screenshots.js \
  *     --udid <sim-udid> --app <path/to/SyftLearning.app> --out <dir>
- *     [--api http://127.0.0.1:8000/api]
+ *     [--api http://127.0.0.1:8787/api]
  */
 const { execSync, execFileSync } = require('child_process');
 const fs = require('fs');
@@ -43,7 +43,7 @@ function arg(name, fallback) {
 const UDID = arg('udid', process.env.SIM_UDID);
 const APP = arg('app', process.env.SIM_APP);
 const OUT = arg('out', 'docs/app-store/1.0.6/screenshots');
-const API_BASE = arg('api', 'http://127.0.0.1:8000/api');
+const API_BASE = arg('api', 'http://127.0.0.1:8787/api');
 const BUNDLE_ID = 'com.tpaulshippy.botsforkids';
 
 if (!UDID || !APP) {

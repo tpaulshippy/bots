@@ -225,6 +225,53 @@ describe("flashcards + stats + activity", () => {
   });
 });
 
+describe("onboarding bootstrap", () => {
+  it("requires reauth to replace an existing PIN", async () => {
+    const { parent } = await seed();
+    expect((await api("POST", "/api/user", parent.access, { pin: "1234" })).status).toBe(200);
+    const denied = await api("POST", "/api/onboarding/bootstrap", parent.access, { profileName: "Kid", pin: "5678" });
+    expect(denied.status).toBe(403);
+    const ok = await api("POST", "/api/auth/reauthenticate", parent.access, { pin: "1234" });
+    const token = (ok.json as { parentSessionToken: string }).parentSessionToken;
+    const applied = await api(
+      "POST",
+      "/api/onboarding/bootstrap",
+      parent.access,
+      { profileName: "Kid", pin: "5678" },
+      { "X-Parent-Reauth": token },
+    );
+    expect(applied.status).toBe(200);
+    expect((await api("POST", "/api/auth/reauthenticate", parent.access, { pin: "5678" })).status).toBe(200);
+  });
+
+  it("converges reruns on one profile and bot", async () => {
+    const { parent } = await seed();
+    await db.prepare("DELETE FROM bots_bot WHERE user_id = 1").run();
+    await db.prepare("DELETE FROM bots_profile WHERE user_id = 1").run();
+    const first = await api("POST", "/api/onboarding/bootstrap", parent.access, { profileName: "Fresh" });
+    const second = await api("POST", "/api/onboarding/bootstrap", parent.access, { profileName: "Fresh" });
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect((second.json as { profileId: string }).profileId).toBe((first.json as { profileId: string }).profileId);
+    expect((second.json as { botId: string }).botId).toBe((first.json as { botId: string }).botId);
+    const profiles = (await db.prepare("SELECT COUNT(*) AS n FROM bots_profile WHERE user_id = 1 AND deleted_at IS NULL").first()) as unknown as { n: number };
+    const bots = (await db.prepare("SELECT COUNT(*) AS n FROM bots_bot WHERE user_id = 1 AND deleted_at IS NULL").first()) as unknown as { n: number };
+    expect(profiles.n).toBe(1);
+    expect(bots.n).toBe(1);
+  });
+
+  it("null studentEmail means not-supplied; empty string unbinds", async () => {
+    const { parent } = await seed();
+    expect((await api("PATCH", `/api/profiles/${PROFILE_ID}/`, parent.access, { oauth_email: "kid@school.edu" })).status).toBe(200);
+    expect((await api("POST", "/api/onboarding/bootstrap", parent.access, { profileName: "Kid", studentEmail: null })).status).toBe(200);
+    const kept = (await db.prepare("SELECT oauth_email FROM bots_profile WHERE profile_id = ?").bind(PROFILE_ID).first()) as unknown as { oauth_email: string | null };
+    expect(kept.oauth_email).toBe("kid@school.edu");
+    expect((await api("POST", "/api/onboarding/bootstrap", parent.access, { profileName: "Kid", studentEmail: "" })).status).toBe(200);
+    const unbound = (await db.prepare("SELECT oauth_email FROM bots_profile WHERE profile_id = ?").bind(PROFILE_ID).first()) as unknown as { oauth_email: string | null };
+    expect(unbound.oauth_email).toBeNull();
+  });
+});
+
 describe("PIN + reauth gating", () => {
   it("locks parent writes behind X-Parent-Reauth once a PIN exists", async () => {
     const { parent } = await seed();

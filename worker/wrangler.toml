@@ -15,6 +15,11 @@ compatibility_flags = ["nodejs_compat"]
 # Expo app only needs EXPO_PUBLIC_API_BASE_URL pointed at the Worker.
 # wrangler dev serves at http://localhost:8787 by default.
 
+# Custom domain for the API (one-time dashboard setup, or uncomment if the
+# zone is managed here): route syftlearning.app/api/* to this Worker so the
+# baked-in EXPO_PUBLIC_API_BASE_URL keeps working for web + native builds.
+# routes = [{ pattern = "syftlearning.app/api/*", zone_name = "syftlearning.app" }]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "syft-db"

@@ -1,11 +1,21 @@
 // Migrates rows from a Django SQLite database file into D1.
 //
 // Usage:
+//   umask 077
 //   node scripts/migrate-from-sqlite.mjs /path/to/db.sqlite3 > /tmp/seed.sql
 //   wrangler d1 execute syft-db --local --file=/tmp/seed.sql     # verify locally
 //   wrangler d1 execute syft-db --remote --file=/tmp/seed.sql    # cutover
+//   rm /tmp/seed.sql
 // (back/ was removed from this repo; copy db.sqlite3 from your server or a
 // pre-removal checkout before running.)
+//
+// The dump embeds password/PIN hashes and user emails: generate it on a
+// trusted machine with a restrictive umask (above), keep /tmp/seed.sql out
+// of shared or backed-up locations, and delete it after the remote import.
+//
+// Older databases may lack newer tables (e.g. bots_htmlpage); the script
+// fails loudly on any missing table unless listed via:
+//   node scripts/migrate-from-sqlite.mjs db.sqlite3 --allow-missing=bots_htmlpage,bots_revenuecatwebhookevent
 //
 // Notes:
 //   - Run AFTER `migrations/0001_initial.sql` (schema must exist; ids are
@@ -24,9 +34,17 @@ const require = createRequire(import.meta.url);
 const { DatabaseSync } = require("node:sqlite");
 const { readFileSync, existsSync } = require("node:fs");
 
-const SRC = process.argv[2];
+const args = process.argv.slice(2).filter((a) => !a.startsWith("--allow-missing="));
+const allowMissing = new Set(
+  (process.argv.slice(2).find((a) => a.startsWith("--allow-missing=")) ?? "--allow-missing=")
+    .split("=")[1]
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+const SRC = args[0];
 if (!SRC) {
-  console.error("Usage: node scripts/migrate-from-sqlite.mjs /path/to/db.sqlite3 > /tmp/seed.sql");
+  console.error("Usage: node scripts/migrate-from-sqlite.mjs /path/to/db.sqlite3 [--allow-missing=t1,t2] > /tmp/seed.sql");
   console.error("(back/ was removed from this repo; copy db.sqlite3 from your server or a pre-removal checkout.)");
   process.exit(1);
 }
@@ -90,13 +108,18 @@ for (const table of TABLES) {
   let cols;
   try {
     cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
-  } catch {
-    console.error(`-- skipping missing table ${table}`);
-    continue;
+  } catch (e) {
+    // A genuine PRAGMA failure (corrupt DB, I/O) is not a skip: rethrow.
+    throw new Error(`PRAGMA table_info(${table}) failed: ${e instanceof Error ? e.message : String(e)}`);
   }
   if (cols.length === 0) {
-    console.error(`-- skipping missing table ${table}`);
-    continue;
+    if (allowMissing.has(table)) {
+      console.error(`-- skipping allowed-missing table ${table}`);
+      continue;
+    }
+    console.error(`FATAL: expected table ${table} is missing from ${SRC}.`);
+    console.error(`If this is an older database, re-run with --allow-missing=${table} (and verify the feature works without it).`);
+    process.exit(1);
   }
   const rows = db.prepare(`SELECT * FROM ${table} ORDER BY id`).all();
   console.error(`-- ${table}: ${rows.length} rows`);

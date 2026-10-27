@@ -2,12 +2,13 @@
 // PIN lifecycle, account info, onboarding, account deletion.
 
 import { Hono } from "hono";
-import { authenticate, isTeenDelegated, mintParentSessionToken, parentReauthRequired } from "../auth";
+import { authenticate, hasValidParentReauth, isTeenDelegated, mintParentSessionToken, parentReauthRequired } from "../auth";
 import { first, run } from "../db";
 import { MAX_COST_DAILY, costForToday } from "../usage";
 import { nowIso, type Env } from "../types";
 import { bootstrapOnboarding } from "../onboarding";
 import { getPinAccount, hashPin, isPinLocked, registerPinFailure, remainingAttempts, resetPinFailures, setPinHash, validatePin, verifyPin } from "../pin";
+import { KdfError } from "../crypto";
 import { forbidden, makeRouter } from "./helpers";
 import { routeCtx } from "./helpers";
 
@@ -28,7 +29,15 @@ account.post("/auth/reauthenticate", authenticate, async (c) => {
   const acct = await getPinAccount(r.env.DB, r.user.id);
   if (!acct || !acct.pin_hash) return c.json({ detail: "No PIN has been set for this account." }, 400);
   if (isPinLocked(acct)) return c.json({ detail: "PIN locked. Try again later.", lockedUntil: acct.pin_locked_until }, 423);
-  if (!(await verifyPin(acct.pin_hash, pin))) {
+  let pinOk: boolean;
+  try {
+    pinOk = await verifyPin(acct.pin_hash, pin);
+  } catch (e) {
+    // KDF outage must not burn a PIN attempt or read as "wrong PIN".
+    if (e instanceof KdfError) return c.json({ detail: "Authentication service unavailable. Please try again." }, 500);
+    throw e;
+  }
+  if (!pinOk) {
     const updated = await registerPinFailure(r.env.DB, r.user.id);
     if (isPinLocked(updated)) {
       return c.json({ detail: "PIN locked. Try again later.", lockedUntil: updated.pin_locked_until }, 423);
@@ -148,6 +157,16 @@ account.post("/onboarding/bootstrap", authenticate, async (c) => {
   if (isTeenDelegated(r.auth)) return c.json({ detail: "Onboarding is completed by the parent account." }, 403);
   const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return c.json({ detail: "Invalid JSON body" }, 400);
+  // Changing an existing PIN requires parent reauth (first set does not) —
+  // mirrors POST /api/user. Without this gate, bootstrap would be a reauth
+  // bypass for anyone holding a parent session token.
+  const pinParam = coerceLegacyPin(body["pin"]);
+  if (typeof pinParam === "string" && pinParam !== "") {
+    const existing = await getPinAccount(r.env.DB, r.user.id);
+    if (existing?.pin_hash && !(await hasValidParentReauth(r.env, c))) {
+      return c.json({ detail: "Parent reauthentication required." }, 403);
+    }
+  }
   const result = await bootstrapOnboarding(r.env.DB, r.user.id, {
     profileName: body["profileName"],
     botName: body["botName"],

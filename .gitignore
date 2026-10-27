@@ -1,3 +1,6 @@
 .DS_Store
 __pycache__/
 *.pyc
+# Removed Django backend: keep any local leftovers (db.sqlite3, .env)
+# untracked so secrets and dev databases are never committed.
+/back/

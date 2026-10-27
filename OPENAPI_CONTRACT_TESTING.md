@@ -34,10 +34,12 @@ The system uses OpenAPI schema generated from Django REST Framework to:
 
 ## Running Tests
 
-### Backend Tests
+### Worker tests (the executable contract)
+
 ```bash
-cd back
-venv/bin/python -m pytest bots/tests/test_flashcard_api.py -v
+cd worker
+npm test            # vitest: unit + end-to-end HTTP (see tests/api.test.ts)
+npm run typecheck
 ```
 
 ### Frontend Tests
@@ -48,16 +50,17 @@ npm test -- --testPathPattern="__tests__/api/" --ci
 
 ## Schema Regeneration
 
-After making changes to serializers, viewsets, or models that affect the API:
+`front/api/schema.yaml` is now a **frozen reference**: the Django generator
+(`manage.py spectacular`, `scripts/generate_openapi_schema.sh`) is gone with
+`back/`. When an endpoint changes:
 
-```bash
-./scripts/generate_openapi_schema.sh
-```
-
-Then:
-1. Review `front/api/schema.yaml` for changes
-2. Update `front/__mocks__/handlers.ts` if needed
-3. Run tests to verify nothing broke
+1. Update the Worker route + serializer in `worker/src/`.
+2. Extend `worker/tests/api.test.ts` to assert the new shape (this is the
+   contract test now — it fails on drift).
+3. Hand-edit `front/api/schema.yaml` only if frontend mocks depend on it.
+4. Update `front/__mocks__/handlers.ts` if needed.
+5. Run tests to verify nothing broke (`npm test` in `worker/`, frontend
+   suite in `front/`).
 
 ## Pre-commit Hook
 
@@ -79,14 +82,17 @@ The test suite specifically checks for the issues that occurred in commit 94d2cf
 
 ## API Schema Endpoint
 
-The OpenAPI schema is available at:
-- `/api/schema` - JSON schema
-- `/api/docs` - Swagger UI
+The Django-hosted schema endpoints are gone with `back/`:
+- ~~`/api/schema` - JSON schema~~
+- ~~`/api/docs` - Swagger UI~~
+
+`front/api/schema.yaml` remains in the repo as the frozen shape reference;
+`worker/tests/api.test.ts` is the executable contract.
 
 ## Adding New API Endpoints
 
 When adding new endpoints:
-1. Add serializer and viewset as usual
-2. Run `scripts/generate_openapi_schema.sh`
+1. Add the Hono route + serializer shape in `worker/src/` as usual
+2. Add coverage in `worker/tests/api.test.ts`
 3. Add mock handlers in `front/__mocks__/handlers.ts`
 4. Add tests in appropriate test file

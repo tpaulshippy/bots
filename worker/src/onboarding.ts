@@ -77,6 +77,7 @@ export async function bootstrapOnboarding(
   const now = nowIso();
 
   // Resolve profile.
+  let profileUuid: string | null = null; // set when THIS request inserts
   let profile = cleanedProfileId
     ? await first<{ id: number; profile_id: string }>(
         db,
@@ -93,25 +94,43 @@ export async function bootstrapOnboarding(
   if (!profile) {
     if (!cleanedName || typeof cleanedName !== "string") return { errors: { profileName: "Profile name must not be blank." } };
     const newProfileId = newUuid();
-    stmts.push(
-      db.prepare("INSERT INTO bots_profile (user_id, profile_id, name, oauth_email, created_at, modified_at) VALUES (?, ?, ?, ?, ?, ?)").bind(
-        userId,
-        newProfileId,
-        cleanedName,
-        cleanedEmail && typeof cleanedEmail === "string" ? cleanedEmail : null,
-        now,
-        now,
-      ),
-    );
+    const emailVal = cleanedEmail && typeof cleanedEmail === "string" ? cleanedEmail : null;
+    if (cleanedProfileId) {
+      // Stale review id: recreate exactly (a concurrent retry could
+      // duplicate here; single-tap wizard flows never hit this path).
+      stmts.push(
+        db.prepare("INSERT INTO bots_profile (user_id, profile_id, name, oauth_email, created_at, modified_at) VALUES (?, ?, ?, ?, ?, ?)").bind(
+          userId,
+          newProfileId,
+          cleanedName,
+          emailVal,
+          now,
+          now,
+        ),
+      );
+    } else {
+      // First-run: converge concurrent retries on one row — the insert only
+      // fires when no active profile exists at batch time (batches are
+      // atomic, so a racing winner is visible to the loser).
+      stmts.push(
+        db.prepare(
+          `INSERT INTO bots_profile (user_id, profile_id, name, oauth_email, created_at, modified_at)
+           SELECT ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM bots_profile WHERE user_id = ? AND deleted_at IS NULL)`,
+        ).bind(userId, newProfileId, cleanedName, emailVal, now, now, userId),
+      );
+    }
+    profileUuid = newProfileId;
     profile = { id: 0, profile_id: newProfileId };
-  } else if (cleanedName || input.studentEmail !== undefined) {
+  } else if (cleanedName || typeof input.studentEmail === "string") {
     const sets: string[] = ["modified_at = ?"];
     const params: unknown[] = [now];
     if (cleanedName && typeof cleanedName === "string") {
       sets.push("name = ?");
       params.push(cleanedName);
     }
-    if (input.studentEmail !== undefined) {
+    // Only an explicit string rebinds/unbinds (Django parity: None/null
+    // means "not supplied", "" unbinds).
+    if (typeof input.studentEmail === "string") {
       sets.push("oauth_email = ?");
       params.push(cleanedEmail && typeof cleanedEmail === "string" ? cleanedEmail : null);
     }
@@ -134,26 +153,40 @@ export async function bootstrapOnboarding(
       );
 
   const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
+  let botUuid: string | null = null; // set when THIS request inserts
   if (!bot) {
     const defModel = await first<{ id: number }>(db, "SELECT id FROM bots_aimodel WHERE is_default = 1");
     const newBotId = newUuid();
-    stmts.push(
-      db.prepare(
-        `INSERT INTO bots_bot (user_id, ai_model_id, bot_id, name, system_prompt, template_name, color, icon, created_at, modified_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).bind(
-        userId,
-        defModel?.id ?? null,
-        newBotId,
-        str(input.botName) || "Penelope",
-        str(input.systemPrompt) ?? null,
-        str(input.templateName) || DEFAULT_TEMPLATE_NAME,
-        str(input.color) || DEFAULT_BOT_COLOR,
-        str(input.icon) || DEFAULT_BOT_ICON,
-        now,
-        now,
-      ),
-    );
+    const botValues = [
+      userId,
+      defModel?.id ?? null,
+      newBotId,
+      str(input.botName) || "Penelope",
+      str(input.systemPrompt) ?? null,
+      str(input.templateName) || DEFAULT_TEMPLATE_NAME,
+      str(input.color) || DEFAULT_BOT_COLOR,
+      str(input.icon) || DEFAULT_BOT_ICON,
+      now,
+      now,
+    ] as const;
+    if (cleanedBotId) {
+      // Stale review id: recreate exactly (see profile path for the caveat).
+      stmts.push(
+        db.prepare(
+          `INSERT INTO bots_bot (user_id, ai_model_id, bot_id, name, system_prompt, template_name, color, icon, created_at, modified_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(...botValues),
+      );
+    } else {
+      // First-run: converge concurrent retries on one row.
+      stmts.push(
+        db.prepare(
+          `INSERT INTO bots_bot (user_id, ai_model_id, bot_id, name, system_prompt, template_name, color, icon, created_at, modified_at)
+           SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL)`,
+        ).bind(...botValues, userId),
+      );
+    }
+    botUuid = newBotId;
     bot = { id: 0, bot_id: newBotId };
   } else {
     const sets: string[] = ["modified_at = ?"];
@@ -178,8 +211,9 @@ export async function bootstrapOnboarding(
     }
   }
 
-  // Account: PIN + onboarding flag. D1 has no transactions across the batch
-  // API in the same way; run as a batch (all-or-nothing per statement list).
+  // Account: PIN + onboarding flag. The single db.batch() below is atomic;
+  // the conditional inserts above make retries converge instead of
+  // duplicating when two bootstraps race.
   const pinHash = pinValue && typeof pinValue === "string" ? await hashPin(pinValue) : null;
   const acct = await first<{ id: number; onboarding_completed_at: string | null }>(
     db,
@@ -187,9 +221,11 @@ export async function bootstrapOnboarding(
     userId,
   );
   if (!acct) {
+    // OR IGNORE: a concurrent bootstrap may have created the row after our
+    // read; the loser's insert is dropped instead of 500ing on UNIQUE.
     stmts.push(
       db.prepare(
-        "INSERT INTO bots_useraccount (user_id, pin_hash, onboarding_completed_at) VALUES (?, ?, ?)",
+        "INSERT OR IGNORE INTO bots_useraccount (user_id, pin_hash, onboarding_completed_at) VALUES (?, ?, ?)",
       ).bind(userId, pinHash, now),
     );
   } else {
@@ -209,21 +245,35 @@ export async function bootstrapOnboarding(
     throw e;
   }
 
-  // Re-read ids for freshly inserted rows.
+  // Re-read ids for freshly inserted rows. First-run paths converge on the
+  // oldest row (so concurrent retries share one); recreate paths select the
+  // exact uuid this request inserted.
   if (profile.id === 0) {
-    const row = await first<{ id: number; profile_id: string }>(
-      db,
-      "SELECT id, profile_id FROM bots_profile WHERE user_id = ? AND deleted_at IS NULL ORDER BY id DESC",
-      userId,
-    );
+    const row = profileUuid && cleanedProfileId
+      ? await first<{ id: number; profile_id: string }>(
+          db,
+          "SELECT id, profile_id FROM bots_profile WHERE profile_id = ?",
+          profileUuid,
+        )
+      : await first<{ id: number; profile_id: string }>(
+          db,
+          "SELECT id, profile_id FROM bots_profile WHERE user_id = ? AND deleted_at IS NULL ORDER BY id ASC",
+          userId,
+        );
     if (row) profile = row;
   }
   if (bot.id === 0) {
-    const row = await first<{ id: number; bot_id: string }>(
-      db,
-      "SELECT id, bot_id FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL ORDER BY id DESC",
-      userId,
-    );
+    const row = botUuid && cleanedBotId
+      ? await first<{ id: number; bot_id: string }>(
+          db,
+          "SELECT id, bot_id FROM bots_bot WHERE bot_id = ?",
+          botUuid,
+        )
+      : await first<{ id: number; bot_id: string }>(
+          db,
+          "SELECT id, bot_id FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL ORDER BY id ASC",
+          userId,
+        );
     if (row) bot = row;
   }
   return { profile_id: profile.profile_id, bot_id: bot.bot_id };

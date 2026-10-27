@@ -35,7 +35,7 @@ worker/
 ```bash
 cd worker
 npm install
-npm test            # 34 tests, no network
+npm test            # 40 tests, no network
 npm run typecheck
 
 # Local D1 like prod (dump from your pre-removal checkout or server backup —
@@ -65,7 +65,11 @@ npx wrangler deploy
 
 Cutover is a config change: set the app's `EXPO_PUBLIC_API_BASE_URL` to
 `https://<worker>/api`. Roll back by pointing it at Django again — tokens
-issued by either side verify on both while the secrets match.
+issued by either side verify on both while the secrets match. Note the data
+caveat: writes made on the Worker after cutover live in D1 and will NOT
+appear in Django's database, so a rollback hides post-cutover data and the
+two stores diverge. Roll back only for auth compatibility; post-cutover
+Worker data must be reconciled or accepted as lost.
 
 Crons (`wrangler.toml [triggers]`) send study reminders + parent digests.
 R2 holds new uploads; pre-cutover S3 keys keep working via the S3 fallback
@@ -102,9 +106,10 @@ or `rclone`), keys are preserved 1:1.
   same as Django with `render_available() == False`).
 - **No Playwright render gate**, so tool-time HTML checks are static only
   (same validator + text extraction as Django).
-- **PIN/password hashing stays Django-format** (`pbkdf2_sha256`, and any
-  Django-produced hash verifies as-is). New PIN hashes use a low work factor
-  on purpose (see `pin.ts`): a 4–8 digit PIN can't survive an offline attack
+- **PIN/password hashing stays Django-format** (`pbkdf2_sha256` / `pbkdf2_sha1`;
+  argon2/bcrypt hashes from non-default Django configs are NOT supported —
+  Django's default is PBKDF2, and any Django-produced PBKDF2 hash verifies
+  as-is). New PIN hashes use a low work factor on purpose (see `pin.ts`): a 4–8 digit PIN can't survive an offline attack
   regardless of iterations, so the real control is server-side lockout — and
   sub-millisecond verification keeps everything inside the free plan's 10ms
   CPU budget. If your account still has a pre-cutover PIN set, remove it in
@@ -118,7 +123,7 @@ or `rclone`), keys are preserved 1:1.
 
 ## Verification
 
-- `npm test` — 34 tests: safety denylists/refusals/moderation mapping,
+- `npm test` — 40 tests: safety denylists/refusals/moderation mapping,
   SM-2, HTML validator, JWT + Django-hash compat, and end-to-end HTTP
   (auth, bots, profiles, teen scoping, decks/flashcards/reviews, stats,
   activity, PIN/reauth gating, chat turns + SSE against the deterministic

@@ -6,17 +6,20 @@ import { first, run } from "./db";
 export const MAX_PIN_FAILURES = 5;
 export const PIN_LOCKOUT_MINUTES = 15;
 
-// PIN hashes deliberately use a LOW work factor. Rationale: a 4–8 digit PIN
-// has at most 10^8 candidates, so no iteration count survives an offline
-// attack after a database breach anyway. The real control is server-side
-// lockout (5 attempts → 15-minute lock), which caps online guessing no
-// matter how fast the hash is. Keeping verification sub-millisecond also
-// keeps login/PIN flows inside the Cloudflare free plan's 10ms CPU budget —
-// a Django-grade 720k+ iteration hash costs ~200ms and would force paid.
-// Legacy high-iteration hashes (pre-cutover Django rows) still verify via
-// verifyDjangoHash, which honors the stored count; holders should clear an
-// unused PIN before cutover (Settings → remove PIN).
-export const PIN_HASH_ITERATIONS = 1_000;
+// PIN hashes deliberately use a LOW work factor. Measured cost is ~2ms at
+// 10k iterations (Node; Workers native is similar or faster), leaving
+// headroom inside the free plan's 10ms CPU budget per request.
+//
+// Accepted residual risk (owner decision): a leaked `pin_hash` row lets an
+// offline attacker brute-force short PINs faster than a Django-grade
+// 720k+ hash would — materially so for 6–8 digit PINs. That trade is taken
+// because (a) a D1 read already implies a Cloudflare-account breach, at
+// which point hashes are the least of our problems, and (b) the live
+// control is server-side lockout (5 attempts → 15-minute lock), which caps
+// online guessing regardless of hash speed. New PINs therefore hash fast;
+// legacy high-iteration rows still verify (iteration-agnostic), and holders
+// should clear an unused PIN before cutover (Settings → remove PIN).
+export const PIN_HASH_ITERATIONS = 10_000;
 
 export function validatePin(pin: unknown): pin is string {
   return typeof pin === "string" && /^[0-9]{4,8}$/.test(pin);

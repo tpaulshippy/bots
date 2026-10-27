@@ -2,21 +2,23 @@
 
 > **Status:** the Django management commands are gone. Both crons now run as
 > the Worker's `scheduled` handler (`worker/src/index.ts`, `triggers.crons`
-> in `worker/wrangler.toml`). The behavior notes below still apply.
+> in `worker/wrangler.toml`) — `30 12 * * *` for study reminders,
+> `0 1 * * *` for parent digests. That is the only setup; the host-cron and
+> GitHub Action recipes below are archived history from the Django deploy.
 
 `send_activity_digests` is Celery-less by design; schedule it from the
 host cron or a GitHub Action. It is idempotent-safe to run more often
 than needed but sends at most one push per digest-only device per run,
 so once daily is the intended cadence.
 
-## Host cron (matches the current single-server deploy)
+## Host cron (archived — Django deploy only)
 
 ```cron
 # Daily parent activity digest, 18:00 server time
 0 18 * * * cd /home/bots/repo/back && ../venv/bin/python manage.py send_activity_digests >> /var/log/bots/digest.log 2>&1
 ```
 
-## GitHub Action alternative
+## GitHub Action alternative (archived — Django deploy only)
 
 ```yaml
 name: activity-digest

@@ -4,7 +4,7 @@
 import { Hono } from "hono";
 import { authenticate, isTeenDelegated, mintSession, verifySession } from "../auth";
 import { first, run } from "../db";
-import { verifyDjangoHash } from "../crypto";
+import { KdfError, verifyDjangoHash } from "../crypto";
 import { newUuid } from "../crypto";
 import { nowIso, type Env } from "../types";
 import {
@@ -33,7 +33,16 @@ auth.post("/token/", async (c) => {
     username,
   );
   if (!user || user.is_active !== 1) return c.json({ detail: "No active account found with the given credentials" }, 401);
-  if (!(await verifyDjangoHash(password, user.password))) {
+  let passwordOk: boolean;
+  try {
+    passwordOk = await verifyDjangoHash(password, user.password);
+  } catch (e) {
+    // KDF outage (e.g. platform iteration limits) is a 500, never a 401:
+    // a wrong-password response would mislead and hide the outage.
+    if (e instanceof KdfError) return c.json({ detail: "Authentication service unavailable. Please try again." }, 500);
+    throw e;
+  }
+  if (!passwordOk) {
     return c.json({ detail: "No active account found with the given credentials" }, 401);
   }
   await run(env.DB, "UPDATE auth_user SET last_login = ? WHERE id = ?", nowIso(), user.id);
