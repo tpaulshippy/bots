@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applySm2, isRating } from "../src/srs";
 import { htmlToText, isSingleFileHtml, validateHtmlDoc } from "../src/html";
 import { makeDjangoHash, signJwt, verifyDjangoHash, verifyJwt } from "../src/crypto";
+import { canonicalPath } from "../src/sigv4";
 import { hashPin, PIN_HASH_ITERATIONS, validatePin, verifyPin } from "../src/pin";
 
 describe("sm2", () => {
@@ -70,6 +71,15 @@ describe("html validation", () => {
 
   it("decodes entities before safety checks", () => {
     expect(htmlToText("<p>p&#111;rn</p>")).toContain("porn");
+  });
+});
+
+describe("sigv4 canonical paths (botocore-compatible)", () => {
+  it("single-encodes non-S3 paths, leaves S3 verbatim", () => {
+    expect(
+      canonicalPath("bedrock", new URL("https://bedrock-runtime.us-east-1.amazonaws.com/model/us.amazon.nova-micro-v1:0/converse")),
+    ).toBe("/model/us.amazon.nova-micro-v1%3A0/converse");
+    expect(canonicalPath("s3", new URL("https://b.s3.us-east-1.amazonaws.com/k/a%20b"))).toBe("/k/a%20b");
   });
 });
 

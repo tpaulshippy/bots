@@ -35,7 +35,7 @@ worker/
 ```bash
 cd worker
 npm install
-npm test            # 46 tests, no network
+npm test            # 47 tests, no network
 npm run typecheck
 
 # Local D1 like prod (dump from your pre-removal checkout or server backup —
@@ -124,7 +124,7 @@ or `rclone`), keys are preserved 1:1.
 
 ## Verification
 
-- `npm test` — 46 tests: safety denylists/refusals/moderation mapping,
+- `npm test` — 47 tests: safety denylists/refusals/moderation mapping,
   SM-2, HTML validator, JWT + Django-hash compat (incl. a real Django hash
   and an external HS256 fixture), PIN policy + legacy compat, and end-to-end
   HTTP (auth incl. refresh-as-Bearer rejection, bots, profiles, teen scoping,

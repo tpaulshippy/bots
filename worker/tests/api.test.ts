@@ -80,6 +80,8 @@ describe("auth + bots", () => {
     expect(created.status).toBe(201);
     const detail = await api("GET", `/api/bots/${(created.json as { bot_id: string }).bot_id}/`, parent.access);
     expect(detail.status).toBe(200);
+    // Refresh tokens are not API credentials (SimpleJWT parity).
+    expect((await api("GET", "/api/bots/", parent.refresh)).status).toBe(401);
   });
 
   it("supports password login + refresh", async () => {
