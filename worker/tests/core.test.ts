@@ -1,0 +1,79 @@
+import { describe, expect, it } from "vitest";
+import { applySm2, isRating } from "../src/srs";
+import { htmlToText, isSingleFileHtml, validateHtmlDoc } from "../src/html";
+import { makeDjangoHash, signJwt, verifyDjangoHash, verifyJwt } from "../src/crypto";
+
+describe("sm2", () => {
+  const fresh = { interval_days: 0, ease: 2.5, reps: 0, lapses: 0 };
+  const now = new Date("2026-01-01T00:00:00Z");
+
+  it("again resets reps and schedules ~4h", () => {
+    const r = applySm2({ ...fresh, interval_days: 6, reps: 3 }, "again", now);
+    expect(r.reps).toBe(0);
+    expect(r.lapses).toBe(1);
+    expect(r.interval_days).toBeCloseTo(1 / 6);
+  });
+
+  it("good progresses 0 -> 1 -> 6 days", () => {
+    const first = applySm2(fresh, "good", now);
+    expect(first.interval_days).toBe(1);
+    const second = applySm2({ ...fresh, interval_days: 1, ease: 2.5, reps: 1 }, "good", now);
+    expect(second.interval_days).toBe(6);
+  });
+
+  it("floors ease at 1.3", () => {
+    const r = applySm2({ ...fresh, ease: 1.35 }, "again", now);
+    expect(r.ease).toBe(1.3);
+  });
+
+  it("validates ratings", () => {
+    expect(isRating("easy")).toBe(true);
+    expect(isRating("bogus")).toBe(false);
+  });
+});
+
+describe("html validation", () => {
+  const good = "<html><head><title>t</title><style>p{}</style></head><body><p>hi</p></body></html>";
+
+  it("accepts single-file pages", () => {
+    expect(isSingleFileHtml(good)).toBe(true);
+    expect(validateHtmlDoc(good)).toEqual({ ok: true, html: good });
+  });
+
+  it("rejects remote resources", () => {
+    expect(isSingleFileHtml('<html><body><img src="https://evil/x.png"></body></html>')).toBe(false);
+    expect(isSingleFileHtml('<html><body><a href="/local">x</a></body></html>')).toBe(true);
+  });
+
+  it("allows data: images and fragment links", () => {
+    expect(isSingleFileHtml('<html><body><img src="data:image/png;base64,AAA"><a href="#s">x</a></body></html>')).toBe(true);
+    expect(isSingleFileHtml('<html><body><img src="data:text/html;base64,AAA"></body></html>')).toBe(false);
+  });
+
+  it("requires a closing tag (rejects truncated drafts)", () => {
+    expect(isSingleFileHtml("<html><body><p>half")).toBe(false);
+  });
+
+  it("decodes entities before safety checks", () => {
+    expect(htmlToText("<p>p&#111;rn</p>")).toContain("porn");
+  });
+});
+
+describe("crypto", () => {
+  it("round-trips Django password hashes", async () => {
+    const h = await makeDjangoHash("secret123", 1000);
+    expect(h.startsWith("pbkdf2_sha256$1000$")).toBe(true);
+    expect(await verifyDjangoHash("secret123", h)).toBe(true);
+    expect(await verifyDjangoHash("wrong", h)).toBe(false);
+    expect(await verifyDjangoHash("x", "argon2$...")).toBe(false);
+  });
+
+  it("round-trips JWTs and honors expiry", async () => {
+    const good = await signJwt({ user_id: 1, exp: Math.floor(Date.now() / 1000) + 60 }, "s");
+    const payload = await verifyJwt(good, "s");
+    expect(payload?.["user_id"]).toBe(1);
+    expect(await verifyJwt(good, "other")).toBeNull();
+    const expired = await signJwt({ user_id: 1, exp: 1 }, "s");
+    expect(await verifyJwt(expired, "s")).toBeNull();
+  });
+});

@@ -1,0 +1,53 @@
+# Cloudflare Workers + D1 port of the Syft Learning Django backend (back/).
+#
+# What runs where after cutover:
+#   Worker (this dir) : all /api/* JSON endpoints, SSE chat streaming,
+#                       OAuth callbacks, RevenueCat webhook, media URLs, crons.
+#   Django (back/)    : retired from request serving; kept for reference until
+#                       cutover is verified. Admin site has no equivalent here.
+
+name = "syft-api"
+main = "src/index.ts"
+compatibility_date = "2024-10-04"
+compatibility_flags = ["nodejs_compat"]
+
+# Every API route is served under /api/*, matching the Django URLconf so the
+# Expo app only needs EXPO_PUBLIC_API_BASE_URL pointed at the Worker.
+# wrangler dev serves at http://localhost:8787 by default.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "syft-db"
+database_id = "00000000-0000-0000-0000-000000000000" # TODO: replace with `wrangler d1 create syft-db` id
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "syft-images" # TODO: create with `wrangler r2 bucket create syft-images`
+
+[triggers]
+crons = ["30 12 * * *", "0 1 * * *"]
+# 12:30 UTC ~= morning US study-reminder window; 01:00 UTC parent digests.
+
+[vars]
+APP_DEEP_URL = "syftlearning://login"
+WEB_APP_LOGIN_URL = "https://syftlearning.app/app/login"
+AWS_REGION = "us-east-1"
+BEDROCK_MAX_TOKENS = "8192"
+ALLOW_E2E_FAKE_STREAM = "false"
+MAX_HTML_BYTES = "204800"
+
+# Secrets (set with `wrangler secret put <NAME>` — never commit):
+#   JWT_SECRET                  HS256 signing key (must equal Django SECRET_KEY to
+#                               keep already-issued app tokens valid across cutover)
+#   MEDIA_SIGNING_SECRET        HMAC key for /api/media signed URLs (may equal JWT_SECRET)
+#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+#                               Bedrock + Tavily/OpenAI use these at runtime
+#   AWS_STORAGE_BUCKET_NAME     legacy S3 bucket (presigned image reads during migration)
+#   TAVILY_API_KEY              empty = web_search tool disabled (same as Django)
+#   OPENAI_API_KEY              empty = denylist-only safety (same as Django)
+#   GOOGLE_OAUTH_CLIENT_ID (+ web client id/secret GOOGLE_OAUTH_CLIENT_SECRET)
+#   APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY
+#   REVENUECAT_WEBHOOK_AUTH_HEADER
+#   RESEND_API_KEY              optional; support form falls back to logging
+#   EMAIL_RECIPIENT
