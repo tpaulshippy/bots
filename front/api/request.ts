@@ -37,7 +37,8 @@ export const request = async <T>(
 // Same error handling as request(), but returns the raw response for callers
 // that need the status code or the ok flag. Resolves to null on failure,
 // except 403 (ForbiddenError) which is mapped to an `{ ok: false, status: 403 }`
-// response so callers can distinguish validation failures from reauth failures.
+// response (preserving the server body when present) so callers can
+// distinguish validation failures from reauth/teen-delegation denials.
 export const requestRaw = async <T>(
     endpoint: string,
     options: RequestInit = {}
@@ -57,7 +58,11 @@ export const requestRaw = async <T>(
             error?.name === 'ForbiddenError' ||
             (typeof ForbiddenError === 'function' && error instanceof ForbiddenError)
         ) {
-            return { data: null, status: 403, ok: false };
+            const data =
+                (error as { data?: T | null })?.data !== undefined
+                    ? (error as { data: T | null }).data
+                    : null;
+            return { data, status: 403, ok: false };
         }
 
         Sentry.captureException(error);

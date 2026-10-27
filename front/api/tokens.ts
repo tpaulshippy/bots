@@ -95,17 +95,35 @@ const notifySessionModeChanged = () => {
 
 /**
  * Session mode derived from the stored JWT claims. Parent sessions default
- * to { isTeenDelegated: false } when the claims are absent.
+ * to { isTeenDelegated: false } when the claims are absent. Legacy sessions
+ * stored before the flag existed fall back to the access-token claim (the
+ * server is the source of truth for delegation) so a teen is never
+ * misclassified as a parent.
  */
 export const getSessionMode = async (): Promise<SessionMode> => {
   const tokens = await getTokens();
   if (!tokens) {
     return PARENT_SESSION_MODE;
   }
+  if (tokens.isTeenDelegated === true) {
+    return {
+      isTeenDelegated: true,
+      activeProfileId: tokens.activeProfileId ?? null,
+    };
+  }
+  if (tokens.access) {
+    const payload = decodeJwtPayload(tokens.access);
+    if (payload?.is_teen_delegated === true) {
+      const claimed = payload?.active_profile_id;
+      return {
+        isTeenDelegated: true,
+        activeProfileId: typeof claimed === "string" ? claimed : null,
+      };
+    }
+  }
   return {
-    isTeenDelegated: tokens.isTeenDelegated === true,
-    activeProfileId:
-      tokens.isTeenDelegated === true ? tokens.activeProfileId ?? null : null,
+    isTeenDelegated: false,
+    activeProfileId: null,
   };
 };
 
@@ -156,14 +174,47 @@ export const clearUser = async () => {
   await AsyncStorage.removeItem("selectedBot");
 };
 
-const decodeJwtPayload = (jwt: string): Record<string, unknown> | null => {
+const BASE64_CHARS =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+const base64DecodeToBinary = (b64: string): string | null => {
   try {
-    const normalized = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    if (typeof atob !== "function") {
-      return null;
+    if (typeof (globalThis as unknown as { atob?: unknown }).atob === "function") {
+      return (globalThis as unknown as { atob: (s: string) => string }).atob(b64);
     }
-    const binary = atob(padded);
+    let output = "";
+    let buffer = 0;
+    let bits = 0;
+    for (const char of b64) {
+      if (char === "=") break;
+      const index = BASE64_CHARS.indexOf(char);
+      if (index === -1) return null;
+      buffer = (buffer << 6) | index;
+      bits += 6;
+      if (bits >= 8) {
+        bits -= 8;
+        output += String.fromCharCode((buffer >> bits) & 0xff);
+        buffer &= (1 << bits) - 1;
+      }
+    }
+    return output;
+  } catch {
+    return null;
+  }
+};
+
+export const decodeJwtPayload = (
+  jwt: string
+): Record<string, unknown> | null => {
+  try {
+    const part = jwt.split(".")[1];
+    if (!part) return null;
+    const normalized = part.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const binary = base64DecodeToBinary(padded);
+    if (binary === null) return null;
+    // JWT claims used here (ids, booleans) are ASCII; percent-encoding
+    // round-trips any UTF-8 bytes without needing TextDecoder (absent on RN).
     const json = decodeURIComponent(
       binary
         .split("")

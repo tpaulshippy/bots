@@ -30,6 +30,7 @@ import {
   handleUnauthorized,
   setSelectedProfile,
 } from "@/hooks/useSelectedProfile";
+import { isTeenDelegatedSession } from "@/api/tokens";
 import { registerForPushNotificationsAsync } from "../parent/notifications";
 import { WizardStep } from "./WizardStep";
 
@@ -211,16 +212,55 @@ export default function OnboardingNotifications() {
         // is already used by another profile). Nothing was saved — stay on
         // this step and say so, pointing back at Step 2 where the email
         // lives. The stack keeps the earlier steps' inputs intact.
-        setSaving(false);
         const fieldError = response
           ? fieldMessage(response.data, "studentEmail") ??
             fieldMessage(response.data, "profileName")
           : null;
         if (fieldError) {
+          setSaving(false);
           setSaveError(
             `${fieldError} Use the back arrow to fix it in Step 2 — your other choices are kept.`
           );
+        } else if (response?.status === 403) {
+          // Parent-only endpoint: a teen-delegated session reaching the
+          // wizard (e.g. session flag lost on refresh, now fixed in
+          // apiClient) gets a guided exit instead of a generic error.
+          // The server detail is "Onboarding is completed by the parent
+          // account." — no Sentry noise for this expected denial.
+          // Trust the server body as well as the local session lookup so a
+          // client-side token read/decode failure can't misreport the
+          // expected teen denial as an error. Keep `saving` enabled while
+          // the lookup runs so a second tap can't issue a duplicate
+          // bootstrap.
+          const serverDetail = (response.data as { detail?: unknown } | null)?.detail;
+          const serverSaysTeen =
+            serverDetail === "Onboarding is completed by the parent account.";
+          let teen = serverSaysTeen;
+          if (!teen) {
+            try {
+              teen = await isTeenDelegatedSession();
+            } catch {
+              teen = false;
+            }
+          }
+          if (teen) {
+            Alert.alert(
+              "Parent setup required",
+              "Onboarding is completed by the parent account. Ask a parent to finish setup, then open the app again."
+            );
+            router.replace("/chat" as never);
+          } else {
+            setSaving(false);
+            Sentry.captureException?.(
+              new Error(`Onboarding bootstrap failed (403)`)
+            );
+            Alert.alert(
+              "Something went wrong",
+              "We couldn't save your setup. Please try again."
+            );
+          }
         } else {
+          setSaving(false);
           Sentry.captureException?.(
             new Error(
               `Onboarding bootstrap failed (${response?.status ?? "offline"})`

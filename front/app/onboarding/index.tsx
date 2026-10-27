@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
@@ -5,12 +6,34 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useThemeColor } from "@/hooks/useThemeColor";
+import { isTeenDelegatedSession } from "@/api/tokens";
 
 export default function OnboardingWelcome() {
   const router = useRouter();
   const { review } = useLocalSearchParams<{ review?: string }>();
   const isReview = review === "true";
   const tintColor = useThemeColor({}, "tint");
+
+  // Teen-delegated sessions skip onboarding entirely (server 403s the
+  // bootstrap as parent-only). Bounce them to chat so a stale link or a
+  // misclassified session can never strand them in the wizard.
+  useEffect(() => {
+    if (isReview) return;
+    let active = true;
+    (async () => {
+      try {
+        const teen = await isTeenDelegatedSession();
+        if (active && teen) {
+          router.replace("/chat" as never);
+        }
+      } catch {
+        // Best-effort gate; the finish step handles the 403 explicitly.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isReview, router]);
 
   // X gets out without saving: review mode returns to Settings, first-run
   // drops to chat (which re-gates to the wizard if nothing exists yet).
