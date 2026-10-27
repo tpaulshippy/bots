@@ -132,9 +132,10 @@ export async function verifyDjangoHash(password: string, encoded: string): Promi
   }
 }
 
-// New hashes use the same Django format. 720k iterations matches Django 5.x
-// defaults (back/ has no custom PASSWORD_HASHERS). PIN entries are rare, so
-// the CPU cost is acceptable; password logins happen once per install.
+// New hashes use the same Django format. The default work factor stays at
+// Django parity for compatibility; callers with cheap-hash policies (PINs —
+// see pin.ts PIN_HASH_ITERATIONS) pass explicit iterations. Verification is
+// iteration-agnostic: any Django-produced hash verifies regardless of count.
 export async function makeDjangoHash(password: string, iterations = 720_000): Promise<string> {
   const saltBytes = new Uint8Array(16);
   crypto.getRandomValues(saltBytes);

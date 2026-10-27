@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applySm2, isRating } from "../src/srs";
 import { htmlToText, isSingleFileHtml, validateHtmlDoc } from "../src/html";
 import { makeDjangoHash, signJwt, verifyDjangoHash, verifyJwt } from "../src/crypto";
+import { hashPin, PIN_HASH_ITERATIONS, validatePin, verifyPin } from "../src/pin";
 
 describe("sm2", () => {
   const fresh = { interval_days: 0, ease: 2.5, reps: 0, lapses: 0 };
@@ -56,6 +57,25 @@ describe("html validation", () => {
 
   it("decodes entities before safety checks", () => {
     expect(htmlToText("<p>p&#111;rn</p>")).toContain("porn");
+  });
+});
+
+describe("pin hashing policy", () => {
+  it("new PIN hashes are cheap (free-plan CPU budget) and verify", async () => {
+    expect(validatePin("1234")).toBe(true);
+    expect(validatePin("123")).toBe(false);
+    const h = await hashPin("1234");
+    const iterations = parseInt(h.split("$")[1]!, 10);
+    expect(iterations).toBe(PIN_HASH_ITERATIONS);
+    expect(iterations).toBeLessThanOrEqual(5000);
+    expect(await verifyPin(h, "1234")).toBe(true);
+    expect(await verifyPin(h, "0000")).toBe(false);
+  });
+
+  it("legacy Django-grade hashes still verify (iteration-agnostic)", async () => {
+    const legacy = await makeDjangoHash("1234", 100_000);
+    expect(await verifyPin(legacy, "1234")).toBe(true);
+    expect(await verifyPin(legacy, "0000")).toBe(false);
   });
 });
 

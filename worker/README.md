@@ -102,9 +102,14 @@ or `rclone`), keys are preserved 1:1.
   same as Django with `render_available() == False`).
 - **No Playwright render gate**, so tool-time HTML checks are static only
   (same validator + text extraction as Django).
-- **PIN/password hashing stays Django-format** (`pbkdf2_sha256`, Django 5.x
-  defaults verify as-is). Hashing ~1.2M iterations costs ~200ms CPU —
-  fine on a paid Worker, not on the free 10ms CPU tier.
+- **PIN/password hashing stays Django-format** (`pbkdf2_sha256`, and any
+  Django-produced hash verifies as-is). New PIN hashes use a low work factor
+  on purpose (see `pin.ts`): a 4–8 digit PIN can't survive an offline attack
+  regardless of iterations, so the real control is server-side lockout — and
+  sub-millisecond verification keeps everything inside the free plan's 10ms
+  CPU budget. If your account still has a pre-cutover PIN set, remove it in
+  the app before cutover (legacy high-iteration hashes verify but cost
+  ~200ms of CPU).
 - **`/api/schema`, `/api/docs`, browsable `api-auth/` are gone.**
   `front/api/schema.yaml` remains the shape reference; route tests assert
   the wire contract instead.

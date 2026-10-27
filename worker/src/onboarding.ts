@@ -2,9 +2,8 @@
 
 import { first } from "./db";
 import { newUuid } from "./crypto";
-import { makeDjangoHash } from "./crypto";
 import { nowIso } from "./types";
-import { validatePin } from "./pin";
+import { hashPin, validatePin } from "./pin";
 
 export const DEFAULT_TEMPLATE_NAME = "Blank";
 export const DEFAULT_BOT_COLOR = "#2A9D8F";
@@ -181,7 +180,7 @@ export async function bootstrapOnboarding(
 
   // Account: PIN + onboarding flag. D1 has no transactions across the batch
   // API in the same way; run as a batch (all-or-nothing per statement list).
-  const pinHash = pinValue && typeof pinValue === "string" ? await makeDjangoHash(pinValue) : null;
+  const pinHash = pinValue && typeof pinValue === "string" ? await hashPin(pinValue) : null;
   const acct = await first<{ id: number; onboarding_completed_at: string | null }>(
     db,
     "SELECT id, onboarding_completed_at FROM bots_useraccount WHERE user_id = ?",
