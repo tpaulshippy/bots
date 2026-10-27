@@ -109,7 +109,7 @@ export async function findOrCreateUser(
   subject: string,
   email: string,
   firstName: string,
-): Promise<{ id: number; email: string }> {
+): Promise<{ id: number; email: string } | null> {
   const linked = await first<{ user_id: number }>(
     db,
     "SELECT user_id FROM oauth_account WHERE provider = ? AND subject = ?",
@@ -117,14 +117,22 @@ export async function findOrCreateUser(
     subject,
   );
   if (linked) {
-    const u = await first<{ id: number; email: string }>(db, "SELECT id, email FROM auth_user WHERE id = ?", linked.user_id);
-    if (u) return { id: u.id, email: u.email };
+    const u = await first<{ id: number; email: string; is_active: number }>(
+      db,
+      "SELECT id, email, is_active FROM auth_user WHERE id = ?",
+      linked.user_id,
+    );
+    // Deactivated accounts stay dead: never link or mint for them.
+    if (u && u.is_active === 1) return { id: u.id, email: u.email };
+    if (u) return null;
   }
   const normalized = (email ?? "").toLowerCase().trim();
-  let user = normalized
-    ? await first<{ id: number; email: string }>(
+  // Never link on an empty email: unrelated subject-only logins would
+  // otherwise merge into one account.
+  let user: { id: number; email: string; is_active: number } | null = normalized
+    ? await first<{ id: number; email: string; is_active: number }>(
         db,
-        "SELECT id, email FROM auth_user WHERE LOWER(email) = ? ORDER BY id ASC",
+        "SELECT id, email, is_active FROM auth_user WHERE LOWER(email) = ? AND is_active = 1 ORDER BY id ASC",
         normalized,
       )
     : null;
@@ -147,9 +155,10 @@ export async function findOrCreateUser(
       normalized,
       now,
     );
-    user = { id: Number(res.meta.last_row_id), email: normalized };
+    user = { id: Number(res.meta.last_row_id), email: normalized, is_active: 1 };
     await provisionDefaultContent(db, user.id, firstName ?? "");
   }
+  if (!user) return null;
   await run(
     db,
     "INSERT OR IGNORE INTO oauth_account (user_id, provider, subject, email, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -190,7 +199,12 @@ async function verifyRs256(jwt: string, jwksUri: string): Promise<Record<string,
   const jwks = (await resp.json()) as { keys?: JwkKey[] };
   const keys = (jwks.keys ?? []).filter((k) => !header.kid || k.kid === header.kid);
   const signingInput = `${parts[0]}.${parts[1]}`;
-  const sig = b64urlDecodeToBytes(parts[2]!);
+  let sig: Uint8Array;
+  try {
+    sig = b64urlDecodeToBytes(parts[2]!);
+  } catch {
+    return null;
+  }
   const data = new TextEncoder().encode(signingInput);
   for (const key of keys) {
     try {
@@ -211,26 +225,39 @@ async function verifyRs256(jwt: string, jwksUri: string): Promise<Record<string,
   return null;
 }
 
+function tokenExpiryOk(payload: Record<string, unknown>): boolean {
+  // exp is mandatory: a token without (numeric, future) expiry is rejected.
+  return typeof payload["exp"] === "number" && payload["exp"] * 1000 > Date.now();
+}
+
+function emailVerified(payload: Record<string, unknown>): boolean {
+  // Google sends boolean true; Apple sends the string "true"/"false".
+  const v = payload["email_verified"];
+  return v === true || v === "true";
+}
+
 export async function verifyGoogleIdToken(env: Env, idToken: string): Promise<{ sub: string; email: string; firstName: string } | null> {
   const payload = await verifyRs256(idToken, "https://www.googleapis.com/oauth2/v3/certs");
   if (!payload) return null;
   const iss = payload["iss"];
   if (iss !== "https://accounts.google.com" && iss !== "accounts.google.com") return null;
-  if (typeof payload["exp"] === "number" && payload["exp"] * 1000 <= Date.now()) return null;
+  if (!tokenExpiryOk(payload)) return null;
   const aud = env.GOOGLE_OAUTH_CLIENT_ID ?? "";
   const tokenAud = payload["aud"];
   const audOk = Array.isArray(tokenAud) ? tokenAud.includes(aud) : tokenAud === aud;
   if (!audOk || typeof payload["sub"] !== "string") return null;
-  return { sub: payload["sub"] as string, email: String(payload["email"] ?? ""), firstName: String(payload["given_name"] ?? "") };
+  if (typeof payload["email"] !== "string" || !payload["email"] || !emailVerified(payload)) return null;
+  return { sub: payload["sub"] as string, email: payload["email"], firstName: String(payload["given_name"] ?? "") };
 }
 
 export async function verifyAppleIdToken(env: Env, idToken: string): Promise<{ sub: string; email: string; firstName: string } | null> {
   const payload = await verifyRs256(idToken, "https://appleid.apple.com/auth/keys");
   if (!payload) return null;
   if (payload["iss"] !== "https://appleid.apple.com") return null;
-  if (typeof payload["exp"] === "number" && payload["exp"] * 1000 <= Date.now()) return null;
+  if (!tokenExpiryOk(payload)) return null;
   if (payload["aud"] !== env.APPLE_CLIENT_ID || typeof payload["sub"] !== "string") return null;
-  return { sub: payload["sub"] as string, email: String(payload["email"] ?? ""), firstName: "" };
+  if (typeof payload["email"] !== "string" || !payload["email"] || !emailVerified(payload)) return null;
+  return { sub: payload["sub"] as string, email: payload["email"], firstName: "" };
 }
 
 // --- OAuth code flows -------------------------------------------------------

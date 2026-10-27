@@ -31,6 +31,7 @@ export interface AuthUser {
   id: number;
   email: string;
   username: string;
+  first_name: string;
   is_active: number;
 }
 

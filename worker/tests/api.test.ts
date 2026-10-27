@@ -5,6 +5,9 @@ import { makeDjangoHash } from "../src/crypto";
 import { makeTestDb, testEnv } from "./d1shim";
 import type { Env } from "../src/types";
 
+import { buildHistory } from "../src/chat";
+import { costForToday } from "../src/usage";
+
 let db: D1Database;
 let env: Env;
 const ctx = { waitUntil: () => undefined, passThroughOnException: () => undefined } as unknown as ExecutionContext;
@@ -156,6 +159,13 @@ describe("chat turns (fake model)", () => {
     expect(flagged.safety_blocked).toBe(1);
     const events = (await db.prepare("SELECT COUNT(*) AS n FROM bots_safetyevent").first()) as unknown as { n: number };
     expect(events.n).toBe(1);
+    // History for the next turn must exclude the blocked message.
+    const chatRow = (await db.prepare("SELECT id FROM bots_chat WHERE user_id = 1").first()) as unknown as { id: number };
+    const { history } = await buildHistory(db, env, chatRow.id);
+    expect(JSON.stringify(history)).not.toContain("how to kill someone");
+    // Only the system prompt + refusal remain (assistant rows need a prior
+    // user turn, so the blocked user message leaves no assistant echo).
+    expect(history.every((m) => m.role !== "assistant" || !JSON.stringify(m).includes("how to kill"))).toBe(true);
   });
 
   it("streams SSE frames and persists the assistant row", async () => {
@@ -326,5 +336,68 @@ describe("html pages + revenuecat", () => {
       subscription_level: number;
     };
     expect(level.subscription_level).toBe(2);
+  });
+});
+
+describe("usage baselines, pagination, media", () => {
+  it("applies Python-formatted reset baselines (canonical compare)", async () => {
+    await seed();
+    await db.prepare("UPDATE bots_aimodel SET input_token_cost = 1.0, output_token_cost = 2.0 WHERE id = 1").run();
+    // The message strictly predates the reset instant: rows committed AT
+    // the reset count post-reset, never inside the baseline snapshot.
+    const msgAt = new Date(Date.now() - 60_000).toISOString();
+    const now = new Date().toISOString();
+    await db.prepare("INSERT INTO bots_chat (user_id, profile_id, bot_id, chat_id, title, created_at, modified_at) VALUES (1, 1, 1, 'c1', 't', ?, ?)").bind(msgAt, msgAt).run();
+    const chat = (await db.prepare("SELECT id FROM bots_chat WHERE chat_id = 'c1'").first()) as unknown as { id: number };
+    await db
+      .prepare('INSERT INTO bots_message (chat_id, message_id, text, role, "order", input_tokens, output_tokens, created_at, modified_at) VALUES (?, \'m1\', \'hi\', \'assistant\', 1, 10, 5, ?, ?)')
+      .bind(chat.id, msgAt, msgAt)
+      .run();
+    // Django writes json.dumps spacing; the Worker writes compact JSON.
+    // Canonical comparison must treat them as the same snapshot.
+    const chatId = String(chat.id);
+    const pyFormatted = `{"rates": {"e2e-fake-stream-test": [1.0, 2.0, 1]}, "unstamped": {"${chatId}": "e2e-fake-stream-test"}}`;
+    await db
+      .prepare("UPDATE bots_useraccount SET usage_reset_version = 2, usage_reset_pricing = ?, usage_reset_at = ?, usage_reset_timezone = 'UTC', usage_reset_cost = ?, usage_reset_input_tokens = ?, usage_reset_output_tokens = ? WHERE user_id = 1")
+      .bind(pyFormatted, now, 20.0, 10, 5)
+      .run();
+    const cost = await costForToday(db, 1);
+    // raw = 10*1.0 + 5*2.0 = 20; minus the 20/10/5 baseline -> 0.
+    expect(cost.total).toBeCloseTo(0);
+    expect(cost.inputTokens).toBe(0);
+    expect(cost.outputTokens).toBe(0);
+  });
+
+  it("rejects invalid/out-of-range pages like DRF", async () => {
+    const { parent } = await seed();
+    expect((await api("GET", "/api/bots/?page=abc", parent.access)).status).toBe(404);
+    expect((await api("GET", "/api/bots/?page=999", parent.access)).status).toBe(404);
+    expect((await api("GET", "/api/bots/?page=last", parent.access)).status).toBe(200);
+    expect((await api("GET", "/api/bots/?page=1", parent.access)).status).toBe(200);
+  });
+
+  it("serves uploaded photo bytes through signed media URLs", async () => {
+    const { parent } = await seed();
+    const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13]).buffer;
+    const form = new FormData();
+    form.append("name", "Kid");
+    form.append("photo", new File([png], "photo.png", { type: "image/png" }));
+    const created = await worker.fetch(
+      new Request("https://api.test/api/profiles/", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${parent.access}` },
+        body: form,
+      }),
+      env,
+      ctx,
+    );
+    expect(created.status).toBe(201);
+    const profile = (await created.json()) as { photo_url: string };
+    expect(profile.photo_url).toContain("/api/media/");
+    const img = await worker.fetch(new Request(profile.photo_url), env, ctx);
+    expect(img.status).toBe(200);
+    expect(img.headers.get("content-type")).toBe("image/png");
+    expect(img.headers.get("x-content-type-options")).toBe("nosniff");
+    expect((await img.arrayBuffer()).byteLength).toBe(png.byteLength);
   });
 });

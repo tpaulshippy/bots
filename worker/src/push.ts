@@ -1,5 +1,12 @@
 // Expo push notifications — port of bots/models/device.py NotificationClient.
 // Fire-and-forget via ctx.waitUntil; per-device try/except like Django.
+//
+// Payload shapes mirror Django exactly: the app's notification handler keys
+// off `data.target` ("chat" | "parent_activity" | "study_due") and
+// `data.chat_id`, and every message carries `sound: "default"` (silent
+// otherwise on iOS).
+
+import type { BotRow, ChatRow, ProfileRow } from "./types";
 
 export interface DeviceRow {
   notification_token: string;
@@ -9,8 +16,25 @@ export interface DeviceRow {
   notify_study_due: number;
 }
 
+export interface PushUser {
+  id: number;
+  first_name: string;
+}
+
+export interface PushChat {
+  chat: ChatRow;
+  bot: BotRow | null;
+  profile: ProfileRow | null;
+}
+
+export interface PushMessage {
+  role: string;
+  text: string;
+}
+
 interface ExpoMessage {
   to: string;
+  sound?: string;
   title?: string;
   body?: string;
   data?: Record<string, unknown>;
@@ -41,13 +65,27 @@ async function devicesForUser(db: D1Database, userId: number): Promise<DeviceRow
   return res.results ?? [];
 }
 
-export async function notifyNewChat(db: D1Database, userId: number, chatTitle: string): Promise<void> {
-  const devices = await devicesForUser(db, userId);
+function fromName(profile: ProfileRow | null, user: PushUser): string {
+  return profile?.name || user.first_name || "Someone";
+}
+
+function toName(bot: BotRow | null): string {
+  return bot?.name ?? "unknown";
+}
+
+export async function notifyNewChat(db: D1Database, push: PushChat, user: PushUser): Promise<void> {
+  const devices = await devicesForUser(db, user.id);
   const msgs: ExpoMessage[] = [];
   for (const d of devices) {
     try {
       if (d.notify_digest_only === 1 || d.notify_on_new_chat !== 1) continue;
-      msgs.push({ to: d.notification_token, title: "New chat started", body: chatTitle, data: { type: "new_chat" } });
+      msgs.push({
+        to: d.notification_token,
+        sound: "default",
+        title: `${fromName(push.profile, user)} started a conversation with ${toName(push.bot)}`,
+        body: push.chat.title,
+        data: { chat_id: push.chat.chat_id, target: "chat" },
+      });
     } catch {
       // per-device isolation like Django
     }
@@ -55,13 +93,27 @@ export async function notifyNewChat(db: D1Database, userId: number, chatTitle: s
   await sendBatch(msgs);
 }
 
-export async function notifyNewMessage(db: D1Database, userId: number, chatTitle: string, preview: string): Promise<void> {
-  const devices = await devicesForUser(db, userId);
+export async function notifyNewMessage(
+  db: D1Database,
+  message: PushMessage,
+  push: PushChat,
+  user: PushUser,
+): Promise<void> {
+  // User turns only: assistant completions and refusals never push
+  // (Django's notify_message checks role == 'user' the same way).
+  if (message.role !== "user") return;
+  const devices = await devicesForUser(db, user.id);
   const msgs: ExpoMessage[] = [];
   for (const d of devices) {
     try {
       if (d.notify_digest_only === 1 || d.notify_on_new_message !== 1) continue;
-      msgs.push({ to: d.notification_token, title: chatTitle, body: preview.slice(0, 100), data: { type: "new_message" } });
+      msgs.push({
+        to: d.notification_token,
+        sound: "default",
+        title: `${fromName(push.profile, user)} sent ${toName(push.bot)} a message`,
+        body: message.text,
+        data: { chat_id: push.chat.chat_id, target: "chat" },
+      });
     } catch {
       // per-device isolation
     }
@@ -69,6 +121,14 @@ export async function notifyNewMessage(db: D1Database, userId: number, chatTitle
   await sendBatch(msgs);
 }
 
-export async function pushToTokens(tokens: string[], title: string, body: string, data?: Record<string, unknown>): Promise<void> {
-  await sendBatch(tokens.map((to) => ({ to, title, body, data })));
+// Study reminders and digests are composed by the cron handlers in
+// routes/misc.ts (mirroring send_study_reminders / send_activity_digests)
+// and delivered unwrapped here.
+export async function pushToTokens(
+  tokens: string[],
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+): Promise<void> {
+  await sendBatch(tokens.map((to) => ({ to, sound: "default", title, body, data })));
 }

@@ -4,6 +4,8 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { delegatedProfile, forbidden, isTeenDelegated, unauthorized } from "../auth";
 import { first, fromBool } from "../db";
+import { uuidForms, uuidMatch } from "../db";
+export { isUuid, UUID_HEX_RE, UUID_RE, uuidMatch } from "../db";
 import { signMediaUrl } from "../images";
 import type { AuthPayload, AuthUser, Env, ProfileRow } from "../types";
 
@@ -33,17 +35,15 @@ export function routeCtx(c: TC): RouteCtx {
   };
 }
 
-export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const isUuid = (v: string): boolean => UUID_RE.test(v);
-
 export async function findByUuidOrId<T>(
   db: D1Database,
   table: string,
   uuidCol: string,
   raw: string,
 ): Promise<T | null> {
-  if (isUuid(raw)) {
-    return await first<T>(db, `SELECT * FROM ${table} WHERE ${uuidCol} = ?`, raw.toLowerCase());
+  const forms = uuidForms(raw);
+  if (forms) {
+    return await first<T>(db, `SELECT * FROM ${table} WHERE ${uuidCol} = ? OR ${uuidCol} = ?`, forms[0], forms[1]);
   }
   if (/^\d+$/.test(raw)) {
     return await first<T>(db, `SELECT * FROM ${table} WHERE id = ?`, parseInt(raw, 10));

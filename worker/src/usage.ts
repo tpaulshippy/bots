@@ -25,11 +25,22 @@ interface AiModelRow {
   is_default: number;
 }
 
+export function isValidTimezone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function startOfTodayUtc(timezone: string, now = new Date()): Date {
   // Midnight in the account timezone, returned as UTC. Uses Intl so no
-  // timezone DB is bundled (Workers have no pytz).
+  // timezone DB is bundled (Workers have no pytz). Invalid stored timezones
+  // fall back to UTC instead of 500ing every quota-gated request.
+  const tz = timezone && isValidTimezone(timezone) ? timezone : "UTC";
   const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
+    timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -202,11 +213,23 @@ function resetBaselineApplies(acct: AccountRow, startIso: string, livePricing: u
   if (!acct.usage_reset_at || acct.usage_reset_timezone !== acct.timezone) return false;
   if (acct.usage_reset_version !== USAGE_RESET_VERSION) return false;
   if (acct.usage_reset_at < startIso) return false;
+  // Canonical deep-compare: a Django-written baseline (Python json.dumps
+  // spacing) and a Worker-written one (compact JSON) describe the same
+  // snapshot and must both apply. Raw string comparison would void every
+  // cross-implementation reset and recharge already-reset usage.
   try {
-    return JSON.stringify(livePricing) === (acct.usage_reset_pricing ?? "{}");
+    return canonicalJson(livePricing) === canonicalJson(JSON.parse(acct.usage_reset_pricing ?? "{}"));
   } catch {
     return false;
   }
+}
+
+// Deterministic serialization: sorted object keys, compact separators.
+export function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson((value as Record<string, unknown>)[k])}`).join(",")}}`;
 }
 
 export async function costForToday(db: D1Database, userId: number, now = new Date()): Promise<CostToday> {

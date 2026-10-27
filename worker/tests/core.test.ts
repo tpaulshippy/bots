@@ -22,6 +22,19 @@ describe("sm2", () => {
     expect(second.interval_days).toBe(6);
   });
 
+  it("easy multiplies every step by the bonus (new cards: 1.3 days)", () => {
+    const first = applySm2(fresh, "easy", now);
+    expect(first.interval_days).toBeCloseTo(1.3);
+    expect(first.reps).toBe(1);
+  });
+
+  it("good after a lapse restarts at 1 day (reps reset)", () => {
+    const lapsed = applySm2(fresh, "again", now);
+    expect(lapsed.reps).toBe(0);
+    const next = applySm2({ ...fresh, interval_days: lapsed.interval_days, ease: lapsed.ease, reps: 0, lapses: 1 }, "good", now);
+    expect(next.interval_days).toBe(1);
+  });
+
   it("floors ease at 1.3", () => {
     const r = applySm2({ ...fresh, ease: 1.35 }, "again", now);
     expect(r.ease).toBe(1.3);
@@ -86,6 +99,16 @@ describe("crypto", () => {
     expect(await verifyDjangoHash("secret123", h)).toBe(true);
     expect(await verifyDjangoHash("wrong", h)).toBe(false);
     expect(await verifyDjangoHash("x", "argon2$...")).toBe(false);
+  });
+
+  it("verifies a real Django-produced hash (not self-made)", async () => {
+    // Genuinely Django-produced: back/db.sqlite3 auth_user row, created by
+    // Django's make_password (pbkdf2_sha256, 1.2M iterations). Password is
+    // the e2e fixture password "testpassword123". ~200ms — run sparingly.
+    const djangoHash =
+      "pbkdf2_sha256$1200000$B02FcbPHicybZgT9IgqJZe$3WnNR9TKbksH/V+qghsPBloGalm9t+pdY2LVKjnnChI=";
+    expect(await verifyDjangoHash("testpassword123", djangoHash)).toBe(true);
+    expect(await verifyDjangoHash("wrong password", djangoHash)).toBe(false);
   });
 
   it("round-trips JWTs and honors expiry", async () => {

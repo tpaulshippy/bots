@@ -4,12 +4,12 @@
 import { Hono } from "hono";
 import { authenticate, authenticateOptional } from "../auth";
 import { isTeenDelegated, verifySession } from "../auth";
-import { all, count as dbCount, first, pageParams, paginated, run } from "../db";
+import { all, count as dbCount, first, resolvePage, paginated, run } from "../db";
 import { signJwt } from "../crypto";
 import { jwtSecret } from "../auth";
 import { nowIso, type Env } from "../types";
 import { htmlDetailRow, htmlListRow } from "../serializers";
-import { findByUuidOrId, isUuid, routeCtx, teenScope, type TC, makeRouter } from "./helpers";
+import { findByUuidOrId, isUuid, uuidMatch, routeCtx, teenScope, type TC, makeRouter } from "./helpers";
 
 const pages = makeRouter();
 
@@ -54,24 +54,38 @@ authed.get("/", authenticate, async (c) => {
   const r = routeCtx(c);
   const scope = await teenScope(r);
   const profileParam = c.req.query("profileId");
-  const p = pageParams(new URLSearchParams(c.req.query() as Record<string, string>));
   const sp = new URLSearchParams(c.req.query() as Record<string, string>);
 
   let where = "h.profile_id IN (SELECT id FROM bots_profile WHERE user_id = ?)";
   const params: unknown[] = [r.user.id];
   if (scope.teen) {
-    if (!scope.profile) return c.json(paginated(r.base + "/html-pages/", sp, p, 0, []));
+    if (!scope.profile) {
+      const rawPage = sp.get("page");
+      if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
+      return c.json(paginated(r.base + "/html-pages/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+    }
     where = "h.profile_id = ?";
     params.length = 0;
     params.push(scope.profile.id);
   } else if (profileParam) {
-    if (!isUuid(profileParam)) return c.json(paginated(r.base + "/html-pages/", sp, p, 0, []));
-    const prof = await first<{ id: number }>(r.env.DB, "SELECT id FROM bots_profile WHERE profile_id = ? AND user_id = ?", profileParam.toLowerCase(), r.user.id);
-    if (!prof) return c.json(paginated(r.base + "/html-pages/", sp, p, 0, []));
+    const pmatch = uuidMatch("profile_id", profileParam);
+    if (!pmatch) {
+      const rawPage = sp.get("page");
+      if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
+      return c.json(paginated(r.base + "/html-pages/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+    }
+    const prof = await first<{ id: number }>(r.env.DB, `SELECT id FROM bots_profile WHERE ${pmatch.sql} AND user_id = ?`, ...pmatch.params, r.user.id);
+    if (!prof) {
+      const rawPage = sp.get("page");
+      if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
+      return c.json(paginated(r.base + "/html-pages/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+    }
     where += " AND h.profile_id = ?";
     params.push(prof.id);
   }
   const total = await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_htmlpage h WHERE ${where}`, ...params);
+  const p = resolvePage(sp, total);
+  if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<Record<string, unknown>>(
     r.env.DB,
     `SELECT h.id, h.page_id, h.title, h.created_at, h.updated_at, pr.profile_id AS profile_id_slug, pr.name AS profile_name

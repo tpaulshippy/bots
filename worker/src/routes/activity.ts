@@ -3,12 +3,12 @@
 
 import { Hono } from "hono";
 import { authenticate, isTeenDelegated } from "../auth";
-import { all, count as dbCount, first, pageParams, paginated } from "../db";
+import { all, count as dbCount, first, resolvePage, paginated } from "../db";
 import { forbidden } from "../auth";
 import type { Env } from "../types";
 import { getProfileStats } from "../stats";
 import { activityChatRow, activitySafetyRow, messageRow } from "../serializers";
-import { findByUuidOrId, isUuid, routeCtx, teenScope, makeRouter } from "./helpers";
+import { findByUuidOrId, isUuid, makeRouter, routeCtx, teenScope, uuidMatch } from "./helpers";
 
 const activity = makeRouter();
 activity.use("*", authenticate);
@@ -23,20 +23,21 @@ activity.get("/chats/", async (c) => {
   if (parentOnly(r)) return forbidden(c);
   const q = c.req.query();
   const sp = new URLSearchParams(q as Record<string, string>);
-  const p = pageParams(sp);
 
   const filters: string[] = ["ch.user_id = ?"];
   const params: unknown[] = [r.user.id];
 
   if (q["profileId"]) {
-    if (!isUuid(q["profileId"])) return c.json({ profileId: ["Invalid UUID."] }, 400);
-    filters.push("pr.profile_id = ?");
-    params.push(q["profileId"].toLowerCase());
+    const match = uuidMatch("pr.profile_id", q["profileId"]);
+    if (!match) return c.json({ profileId: ["Invalid UUID."] }, 400);
+    filters.push(match.sql);
+    params.push(...match.params);
   }
   if (q["botId"]) {
-    if (!isUuid(q["botId"])) return c.json({ botId: ["Invalid UUID."] }, 400);
-    filters.push("b.bot_id = ?");
-    params.push(q["botId"].toLowerCase());
+    const match = uuidMatch("b.bot_id", q["botId"]);
+    if (!match) return c.json({ botId: ["Invalid UUID."] }, 400);
+    filters.push(match.sql);
+    params.push(...match.params);
   }
   if (q["since"]) {
     const d = new Date(q["since"]);
@@ -60,6 +61,8 @@ activity.get("/chats/", async (c) => {
     `SELECT COUNT(*) AS n FROM bots_chat ch LEFT JOIN bots_profile pr ON pr.id = ch.profile_id LEFT JOIN bots_bot b ON b.id = ch.bot_id WHERE ${where}`,
     ...params,
   );
+  const p = resolvePage(sp, total);
+  if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<Record<string, unknown>>(
     r.env.DB,
     `SELECT ch.*, pr.profile_id AS profile_slug, pr.name AS profile_name,

@@ -3,7 +3,7 @@
 
 import { Hono } from "hono";
 import { authenticate, parentReauthRequired } from "../auth";
-import { all, count as dbCount, first, pageParams, paginated, run } from "../db";
+import { all, count as dbCount, first, resolvePage, paginated, run } from "../db";
 import { newUuid } from "../crypto";
 import { allowedFile, storeUpload } from "../images";
 import { nowIso, type Env, type ProfileRow } from "../types";
@@ -23,6 +23,10 @@ function cleanEmail(db: D1Database, value: unknown, excludeId?: number): Promise
     const s = String(value).trim();
     if (s === "") return { ok: true as const, value: null };
     const normalized = s.toLowerCase();
+    // Django's EmailField validates format and caps at 254 chars.
+    if (normalized.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      return { ok: false as const, detail: "Enter a valid email address." };
+    }
     let sql = "SELECT id FROM bots_profile WHERE oauth_email = ? AND deleted_at IS NULL";
     const params: unknown[] = [normalized];
     if (excludeId !== undefined) {
@@ -39,9 +43,10 @@ function cleanEmail(db: D1Database, value: unknown, excludeId?: number): Promise
 profiles.get("/", async (c) => {
   const r = routeCtx(c);
   if ((await teenScope(r)).teen) return forbidden(c, "Only available to parent sessions.");
-  const p = pageParams(new URLSearchParams(c.req.query() as Record<string, string>));
-  const sp = new URLSearchParams(c.req.query() as Record<string, string>);
+    const sp = new URLSearchParams(c.req.query() as Record<string, string>);
   const total = await dbCount(r.env.DB, "SELECT COUNT(*) AS n FROM bots_profile WHERE user_id = ? AND deleted_at IS NULL", r.user.id);
+  const p = resolvePage(sp, total);
+  if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<ProfileRow>(
     r.env.DB,
     "SELECT * FROM bots_profile WHERE user_id = ? AND deleted_at IS NULL ORDER BY name ASC LIMIT ? OFFSET ?",
@@ -54,7 +59,7 @@ profiles.get("/", async (c) => {
   return c.json(paginated(r.base + "/profiles/", sp, p, total, results));
 });
 
-async function createOrUpdate(c: TC, existing: ProfileRow | null) {
+async function createOrUpdate(c: TC, existing: ProfileRow | null, partial: boolean) {
   const r = routeCtx(c);
   if ((await teenScope(r)).teen) return forbidden(c, "Only available to parent sessions.");
   if (await parentReauthRequired(r.env, c)) return forbidden(c, "Parent reauthentication required.");
@@ -79,8 +84,8 @@ async function createOrUpdate(c: TC, existing: ProfileRow | null) {
     removePhoto = body["remove_photo"] === true;
   }
 
-  if (!existing && (typeof name !== "string" || !name.trim())) {
-    return c.json({ name: ["This field is required."] }, 400);
+  if ((!existing || !partial) && (typeof name !== "string" || !name.trim())) {
+    return c.json({ name: [existing ? "This field may not be blank." : "This field is required."] }, 400);
   }
   if (name !== undefined && (typeof name !== "string" || !name.trim())) {
     return c.json({ name: ["This field may not be blank."] }, 400);
@@ -92,7 +97,7 @@ async function createOrUpdate(c: TC, existing: ProfileRow | null) {
   if (photo) {
     if (photo.size > 20 * 1024 * 1024) return c.json({ photo: ["File size exceeds 20MB limit."] }, 400);
     if (!allowedFile(photo.name)) return c.json({ photo: ["Invalid file type."] }, 400);
-    photoFilename = await storeUpload(r.env, await photo.arrayBuffer(), photo.name, photo.type);
+    photoFilename = await storeUpload(r.env, await photo.arrayBuffer(), photo.name);
   } else if (removePhoto) {
     photoFilename = null;
   }
@@ -135,7 +140,7 @@ async function createOrUpdate(c: TC, existing: ProfileRow | null) {
 }
 
 // POST /api/profiles/
-profiles.post("/", (c) => createOrUpdate(c, null));
+profiles.post("/", (c) => createOrUpdate(c, null, false));
 
 // GET /api/profiles/self/ — teen redacted self-read (before /:pk/ so the
 // static path wins unambiguously)
@@ -170,25 +175,26 @@ profiles.put("/:pk/", async (c) => {
   if ((await teenScope(r)).teen) return forbidden(c, "Only available to parent sessions.");
   const found = await getOwned(c, r);
   if ("error" in found) return found.error;
-  return createOrUpdate(c, found.row);
+  return createOrUpdate(c, found.row, false);
 });
 profiles.patch("/:pk/", async (c) => {
   const r = routeCtx(c);
   if ((await teenScope(r)).teen) return forbidden(c, "Only available to parent sessions.");
   const found = await getOwned(c, r);
   if ("error" in found) return found.error;
-  return createOrUpdate(c, found.row);
+  return createOrUpdate(c, found.row, true);
 });
 
-// DELETE /api/profiles/:pk/
+// DELETE /api/profiles/:pk/ — hard delete with CASCADE (Django parity:
+// Profile has no custom delete(), so DRF destroy() deletes the row and
+// the DB cascades chats, decks, pages, and reviews).
 profiles.delete("/:pk/", async (c) => {
   const r = routeCtx(c);
   if ((await teenScope(r)).teen) return forbidden(c, "Only available to parent sessions.");
   if (await parentReauthRequired(r.env, c)) return forbidden(c, "Parent reauthentication required.");
   const found = await getOwned(c, r);
   if ("error" in found) return found.error;
-  // Port of Profile.delete(): soft-delete (keeps history + frees oauth_email).
-  await run(r.env.DB, "UPDATE bots_profile SET deleted_at = ?, modified_at = ? WHERE id = ?", nowIso(), nowIso(), found.row.id);
+  await run(r.env.DB, "DELETE FROM bots_profile WHERE id = ?", found.row.id);
   return c.body(null, 204);
 });
 

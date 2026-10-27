@@ -22,7 +22,7 @@ import { notifyNewChat, notifyNewMessage } from "../push";
 import { overLimit } from "../usage";
 import { newUuid } from "../crypto";
 import { nowIso, type BotRow, type ChatRow, type Env, type ProfileRow } from "../types";
-import { findByUuidOrId, routeCtx, teenScope, makeRouter } from "./helpers";
+import { findByUuidOrId, routeCtx, teenScope, makeRouter, uuidMatch } from "./helpers";
 
 const turn = makeRouter();
 turn.use("*", authenticate);
@@ -69,19 +69,32 @@ async function setupChat(
     return { error: c.json({ error: "No active profile for this session" }, 403) as Response };
   }
 
+  // Validate uploads before creating anything: a rejected image must not
+  // leave an orphan chat and system message behind.
+  if (body.image) {
+    if (body.image.size > 20 * 1024 * 1024) return { error: c.json({ error: "File size exceeds 20MB limit" }, 400) as Response };
+    if (!allowedFile(body.image.name)) return { error: c.json({ error: "Invalid file type" }, 400) as Response };
+  }
+
   let chat: ChatRow;
   let isNew = false;
   if (chatIdParam === "new") {
     let profile: ProfileRow | null = scope.profile;
     let bot: BotRow | null = null;
     if (!scope.teen && body.profile) {
-      profile = await first<ProfileRow>(r.env.DB, "SELECT * FROM bots_profile WHERE profile_id = ? AND user_id = ? AND deleted_at IS NULL", body.profile.toLowerCase(), r.user.id);
+      if (typeof body.profile !== "string") return { error: c.json({ detail: "Not found." }, 404) as Response };
+      const pmatch = uuidMatch("profile_id", body.profile);
+      if (!pmatch) return { error: c.json({ detail: "Not found." }, 404) as Response };
+      profile = await first<ProfileRow>(r.env.DB, `SELECT * FROM bots_profile WHERE ${pmatch.sql} AND user_id = ? AND deleted_at IS NULL`, ...pmatch.params, r.user.id);
       if (!profile) return { error: c.json({ detail: "Not found." }, 404) as Response };
     } else if (!scope.teen) {
       profile = null;
     }
     if (body.bot) {
-      bot = await first<BotRow>(r.env.DB, "SELECT * FROM bots_bot WHERE bot_id = ? AND user_id = ? AND deleted_at IS NULL", body.bot.toLowerCase(), r.user.id);
+      if (typeof body.bot !== "string") return { error: c.json({ detail: "Not found." }, 404) as Response };
+      const bmatch = uuidMatch("bot_id", body.bot);
+      if (!bmatch) return { error: c.json({ detail: "Not found." }, 404) as Response };
+      bot = await first<BotRow>(r.env.DB, `SELECT * FROM bots_bot WHERE ${bmatch.sql} AND user_id = ? AND deleted_at IS NULL`, ...bmatch.params, r.user.id);
       if (!bot) return { error: c.json({ detail: "Not found." }, 404) as Response };
     }
     const now = nowIso();
@@ -120,9 +133,7 @@ async function setupChat(
 
   let filename: string | null = null;
   if (body.image) {
-    if (body.image.size > 20 * 1024 * 1024) return { error: c.json({ error: "File size exceeds 20MB limit" }, 400) as Response };
-    if (!allowedFile(body.image.name)) return { error: c.json({ error: "Invalid file type" }, 400) as Response };
-    filename = await storeUpload(r.env, await body.image.arrayBuffer(), body.image.name, body.image.type);
+    filename = await storeUpload(r.env, await body.image.arrayBuffer(), body.image.name);
   }
 
   const userMessage = await createUserMessage(r.env.DB, chat.id, body.message ?? "", filename);
@@ -139,13 +150,14 @@ async function blockingTurn(c: TC) {
   if ("error" in setup) return setup.error;
   const { r, chat, isNew, userMessage } = setup as Setup;
 
-  if (isNew) c.executionCtx.waitUntil(notifyNewChat(r.env.DB, r.user.id, chat.title).catch(() => undefined));
-  c.executionCtx.waitUntil(notifyNewMessage(r.env.DB, r.user.id, chat.title, body.message ?? "").catch(() => undefined));
-
   const graph = (await loadChatGraph(r.env.DB, chat.id))!;
+
+  if (isNew) c.executionCtx.waitUntil(notifyNewChat(r.env.DB, graph, r.user).catch(() => undefined));
+  // User turn only: refusals and assistant completions never push (Django parity).
+  c.executionCtx.waitUntil(notifyNewMessage(r.env.DB, userMessage, graph, r.user).catch(() => undefined));
+
   const refusal = await inputRefusal(r.env.DB, r.env, graph, userMessage.id);
   if (refusal !== null) {
-    c.executionCtx.waitUntil(notifyNewMessage(r.env.DB, r.user.id, chat.title, refusal).catch(() => undefined));
     return c.json({ response: refusal, chat_id: chat.chat_id });
   }
 
@@ -170,7 +182,7 @@ async function blockingTurn(c: TC) {
       break;
     }
   }
-  const filtered = await applyOutputFilter(r.env.DB, r.env, graph, final.text, null);
+  const filtered = await applyOutputFilter(r.env.DB, r.env, graph, final.text);
   const agentEvents = JSON.stringify(clientEventsToAgentEvents(final.clientEvents));
   const assistant = await persistAssistantMessage(
     r.env.DB,
@@ -191,8 +203,6 @@ async function blockingTurn(c: TC) {
       filtered.flagged,
     );
   }
-  c.executionCtx.waitUntil(notifyNewMessage(r.env.DB, r.user.id, chat.title, filtered.text).catch(() => undefined));
-
   const data: Record<string, unknown> = { response: filtered.text, chat_id: chat.chat_id };
   const deckEvents = final.clientEvents
     .filter((e) => e.tool === "create_flashcard_deck")
@@ -216,10 +226,13 @@ turn.post("/:chatId/stream", async (c) => {
   if ("error" in setup) return setup.error;
   const { r, chat, isNew, userMessage } = setup as Setup;
 
-  if (isNew) c.executionCtx.waitUntil(notifyNewChat(r.env.DB, r.user.id, chat.title).catch(() => undefined));
+  const graph = (await loadChatGraph(r.env.DB, chat.id))!;
+
+  if (isNew) c.executionCtx.waitUntil(notifyNewChat(r.env.DB, graph, r.user).catch(() => undefined));
+  // User turn only (covers blocked and over-limit turns too).
+  c.executionCtx.waitUntil(notifyNewMessage(r.env.DB, userMessage, graph, r.user).catch(() => undefined));
 
   const assistantMessageId = newUuid();
-  const graph = (await loadChatGraph(r.env.DB, chat.id))!;
 
   const frame = (event: string, payload: unknown): string => `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
 
@@ -277,7 +290,7 @@ turn.post("/:chatId/stream", async (c) => {
           }
         }
         const persist = async (text: string): Promise<void> => {
-          const filtered = await applyOutputFilter(r.env.DB, r.env, graph, text, null);
+          const filtered = await applyOutputFilter(r.env.DB, r.env, graph, text);
           const agentEvents = JSON.stringify(clientEventsToAgentEvents(clientEvents));
           const assistant = await persistAssistantMessage(r.env.DB, graph, filtered.text, usage, agentEvents, modelId, assistantMessageId);
           if (filtered.flagged !== null && filtered.verdict) {
@@ -290,7 +303,6 @@ turn.post("/:chatId/stream", async (c) => {
               filtered.flagged,
             );
           }
-          c.executionCtx.waitUntil(notifyNewMessage(r.env.DB, r.user.id, chat.title, filtered.text).catch(() => undefined));
         };
         if (streamedText.trim() || clientEvents.length > 0) await persist(streamedText);
         send("done", { input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, message_id: assistantMessageId });

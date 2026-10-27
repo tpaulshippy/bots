@@ -33,19 +33,27 @@ export function applySm2(
 ): Sm2Result {
   let { interval_days: interval, ease, reps, lapses } = card;
   if (rating === "again") {
+    // Lapse: relearn from scratch.
     reps = 0;
     lapses += 1;
     interval = LAPSE_INTERVAL_DAYS;
   } else if (rating === "hard") {
-    interval = Math.max(1, interval * HARD_MULT);
+    interval = Math.max(FIRST_INTERVAL_DAYS, interval * HARD_MULT);
+    reps += 1;
   } else if (rating === "good") {
-    interval = interval <= 0 ? FIRST_INTERVAL_DAYS : interval < SECOND_INTERVAL_DAYS ? SECOND_INTERVAL_DAYS : interval * ease;
+    if (reps === 0) interval = FIRST_INTERVAL_DAYS;
+    else if (reps === 1) interval = SECOND_INTERVAL_DAYS;
+    else interval = interval * ease;
+    reps += 1;
   } else {
-    // easy
-    interval = interval <= 0 ? FIRST_INTERVAL_DAYS : interval < SECOND_INTERVAL_DAYS ? SECOND_INTERVAL_DAYS : interval * ease * EASY_BONUS;
+    // easy: like good, times the easy bonus.
+    if (reps === 0) interval = FIRST_INTERVAL_DAYS;
+    else if (reps === 1) interval = SECOND_INTERVAL_DAYS;
+    else interval = interval * ease;
+    interval *= EASY_BONUS;
+    reps += 1;
   }
   ease = Math.max(MIN_EASE, ease + EASE_DELTA[rating]);
-  if (rating !== "again") reps += 1;
   const due_at = new Date(now.getTime() + interval * 86400_000).toISOString();
   return { due_at, interval_days: interval, ease, reps, lapses, last_reviewed_at: now.toISOString() };
 }

@@ -77,6 +77,23 @@ const DATETIME_COLS = new Set([
   "pin_locked_until", "onboarding_completed_at", "usage_reset_at",
 ]);
 
+// Django stores UUIDs as undashed hex (char(32)); the Worker API speaks
+// canonical dashed form. Normalize migrated rows to dashed lowercase so the
+// database is canonical going forward (lookups also match both spellings).
+const UUID_COLS = new Set([
+  "profile_id", "bot_id", "chat_id", "message_id", "device_id",
+  "deck_id", "flashcard_id", "page_id", "event_id",
+]);
+
+function normalizeUuid(v) {
+  const s = String(v);
+  if (/^[0-9a-fA-F]{32}$/.test(s)) {
+    const l = s.toLowerCase();
+    return `${l.slice(0, 8)}-${l.slice(8, 12)}-${l.slice(12, 16)}-${l.slice(16, 20)}-${l.slice(20)}`;
+  }
+  return /^[0-9a-fA-F-]{36}$/.test(s) ? s.toLowerCase() : v;
+}
+
 function normalizeDateTime(v) {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
@@ -129,6 +146,7 @@ for (const table of TABLES) {
       let v = row[c];
       // node:sqlite returns INTEGER 0/1 and TEXT as-is; normalize datetimes.
       if (DATETIME_COLS.has(c)) v = normalizeDateTime(v);
+      if (UUID_COLS.has(c) && v !== null && v !== undefined) v = normalizeUuid(v);
       // Booleans/clocks stored as 0/1 stay numeric.
       return esc(v);
     });

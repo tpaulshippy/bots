@@ -20,19 +20,29 @@ export function allowedFile(filename: string): boolean {
   return ALLOWED_PHOTO_EXTENSIONS.includes(parts[parts.length - 1]!.toLowerCase());
 }
 
-export function extOf(filename: string, contentType: string | null): string {
+export function extOf(filename: string): string {
   const parts = (filename ?? "").split(".");
   const ext = parts.length > 1 ? parts[parts.length - 1]!.toLowerCase() : "";
   if (ALLOWED_PHOTO_EXTENSIONS.includes(ext)) return ext === "jpeg" ? "jpg" : ext;
-  if (contentType?.includes("png")) return "png";
-  if (contentType?.includes("gif")) return "gif";
-  if (contentType?.includes("webp")) return "webp";
   return "jpg";
 }
 
-export async function storeUpload(env: Env, data: ArrayBuffer, filename: string, contentType: string): Promise<string> {
-  const key = `${crypto.randomUUID()}.${extOf(filename, contentType)}`;
-  await env.IMAGES.put(key, data, { httpMetadata: { contentType: contentType || "image/jpeg" } });
+// Stored bytes are images validated by extension at upload time; the served
+// MIME type is derived from that validated extension, NEVER from the
+// client-supplied Content-Type (which would let `x.png` + `type: text/html`
+// store XSS on the API origin). Served with nosniff (see media route).
+const EXT_MIME: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
+export async function storeUpload(env: Env, data: ArrayBuffer, filename: string): Promise<string> {
+  const ext = extOf(filename);
+  const key = `${crypto.randomUUID()}.${ext}`;
+  await env.IMAGES.put(key, data, { httpMetadata: { contentType: EXT_MIME[ext] ?? "image/jpeg" } });
   return key;
 }
 

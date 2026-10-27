@@ -21,6 +21,20 @@ export interface AwsCreds {
   service: string;
 }
 
+// Canonical request path, mirroring botocore: S3 uses the path verbatim,
+// every other service single-encodes each segment (e.g. Bedrock model IDs
+// like `us.amazon.nova-micro-v1:0` canonicalize with `%3A`). The request
+// line the client sends must be built from the same form, or the service
+// computes a different signature.
+export function canonicalPath(service: string, url: URL): string {
+  const path = url.pathname || "/";
+  if (service === "s3") return path;
+  return path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
 function amzDates(now = new Date()): { amzDate: string; dateStamp: string } {
   const p = (n: number): string => String(n).padStart(2, "0");
   const amzDate =
@@ -51,7 +65,7 @@ export async function signRequest(
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .sort()
     .join("&");
-  const canonicalRequest = [method.toUpperCase(), u.pathname || "/", query, canonicalHeaders, signedHeaderNames.join(";"), payloadHash].join("\n");
+  const canonicalRequest = [method.toUpperCase(), canonicalPath(creds.service, u), query, canonicalHeaders, signedHeaderNames.join(";"), payloadHash].join("\n");
 
   const scope = `${dateStamp}/${creds.region}/${creds.service}/aws4_request`;
   const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, await sha256Hex(canonicalRequest)].join("\n");

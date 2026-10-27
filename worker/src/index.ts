@@ -65,11 +65,20 @@ export default {
     return app.fetch(req, env, ctx);
   },
 
-  // Cron: study reminders (midday) + parent digests (nightly). A single
-  // `triggers.crons` entry fires both; each handler is idempotent and
-  // skips users with no due cards / no activity (Django parity).
-  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
-    await sendStudyReminders(env);
-    await sendActivityDigests(env);
+  // Cron: study reminders (midday) + parent digests (nightly). Each trigger
+  // runs only its own job: both handlers are idempotent and skip users with
+  // no due cards / no activity (Django parity), but the digest window is
+  // 24h, so running it twice a day would double-send overlapping digests.
+  async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+    switch (event.cron) {
+      case "30 12 * * *":
+        await sendStudyReminders(env);
+        break;
+      case "0 1 * * *":
+        await sendActivityDigests(env);
+        break;
+      default:
+        break;
+    }
   },
 };

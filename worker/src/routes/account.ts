@@ -4,7 +4,7 @@
 import { Hono } from "hono";
 import { authenticate, hasValidParentReauth, isTeenDelegated, mintParentSessionToken, parentReauthRequired } from "../auth";
 import { first, run } from "../db";
-import { MAX_COST_DAILY, costForToday } from "../usage";
+import { MAX_COST_DAILY, costForToday, isValidTimezone } from "../usage";
 import { nowIso, type Env } from "../types";
 import { bootstrapOnboarding } from "../onboarding";
 import { getPinAccount, hashPin, isPinLocked, registerPinFailure, remainingAttempts, resetPinFailures, setPinHash, validatePin, verifyPin } from "../pin";
@@ -81,7 +81,7 @@ async function onboardingComplete(db: D1Database, userId: number): Promise<boole
 account.get("/user", authenticate, async (c) => {
   const r = routeCtx(c);
   const tz = c.req.query("timezone");
-  if (tz && typeof tz === "string" && tz.length <= 50) {
+  if (tz && typeof tz === "string" && tz.length <= 50 && isValidTimezone(tz)) {
     const cur = await first<{ timezone: string }>(r.env.DB, "SELECT timezone FROM bots_useraccount WHERE user_id = ?", r.user.id);
     if (cur && cur.timezone !== tz) {
       await run(r.env.DB, "UPDATE bots_useraccount SET timezone = ? WHERE user_id = ?", tz, r.user.id);

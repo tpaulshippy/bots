@@ -26,13 +26,14 @@ revenuecat.post("/webhook", async (c) => {
   }
   const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return c.json({ detail: "Invalid JSON body" }, 400);
+  // Persist every parsed body before validating (Django parity): rejected
+  // webhooks are still recorded for debugging.
+  const now = nowIso();
+  await run(env.DB, "INSERT INTO bots_revenuecatwebhookevent (raw_event, created_at, updated_at) VALUES (?, ?, ?)", JSON.stringify(body), now, now);
   const event = body["event"] as Record<string, unknown> | undefined;
   if (!event || typeof event["type"] !== "string" || !VALID_TYPES.has(event["type"] as string)) {
     return c.json({ detail: "Invalid event type." }, 400);
   }
-  const now = nowIso();
-  await run(env.DB, "INSERT INTO bots_revenuecatwebhookevent (raw_event, created_at, updated_at) VALUES (?, ?, ?)", JSON.stringify(body), now, now);
-
   const appUserId = event["app_user_id"];
   const appUserIdNum = typeof appUserId === "string" ? parseInt(appUserId, 10) : typeof appUserId === "number" ? appUserId : NaN;
   if (!Number.isFinite(appUserIdNum)) return c.json({ detail: "User not found." }, 404);

@@ -3,7 +3,7 @@
 
 import { Hono } from "hono";
 import { authenticate, parentReauthRequired } from "../auth";
-import { all, count as dbCount, first, pageParams, paginated, run } from "../db";
+import { all, count as dbCount, first, resolvePage, paginated, run } from "../db";
 import { newUuid } from "../crypto";
 import { nowIso, type BotRow, type Env } from "../types";
 import { botRow } from "../serializers";
@@ -24,9 +24,10 @@ async function serializeBot(r: ReturnType<typeof routeCtx>, bot: BotRow) {
 // GET /api/bots/
 bots.get("/", async (c) => {
   const r = routeCtx(c);
-  const p = pageParams(new URLSearchParams(c.req.query() as Record<string, string>));
-  const sp = new URLSearchParams(c.req.query() as Record<string, string>);
+    const sp = new URLSearchParams(c.req.query() as Record<string, string>);
   const total = await dbCount(r.env.DB, "SELECT COUNT(*) AS n FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL", r.user.id);
+  const p = resolvePage(sp, total);
+  if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<BotRow>(
     r.env.DB,
     "SELECT * FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL ORDER BY name ASC LIMIT ? OFFSET ?",
@@ -138,7 +139,12 @@ async function updateBot(c: TC, partial: boolean) {
     sets.push(`${col} = ?`);
     params.push(v);
   };
-  if (body["name"] !== undefined) push("name", String(body["name"]).slice(0, 255));
+  if (body["name"] !== undefined) {
+    if (typeof body["name"] !== "string" || !body["name"].trim()) {
+      return c.json({ name: ["This field may not be blank."] }, 400);
+    }
+    push("name", (body["name"] as string).slice(0, 255));
+  }
   if (body["system_prompt"] !== undefined) push("system_prompt", typeof body["system_prompt"] === "string" ? body["system_prompt"] : null);
   if (body["template_name"] !== undefined) push("template_name", typeof body["template_name"] === "string" ? body["template_name"] : null);
   if (body["color"] !== undefined) push("color", typeof body["color"] === "string" ? body["color"] : null);

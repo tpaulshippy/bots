@@ -2,12 +2,12 @@
 
 import { Hono } from "hono";
 import { authenticate } from "../auth";
-import { all, count as dbCount, first, pageParams, paginated, run } from "../db";
+import { all, count as dbCount, first, resolvePage, paginated, run } from "../db";
 import { newUuid } from "../crypto";
 import { nowIso, type Env } from "../types";
 import { isRating, applySm2 } from "../srs";
 import { deckListRow, deckRow, flashcardRow } from "../serializers";
-import { findByUuidOrId, isUuid, routeCtx, teenScope, type TC, makeRouter } from "./helpers";
+import { findByUuidOrId, isUuid, uuidMatch, routeCtx, teenScope, type TC, makeRouter } from "./helpers";
 
 const decks = makeRouter();
 decks.use("*", authenticate);
@@ -21,25 +21,39 @@ decks.get("/", async (c) => {
   const r = routeCtx(c);
   const scope = await teenScope(r);
   const profileParam = c.req.query("profileId");
-  const p = pageParams(new URLSearchParams(c.req.query() as Record<string, string>));
   const sp = new URLSearchParams(c.req.query() as Record<string, string>);
 
   let where = "d.id IN (SELECT d2.id FROM bots_deck d2 JOIN bots_profile p2 ON p2.id = d2.profile_id WHERE p2.user_id = ?)";
   const params: unknown[] = [r.user.id];
   if (scope.teen) {
-    if (!scope.profile) return c.json(paginated(r.base + "/decks/", sp, p, 0, []));
+    if (!scope.profile) {
+      const rawPage = sp.get("page");
+      if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
+      return c.json(paginated(r.base + "/decks/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+    }
     where = "d.profile_id = ?";
     params.length = 0;
     params.push(scope.profile.id);
   } else if (profileParam) {
-    if (!isUuid(profileParam)) return c.json(paginated(r.base + "/decks/", sp, p, 0, []));
-    const prof = await first<{ id: number }>(r.env.DB, "SELECT id FROM bots_profile WHERE profile_id = ? AND user_id = ?", profileParam.toLowerCase(), r.user.id);
-    if (!prof) return c.json(paginated(r.base + "/decks/", sp, p, 0, []));
+    const match = uuidMatch("profile_id", profileParam);
+    if (!match) {
+      const rawPage = sp.get("page");
+      if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
+      return c.json(paginated(r.base + "/decks/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+    }
+    const prof = await first<{ id: number }>(r.env.DB, `SELECT id FROM bots_profile WHERE ${match.sql} AND user_id = ?`, ...match.params, r.user.id);
+    if (!prof) {
+      const rawPage = sp.get("page");
+      if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
+      return c.json(paginated(r.base + "/decks/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+    }
     where += " AND d.profile_id = ?";
     params.push(prof.id);
   }
   const now = dueNowIso();
   const total = await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_deck d WHERE ${where}`, ...params);
+  const p = resolvePage(sp, total);
+  if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<Record<string, unknown>>(
     r.env.DB,
     `SELECT d.*,
@@ -96,8 +110,10 @@ decks.post("/", async (c) => {
   } else {
     const profileParam = body["profile"];
     if (profileParam) {
-      if (typeof profileParam !== "string" || !isUuid(profileParam)) return c.json({ profile: ["Invalid id."] }, 400);
-      const prof = await first<{ id: number }>(r.env.DB, "SELECT id FROM bots_profile WHERE profile_id = ? AND user_id = ?", profileParam.toLowerCase(), r.user.id);
+      if (typeof profileParam !== "string") return c.json({ profile: ["Invalid id."] }, 400);
+      const pmatch = uuidMatch("profile_id", profileParam);
+      if (!pmatch) return c.json({ profile: ["Invalid id."] }, 400);
+      const prof = await first<{ id: number }>(r.env.DB, `SELECT id FROM bots_profile WHERE ${pmatch.sql} AND user_id = ?`, ...pmatch.params, r.user.id);
       if (!prof) return c.json({ profile: ["Invalid pk - object does not exist."] }, 400);
       profileId = prof.id;
     } else {
@@ -204,7 +220,7 @@ decks.get("/:pk/study_queue/", async (c) => {
   const rows = await all<Record<string, unknown>>(
     r.env.DB,
     `SELECT f.*, d.deck_id AS deck_slug FROM bots_flashcard f JOIN bots_deck d ON d.id = f.deck_id
-     WHERE f.deck_id = ? ${mode === "due" ? "AND (f.due_at IS NULL OR f.due_at <= ?)" : ""}
+     WHERE f.deck_id = ? ${mode === "due" ? "AND f.due_at <= ?" : ""}
      ORDER BY CASE WHEN f.due_at IS NULL THEN 1 ELSE 0 END ASC, f.due_at ASC, f."order" ASC, f.created_at ASC LIMIT ?`,
     ...((mode === "due" ? [found.deck.id, dueNowIso(), limit] : [found.deck.id, limit]) as unknown[]),
   );
@@ -226,12 +242,18 @@ decks.get("/:deck_pk/flashcards/", async (c) => {
     const prof = await first<{ user_id: number }>(r.env.DB, "SELECT user_id FROM bots_profile WHERE id = ?", deck.profile_id);
     if (!prof || prof.user_id !== r.user.id) return c.json({ detail: "Not found." }, 404);
   }
+  const sp = new URLSearchParams(c.req.query() as Record<string, string>);
+  const total = await dbCount(r.env.DB, "SELECT COUNT(*) AS n FROM bots_flashcard WHERE deck_id = ?", deck.id);
+  const p = resolvePage(sp, total);
+  if (!p) return c.json({ detail: "Invalid page." }, 404);
   const cards = await all<Record<string, unknown>>(
     r.env.DB,
-    "SELECT f.*, d.deck_id AS deck_slug FROM bots_flashcard f JOIN bots_deck d ON d.id = f.deck_id WHERE f.deck_id = ? ORDER BY f.\"order\" ASC, f.created_at ASC",
+    "SELECT f.*, d.deck_id AS deck_slug FROM bots_flashcard f JOIN bots_deck d ON d.id = f.deck_id WHERE f.deck_id = ? ORDER BY f.\"order\" ASC, f.created_at ASC LIMIT ? OFFSET ?",
     deck.id,
+    p.limit,
+    p.offset,
   );
-  return c.json(cards.map((f) => flashcardRow(f)));
+  return c.json(paginated(`${r.base}/decks/${raw}/flashcards/`, sp, p, total, cards.map((f) => flashcardRow(f))));
 });
 
 decks.post("/:deck_pk/flashcards/", async (c) => {
@@ -249,6 +271,9 @@ decks.post("/:deck_pk/flashcards/", async (c) => {
   const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body["front"] !== "string" || typeof body["back"] !== "string") {
     return c.json({ detail: "front and back are required." }, 400);
+  }
+  if (!body["front"].trim() || !body["back"].trim()) {
+    return c.json({ detail: "front and back may not be blank." }, 400);
   }
   const last = await first<{ m: number | null }>(r.env.DB, 'SELECT MAX("order") AS m FROM bots_flashcard WHERE deck_id = ?', deck.id);
   const now = nowIso();
@@ -303,10 +328,16 @@ async function updateCard(c: TC, r: ReturnType<typeof routeCtx>) {
   const sets: string[] = ["updated_at = ?"];
   const params: unknown[] = [nowIso()];
   if (body["front"] !== undefined) {
+    if (typeof body["front"] !== "string" || !body["front"].trim()) {
+      return c.json({ front: ["This field may not be blank."] }, 400);
+    }
     sets.push("front = ?");
     params.push(String(body["front"]));
   }
   if (body["back"] !== undefined) {
+    if (typeof body["back"] !== "string" || !body["back"].trim()) {
+      return c.json({ back: ["This field may not be blank."] }, 400);
+    }
     sets.push("back = ?");
     params.push(String(body["back"]));
   }
@@ -341,40 +372,53 @@ decks.post("/:deck_pk/flashcards/:flashcardId/review/", async (c) => {
   const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
   const rating = body?.["rating"];
   if (!isRating(rating)) return c.json({ rating: ['Must be one of: again, hard, good, easy.'] }, 400);
-  const now = new Date();
-  const next = applySm2(
-    {
-      interval_days: Number(found.card["interval_days"] ?? 0),
-      ease: Number(found.card["ease"] ?? 2.5),
-      reps: Number(found.card["reps"] ?? 0),
-      lapses: Number(found.card["lapses"] ?? 0),
-    },
-    rating,
-    now,
-  );
-  await run(
-    r.env.DB,
-    "UPDATE bots_flashcard SET due_at = ?, interval_days = ?, ease = ?, reps = ?, lapses = ?, last_reviewed_at = ?, updated_at = ? WHERE id = ?",
-    next.due_at,
-    next.interval_days,
-    next.ease,
-    next.reps,
-    next.lapses,
-    next.last_reviewed_at,
-    now.toISOString(),
-    found.card["id"],
-  );
-  await run(
-    r.env.DB,
-    "INSERT INTO bots_flashcardreview (flashcard_id, profile_id, rating, reviewed_at) VALUES (?, ?, ?, ?)",
-    found.card["id"],
-    found.deck.profile_id,
-    rating,
-    now.toISOString(),
-  );
-  const card = (await first<Record<string, unknown>>(r.env.DB, "SELECT * FROM bots_flashcard WHERE id = ?", found.card["id"]))!;
-  const deckSlug = await first<{ deck_id: string }>(r.env.DB, "SELECT deck_id FROM bots_deck WHERE id = ?", found.deck.id);
-  return c.json(flashcardRow({ ...card, deck_slug: deckSlug?.deck_id }));
+  // Optimistic concurrency replacing Django's select_for_update row lock:
+  // the UPDATE only lands when reps/ease still match what we scheduled
+  // from; a lost race re-reads and recomputes (last-writer-wins, exactly
+  // one review row per request — same observable outcome as Django).
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const current = await first<Record<string, unknown>>(r.env.DB, "SELECT * FROM bots_flashcard WHERE id = ?", found.card["id"]);
+    if (!current) return c.json({ detail: "Not found." }, 404);
+    const at = new Date();
+    const next = applySm2(
+      {
+        interval_days: Number(current["interval_days"] ?? 0),
+        ease: Number(current["ease"] ?? 2.5),
+        reps: Number(current["reps"] ?? 0),
+        lapses: Number(current["lapses"] ?? 0),
+      },
+      rating,
+      at,
+    );
+    const updated = await run(
+      r.env.DB,
+      "UPDATE bots_flashcard SET due_at = ?, interval_days = ?, ease = ?, reps = ?, lapses = ?, last_reviewed_at = ?, updated_at = ? WHERE id = ? AND reps = ? AND ease = ?",
+      next.due_at,
+      next.interval_days,
+      next.ease,
+      next.reps,
+      next.lapses,
+      next.last_reviewed_at,
+      at.toISOString(),
+      found.card["id"],
+      Number(current["reps"] ?? 0),
+      Number(current["ease"] ?? 2.5),
+    );
+    if ((updated.meta.changes ?? 0) > 0) {
+      await run(
+        r.env.DB,
+        "INSERT INTO bots_flashcardreview (flashcard_id, profile_id, rating, reviewed_at) VALUES (?, ?, ?, ?)",
+        found.card["id"],
+        found.deck.profile_id,
+        rating,
+        at.toISOString(),
+      );
+      const card = (await first<Record<string, unknown>>(r.env.DB, "SELECT * FROM bots_flashcard WHERE id = ?", found.card["id"]))!;
+      const deckSlug = await first<{ deck_id: string }>(r.env.DB, "SELECT deck_id FROM bots_deck WHERE id = ?", found.deck.id);
+      return c.json(flashcardRow({ ...card, deck_slug: deckSlug?.deck_id }));
+    }
+  }
+  return c.json({ detail: "Could not schedule the review. Please try again." }, 409);
 });
 
 export default decks;

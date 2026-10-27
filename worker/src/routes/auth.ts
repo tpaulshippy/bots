@@ -84,16 +84,34 @@ async function delegatedOrParentTokens(env: Env, userId: number, email: string) 
   return await mintSession(env, userId);
 }
 
-// GET /api/login — Bearer session -> token pair (teen-aware), like get_jwt.
+// GET /api/login — Bearer session -> token pair (teen-aware), like get_jwt,
+// except teen-delegated sessions carry their claim forward: re-deriving
+// from the owner's email would silently mint FULL PARENT tokens for a teen
+// session (the token's user is the parent), so a stale claim is a 403.
 auth.get("/login", authenticate, async (c) => {
   const r = routeCtx(c);
-  const data = await delegatedOrParentTokens(r.env, r.user.id, r.user.email);
-  const isTeen = (data as Record<string, unknown>)["is_teen_delegated"] === true;
+  let data: Record<string, unknown>;
+  if (isTeenDelegated(r.auth)) {
+    const claimed = r.auth.active_profile_id
+      ? await first<{ id: number; profile_id: string }>(
+          r.env.DB,
+          "SELECT id, profile_id FROM bots_profile WHERE profile_id = ? AND deleted_at IS NULL AND user_id = ?",
+          r.auth.active_profile_id,
+          r.user.id,
+        )
+      : null;
+    if (!claimed) return c.json({ detail: "No active profile for this session." }, 403);
+    const tokens = await mintSession(r.env, r.user.id, { active_profile_id: claimed.profile_id });
+    data = { ...tokens, active_profile_id: claimed.profile_id, is_teen_delegated: true as const };
+  } else {
+    data = (await delegatedOrParentTokens(r.env, r.user.id, r.user.email)) as unknown as Record<string, unknown>;
+  }
+  const isTeen = data["is_teen_delegated"] === true;
   if (c.req.query("json") !== undefined) return c.json(data);
   const params = new URLSearchParams({
-    access: (data as Record<string, unknown>)["access"] as string,
-    refresh: (data as Record<string, unknown>)["refresh"] as string,
-    active_profile_id: (data as Record<string, unknown>)["active_profile_id"] as string ?? "",
+    access: data["access"] as string,
+    refresh: data["refresh"] as string,
+    active_profile_id: (data["active_profile_id"] as string) ?? "",
     is_teen_delegated: String(isTeen).toLowerCase(),
   });
   const cookies = c.req.header("cookie") ?? "";
@@ -140,9 +158,20 @@ async function finishOAuth(c: TC, provider: "google" | "apple") {
   }
   if (!code) return c.json({ detail: "Missing authorization code." }, 400);
   if (!state) return c.json({ detail: "Missing state." }, 400);
-  const saved = await first<{ state: string }>(env.DB, "SELECT state FROM oauth_state WHERE state = ? AND provider = ?", state, provider);
+  // States expire after 10 minutes and are single-use: a leaked or stale
+  // state never authorizes a login.
+  const cutoff = new Date(Date.now() - 10 * 60_000).toISOString();
+  const saved = await first<{ state: string }>(
+    env.DB,
+    "SELECT state FROM oauth_state WHERE state = ? AND provider = ? AND created_at >= ?",
+    state,
+    provider,
+    cutoff,
+  );
   if (!saved) return c.json({ detail: "Invalid state." }, 400);
   await run(env.DB, "DELETE FROM oauth_state WHERE state = ?", state);
+  // Opportunistic janitor: drop expired states so the table stays small.
+  await run(env.DB, "DELETE FROM oauth_state WHERE created_at < ?", cutoff).catch(() => undefined);
 
   const exchanged = provider === "google" ? await exchangeGoogleCode(env, c.req.url, code) : await exchangeAppleCode(env, c.req.url, code);
   if (!exchanged) return c.json({ detail: "Token exchange failed." }, 400);
@@ -152,6 +181,7 @@ async function finishOAuth(c: TC, provider: "google" | "apple") {
       : await verifyAppleIdToken(env, exchanged.idToken);
   if (!verified || !verified.sub) return c.json({ detail: "Invalid identity token." }, 400);
   const account = await findOrCreateUser(env.DB, provider, verified.sub, verified.email, verified.firstName);
+  if (!account) return c.json({ detail: "This account has been deactivated." }, 403);
   const data = await delegatedOrParentTokens(env, account.id, account.email);
   const params = new URLSearchParams({
     access: (data as Record<string, unknown>)["access"] as string,
@@ -184,6 +214,7 @@ auth.post("/auth/google", async (c) => {
   const verified = await verifyGoogleIdToken(env, idToken);
   if (!verified || !verified.sub) return c.json({ detail: "Invalid identity token." }, 400);
   const account = await findOrCreateUser(env.DB, "google", verified.sub, verified.email, verified.firstName);
+  if (!account) return c.json({ detail: "This account has been deactivated." }, 403);
   return c.json(await delegatedOrParentTokens(env, account.id, account.email));
 });
 
@@ -196,8 +227,8 @@ auth.post("/auth/apple", async (c) => {
   const verified = await verifyAppleIdToken(env, idToken);
   if (!verified || !verified.sub) return c.json({ detail: "Invalid identity token." }, 400);
   const account = await findOrCreateUser(env.DB, "apple", verified.sub, verified.email, verified.firstName);
+  if (!account) return c.json({ detail: "This account has been deactivated." }, 403);
   return c.json(await delegatedOrParentTokens(env, account.id, account.email));
 });
 
-void isTeenDelegated;
 export default auth;

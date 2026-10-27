@@ -12,7 +12,6 @@ import {
   recordSafetyEvent,
   refusalForVerdict,
   STAGE_INPUT,
-  STAGE_OUTPUT,
   type SafetyVerdict,
 } from "./safety";
 import { overLimit } from "./usage";
@@ -82,7 +81,7 @@ export async function buildHistory(db: D1Database, env: Env, chatId: number): Pr
             const b64 = BufferToB64(obj.bytes);
             const ext = m.image_filename.split(".").pop()?.toLowerCase();
             const format = ext === "png" ? "png" : ext === "gif" ? "gif" : ext === "webp" ? "webp" : "jpeg";
-            content.push({ image: { format, source: { bytes: b64 } } } as unknown as ConverseMessage["content"][number]);
+            content.push({ image: { format, source: { bytes: b64 } } });
           }
         } catch {
           // image unavailable: text-only fallback like a failed S3 read
@@ -253,18 +252,13 @@ export async function applyOutputFilter(
   env: Env,
   graph: ChatGraph,
   text: string,
-  assistantMessageId: number | null,
 ): Promise<{ text: string; flagged: string | null; verdict: SafetyVerdict | null }> {
+  // Pure filter: evaluates and substitutes the refusal but does NOT record.
+  // Callers persist first, then record once with the assistant row id, so
+  // the parent inbox links to the saved message (Django wrote one row).
   const policy = policyForBot(graph.bot);
   const verdict = await evaluateText(text, policy, env.OPENAI_API_KEY ?? "", "OUTPUT");
   if (!verdict.blocked) return { text, flagged: null, verdict: null };
-  await recordSafetyEvent(
-    db,
-    STAGE_OUTPUT,
-    verdict,
-    { userId: graph.chat.user_id, profileId: graph.profile?.id ?? graph.chat.profile_id, chatId: graph.chat.id, botId: graph.bot?.id ?? graph.chat.bot_id, messageId: assistantMessageId },
-    text,
-  );
   return { text: refusalForVerdict(verdict), flagged: text, verdict };
 }
 

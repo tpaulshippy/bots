@@ -9,7 +9,7 @@
 //   - Streaming is buffered: the turn runs to completion, then text is
 //     emitted as token frames. Frame contract is unchanged.
 
-import { converse, messageText, type ConverseContentBlock, type ConverseMessage, type ToolDef } from "./bedrock";
+import { converse, messageText, type ConverseContentBlock, type ConverseMessage, type ConverseToolResultBlock, type ToolDef } from "./bedrock";
 import { first, run } from "./db";
 import { newUuid } from "./crypto";
 import { htmlToText, validateHtmlDoc } from "./html";
@@ -228,37 +228,25 @@ async function toolCreateFlashcardDeck(ctx: TurnContext, args: Record<string, un
     }
   }
   try {
+    // One atomic batch (D1 rolls back on any failure), mirroring Django's
+    // transaction.atomic(): a failed card insert must not leave a partial
+    // deck behind for a retry to duplicate.
     const deckId = newUuid();
     const now = nowIso();
-    await run(
-      db,
-      "INSERT INTO bots_deck (deck_id, profile_id, chat_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      deckId,
-      ctx.profile.id,
-      ctx.chat.id,
-      name,
-      description,
-      now,
-      now,
-    );
-    const deckRow = await first<{ id: number }>(db, "SELECT id FROM bots_deck WHERE deck_id = ?", deckId);
-    let created = 0;
-    for (let i = 0; i < flashcards.length; i++) {
-      const c = flashcards[i] as Record<string, unknown>;
-      await run(
-        db,
-        "INSERT INTO bots_flashcard (flashcard_id, deck_id, front, back, \"order\", due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        newUuid(),
-        deckRow!.id,
-        String(c["front"] ?? ""),
-        String(c["back"] ?? ""),
-        i,
-        now,
-        now,
-        now,
-      );
-      created++;
-    }
+    const stmts: D1PreparedStatement[] = [
+      db.prepare(
+        "INSERT INTO bots_deck (deck_id, profile_id, chat_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ).bind(deckId, ctx.profile.id, ctx.chat.id, name, description, now, now),
+      ...flashcards.map((card, i) => {
+        const c = card as Record<string, unknown>;
+        return db.prepare(
+          `INSERT INTO bots_flashcard (flashcard_id, deck_id, front, back, "order", due_at, created_at, updated_at)
+           VALUES (?, (SELECT id FROM bots_deck WHERE deck_id = ?), ?, ?, ?, ?, ?, ?)`,
+        ).bind(newUuid(), deckId, String(c["front"] ?? ""), String(c["back"] ?? ""), i, now, now, now);
+      }),
+    ];
+    await db.batch(stmts);
+    const created = flashcards.length;
     const event: ClientEvent = { tool: "create_flashcard_deck", deck_id: deckId, name, card_count: created };
     return { text: `Created deck '${name}' with ${created} flashcards. Deck ID: ${deckId}`, event };
   } catch (e) {
@@ -555,8 +543,15 @@ export async function* runAgentTurn(
     }
     // Assistant message carrying tool calls (echo back for the next round).
     messages.push({ role: "assistant", content });
-    const eventsBefore = clientEvents.length;
+    // One user message per assistant turn carrying every toolResult block:
+    // Converse requires alternating roles, and LangChain's Bedrock adapter
+    // merges consecutive ToolMessages the same way.
+    const toolResults: ConverseToolResultBlock[] = [];
     for (const tu of toolUses) {
+      // Snapshot per tool call: a blocked/errored call records no event, so
+      // sharing the snapshot would leak a previous same-named call's extras
+      // (e.g. deck_id) into this call's tool_end frame.
+      const eventsBefore = clientEvents.length;
       const args = (tu.toolUse.input ?? {}) as Record<string, unknown>;
       yield { type: "tool_start", tool: tu.toolUse.name, args };
       const result = await executeTool(ctx, tu.toolUse.name, args, hasWebSearch);
@@ -569,11 +564,9 @@ export async function* runAgentTurn(
         }
       }
       yield toolEnd;
-      messages.push({
-        role: "user",
-        content: [{ toolResult: { toolUseId: tu.toolUse.toolUseId, content: { text: result.text } } }],
-      });
+      toolResults.push({ toolResult: { toolUseId: tu.toolUse.toolUseId, content: { text: result.text } } });
     }
+    messages.push({ role: "user", content: toolResults });
   }
 
   // Extract final response: last assistant text without tool calls.

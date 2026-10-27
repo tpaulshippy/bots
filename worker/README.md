@@ -35,7 +35,7 @@ worker/
 ```bash
 cd worker
 npm install
-npm test            # 40 tests, no network
+npm test            # 46 tests, no network
 npm run typecheck
 
 # Local D1 like prod (dump from your pre-removal checkout or server backup —
@@ -81,7 +81,8 @@ or `rclone`), keys are preserved 1:1.
 | Secret | Notes |
 |---|---|
 | `JWT_SECRET` | = Django `SECRET_KEY` for token cross-compat |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Bedrock (+ S3 fallback) |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Bedrock (+ S3 fallback reads) |
+| `AWS_STORAGE_BUCKET_NAME` | Legacy S3 bucket for pre-cutover image keys (enables the R2→S3 fallback in `images.ts`) |
 | `TAVILY_API_KEY` | empty = web_search tool disabled (same as Django) |
 | `OPENAI_API_KEY` | empty = denylist-only safety (same as Django) |
 | `GOOGLE_OAUTH_CLIENT_ID` (+ `_SECRET`), `APPLE_*` | OAuth web flow + native verify |
@@ -123,11 +124,14 @@ or `rclone`), keys are preserved 1:1.
 
 ## Verification
 
-- `npm test` — 40 tests: safety denylists/refusals/moderation mapping,
-  SM-2, HTML validator, JWT + Django-hash compat, and end-to-end HTTP
-  (auth, bots, profiles, teen scoping, decks/flashcards/reviews, stats,
-  activity, PIN/reauth gating, chat turns + SSE against the deterministic
-  fake model, signed media URLs, RevenueCat mapping).
+- `npm test` — 46 tests: safety denylists/refusals/moderation mapping,
+  SM-2, HTML validator, JWT + Django-hash compat (incl. a real Django hash
+  and an external HS256 fixture), PIN policy + legacy compat, and end-to-end
+  HTTP (auth incl. refresh-as-Bearer rejection, bots, profiles, teen scoping,
+  decks/flashcards/reviews, stats, activity, PIN/reauth gating, bootstrap
+  reauth/convergence/email rules, baseline canonicalization, DRF pagination,
+  signed media bytes, chat turns + SSE against the deterministic fake model,
+  RevenueCat mapping).
 - Migration verified against the real `back/db.sqlite3`: schema + dump
   apply cleanly, row counts match, no orphan messages, datetimes normalized;
   a production Django password hash verifies in the Worker.

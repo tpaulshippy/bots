@@ -87,12 +87,20 @@ export function newUuid(): string {
 
 const DJANGO_HASH_RE = /^pbkdf2_(sha256|sha1)\$(\d+)\$([^$]+)\$(.+)$/;
 
-async function pbkdf2(password: string, salt: string, iterations: number, hash: "SHA-256" | "SHA-1"): Promise<Uint8Array> {
+async function pbkdf2(
+  password: string,
+  salt: string,
+  iterations: number,
+  hash: "SHA-256" | "SHA-1",
+): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey("raw", te.encode(password), "PBKDF2", false, ["deriveBits"]);
+  // Output length matches the hash: Django's pbkdf2_sha1 rows store 160-bit
+  // digests, and verifying with 256 bits would never match.
+  const length = hash === "SHA-256" ? 256 : 160;
   const bits = await crypto.subtle.deriveBits(
     { name: "PBKDF2", hash, salt: te.encode(salt), iterations },
     key,
-    256,
+    length,
   );
   return new Uint8Array(bits);
 }

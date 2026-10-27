@@ -9,7 +9,7 @@
 import type { Context, Next } from "hono";
 import type { TC } from "./routes/helpers";
 import { newUuid, randomToken, signJwt, verifyJwt } from "./crypto";
-import { first } from "./db";
+import { first, uuidMatch } from "./db";
 import type { AuthPayload, AuthUser, Env, ProfileRow } from "./types";
 
 export const ACCESS_LIFETIME_S = 3600;
@@ -17,7 +17,10 @@ export const REFRESH_LIFETIME_S = 31 * 24 * 3600;
 export const PARENT_REAUTH_LIFETIME_S = 15 * 60;
 
 export function jwtSecret(env: Env): string {
-  return env.JWT_SECRET ?? "test-secret-key-for-development-only";
+  // Fail closed: a missing secret must 500, never sign with a public literal
+  // (anyone could then mint a token for any user_id).
+  if (!env.JWT_SECRET) throw new Error("JWT_SECRET is not configured");
+  return env.JWT_SECRET;
 }
 
 function baseClaims(userId: number, tokenType: "access" | "refresh", lifetimeS: number, extra?: Record<string, unknown>) {
@@ -59,7 +62,7 @@ export async function verifySession(env: Env, token: string): Promise<{ user: Au
   if (!payload) return null;
   const userId = payload["user_id"];
   if (typeof userId !== "number") return null;
-  const user = await first<AuthUser>(env.DB, "SELECT id, email, username, is_active FROM auth_user WHERE id = ?", userId);
+  const user = await first<AuthUser>(env.DB, "SELECT id, email, username, first_name, is_active FROM auth_user WHERE id = ?", userId);
   if (!user || user.is_active !== 1) return null;
   return {
     user,
@@ -82,10 +85,12 @@ export const isTeenDelegated = (auth: AuthPayload | null): boolean => auth?.is_t
 // or null for parent sessions / stale claims. Scoped to the token's user.
 export async function delegatedProfile(env: Env, auth: AuthPayload, userId: number): Promise<ProfileRow | null> {
   if (!isTeenDelegated(auth) || !auth.active_profile_id) return null;
+  const match = uuidMatch("profile_id", auth.active_profile_id);
+  if (!match) return null;
   return await first<ProfileRow>(
     env.DB,
-    "SELECT * FROM bots_profile WHERE profile_id = ? AND deleted_at IS NULL AND user_id = ?",
-    auth.active_profile_id,
+    `SELECT * FROM bots_profile WHERE ${match.sql} AND deleted_at IS NULL AND user_id = ?`,
+    ...match.params,
     userId,
   );
 }
@@ -128,7 +133,10 @@ export async function authenticate(c: TC, next: Next): Promise<Response | void> 
   const m = /^Bearer (.+)$/.exec(header.trim());
   if (m) {
     const sess = await verifySession(c.env, m[1]!);
-    if (sess) {
+    // Access tokens only: a 31-day refresh token must not work as API
+    // credentials (SimpleJWT parity — its JWTAuthentication rejects
+    // non-access token_type the same way).
+    if (sess && sess.auth.token_type === "access") {
       c.set("user", sess.user);
       c.set("auth", sess.auth);
       await next();

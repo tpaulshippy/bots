@@ -4,6 +4,9 @@
   "private": true,
   "description": "Syft Learning API on Cloudflare Workers + D1 (port of back/ Django backend)",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

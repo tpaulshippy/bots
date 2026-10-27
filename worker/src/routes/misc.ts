@@ -57,6 +57,7 @@ media.get("/:key", async (c) => {
       headers: {
         "Content-Type": obj.httpMetadata?.contentType ?? "application/octet-stream",
         "Cache-Control": "public, max-age=604800",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   }
@@ -65,7 +66,7 @@ media.get("/:key", async (c) => {
     try {
       const legacy = await s3GetObject(env, key);
       return new Response(legacy.bytes, {
-        headers: { "Content-Type": legacy.contentType, "Cache-Control": "public, max-age=604800" },
+        headers: { "Content-Type": legacy.contentType, "Cache-Control": "public, max-age=604800", "X-Content-Type-Options": "nosniff" },
       });
     } catch {
       return c.json({ detail: "Not found." }, 404);
@@ -77,16 +78,26 @@ media.get("/:key", async (c) => {
 // --- crons (port of send_study_reminders / send_activity_digests) ----------
 
 export async function sendStudyReminders(env: Env): Promise<void> {
+  // Mirrors send_study_reminders: due cards per deck (NULL due_at excluded,
+  // soft-deleted profiles excluded), opted-in devices only, counts-only
+  // copy (a sibling's deck names must never reach a parent device), single
+  // deck deep-links into the study session.
   const now = new Date().toISOString();
-  // Per-user aggregation with digest/device preferences honored.
-  const rows = await all<{ user_id: number; profile_id: string; deck_id: string; name: string; n: number }>(
+  const rows = await all<{
+    deck_id: string;
+    name: string;
+    user_id: number;
+    profile_id: string;
+    due: number;
+  }>(
     env.DB,
-    `SELECT pr.user_id AS user_id, pr.profile_id AS profile_id, d.deck_id AS deck_id, d.name AS name, COUNT(*) AS n
+    `SELECT d.deck_id AS deck_id, d.name AS name, pr.user_id AS user_id, pr.profile_id AS profile_id, COUNT(*) AS due
      FROM bots_flashcard f
      JOIN bots_deck d ON d.id = f.deck_id
      JOIN bots_profile pr ON pr.id = d.profile_id
-     WHERE f.due_at <= ? AND pr.deleted_at IS NULL
-     GROUP BY pr.user_id, pr.profile_id, d.deck_id, d.name`,
+     WHERE f.due_at <= ? AND f.due_at IS NOT NULL AND pr.deleted_at IS NULL
+     GROUP BY d.deck_id, d.name, pr.user_id, pr.profile_id
+     ORDER BY d.name ASC`,
     now,
   );
   const byUser = new Map<number, typeof rows>();
@@ -96,58 +107,73 @@ export async function sendStudyReminders(env: Env): Promise<void> {
     byUser.set(row.user_id, bucket);
   }
   for (const [userId, decks] of byUser) {
-    const devices = await all<{ notification_token: string; notify_study_due: number; notify_digest_only: number }>(
+    const devices = await all<{ notification_token: string; notify_digest_only: number }>(
       env.DB,
-      "SELECT notification_token, notify_study_due, notify_digest_only FROM bots_device WHERE user_id = ? AND deleted_at IS NULL",
+      "SELECT notification_token, notify_digest_only FROM bots_device WHERE user_id = ? AND notify_study_due = 1 AND deleted_at IS NULL",
       userId,
     );
-    const targets = devices.filter((d) => d.notify_study_due === 1 && d.notify_digest_only !== 1);
+    // notify_study_reminder skips digest-only devices so the digest stays
+    // their single push source.
+    const targets = devices.filter((d) => d.notify_digest_only !== 1);
     if (targets.length === 0) continue;
-    const total = decks.reduce((a, d) => a + d.n, 0);
-    const single = decks.length === 1 ? decks[0]! : null;
-    const title = total === 1 ? "1 card is due for review" : `${total} cards are due for review`;
-    const data =
-      single && byUser.get(userId)!.filter((d) => d.profile_id !== single.profile_id).length === 0
-        ? { type: "study_reminder", deck_id: single.deck_id, profile_id: single.profile_id }
-        : { type: "study_reminder" };
+    const total = decks.reduce((a, d) => a + d.due, 0);
+    const profileIds = new Set(decks.map((d) => d.profile_id));
+    let body: string;
+    const data: Record<string, unknown> = { target: "study_due" };
+    if (profileIds.size === 1 && decks[0]!.profile_id) data["profile_id"] = decks[0]!.profile_id;
+    if (decks.length === 1) {
+      const only = decks[0]!;
+      const count = only.due;
+      body = `${count} card${count === 1 ? "" : "s"} due \u2014 time to review!`;
+      data["deck_id"] = only.deck_id;
+    } else {
+      body = `${total} cards due across ${decks.length} decks \u2014 time to review!`;
+    }
     await pushToTokens(
       targets.map((d) => d.notification_token),
       "Study reminder",
-      `${title} in ${single ? single.name : "your decks"}`,
+      body,
       data,
     );
   }
 }
 
 export async function sendActivityDigests(env: Env, hours = 24): Promise<void> {
+  // Mirrors send_activity_digests: digest-only devices, active profiles
+  // only ('Maya: 3 chats'), users with no activity in the window are
+  // skipped so digests never become spam.
   const since = new Date(Date.now() - hours * 3600_000).toISOString();
-  const rows = await all<{ user_id: number; profile_name: string; n: number }>(
+  const deviceRows = await all<{ user_id: number; notification_token: string }>(
     env.DB,
-    `SELECT ch.user_id AS user_id, pr.name AS profile_name, COUNT(*) AS n
-     FROM bots_chat ch LEFT JOIN bots_profile pr ON pr.id = ch.profile_id
-     WHERE ch.modified_at >= ? GROUP BY ch.user_id, pr.name`,
-    since,
+    "SELECT DISTINCT user_id, notification_token FROM bots_device WHERE notify_digest_only = 1 AND deleted_at IS NULL",
+    // NOTE: DISTINCT over (user_id, token) keeps one row per device.
   );
-  const byUser = new Map<number, { profile_name: string; n: number }[]>();
-  for (const row of rows) {
+  const byUser = new Map<number, string[]>();
+  for (const row of deviceRows) {
     const bucket = byUser.get(row.user_id) ?? [];
-    bucket.push({ profile_name: row.profile_name ?? "Unknown", n: row.n });
+    bucket.push(row.notification_token);
     byUser.set(row.user_id, bucket);
   }
-  for (const [userId, chats] of byUser) {
-    const devices = await all<{ notification_token: string; notify_digest_only: number }>(
+  for (const [userId, tokens] of byUser) {
+    const profiles = await all<{ id: number; name: string | null }>(
       env.DB,
-      "SELECT notification_token, notify_digest_only FROM bots_device WHERE user_id = ? AND deleted_at IS NULL",
+      "SELECT id, name FROM bots_profile WHERE user_id = ? AND deleted_at IS NULL ORDER BY id ASC",
       userId,
     );
-    if (devices.length === 0) continue;
-    const summary = chats.map((x) => `${x.profile_name}: ${x.n} chat${x.n === 1 ? "" : "s"}`).join(" · ");
-    await pushToTokens(
-      devices.map((d) => d.notification_token),
-      "Syft daily summary",
-      summary,
-      { type: "parent_activity" },
-    );
+    const lines: string[] = [];
+    for (const profile of profiles) {
+      const row = await first<{ n: number }>(
+        env.DB,
+        "SELECT COUNT(*) AS n FROM bots_chat WHERE user_id = ? AND profile_id = ? AND modified_at >= ?",
+        userId,
+        profile.id,
+        since,
+      );
+      const n = row?.n ?? 0;
+      if (n > 0) lines.push(`${profile.name || "Kid"}: ${n} chat${n === 1 ? "" : "s"}`);
+    }
+    if (lines.length === 0) continue;
+    await pushToTokens(tokens, "Syft daily summary", lines.join(" · "), { target: "parent_activity" });
   }
 }
 

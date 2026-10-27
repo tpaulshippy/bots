@@ -185,8 +185,10 @@ async function guardrailCheck(
     if (!f || typeof f["flagged"] !== "boolean") throw new Error("unexpected moderation payload");
     if (f["flagged"] === true) return verdictFromModeration(f, policy);
     return null;
-  } catch {
-    // Fail closed: with a key configured, a failed check blocks.
+  } catch (e) {
+    // Fail closed: with a key configured, a failed check blocks. Log it —
+    // a misconfigured or failing key would otherwise hide as refusals.
+    console.error(`guardrailCheck failed, failing closed: ${e instanceof Error ? e.message : String(e)}`);
     return { blocked: true, reason_code: REASON_GLOBAL_FLOOR, matched_terms: [] };
   }
 }
@@ -263,8 +265,10 @@ export async function recordSafetyEvent(
       redactSnippet(snippet, verdict),
       nowIso(),
     );
-  } catch {
-    // best-effort
+  } catch (e) {
+    // Best-effort, but never silent: a lost audit row hides parent-inbox
+    // events (Python logs via logger.exception here too).
+    console.error(`recordSafetyEvent failed (stage=${stage}): ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 

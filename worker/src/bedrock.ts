@@ -12,7 +12,17 @@ export interface ConverseTextBlock {
 export interface ConverseToolUseBlock {
   toolUse: { toolUseId: string; name: string; input: unknown };
 }
-export type ConverseContentBlock = ConverseTextBlock | ConverseToolUseBlock | { image: unknown } | Record<string, unknown>;
+export interface ConverseToolResultBlock {
+  toolResult: { toolUseId: string; content: { text: string } };
+}
+export interface ConverseImageBlock {
+  image: { format: string; source: { bytes: string } };
+}
+export type ConverseContentBlock =
+  | ConverseTextBlock
+  | ConverseToolUseBlock
+  | ConverseToolResultBlock
+  | ConverseImageBlock;
 
 export interface ConverseMessage {
   role: "user" | "assistant";

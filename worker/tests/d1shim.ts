@@ -12,12 +12,18 @@ const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
 
 export function makeTestDb(): D1Database {
   const here = dirname(fileURLToPath(import.meta.url));
-  const schema = readFileSync(join(here, "..", "migrations", "0001_initial.sql"), "utf8");
-  // node:sqlite exec() runs one statement at a time; split the migration.
+  // Apply every migration in order, like `wrangler d1 migrations apply`.
+  const { readdirSync } = require("node:fs");
+  const migrations: string[] = (readdirSync(join(here, "..", "migrations")) as string[])
+    .filter((f: string) => f.endsWith(".sql"))
+    .sort();
   const db = new DatabaseSync(":memory:");
-  for (const stmt of schema.split(/;\s*\n/)) {
-    const trimmed = stmt.trim();
-    if (trimmed) db.exec(trimmed);
+  for (const file of migrations) {
+    const sql = readFileSync(join(here, "..", "migrations", file), "utf8");
+    for (const stmt of sql.split(/;\s*\n/)) {
+      const trimmed = stmt.trim();
+      if (trimmed) db.exec(trimmed);
+    }
   }
 
   const wrapStmt = (prepared: {
@@ -61,9 +67,22 @@ export function makeTestDb(): D1Database {
     prepare(stmt: string) {
       return wrapStmt(db.prepare(stmt) as never);
     },
+    // D1 batch() is atomic: wrap in a transaction so a failing statement
+    // rolls back earlier ones, like production D1 does.
     async batch(stmts: D1PreparedStatement[]) {
       const out: D1Result[] = [];
-      for (const s of stmts) out.push((await (s as unknown as { run: () => Promise<D1Result> }).run()));
+      db.exec("BEGIN");
+      try {
+        for (const s of stmts) out.push((await (s as unknown as { run: () => Promise<D1Result> }).run()));
+        db.exec("COMMIT");
+      } catch (e) {
+        try {
+          db.exec("ROLLBACK");
+        } catch {
+          // already rolled back
+        }
+        throw e;
+      }
       return out;
     },
   } as unknown as D1Database;
@@ -77,7 +96,7 @@ export function fakeR2(): R2Bucket {
       if (!hit) return null;
       return {
         arrayBuffer: async () => hit.bytes,
-        body: null,
+        body: new Response(hit.bytes).body,
         httpMetadata: { contentType: hit.contentType },
       };
     },

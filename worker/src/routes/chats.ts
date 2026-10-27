@@ -3,10 +3,10 @@
 
 import { Hono } from "hono";
 import { authenticate } from "../auth";
-import { all, count as dbCount, first, pageParams, paginated } from "../db";
+import { all, count as dbCount, first, resolvePage, paginated } from "../db";
 import { nowIso, type BotRow, type ChatRow, type Env, type MessageRow, type ProfileRow } from "../types";
 import { botRow, messageRow, profileIdNested, type Ctx } from "../serializers";
-import { findByUuidOrId, isUuid, routeCtx, teenScope, makeRouter } from "./helpers";
+import { findByUuidOrId, uuidMatch, routeCtx, teenScope, makeRouter } from "./helpers";
 
 const chats = makeRouter();
 chats.use("*", authenticate);
@@ -40,30 +40,44 @@ chats.get("/", async (c) => {
   const r = routeCtx(c);
   const scope = await teenScope(r);
   const profileId = c.req.query("profileId");
-  const p = pageParams(new URLSearchParams(c.req.query() as Record<string, string>));
   const sp = new URLSearchParams(c.req.query() as Record<string, string>);
 
   let where = "c.user_id = ?";
   const params: unknown[] = [r.user.id];
   if (scope.teen) {
     if (!scope.profile) {
-      return c.json(paginated(r.base + "/chats/", sp, p, 0, []));
+      {
+      const rawPage = sp.get("page");
+      if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
+      return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+    }
     }
     where += " AND c.profile_id = ?";
     params.push(scope.profile.id);
   } else if (profileId) {
-    if (!isUuid(profileId)) {
-      return c.json(paginated(r.base + "/chats/", sp, p, 0, []));
+    const match = uuidMatch("profile_id", profileId);
+    if (!match) {
+      {
+      const rawPage = sp.get("page");
+      if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
+      return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
     }
-    const prof = await first<ProfileRow>(r.env.DB, "SELECT id FROM bots_profile WHERE profile_id = ? AND user_id = ?", profileId.toLowerCase(), r.user.id);
+    }
+    const prof = await first<ProfileRow>(r.env.DB, `SELECT id FROM bots_profile WHERE ${match.sql} AND user_id = ?`, ...match.params, r.user.id);
     if (!prof) {
-      return c.json(paginated(r.base + "/chats/", sp, p, 0, []));
+      {
+      const rawPage = sp.get("page");
+      if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
+      return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+    }
     }
     where += " AND c.profile_id = ?";
     params.push(prof.id);
   }
 
   const total = await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_chat c WHERE ${where}`, ...params);
+  const p = resolvePage(sp, total);
+  if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<ChatRow & { message_count: number }>(
     r.env.DB,
     `SELECT c.*, (SELECT COUNT(*) FROM bots_message m WHERE m.chat_id = c.id) AS message_count
@@ -114,9 +128,10 @@ chats.get("/:chat_pk/messages/", async (c) => {
   const chat = await findByUuidOrId<ChatRow>(r.env.DB, "bots_chat", "chat_id", raw);
   if (!chat || chat.user_id !== r.user.id) return c.json({ detail: "Not found." }, 404);
   if (scope.profile && chat.profile_id !== scope.profile.id) return c.json({ detail: "Not found." }, 404);
-  const p = pageParams(new URLSearchParams(c.req.query() as Record<string, string>));
   const sp = new URLSearchParams(c.req.query() as Record<string, string>);
   const total = await dbCount(r.env.DB, "SELECT COUNT(*) AS n FROM bots_message WHERE chat_id = ? AND role != 'system'", chat.id);
+  const p = resolvePage(sp, total);
+  if (!p) return c.json({ detail: "Invalid page." }, 404);
   const messages = await all<MessageRow>(
     r.env.DB,
     "SELECT * FROM bots_message WHERE chat_id = ? AND role != 'system' ORDER BY id ASC LIMIT ? OFFSET ?",
