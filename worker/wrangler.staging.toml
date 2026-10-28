@@ -15,7 +15,7 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "syft-db-staging"
-database_id = "fdce9154-0bb1-4257-ba7f-762c3f87a8ec"
+database_id = "23c7b10b-ecdd-4a42-9367-6b0c80c99cf5"
 
 [[r2_buckets]]
 binding = "IMAGES"
