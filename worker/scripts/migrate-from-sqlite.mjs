@@ -42,6 +42,25 @@ const allowMissing = new Set(
     .map((s) => s.trim())
     .filter(Boolean),
 );
+const keepLegacyPins = process.argv.includes("--keep-legacy-pins");
+
+// Workers' WebCrypto caps PBKDF2 iterations (~100k measured); Django-era
+// hashes above that can never verify on a Worker, and would 500 every
+// reauth with no recovery path (clearing a PIN itself requires reauth).
+// Unless --keep-legacy-pins is passed, such rows are migrated PIN-less
+// (pin_hash = NULL) so those accounts keep working instead of bricking
+// parent-gated actions. New-format cheap hashes are copied verbatim.
+let nulledPins = 0;
+function migratePinHash(v) {
+  if (v === null || v === undefined) return null;
+  if (keepLegacyPins) return v;
+  const m = /^pbkdf2_(?:sha256|sha1)\$(\d+)\$/.exec(String(v));
+  if (m && parseInt(m[1], 10) > 100000) {
+    nulledPins += 1;
+    return null;
+  }
+  return v;
+}
 const SRC = args[0];
 if (!SRC) {
   console.error("Usage: node scripts/migrate-from-sqlite.mjs /path/to/db.sqlite3 [--allow-missing=t1,t2] > /tmp/seed.sql");
@@ -147,11 +166,17 @@ for (const table of TABLES) {
       // node:sqlite returns INTEGER 0/1 and TEXT as-is; normalize datetimes.
       if (DATETIME_COLS.has(c)) v = normalizeDateTime(v);
       if (UUID_COLS.has(c) && v !== null && v !== undefined) v = normalizeUuid(v);
+      // Unverifiable-on-Workers PIN hashes become NULL (see above).
+      if (table === "bots_useraccount" && c === "pin_hash") v = migratePinHash(v);
       // Booleans/clocks stored as 0/1 stay numeric.
       return esc(v);
     });
     out.push(`INSERT INTO ${table} (${quoted}) VALUES (${vals.join(", ")});`);
   }
+}
+
+if (nulledPins > 0) {
+  console.error(`-- NOTE: nulled ${nulledPins} legacy pin_hash value(s) that Workers cannot verify (see above). Those accounts migrate PIN-less; re-run with --keep-legacy-pins to preserve them (their reauth will 500).`);
 }
 
 process.stdout.write(out.join("\n") + "\n");
