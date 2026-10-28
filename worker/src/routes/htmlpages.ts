@@ -9,7 +9,7 @@ import { signJwt } from "../crypto";
 import { jwtSecret } from "../auth";
 import { nowIso, type Env } from "../types";
 import { htmlDetailRow, htmlListRow } from "../serializers";
-import { findByUuidOrId, isUuid, uuidMatch, routeCtx, teenScope, type TC, makeRouter } from "./helpers";
+import { findByUuidOrId, uuidMatch, routeCtx, teenScope, type TC, makeRouter } from "./helpers";
 
 const pages = makeRouter();
 
