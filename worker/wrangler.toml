@@ -23,7 +23,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "syft-db"
-database_id = "00000000-0000-0000-0000-000000000000" # TODO: replace with `wrangler d1 create syft-db` id
+database_id = "775870d2-6ec0-46f2-8775-a9c9a9ca09b8"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
