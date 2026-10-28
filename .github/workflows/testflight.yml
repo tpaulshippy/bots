@@ -34,7 +34,7 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: '1'
-          EXPO_PUBLIC_API_BASE_URL: https://syft-api-staging.pshippy-245.workers.dev/api
+          EXPO_PUBLIC_API_BASE_URL: https://syftlearning.app/api
         run: |
           cd front
           npx eas build --profile testflight --platform ios \
