@@ -69,7 +69,12 @@ issued by either side verify on both while the secrets match. Note the data
 caveat: writes made on the Worker after cutover live in D1 and will NOT
 appear in Django's database, so a rollback hides post-cutover data and the
 two stores diverge. Roll back only for auth compatibility; post-cutover
-Worker data must be reconciled or accepted as lost.
+Worker data must be reconciled or accepted as lost. Rollback is a
+server-side restore, not just a URL flip: the deploy workflow stops and
+disables the Django service and `git pull` removes `back/`, so rolling back
+means checking out a pre-cutover commit on the server, `sudo systemctl
+enable --now bots`, restoring the domain route to the server, and
+re-seeding any data created on D1 meanwhile.
 
 Crons (`wrangler.toml [triggers]`) send study reminders + parent digests.
 R2 holds new uploads; pre-cutover S3 keys keep working via the S3 fallback
