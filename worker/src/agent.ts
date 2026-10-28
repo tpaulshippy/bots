@@ -564,7 +564,7 @@ export async function* runAgentTurn(
         }
       }
       yield toolEnd;
-      toolResults.push({ toolResult: { toolUseId: tu.toolUse.toolUseId, content: { text: result.text } } });
+      toolResults.push({ toolResult: { toolUseId: tu.toolUse.toolUseId, content: [{ text: result.text }] } });
     }
     messages.push({ role: "user", content: toolResults });
   }

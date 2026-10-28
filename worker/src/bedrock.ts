@@ -13,7 +13,7 @@ export interface ConverseToolUseBlock {
   toolUse: { toolUseId: string; name: string; input: unknown };
 }
 export interface ConverseToolResultBlock {
-  toolResult: { toolUseId: string; content: { text: string } };
+  toolResult: { toolUseId: string; content: Array<{ text: string } | Record<string, unknown>> };
 }
 export interface ConverseImageBlock {
   image: { format: string; source: { bytes: string } };

@@ -119,8 +119,9 @@ or `rclone`), keys are preserved 1:1.
   regardless of iterations, so the real control is server-side lockout — and
   sub-millisecond verification keeps everything inside the free plan's 10ms
   CPU budget. If your account still has a pre-cutover PIN set, remove it in
-  the app before cutover (legacy high-iteration hashes verify but cost
-  ~200ms of CPU).
+  the app before cutover (or NULL the pin_hash in D1): Workers caps WebCrypto
+  PBKDF2 (measured in production: 100k verifies, 150k+ throws), so legacy
+  Django hashes fail closed with an explicit 500 instead of verifying.
 - **`/api/schema`, `/api/docs`, browsable `api-auth/` are gone.**
   `front/api/schema.yaml` remains the shape reference; route tests assert
   the wire contract instead.

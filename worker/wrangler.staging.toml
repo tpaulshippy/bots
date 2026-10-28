@@ -1,0 +1,34 @@
+# Staging deployment (manual): syft-api-staging + syft-db-staging.
+# Not used by CI. Deploy with:
+#   wrangler deploy --config wrangler.staging.toml
+# Secrets (staging values, safe to rotate):
+#   wrangler secret put --config wrangler.staging.toml JWT_SECRET
+#   ... MEDIA_SIGNING_SECRET, AWS_*, TAVILY_API_KEY, OPENAI_API_KEY,
+#   REVENUECAT_WEBHOOK_AUTH_HEADER
+
+name = "syft-api-staging"
+main = "src/index.ts"
+compatibility_date = "2024-10-04"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "syft-db-staging"
+database_id = "fdce9154-0bb1-4257-ba7f-762c3f87a8ec"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "syft-images-staging"
+preview_bucket_name = "syft-images-staging"
+
+[triggers]
+crons = ["30 12 * * *", "0 1 * * *"]
+
+[vars]
+APP_DEEP_URL = "syftlearning://login"
+WEB_APP_LOGIN_URL = "https://syftlearning.app/app/login"
+AWS_REGION = "us-west-2"
+BEDROCK_MAX_TOKENS = "8192"
+ALLOW_E2E_FAKE_STREAM = "true"
+MAX_HTML_BYTES = "204800"

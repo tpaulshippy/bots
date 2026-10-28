@@ -16,9 +16,15 @@ export const PIN_LOCKOUT_MINUTES = 15;
 // because (a) a D1 read already implies a Cloudflare-account breach, at
 // which point hashes are the least of our problems, and (b) the live
 // control is server-side lockout (5 attempts → 15-minute lock), which caps
-// online guessing regardless of hash speed. New PINs therefore hash fast;
-// legacy high-iteration rows still verify (iteration-agnostic), and holders
-// should clear an unused PIN before cutover (Settings → remove PIN).
+// online guessing regardless of hash speed. New PINs therefore hash fast.
+// Legacy high-iteration rows (pre-cutover Django PBKDF2, 600k–1.2M) can NOT
+// be verified on Workers at all: the platform caps WebCrypto PBKDF2
+// (measured in production: 100k verifies, 150k throws KdfError — local
+// workerd does not enforce it). Legacy verification therefore fails closed
+// (explicit 500, never a silent 401 or a burned attempt), which means anyone
+// with a PIN set MUST clear it before cutover (Settings → remove PIN), or
+// an admin must NULL the pin_hash in D1 — otherwise parent writes 500 on
+// reauth.
 export const PIN_HASH_ITERATIONS = 10_000;
 
 export function validatePin(pin: unknown): pin is string {
