@@ -1,13 +1,28 @@
 name: TestFlight Build
 
-# Native path for testing on TestFlight: builds with the `testflight`
-# eas.json profile (store distribution, channel `preview`) and submits the
-# result to TestFlight. Run this for native changes, version bumps, or to
-# cut a fresh baseline; use the Preview OTA Update workflow for fast
-# JS-only iterations on top of an installed TestFlight build.
+# Native path for testing on TestFlight: builds with the selected
+# eas.json profile (store distribution) and submits the result to
+# TestFlight. Run this for native changes, version bumps, or to cut a
+# fresh baseline; use the Preview OTA Update workflow for fast JS-only
+# iterations on top of an installed TestFlight build.
+#
+# Profiles:
+# - testflight (default): uses the production EAS environment, i.e. the
+#   exact config that would ship to the App Store.
+# - testflight-staging: uses the preview EAS environment on an isolated
+#   `staging` channel, for testing backend changes without touching the
+#   production environment.
 
 on:
   workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS build profile"
+        type: choice
+        options:
+          - testflight
+          - testflight-staging
+        default: testflight
 
 jobs:
   testflight:
@@ -37,7 +52,7 @@ jobs:
           EXPO_PUBLIC_API_BASE_URL: https://syftlearning.app/api
         run: |
           cd front
-          npx eas build --profile testflight --platform ios \
+          npx eas build --profile ${{ inputs.profile }} --platform ios \
             --non-interactive --wait
 
       - name: Submit to TestFlight

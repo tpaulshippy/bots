@@ -22,8 +22,12 @@
     },
     "testflight": {
       "extends": "production",
-      "environment": "preview",
       "channel": "preview"
+    },
+    "testflight-staging": {
+      "extends": "testflight",
+      "environment": "preview",
+      "channel": "staging"
     }
   },
   "submit": {
