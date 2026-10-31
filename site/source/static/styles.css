@@ -1,5 +1,6 @@
 /* Brand tints (match front/constants/Colors.ts + app.json splash/adaptive bg):
-   light tint #00a4c9, dark tint #0a7ea4 (white text stays AA-visible on dark). */
+   light tint #00a4c9, dark tint #0a7ea4 (white text stays AA-visible on dark).
+   Buttons use #00708c (darker accessible shade) so white text passes WCAG AA. */
 body {
     background-color: #0a7ea4;
     background-image: linear-gradient(180deg, #0a7ea4 0%, #023b4a 100%);
@@ -19,7 +20,7 @@ body {
     transform: translateY(-5px);
 }
 .button {
-    background-color: #00a4c9;
+    background-color: #00708c;
     transition: background-color 0.3s ease;
 }
 .button:hover {

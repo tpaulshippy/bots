@@ -11,7 +11,7 @@ checkout and with `back/` deleted on main):
 - `front/dist/**` (after `npx expo export --platform web`) → `site/dist/app/`
 
 Vendored from tag `pre-cloudflare-rollback` (last good `back/bots/templates`
-+ `back/bots/static` before the Django backend was removed) — edit the
+and `back/bots/static` before the Django backend was removed) — edit the
 vendored copies directly going forward.
 
 ## Routing
@@ -38,6 +38,7 @@ export at build time) plus a catch-all `/app/*` → `/app/index.html`.
 
 ```sh
 cd front && npx expo export --platform web --output-dir dist --clear --no-bytecode
+cd ..
 node site/build.mjs   # or: npm run --prefix site build
 ```
 
