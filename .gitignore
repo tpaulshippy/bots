@@ -4,3 +4,5 @@ __pycache__/
 # Removed Django backend: keep any local leftovers (db.sqlite3, .env)
 # untracked so secrets and dev databases are never committed.
 /back/
+# Generated Pages output (rebuilt in CI: expo export + node site/build.mjs).
+/site/dist/
