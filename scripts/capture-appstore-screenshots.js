@@ -8,18 +8,19 @@
  * is reached deterministically.
  *
  * Prerequisites:
- *   1. Backend running with seeded demo data (from back/):
- *        python manage.py migrate
- *        python manage.py loaddata bots/fixtures/ai_models.json
- *        python manage.py seed_e2e_parent_review
- *        python manage.py seed_e2e_streaming_chat
- *        python manage.py seed_e2e_spaced_repetition
- *        (optional, for the Activity shot without a PIN prompt:
- *         clear the account PIN in the Django shell)
- *      then:  python manage.py runserver 127.0.0.1:8000
+ *   1. Backend running with seeded demo data. The Django seed commands are
+ *      gone with back/; seed the Worker instead — e.g. sign up via the app,
+ *      then create the demo content through the API (bots, chats, decks)
+ *      or import a seeded D1 database. Point --api at it:
+ *        EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8787/api wrangler dev
+ *      (Legacy Django recipe, kept for reference — requires a pre-removal
+ *      checkout: python manage.py migrate && python manage.py loaddata
+ *      bots/fixtures/ai_models.json && python manage.py seed_e2e_parent_review
+ *      && python manage.py seed_e2e_streaming_chat &&
+ *      python manage.py seed_e2e_spaced_repetition, then runserver.)
  *   2. Simulator build of the app with EXPO_PUBLIC_API_BASE_URL pointing at
- *      that backend, e.g.:
- *        EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api \
+ *      that backend, e.g. (Worker local dev runs on 8787):
+ *        EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8787/api \
  *          npx expo run:ios --configuration Release --device "<udid>"
  *      (Release so no __DEV__ Developer Options / warning toast appear.
  *      The build needs NSAllowsLocalNetworking for cleartext http to
@@ -28,7 +29,7 @@
  * Usage:
  *   node scripts/capture-appstore-screenshots.js \
  *     --udid <sim-udid> --app <path/to/SyftLearning.app> --out <dir>
- *     [--api http://127.0.0.1:8000/api]
+ *     [--api http://127.0.0.1:8787/api]
  */
 const { execSync, execFileSync } = require('child_process');
 const fs = require('fs');
@@ -42,7 +43,7 @@ function arg(name, fallback) {
 const UDID = arg('udid', process.env.SIM_UDID);
 const APP = arg('app', process.env.SIM_APP);
 const OUT = arg('out', 'docs/app-store/1.0.6/screenshots');
-const API_BASE = arg('api', 'http://127.0.0.1:8000/api');
+const API_BASE = arg('api', 'http://127.0.0.1:8787/api');
 const BUNDLE_ID = 'com.tpaulshippy.botsforkids';
 
 if (!UDID || !APP) {

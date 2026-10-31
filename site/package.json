@@ -1,0 +1,10 @@
+{
+  "name": "syft-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Pages site: marketing + tutorial + support + Expo web app",
+  "scripts": {
+    "build": "node build.mjs --from-main",
+    "build:local": "node build.mjs --local"
+  }
+}
