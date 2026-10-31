@@ -182,6 +182,8 @@ async function finishOAuth(c: TC, provider: "google" | "apple") {
   if (!verified || !verified.sub) return c.json({ detail: "Invalid identity token." }, 400);
   const account = await findOrCreateUser(env.DB, provider, verified.sub, verified.email, verified.firstName);
   if (!account) return c.json({ detail: "This account has been deactivated." }, 403);
+  // Django parity: allauth login fires user_logged_in, bumping last_login.
+  await run(env.DB, "UPDATE auth_user SET last_login = ? WHERE id = ?", nowIso(), account.id);
   const data = await delegatedOrParentTokens(env, account.id, account.email);
   const params = new URLSearchParams({
     access: (data as Record<string, unknown>)["access"] as string,

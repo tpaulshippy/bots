@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import worker from "../src/index";
 import { mintSession } from "../src/auth";
-import { makeDjangoHash } from "../src/crypto";
+import { b64urlEncode, makeDjangoHash } from "../src/crypto";
 import { makeTestDb, testEnv } from "./d1shim";
 import type { Env } from "../src/types";
 
@@ -401,5 +401,87 @@ describe("usage baselines, pagination, media", () => {
     expect(img.headers.get("content-type")).toBe("image/png");
     expect(img.headers.get("x-content-type-options")).toBe("nosniff");
     expect((await img.arrayBuffer()).byteLength).toBe(png.byteLength);
+  });
+});
+
+describe("oauth callback", () => {
+  const GOOGLE_CID = "test-google-client-id";
+
+  async function mintGoogleIdToken(key: CryptoKey, sub: string, email: string): Promise<string> {
+    const header = b64urlEncode(JSON.stringify({ alg: "RS256", kid: "test-kid" }));
+    const payload = b64urlEncode(
+      JSON.stringify({
+        iss: "https://accounts.google.com",
+        aud: GOOGLE_CID,
+        sub,
+        email,
+        email_verified: true,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
+    );
+    const data = new TextEncoder().encode(`${header}.${payload}`);
+    const sig = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, data));
+    return `${header}.${payload}.${b64urlEncode(sig)}`;
+  }
+
+  // Drives GET /api/auth/google/callback with stubbed Google endpoints.
+  async function googleCallback(sub: string, email: string): Promise<Response> {
+    const { publicKey, privateKey } = (await crypto.subtle.generateKey(
+      { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+      true,
+      ["sign", "verify"],
+    )) as CryptoKeyPair;
+    const jwk = (await crypto.subtle.exportKey("jwk", publicKey)) as JsonWebKey;
+    const idToken = await mintGoogleIdToken(privateKey, sub, email);
+    const state = `st-${Math.random().toString(36).slice(2)}`;
+    await db.prepare("INSERT INTO oauth_state (state, provider, created_at) VALUES (?, 'google', ?)").bind(state, new Date().toISOString()).run();
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: URL | RequestInfo) => {
+      const url = String((input as Request)?.url ?? input);
+      if (url.includes("oauth2.googleapis.com/token")) {
+        return new Response(JSON.stringify({ id_token: idToken }), { status: 200 });
+      }
+      if (url.includes("www.googleapis.com/oauth2/v3/certs")) {
+        return new Response(JSON.stringify({ keys: [{ kid: "test-kid", kty: "RSA", n: jwk.n, e: jwk.e }] }), {
+          status: 200,
+        });
+      }
+      throw new Error(`unexpected outbound fetch: ${url}`);
+    }) as typeof fetch;
+    try {
+      return await worker.fetch(new Request(`https://api.test/api/auth/google/callback?code=c&state=${state}`), env, ctx);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  }
+
+  async function lastLogin(userId: number): Promise<string | null> {
+    const row = await db.prepare("SELECT last_login FROM auth_user WHERE id = ?").bind(userId).first<{ last_login: string | null }>();
+    return row?.last_login ?? null;
+  }
+
+  it("bumps last_login for new and returning users (Django allauth parity)", async () => {
+    env = testEnv(db, { GOOGLE_OAUTH_CLIENT_ID: GOOGLE_CID }) as unknown as Env;
+
+    // New user: created with last_login NULL, callback must stamp it.
+    const fresh = await googleCallback("google-sub-new", "oauthnew@example.com");
+    expect(fresh.status).toBe(302);
+    expect(fresh.headers.get("location")).toMatch(/^botsforkids:\/\/login\?/);
+    const created = await db.prepare("SELECT id FROM auth_user WHERE email = ?").bind("oauthnew@example.com").first<{ id: number }>();
+    expect(created).toBeTruthy();
+    const stamped = await lastLogin(created!.id);
+    expect(stamped).toBeTruthy();
+    expect(Date.now() - Date.parse(stamped!)).toBeLessThan(60_000);
+
+    // Returning user: stale last_login must be bumped, not left behind.
+    const stale = "2020-01-01T00:00:00.000Z";
+    await db.prepare("INSERT INTO auth_user (id, password, last_login, username, email, is_active, date_joined) VALUES (99, 'x', ?, 'returner', 'oauthret@example.com', 1, ?)").bind(stale, stale).run();
+    await db.prepare("INSERT INTO oauth_account (user_id, provider, subject, email, created_at) VALUES (99, 'google', 'google-sub-ret', 'oauthret@example.com', ?)").bind(stale).run();
+    const again = await googleCallback("google-sub-ret", "oauthret@example.com");
+    expect(again.status).toBe(302);
+    const bumped = await lastLogin(99);
+    expect(bumped).toBeTruthy();
+    expect(bumped).not.toBe(stale);
+    expect(Date.now() - Date.parse(bumped!)).toBeLessThan(60_000);
   });
 });
