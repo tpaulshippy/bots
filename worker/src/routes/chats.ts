@@ -11,14 +11,15 @@ import { findByUuidOrId, uuidMatch, routeCtx, teenScope, makeRouter } from "./he
 const chats = makeRouter();
 chats.use("*", authenticate);
 
-async function serializeChatList(r: ReturnType<typeof routeCtx>, chat: ChatRow, messageCount: number) {
-  const profile = chat.profile_id ? await first<ProfileRow>(r.env.DB, "SELECT * FROM bots_profile WHERE id = ?", chat.profile_id) : null;
-  const bot = chat.bot_id ? await first<BotRow>(r.env.DB, "SELECT * FROM bots_bot WHERE id = ?", chat.bot_id) : null;
-  let aiModel: string | null = null;
-  if (bot?.ai_model_id) {
-    const m = await first<{ model_id: string }>(r.env.DB, "SELECT model_id FROM bots_aimodel WHERE id = ?", bot.ai_model_id);
-    aiModel = m?.model_id ?? null;
-  }
+async function serializeChatList(
+  r: ReturnType<typeof routeCtx>,
+  chat: ChatRow,
+  messageCount: number,
+  preload: { profiles: Map<number, ProfileRow>; bots: Map<number, BotRow>; models: Map<number, string> },
+) {
+  const profile = chat.profile_id ? preload.profiles.get(chat.profile_id) ?? null : null;
+  const bot = chat.bot_id ? preload.bots.get(chat.bot_id) ?? null : null;
+  const aiModel = bot?.ai_model_id ? preload.models.get(bot.ai_model_id) ?? null : null;
   const profileWithUrl = profile ? { ...profile, url: profile ? `${r.base}/profiles/${profile.id}/` : null } : null;
   return {
     id: chat.id,
@@ -86,8 +87,34 @@ chats.get("/", async (c) => {
     p.limit,
     p.offset,
   );
+  // Batch the per-chat lookups: one page otherwise costs up to 3 sequential
+  // D1 round-trips per chat (Django did this in one query via select_related).
+  const inClause = (ids: number[]) => `(${ids.map(() => "?").join(",")})`;
+  const profileIds = [...new Set(rows.map((row) => row.profile_id).filter((id): id is number => id != null))];
+  const botIds = [...new Set(rows.map((row) => row.bot_id).filter((id): id is number => id != null))];
+  const profiles = new Map<number, ProfileRow>();
+  const bots = new Map<number, BotRow>();
+  const models = new Map<number, string>();
+  if (profileIds.length > 0) {
+    const pRows = await all<ProfileRow>(r.env.DB, `SELECT * FROM bots_profile WHERE id IN ${inClause(profileIds)}`, ...profileIds);
+    for (const pRow of pRows) profiles.set(pRow.id, pRow);
+  }
+  if (botIds.length > 0) {
+    const bRows = await all<BotRow>(r.env.DB, `SELECT * FROM bots_bot WHERE id IN ${inClause(botIds)}`, ...botIds);
+    for (const bRow of bRows) bots.set(bRow.id, bRow);
+    const modelIds = [...new Set(bRows.map((b) => b.ai_model_id).filter((id): id is number => id != null))];
+    if (modelIds.length > 0) {
+      const mRows = await all<{ id: number; model_id: string }>(
+        r.env.DB,
+        `SELECT id, model_id FROM bots_aimodel WHERE id IN ${inClause(modelIds)}`,
+        ...modelIds,
+      );
+      for (const m of mRows) models.set(m.id, m.model_id);
+    }
+  }
+  const preload = { profiles, bots, models };
   const results = [];
-  for (const row of rows) results.push(await serializeChatList(r, row, row.message_count));
+  for (const row of rows) results.push(await serializeChatList(r, row, row.message_count, preload));
   return c.json(paginated(r.base + "/chats/", sp, p, total, results));
 });
 

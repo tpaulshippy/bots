@@ -485,3 +485,33 @@ describe("oauth callback", () => {
     expect(Date.now() - Date.parse(bumped!)).toBeLessThan(60_000);
   });
 });
+
+describe("chat list", () => {
+  it("lists chats with nested profile/bot in one page (no N+1)", async () => {
+    const { parent } = await seed();
+    const now = Date.now();
+    for (let i = 0; i < 3; i++) {
+      const ts = new Date(now - i * 1000).toISOString();
+      await db.prepare(
+        "INSERT INTO bots_chat (user_id, profile_id, bot_id, chat_id, title, created_at, modified_at) VALUES (1, 1, 1, ?, ?, ?, ?)",
+      ).bind(`chat-uuid-${i}`, `Chat ${i}`, ts, ts).run();
+    }
+    await db.prepare("INSERT INTO bots_message (chat_id, message_id, text, role, created_at, modified_at) VALUES (1, 'm1', 'hi', 'user', ?, ?)").bind(new Date().toISOString(), new Date().toISOString()).run();
+    const res = await api("GET", "/api/chats/", parent.access);
+    expect(res.status).toBe(200);
+    const body = res.json as { count: number; results: Record<string, unknown>[] };
+    expect(body.count).toBe(3);
+    expect(body.results).toHaveLength(3);
+    // Newest first.
+    expect((body.results[0] as { title: string }).title).toBe("Chat 0");
+    const first = body.results[0] as {
+      profile: { name: string } | null;
+      bot: { name: string } | null;
+      message_count: number;
+    };
+    expect(first.profile?.name).toBe("Kid");
+    expect(first.bot?.name).toBe("Penelope");
+    expect(first.message_count).toBe(1);
+    expect((body.results[2] as { message_count: number }).message_count).toBe(0);
+  });
+});
