@@ -1,0 +1,20 @@
+site/README.md
+  h_6bbd00fe0a456a 14,41
+site/source/static/styles.css
+  h_6bbd00fe0a456a 2-3,23
+site/source/templates/support.html
+  h_6bbd00fe0a456a 32-33
+site/source/templates/tutorial.html
+  h_6bbd00fe0a456a 50,145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ad5040e2da143020b35dcf7d2602932ef1a5b4e2",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
