@@ -121,7 +121,7 @@ auth.get("/login", authenticate, async (c) => {
     resp.headers.append("Set-Cookie", "from-web=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
     return resp;
   }
-  const deepUrl = r.env.APP_DEEP_URL ?? "syftlearning://login";
+  const deepUrl = r.env.APP_DEEP_URL ?? "botsforkids://login";
   return c.redirect(`${deepUrl}?${params.toString()}`, 302);
 });
 
@@ -196,7 +196,7 @@ async function finishOAuth(c: TC, provider: "google" | "apple") {
     resp.headers.append("Set-Cookie", "from-web=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
     return resp;
   }
-  const deepUrl = env.APP_DEEP_URL ?? "syftlearning://login";
+  const deepUrl = env.APP_DEEP_URL ?? "botsforkids://login";
   return c.redirect(`${deepUrl}?${params.toString()}`, 302);
 }
 

@@ -35,7 +35,7 @@ crons = ["30 12 * * *", "0 1 * * *"]
 # 12:30 UTC ~= morning US study-reminder window; 01:00 UTC parent digests.
 
 [vars]
-APP_DEEP_URL = "syftlearning://login"
+APP_DEEP_URL = "botsforkids://login"
 WEB_APP_LOGIN_URL = "https://syftlearning.app/app/login"
 AWS_REGION = "us-east-1"
 BEDROCK_MAX_TOKENS = "8192"

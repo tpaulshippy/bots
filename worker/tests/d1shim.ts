@@ -112,7 +112,7 @@ export function testEnv(db: D1Database, extra?: Record<string, string>): Record<
     DB: db,
     IMAGES: fakeR2(),
     JWT_SECRET: "test-secret-key-for-development-only",
-    APP_DEEP_URL: "syftlearning://login",
+    APP_DEEP_URL: "botsforkids://login",
     WEB_APP_LOGIN_URL: "https://example.com/app/login",
     AWS_REGION: "us-east-1",
     ALLOW_E2E_FAKE_STREAM: "true",
