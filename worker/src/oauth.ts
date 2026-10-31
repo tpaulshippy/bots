@@ -230,12 +230,6 @@ function tokenExpiryOk(payload: Record<string, unknown>): boolean {
   return typeof payload["exp"] === "number" && payload["exp"] * 1000 > Date.now();
 }
 
-function emailVerified(payload: Record<string, unknown>): boolean {
-  // Google sends boolean true; Apple sends the string "true"/"false".
-  const v = payload["email_verified"];
-  return v === true || v === "true";
-}
-
 export async function verifyGoogleIdToken(env: Env, idToken: string): Promise<{ sub: string; email: string; firstName: string } | null> {
   const payload = await verifyRs256(idToken, "https://www.googleapis.com/oauth2/v3/certs");
   if (!payload) return null;
@@ -246,7 +240,9 @@ export async function verifyGoogleIdToken(env: Env, idToken: string): Promise<{ 
   const tokenAud = payload["aud"];
   const audOk = Array.isArray(tokenAud) ? tokenAud.includes(aud) : tokenAud === aud;
   if (!audOk || typeof payload["sub"] !== "string") return null;
-  if (typeof payload["email"] !== "string" || !payload["email"] || !emailVerified(payload)) return null;
+  // Django parity (ACCOUNT_EMAIL_VERIFICATION='none'): presence, not
+  // provider-verified status, is what matters.
+  if (typeof payload["email"] !== "string" || !payload["email"]) return null;
   return { sub: payload["sub"] as string, email: payload["email"], firstName: String(payload["given_name"] ?? "") };
 }
 
@@ -256,7 +252,9 @@ export async function verifyAppleIdToken(env: Env, idToken: string): Promise<{ s
   if (payload["iss"] !== "https://appleid.apple.com") return null;
   if (!tokenExpiryOk(payload)) return null;
   if (payload["aud"] !== env.APPLE_CLIENT_ID || typeof payload["sub"] !== "string") return null;
-  if (typeof payload["email"] !== "string" || !payload["email"] || !emailVerified(payload)) return null;
+  // Django parity (ACCOUNT_EMAIL_VERIFICATION='none'): presence, not
+  // provider-verified status, is what matters.
+  if (typeof payload["email"] !== "string" || !payload["email"]) return null;
   return { sub: payload["sub"] as string, email: payload["email"], firstName: "" };
 }
 

@@ -89,6 +89,9 @@ describe("auth + bots", () => {
     const login = await api("POST", "/api/token/", undefined, { username: "parent", password: "pw" });
     expect(login.status).toBe(200);
     expect((login.json as Record<string, string>).access).toBeTruthy();
+    // Django parity (UPDATE_LAST_LOGIN=False): password login never stamps it.
+    const stamped = await db.prepare("SELECT last_login FROM auth_user WHERE username = 'parent'").first<{ last_login: string | null }>();
+    expect(stamped?.last_login).toBeNull();
     const bad = await api("POST", "/api/token/", undefined, { username: "parent", password: "no" });
     expect(bad.status).toBe(401);
     const refresh = await api("POST", "/api/token/refresh/", undefined, {
@@ -96,6 +99,15 @@ describe("auth + bots", () => {
     });
     expect(refresh.status).toBe(200);
     expect((refresh.json as Record<string, string>).access).toBeTruthy();
+    // Django parity (ROTATE_REFRESH_TOKENS=False): access only, no new refresh.
+    expect("refresh" in (refresh.json as Record<string, unknown>)).toBe(false);
+  });
+
+  it("logout clears the web-login cookie", async () => {
+    const res = await worker.fetch(new Request("https://api.test/api/accounts/logout/", { method: "POST" }), env, ctx);
+    expect(res.status).toBe(200);
+    expect((await res.json()) as Record<string, string>).toEqual({ detail: "Successfully logged out." });
+    expect(res.headers.get("set-cookie")).toContain("from-web=;");
   });
 });
 
@@ -407,7 +419,7 @@ describe("usage baselines, pagination, media", () => {
 describe("oauth callback", () => {
   const GOOGLE_CID = "test-google-client-id";
 
-  async function mintGoogleIdToken(key: CryptoKey, sub: string, email: string): Promise<string> {
+  async function mintGoogleIdToken(key: CryptoKey, sub: string, email: string, emailVerified: boolean | undefined = true): Promise<string> {
     const header = b64urlEncode(JSON.stringify({ alg: "RS256", kid: "test-kid" }));
     const payload = b64urlEncode(
       JSON.stringify({
@@ -415,7 +427,7 @@ describe("oauth callback", () => {
         aud: GOOGLE_CID,
         sub,
         email,
-        email_verified: true,
+        ...(emailVerified === undefined ? {} : { email_verified: emailVerified }),
         exp: Math.floor(Date.now() / 1000) + 3600,
       }),
     );
@@ -425,14 +437,14 @@ describe("oauth callback", () => {
   }
 
   // Drives GET /api/auth/google/callback with stubbed Google endpoints.
-  async function googleCallback(sub: string, email: string): Promise<Response> {
+  async function googleCallback(sub: string, email: string, emailVerified: boolean | undefined = true): Promise<Response> {
     const { publicKey, privateKey } = (await crypto.subtle.generateKey(
       { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
       true,
       ["sign", "verify"],
     )) as CryptoKeyPair;
     const jwk = (await crypto.subtle.exportKey("jwk", publicKey)) as JsonWebKey;
-    const idToken = await mintGoogleIdToken(privateKey, sub, email);
+    const idToken = await mintGoogleIdToken(privateKey, sub, email, emailVerified);
     const state = `st-${Math.random().toString(36).slice(2)}`;
     await db.prepare("INSERT INTO oauth_state (state, provider, created_at) VALUES (?, 'google', ?)").bind(state, new Date().toISOString()).run();
     const realFetch = globalThis.fetch;
@@ -483,6 +495,19 @@ describe("oauth callback", () => {
     expect(bumped).toBeTruthy();
     expect(bumped).not.toBe(stale);
     expect(Date.now() - Date.parse(bumped!)).toBeLessThan(60_000);
+  });
+
+  it("accepts unverified provider emails (Django verification='none' parity)", async () => {
+    env = testEnv(db, { GOOGLE_OAUTH_CLIENT_ID: GOOGLE_CID }) as unknown as Env;
+    for (const [sub, email, verified] of [
+      ["google-sub-unv", "unverified@example.com", false],
+      ["google-sub-missing", "nofield@example.com", undefined],
+    ] as [string, string, boolean | undefined][]) {
+      const res = await googleCallback(sub, email, verified);
+      expect(res.status).toBe(302);
+      const row = await db.prepare("SELECT id FROM auth_user WHERE email = ?").bind(email).first<{ id: number }>();
+      expect(row).toBeTruthy();
+    }
   });
 });
 

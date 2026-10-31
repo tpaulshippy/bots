@@ -45,7 +45,8 @@ auth.post("/token/", async (c) => {
   if (!passwordOk) {
     return c.json({ detail: "No active account found with the given credentials" }, 401);
   }
-  await run(env.DB, "UPDATE auth_user SET last_login = ? WHERE id = ?", nowIso(), user.id);
+  // Django parity (UPDATE_LAST_LOGIN=False): password login never stamps
+  // last_login; OAuth login does (allauth user_logged_in signal).
   const tokens = await mintSession(env, user.id);
   return c.json(tokens);
 });
@@ -65,9 +66,11 @@ auth.post("/token/refresh/", async (c) => {
       ? { active_profile_id: sess.auth.active_profile_id }
       : undefined,
   );
-  // SimpleJWT (ROTATE=False) answers {access}; returning the refresh too is
-  // harmless and keeps native clients that replace the pair working.
-  return c.json({ access: tokens.access, refresh: tokens.refresh });
+  // Django parity (ROTATE_REFRESH_TOKENS=False): refresh answers {access}
+  // only. The native client keeps its stored refresh and swaps in the new
+  // access token, so no client change is needed — and no second 31-day
+  // credential fans out per refresh.
+  return c.json({ access: tokens.access });
 });
 
 async function delegatedOrParentTokens(env: Env, userId: number, email: string) {
@@ -206,6 +209,15 @@ auth.get("/auth/google/callback", async (c) => finishOAuth(c, "google"));
 auth.post("/auth/google/callback", async (c) => finishOAuth(c, "google"));
 auth.get("/auth/apple/callback", async (c) => finishOAuth(c, "apple"));
 auth.post("/auth/apple/callback", async (c) => finishOAuth(c, "apple"));
+
+// POST /api/accounts/logout/ — web logout. Native clients just discard
+// tokens locally (clearUser); this clears the web-login cookie so a shared
+// device can't sail back into the previous account's flow.
+auth.post("/accounts/logout/", async (c) => {
+  const resp = c.json({ detail: "Successfully logged out." }, 200);
+  resp.headers.append("Set-Cookie", "from-web=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
+  return resp;
+});
 
 // POST /api/auth/google — native clients: {id_token} -> token pair (JSON)
 auth.post("/auth/google", async (c) => {
