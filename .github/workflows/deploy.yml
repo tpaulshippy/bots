@@ -24,12 +24,15 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: front/package-lock.json
 
       - name: Build web app
         env:
+          # Served by the Cloudflare Worker (custom domain route
+          # syftlearning.app/api/* -> worker, see worker/wrangler.toml).
+          # Native apps use the same URL.
           EXPO_PUBLIC_API_BASE_URL: https://syftlearning.app/api
         run: |
           cd front
@@ -46,6 +49,11 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key root@$SERVER_HOST << 'EOF'
             set -e
             cd /home/bots/repo
+            # Django is retired by this PR (back/ deleted): never restart it
+            # — stop and disable so a reboot can't resurrect stale code and
+            # rollback-to-Django stays a conscious decision, not an accident.
+            sudo systemctl stop bots || true
+            sudo systemctl disable bots || true
             git pull --ff-only
             rm -rf front/dist.deploy
             mkdir -p front/dist.deploy
@@ -56,9 +64,42 @@ jobs:
             cd /home/bots/repo
             rm -rf front/dist
             mv front/dist.deploy front/dist
-            cd back
-            ../venv/bin/pip install -r requirements.txt
-            ../venv/bin/python -m playwright install chromium || true
-            ../venv/bin/python manage.py migrate --noinput || true
-            sudo systemctl restart bots
           EOF
+          rm -f /tmp/deploy_key
+
+      - name: Setup Node.js (worker)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: worker/package-lock.json
+
+      - name: Provision D1 + R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          # wrangler.toml ships an all-zero database_id placeholder: resolve
+          # the real id by name (creating the database on first run) and
+          # inject it, so `d1 migrations apply` below targets a real DB.
+          DB_ID=$(npx wrangler d1 list --json | jq -r '.[] | select(.name=="syft-db") | .uuid // empty')
+          if [ -z "$DB_ID" ]; then
+            DB_ID=$(npx wrangler d1 create syft-db --json | jq -r .uuid)
+          fi
+          sed -i "s/database_id = \".*\"/database_id = \"$DB_ID\"/" wrangler.toml
+          # Idempotent: succeeds on first run, no-op (|| true) after that.
+          npx wrangler r2 bucket create syft-images || true
+
+      - name: Deploy Worker API
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd worker
+          npm ci
+          # Apply pending D1 migrations, then deploy. The SQLite seed import
+          # (scripts/migrate-from-sqlite.mjs) is a one-time cutover step run
+          # manually, not on every deploy.
+          npx wrangler d1 migrations apply syft-db --remote
+          npx wrangler deploy

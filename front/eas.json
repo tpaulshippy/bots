@@ -23,6 +23,11 @@
     "testflight": {
       "extends": "production",
       "channel": "preview"
+    },
+    "testflight-staging": {
+      "extends": "testflight",
+      "environment": "preview",
+      "channel": "staging"
     }
   },
   "submit": {
