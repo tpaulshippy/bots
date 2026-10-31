@@ -1,13 +1,18 @@
 # syft-site (Cloudflare Pages)
 
 Single Pages site hosting BOTH the marketing pages and the Expo web app.
-Built by `site/build.mjs` (node, no deps) into `site/dist/` from sources on
-**git main** (works with `back/` deleted on this branch):
+Built by `site/build.mjs` (node, no deps) into `site/dist/` from vendored
+sources under `site/source/` (no git dependency, so CI works with a shallow
+checkout and with `back/` deleted on main):
 
-- `back/bots/templates/{marketing,tutorial,support}.html` → de-Django'd
+- `site/source/templates/{marketing,tutorial,support}.html` → de-Django'd
   (`{% load static %}` stripped, `{% static 'X' %}` → `/static/X`)
-- `back/bots/static/**` → `site/dist/static/`
+- `site/source/static/**` → `site/dist/static/`
 - `front/dist/**` (after `npx expo export --platform web`) → `site/dist/app/`
+
+Vendored from tag `pre-cloudflare-rollback` (last good `back/bots/templates`
++ `back/bots/static` before the Django backend was removed) — edit the
+vendored copies directly going forward.
 
 ## Routing
 
@@ -16,7 +21,7 @@ Built by `site/build.mjs` (node, no deps) into `site/dist/` from sources on
 | `/` | Marketing page | `marketing.html` → `dist/index.html` |
 | `/tutorial/` | Getting-started tutorial | `tutorial.html` → `dist/tutorial/index.html` |
 | `/support/` | Support form (static + fetch) | `support.html` → `dist/support/index.html` |
-| `/static/*` | Images, CSS, favicon, screenshots | `back/bots/static/` on main |
+| `/static/*` | Images, CSS, favicon, screenshots | `site/source/static/` |
 | `/app/*` | Expo web app | `front/dist/` (baseUrl `/app`) |
 | `/api/*` | **Not served by Pages** — Worker route `syftlearning.app/api/*` owns it | `worker/` |
 
@@ -33,10 +38,11 @@ export at build time) plus a catch-all `/app/*` → `/app/index.html`.
 
 ```sh
 cd front && npx expo export --platform web --output-dir dist --clear --no-bytecode
-node site/build.mjs --from-main   # or: npm run --prefix site build
+node site/build.mjs   # or: npm run --prefix site build
 ```
 
-`--local` reads from `./back/` on disk instead (only if the operator restored it).
+`--from-main` / `--local` are accepted as no-ops (legacy CI-compat flags);
+sources always come from `site/source/` on disk.
 
 ## Local preview
 

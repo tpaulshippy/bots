@@ -1,18 +1,22 @@
 // Build the Cloudflare Pages site (marketing + tutorial + support + Expo web).
 //
-// Sources (read from git main, so this works with back/ deleted on this branch):
-//   back/bots/templates/{marketing,tutorial,support}.html
-//   back/bots/static/**  -> site/dist/static/
-//   front/dist/**        -> site/dist/app/  (run `expo export` first; see README)
+// Vendored sources (no git dependency, so CI works with a shallow checkout
+// and with back/ deleted on main):
+//   site/source/templates/{marketing,tutorial,support}.html
+//   site/source/static/**  -> site/dist/static/
+//   front/dist/**          -> site/dist/app/  (run `expo export` first; see README)
+//
+// The vendored sources were extracted from tag `pre-cloudflare-rollback`
+// (last good back/bots/templates + back/bots/static before the Django
+// backend was removed). Edit the vendored copies directly going forward.
 //
 // Usage:
-//   node site/build.mjs --from-main   # templates + static via `git show main:<path>`
-//   node site/build.mjs --local       # templates + static from ./back on disk
-//                                     # (operator restored back/ manually)
+//   node site/build.mjs             # build from site/source/ on disk
+//   node site/build.mjs --from-main # accepted as a no-op (CI compat)
+//   node site/build.mjs --local     # accepted as a no-op (CI compat)
 //
 // No dependencies: node stdlib only.
 
-import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, posix, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,25 +24,22 @@ import { fileURLToPath } from "node:url";
 const SITE_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = dirname(SITE_DIR); // repo root
 const DIST = join(SITE_DIR, "dist");
+const SOURCE_DIR = join(SITE_DIR, "source");
+const TEMPLATES_DIR = join(SOURCE_DIR, "templates");
+const STATIC_SRC = join(SOURCE_DIR, "static");
 
-const FROM_MAIN = process.argv.includes("--from-main") || !process.argv.includes("--local");
-
-function gitShowMain(repoPath) {
-  // Binary-safe: return Buffer.
-  return execFileSync("git", ["show", `main:${repoPath}`], { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 });
+// Legacy flags kept as no-ops so existing CI/workflows keep working.
+for (const arg of process.argv.slice(2)) {
+  if (arg !== "--from-main" && arg !== "--local") {
+    console.warn(`warning: unknown flag ${arg} (ignored; sources always come from site/source/)`);
+  }
 }
 
-function gitListMain(repoDir) {
-  const out = execFileSync("git", ["ls-tree", "-r", "--name-only", "main", repoDir], {
-    cwd: ROOT,
-    encoding: "utf8",
-  });
-  return out.split("\n").map((l) => l.trim()).filter(Boolean);
-}
-
-function readSource(repoPath, localPath) {
-  if (!FROM_MAIN) return readFileSync(join(ROOT, localPath));
-  return gitShowMain(repoPath);
+function readSourceFile(path) {
+  if (!existsSync(path)) {
+    throw new Error(`missing vendored source: ${path} (expected under site/source/)`);
+  }
+  return readFileSync(path);
 }
 
 // Django -> static HTML: drop {% load static %}, rewrite {% static 'X' %} -> /static/X.
@@ -108,9 +109,9 @@ function writeFile(path, content) {
 }
 
 function buildPages() {
-  const marketing = deDjango(readSource("back/bots/templates/marketing.html", "back/bots/templates/marketing.html").toString("utf8"));
-  const tutorial = deDjango(readSource("back/bots/templates/tutorial.html", "back/bots/templates/tutorial.html").toString("utf8"));
-  const supportRaw = readSource("back/bots/templates/support.html", "back/bots/templates/support.html").toString("utf8");
+  const marketing = deDjango(readSourceFile(join(TEMPLATES_DIR, "marketing.html")).toString("utf8"));
+  const tutorial = deDjango(readSourceFile(join(TEMPLATES_DIR, "tutorial.html")).toString("utf8"));
+  const supportRaw = readSourceFile(join(TEMPLATES_DIR, "support.html")).toString("utf8");
   const support = staticSupportForm(deDjango(supportRaw));
 
   writeFile(join(DIST, "index.html"), marketing);
@@ -122,14 +123,10 @@ function buildPages() {
 function buildStatic() {
   const dest = join(DIST, "static");
   rmSync(dest, { recursive: true, force: true });
-  if (FROM_MAIN) {
-    for (const repoPath of gitListMain("back/bots/static")) {
-      const rel = repoPath.slice("back/bots/static/".length);
-      writeFile(join(dest, ...rel.split("/")), gitShowMain(repoPath));
-    }
-  } else {
-    cpSync(join(ROOT, "back", "bots", "static"), dest, { recursive: true });
+  if (!existsSync(STATIC_SRC)) {
+    throw new Error(`missing vendored static dir: ${STATIC_SRC}`);
   }
+  cpSync(STATIC_SRC, dest, { recursive: true });
   console.log(`static: ${readdirSync(dest).length} top-level entries -> /static/`);
 }
 
@@ -177,4 +174,4 @@ mkdirSync(DIST, { recursive: true });
 buildPages();
 buildStatic();
 buildRedirects(buildApp());
-console.log(`done: ${DIST} (source: ${FROM_MAIN ? "git main" : "local back/"})`);
+console.log(`done: ${DIST} (source: site/source/)`);

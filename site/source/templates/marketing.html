@@ -1,0 +1,117 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syft Learning - AI Bots for Students and Parents</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="{% static 'favicon.png' %}">
+    <link rel="stylesheet" href="{% static 'styles.css' %}">
+</head>
+<body class="font-sans text-gray-100">
+    <!-- Logo (wordless bot mark on dark tint #0a7ea4, matches app splash) -->
+    <div class="header-logo" style="width: 100%; height: 100px;">
+        <div class="flex justify-center items-center content-center h-full gap-3">
+            <img src="{% static 'splash-icon.png' %}" alt="Syft Logo" style="height: 80px">
+            <span class="text-3xl font-bold tracking-wide text-white">SYFT LEARNING</span>
+        </div>
+    </div>
+    <div class="container mx-auto px-4 py-8">
+
+        <div class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-8">
+            <a href="https://apps.apple.com/us/app/syft-learning/id6742674793">
+                <img src="{% static 'app_store.svg' %}" alt="App Store" class="w-40">
+            </a>
+            <a href="https://syftlearning.app/app" class="button text-white text-center font-bold py-2 px-6 rounded-full text-lg shadow-lg whitespace-nowrap">Open Web App</a>
+        </div>
+
+        <!-- Card Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            <!-- For Teens Card -->
+            <div class="card p-6 flex flex-col">
+                <h3 class="text-lg font-bold mb-4">For Students</h3>
+                <p class="text-sm text-gray-300 mb-6">Access to an AI-powered bot to answer questions, write stories, and learn how to sift through results.</p>
+            </div>
+
+            <!-- For Parents Card -->
+            <div class="card p-6 flex flex-col">
+                <h3 class="text-lg font-bold mb-4">For Parents</h3>
+                <p class="text-sm text-gray-300 mb-6">Give your students access to customizable bots, filter unwanted content, and access conversations with notifications.</p>
+            </div>
+
+            <!-- Safe Interactions Card -->
+            <div class="card p-6 flex flex-col">
+                <h3 class="text-lg font-bold mb-4">Safe Interactions</h3>
+                <p class="text-sm text-gray-300 mb-6">Built-in content filters and moderation tools ensure appropriate AI responses for student users.</p>
+                <div class="mt-auto">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs">Safety Level</span>
+                        <span class="text-xs">High</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-2 mb-4">
+                        <div class="h-2 rounded-full" style="width: 90%; background-color: #00a4c9"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom AI Assistants -->
+            <div class="card p-6 flex flex-col">
+                <h3 class="text-lg font-bold mb-4">Custom AI Assistants</h3>
+                <p class="text-sm text-gray-300 mb-6">Create personalized AI bots specialized for different subjects and learning styles.</p>
+            </div>
+
+            <!-- Subscription Options -->
+            <div class="card p-6 flex flex-col">
+                <h3 class="text-lg font-bold mb-4">Subscription Options</h3>
+                <ul class="text-sm text-gray-300 mb-6 space-y-2">
+                    <li>• Free: 2,000 words daily*</li>
+                    <li>• Basic ($1/mo): Up to 20,000 words daily</li>
+                    <li>• Pro ($5/mo): Up to 100,000 words daily</li>
+                </ul>
+                <p class="text-xs text-gray-400 mt-auto">*Estimates based on Nova Lite model</p>
+            </div>
+
+            <!-- Administrator Controls -->
+            <div class="card p-6 flex flex-col">
+                <h3 class="text-lg font-bold mb-4">Administrator Controls</h3>
+                <p class="text-sm text-gray-300 mb-6">Comprehensive settings for parents to monitor and customize their student's AI learning experience.</p>
+                <div class="mt-auto space-y-2">
+                    <div class="w-full bg-gray-700 rounded p-2 text-xs">Content filtering</div>
+                    <div class="w-full bg-gray-700 rounded p-2 text-xs">Topic restrictions</div>
+                </div>
+            </div>
+
+            <!-- Getting Started Card -->
+            <div class="card p-6 flex flex-col">
+                <h3 class="text-lg font-bold mb-4">Getting Started</h3>
+                <p class="text-sm text-gray-300 mb-6">Learn how to set up our product effectively.</p>
+                <a href="/tutorial" class="button text-white text-center font-bold py-2 px-4 rounded">View Tutorial</a>
+            </div>
+
+            <!-- Download Now Card -->
+            <div class="card p-6 flex flex-col">
+                <h3 class="text-lg font-bold mb-4">Download Now</h3>
+                <p class="text-sm text-gray-300 mb-6">Get the Syft Learning app today — or use it right in your browser!</p>
+                <div class="flex flex-col justify-center items-center gap-3 mt-4">
+                    <a href="https://apps.apple.com/us/app/syft-learning/id6742674793">
+                        <img src="{% static 'app_store.svg' %}" alt="App Store" class="w-40">
+                    </a>
+                    <a href="https://syftlearning.app/app" class="button text-white text-center font-bold py-2 px-6 rounded-full w-40 whitespace-nowrap">Open Web App</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="mt-16 text-center">
+            <div class="flex flex-wrap justify-center gap-4 mb-6">
+                <a href="/" class="text-sm hover:text-cyan-300 transition">Home</a>
+                <a href="/tutorial" class="text-sm hover:text-cyan-300 transition">Getting Started</a>
+                <a href="/support" class="text-sm hover:text-cyan-300 transition">Support</a>
+            </div>
+            <p class="text-xs text-gray-400 mb-2">Check the source code on <a href="https://github.com/tpaulshippy/bots" class="underline hover:text-cyan-300 transition">GitHub</a></p>
+            <p class="text-xs text-gray-400">&copy; 2025 Syft Learning. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
