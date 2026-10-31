@@ -126,7 +126,9 @@ authed.get("/:pk/link/", authenticate, async (c) => {
   const found = await getOwnedPage(c, r);
   if ("error" in found) return found.error;
   const sig = await signPageLink(r.env, r.user.id, found.row["page_id"] as string);
-  const raw = `/api/html-pages/${found.row["page_id"]}/raw/?sig=${encodeURIComponent(sig)}`;
+  // Endpoint-relative (no /api prefix): the app prepends its API base
+  // (which already ends in /api), exactly like Django's sign_raw_url.
+  const raw = `/html-pages/${found.row["page_id"]}/raw/?sig=${encodeURIComponent(sig)}`;
   return c.json({ url: raw });
 });
 

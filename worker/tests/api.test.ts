@@ -326,7 +326,10 @@ describe("html pages + revenuecat", () => {
     const link = (
       await api("GET", "/api/html-pages/33333333-3333-4333-8333-333333333333/link/", parent.access)
     ).json as { url: string };
-    const raw = await worker.fetch(new Request(`https://api.test${link.url}`, {}), env, ctx);
+    // The app prepends its API base (which ends in /api) to the
+    // endpoint-relative link, exactly like it does in production.
+    expect(link.url.startsWith("/html-pages/")).toBe(true);
+    const raw = await worker.fetch(new Request(`https://api.test/api${link.url}`, {}), env, ctx);
     expect(raw.status).toBe(200);
     expect(await raw.text()).toContain("roar");
     const anon = await worker.fetch(new Request("https://api.test/api/html-pages/33333333-3333-4333-8333-333333333333/raw/", {}), env, ctx);
