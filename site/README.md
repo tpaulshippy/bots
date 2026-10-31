@@ -37,9 +37,7 @@ export at build time) plus a catch-all `/app/*` → `/app/index.html`.
 ## Build
 
 ```sh
-cd front && npx expo export --platform web --output-dir dist --clear --no-bytecode
-cd ..
-node site/build.mjs   # or: npm run --prefix site build
+cd front && npx expo export --platform web --output-dir dist --clear --no-bytecode && cd .. && node site/build.mjs   # or: npm run --prefix site build
 ```
 
 `--from-main` / `--local` are accepted as no-ops (legacy CI-compat flags);
