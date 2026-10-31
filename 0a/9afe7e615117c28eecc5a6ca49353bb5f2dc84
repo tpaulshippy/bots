@@ -1,0 +1,14 @@
+site/README.md
+  h_6bbd00fe0a456a 40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0a9afe7e615117c28eecc5a6ca49353bb5f2dc84",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
