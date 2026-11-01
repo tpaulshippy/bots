@@ -1,10 +1,11 @@
 # Cloudflare Workers + D1 port of the Syft Learning Django backend (back/).
 #
-# What runs where (ROLLBACK 2026-11-01: live /api/* is Django again after D1
-# free-tier row-read limit blocked Worker reads; Worker + D1 idle until paid
-# D1 + read budget):
-#   Django (VPS)      : all live serving (API + web + marketing + cron).
-#   Worker (this dir) : idle; code + D1 seed preserved for re-cutover.
+# What runs where (RE-CUTOVER 2026-11-01: D1 limit reset, prod data verified
+# intact in D1 — 472/472 prod chats, test rows isolated to users 60/61):
+#   Worker (this dir) : all /api/* JSON endpoints, SSE chat streaming,
+#                       OAuth callbacks, RevenueCat webhook, media URLs, crons.
+#   Django (VPS)      : retired from request serving; kept stopped-ready as
+#                       rollback (pre-cloudflare-rollback tag + db.sqlite3).
 #   (Admin site has no Worker equivalent.)
 
 name = "syft-api"
@@ -16,10 +17,10 @@ compatibility_flags = ["nodejs_compat"]
 # Expo app only needs EXPO_PUBLIC_API_BASE_URL pointed at the Worker.
 # wrangler dev serves at http://localhost:8787 by default.
 
-# Custom domain for the API (HELD BACK 2026-11-01: route removed for rollback
-# to Django after D1 free-tier row-read limit blocked Worker reads; re-add
-# only with paid D1 + verified read budget): syftlearning.app/api/* -> Worker.
-# routes = [{ pattern = "syftlearning.app/api/*", zone_name = "syftlearning.app" }]
+# Custom domain for the API (zone managed in this account): route
+# syftlearning.app/api/* to this Worker so the baked-in
+# EXPO_PUBLIC_API_BASE_URL keeps working for web + native builds.
+routes = [{ pattern = "syftlearning.app/api/*", zone_name = "syftlearning.app" }]
 
 [[d1_databases]]
 binding = "DB"
@@ -31,10 +32,9 @@ migrations_dir = "migrations"
 binding = "IMAGES"
 bucket_name = "syft-images" # TODO: create with `wrangler r2 bucket create syft-images`
 
-# HELD BACK 2026-11-01 (rollback): crons disabled so the idle Worker stops
-# burning D1 row reads while blocked; restore with the api route on re-cutover.
-# [triggers]
-# crons = ["30 12 * * *", "0 1 * * *"]
+# Crons restored 2026-11-01 re-cutover (were held back during the D1-block rollback).
+[triggers]
+crons = ["30 12 * * *", "0 1 * * *"]
 # 12:30 UTC ~= morning US study-reminder window; 01:00 UTC parent digests.
 
 [vars]
