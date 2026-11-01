@@ -1,0 +1,16 @@
+front/e2e/seedHelpers.js
+  h_6bbd00fe0a456a 1-521
+worker/scripts/seed-local-e2e.sql
+  h_6bbd00fe0a456a 1-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ccae46e6338a1b07d6500f02e03283ae5ee875ce",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
