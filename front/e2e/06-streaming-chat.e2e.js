@@ -35,6 +35,7 @@ const {
   listProfiles,
   listBots,
   ensureBot,
+  resetDailyUsageD1,
   authed,
   injectAsyncStorage,
   tokensManifest,
@@ -58,8 +59,10 @@ async function seedProfileAndBot(access) {
     // plus a high response cap so the reply streams long enough to observe
     // the Stop state (short replies finish inside Detox's tap round-trip).
     // PR102's ensureBot takes extra fields via {params} (no auto-model).
+    // enable_web_search:true mirrors the documented real-path bot (the prompt
+    // below asks for a web search + deck creation).
     bot = await ensureBot(access, DEMO_BOT_NAME, {
-      params: { ai_model: await getDefaultModelId(access), response_length: 2000 },
+      params: { ai_model: await getDefaultModelId(access), response_length: 2000, enable_web_search: true },
     });
   } else {
     // Fake path: the seed owns the fake wiring; refuse to run weakened.
@@ -115,7 +118,8 @@ describe('Streaming chat and agent UI', () => {
 
   beforeAll(async () => {
     tokens = await getParentTokens();
-    await resetPinLockoutState();
+    // D1-only (throws on Django, where the seed command owns lockout state).
+    if (isWorkerBase()) await resetPinLockoutState();
     await ensureNoPin(tokens.access);
     await completeOnboarding(tokens.access);
     const seeded = await seedProfileAndBot(tokens.access);
@@ -137,6 +141,15 @@ describe('Streaming chat and agent UI', () => {
 
     await device.launchApp({ newInstance: true });
     await waitFor(element(by.id('camera-button'))).toBeVisible().withTimeout(30000);
+    // Quota hermeticity, placed AFTER launch on purpose: the seeded rates
+    // make one heavy turn cost more than the daily cap, so a leftover
+    // baseline would over-limit every stream below (the instant error
+    // flashes Stop for <1s, so the Stop wait always misses). The reset must
+    // run after boot settles because the app rewrites the account timezone
+    // on launch (device locale) while seedHelpers pins ?timezone=UTC — any
+    // tz flip voids the worker's usage baseline, so a pre-launch reset is
+    // already dead by first send.
+    if (isWorkerBase()) await resetDailyUsageD1();
     console.log(`streaming spec: ${fakePath ? 'FAKE-stream path (Django)' : 'REAL-model path (Worker)'} against ${apiBase()}`);
   }, 180000);
 
@@ -215,6 +228,20 @@ describe('Streaming chat and agent UI', () => {
   } else {
     it('streams a real-model reply with Stop-while-streaming and completion', async () => {
       await waitFor(element(by.id('chat-input'))).toBeVisible().withTimeout(5000);
+      // Warm-up turn (real path only): a cold first-send can remount the
+      // chat screen while bootstrap settles, aborting the turn client-side
+      // (server keeps the user row but the assistant row never persists and
+      // Stop is never observed). A cheap turn absorbs the settle so the
+      // measured send below streams observably. No Stop assertion here —
+      // the warm-up's only job is settling; completion is awaited via idle.
+      await element(by.id('chat-input')).typeText('Warm-up ping');
+      await device.disableSynchronization();
+      await element(by.id('send-button')).tap();
+      await device.enableSynchronization();
+      await waitFor(element(by.id('stop-button'))).not.toBeVisible().withTimeout(120000);
+      await waitFor(element(by.id('send-button'))).toBeVisible().withTimeout(10000);
+      await pollUserEcho(tokens.access, 'Warm-up ping', 60000, 'warm-up echo');
+
       // Tool-using prompt (web search + deck creation on this bot) stretches
       // server-side work so the streaming window is observable; the reply
       // itself is long as well.
@@ -253,8 +280,14 @@ describe('Streaming chat and agent UI', () => {
     }, 300000);
 
     it('keeps partial text when the user cancels mid-stream', async () => {
+      // Test 1's 500-word + deck turn alone exceeds the daily cap at seeded
+      // rates: reset the baseline so this turn streams for real instead of
+      // instant-erroring (no Stop window to cancel). Post-relaunch like
+      // beforeAll: the relaunch re-settles the account timezone first, and
+      // any tz flip voids the worker's usage baseline.
       await device.launchApp({ newInstance: true });
       await waitFor(element(by.id('chat-input'))).toBeVisible().withTimeout(20000);
+      if (isWorkerBase()) await resetDailyUsageD1();
       const prompt = `Explain meiosis in extreme detail, step by step, at least 600 words TS${Date.now()}`;
       await element(by.id('chat-input')).typeText(prompt);
       // Tap Stop with sync still off (same lesson as the fake path).
@@ -267,8 +300,20 @@ describe('Streaming chat and agent UI', () => {
 
       // Back to idle with the composer ready; the echo and whatever partial
       // text streamed persist server-side (doc 06 §2 "prefer save partial").
+      // The visible echo alone doesn't prove the send landed (a cold
+      // remount can drop the optimistic bubble), so require the user turn
+      // persisted through the messages API as well.
+      // NOTE (cubic 06:271, proven invalid on Worker): "poll the newest
+      // chat's persisted assistant messages and require non-empty" cannot
+      // hold here — worker/src/routes/turn.ts persists the assistant row
+      // ONLY on full completion; a client abort (Stop) cancels the handler
+      // and no assistant row is ever written (verified: 3 cancel runs, zero
+      // assistant rows in D1). The over-limit error copy would satisfy such
+      // a poll for the wrong reason. The persisted user echo is the
+      // strongest deterministic server-side assertion for a cancelled turn.
       await waitFor(element(by.id('send-button'))).toBeVisible().withTimeout(10000);
       await waitFor(element(by.text(prompt))).toBeVisible().withTimeout(10000);
+      await pollUserEcho(tokens.access, prompt, 60000, 'cancelled send echo');
       await device.takeScreenshot('streaming-real-cancelled');
     }, 120000);
   }

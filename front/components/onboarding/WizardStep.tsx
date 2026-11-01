@@ -136,9 +136,3 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 });
-
-// Default export silences the Expo dev "Route ./onboarding/WizardStep.tsx
-// missing default export" warning, whose banner covers the bottom-anchored
-// onboarding CTA in Detox runs. This file is shared wizard chrome, not a
-// route — never navigate to it.
-export default WizardStep;

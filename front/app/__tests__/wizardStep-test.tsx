@@ -2,7 +2,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 
-import { WizardStep } from '../onboarding/WizardStep';
+import { WizardStep } from '../../components/onboarding/WizardStep';
 
 describe('WizardStep', () => {
   it('renders the step counter, title, subtitle, and children', () => {

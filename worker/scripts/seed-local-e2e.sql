@@ -37,20 +37,52 @@
 --
 -- Usage (Terminal 1 must already run `wrangler dev` once so local D1 exists):
 --   cd worker && npx wrangler d1 execute syft-db --local --file=./scripts/seed-local-e2e.sql
--- Idempotent: safe to re-run (INSERT OR REPLACE / OR IGNORE).
+-- Idempotent: safe to re-run. Upserts (ON CONFLICT DO UPDATE) — never
+-- INSERT OR REPLACE here: REPLACE deletes + reinserts the row, and the
+-- enforced FKs (bots_useraccount.user_id ON DELETE CASCADE, etc.) wipe the
+-- E2E state other suites seeded.
 
-INSERT OR REPLACE INTO auth_user (id, password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined)
+INSERT INTO auth_user (id, password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined)
 VALUES
   (60, 'pbkdf2_sha256$10000$6WsxRJUeouaLspEo$tJ39t8OBwf/CeM9+7EZCU4d78HQC1fg9LaJGKzlpftE=', NULL, 0, 'e2e-test-user', '', '', '', 0, 1, '2026-01-01T00:00:00.000Z'),
-  (61, 'pbkdf2_sha256$10000$JIxbxDiRRC9RlV2$S75p4gyd/16LTHOvPUdmlg6p/fEDTEaBBFdCcwB8tK8=', NULL, 0, 'e2e-teen-helper', '', '', 'maya@school.edu', 0, 1, '2026-01-01T00:00:00.000Z');
+  (61, 'pbkdf2_sha256$10000$JIxbxDiRRC9RlV2$S75p4gyd/16LTHOvPUdmlg6p/fEDTEaBBFdCcwB8tK8=', NULL, 0, 'e2e-teen-helper', '', '', 'maya@school.edu', 0, 1, '2026-01-01T00:00:00.000Z')
+ON CONFLICT(id) DO UPDATE SET
+  password = excluded.password,
+  last_login = excluded.last_login,
+  is_superuser = excluded.is_superuser,
+  username = excluded.username,
+  first_name = excluded.first_name,
+  last_name = excluded.last_name,
+  email = excluded.email,
+  is_staff = excluded.is_staff,
+  is_active = excluded.is_active,
+  date_joined = excluded.date_joined;
 
-INSERT OR REPLACE INTO bots_useraccount (user_id, pin_hash, pin_failed_attempts, pin_locked_until, subscription_level, timezone, onboarding_completed_at)
+INSERT INTO bots_useraccount (user_id, pin_hash, pin_failed_attempts, pin_locked_until, subscription_level, timezone, onboarding_completed_at)
 VALUES
   (60, NULL, 0, NULL, 0, 'UTC', NULL),
-  (61, NULL, 0, NULL, 0, 'UTC', NULL);
+  (61, NULL, 0, NULL, 0, 'UTC', NULL)
+ON CONFLICT(user_id) DO UPDATE SET
+  pin_hash = excluded.pin_hash,
+  pin_failed_attempts = excluded.pin_failed_attempts,
+  pin_locked_until = excluded.pin_locked_until,
+  subscription_level = excluded.subscription_level,
+  timezone = excluded.timezone,
+  onboarding_completed_at = excluded.onboarding_completed_at;
 
-INSERT OR IGNORE INTO bots_aimodel (model_id, name, input_token_cost, output_token_cost, is_default, supported_input_modalities, created_at, modified_at)
-VALUES ('us.amazon.nova-micro-v1:0', 'Nova Micro', 0.000035, 0.00014, 1, '["text"]', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+INSERT INTO bots_aimodel (model_id, name, input_token_cost, output_token_cost, is_default, supported_input_modalities, created_at, modified_at)
+VALUES ('us.amazon.nova-micro-v1:0', 'Nova Micro', 0.000035, 0.00014, 1, '["text"]', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')
+ON CONFLICT(model_id) DO NOTHING;
 
-INSERT OR IGNORE INTO bots_aimodel (model_id, name, input_token_cost, output_token_cost, is_default, supported_input_modalities, created_at, modified_at)
-VALUES ('us.amazon.nova-lite-v1:0', 'Nova Lite', 0.00006, 0.00024, 0, '["text", "image"]', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');
+-- Upserted by model_id (not OR IGNORE): a stale pre-existing Nova Lite row
+-- (e.g. text-only capabilities from an older seed) must converge to
+-- text+image, or the photo bot's image turns 400. is_default is left alone
+-- (partial unique index on is_default = 1).
+INSERT INTO bots_aimodel (model_id, name, input_token_cost, output_token_cost, is_default, supported_input_modalities, created_at, modified_at)
+VALUES ('us.amazon.nova-lite-v1:0', 'Nova Lite', 0.00006, 0.00024, 0, '["text", "image"]', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')
+ON CONFLICT(model_id) DO UPDATE SET
+  name = excluded.name,
+  input_token_cost = excluded.input_token_cost,
+  output_token_cost = excluded.output_token_cost,
+  supported_input_modalities = excluded.supported_input_modalities,
+  modified_at = excluded.modified_at;

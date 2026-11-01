@@ -181,11 +181,14 @@ async function ensureNoPin(accessToken, currentPin = '1234') {
 
 // Set the parent PIN, clearing a different existing PIN first. When a PIN is
 // already set and currentPin is omitted, the existing PIN is assumed correct
-// and nothing is changed.
+// and nothing is changed. When currentPin IS supplied, the existing PIN is
+// always cleared (verifying currentPin) and `pin` is set fresh, so the
+// resulting PIN is guaranteed to equal `pin` even if a previous run left a
+// different one.
 async function ensurePin(accessToken, pin = '1234', currentPin) {
   const account = await getAccount(accessToken);
   if (account.hasPin) {
-    if (!currentPin || currentPin === pin) return account;
+    if (!currentPin) return account;
     await ensureNoPin(accessToken, currentPin);
   }
   await authed(accessToken, '/user', { method: 'POST', body: { pin } });
@@ -252,7 +255,19 @@ async function ensureBot(accessToken, name, opts = {}) {
   const { pin = null, params = {} } = opts;
   const bots = await listBots(accessToken);
   const found = bots.find((b) => b.name === name);
-  if (found) return found;
+  // PATCH the existing bot so requested params (e.g. ai_model after a
+  // re-seed) always apply — otherwise reruns drift (image-model mismatch).
+  if (found) {
+    if (Object.keys(params).length === 0) return found;
+    const key = found.bot_id || found.id;
+    return withParentReauth(accessToken, pin, (parentToken) =>
+      authed(accessToken, `/bots/${key}/`, {
+        method: 'PATCH',
+        headers: parentHeaders(parentToken),
+        body: params,
+      }),
+    );
+  }
   return withParentReauth(accessToken, pin, (parentToken) =>
     authed(accessToken, '/bots/', {
       method: 'POST',
@@ -329,11 +344,11 @@ function d1Local(sql) {
 }
 
 async function d1Cloudflare(sql) {
-  const token = process.env.CLOUDFLARE_API_TOKEN;
+  const token = process.env.CLOUDFLARE_API_TOKEN || process.env.CLOUDFLARE_WORKER_API_TOKEN;
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
   if (!token || !accountId) {
     throw new Error(
-      'd1: workers.dev base needs CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID env vars ' +
+      'd1: workers.dev base needs CLOUDFLARE_API_TOKEN (or CLOUDFLARE_WORKER_API_TOKEN) + CLOUDFLARE_ACCOUNT_ID env vars ' +
         '(or run against local `wrangler dev` with API_BASE_URL=http://127.0.0.1:8787/api)',
     );
   }
@@ -387,6 +402,117 @@ function ensureSubscriptionLevel(level, userId = E2E_PARENT_ID) {
   return d1('UPDATE bots_useraccount SET subscription_level = ? WHERE user_id = ?', [level, userId]);
 }
 
+// ---------------------------------------------------------------------------
+// Usage-baseline reset (Worker D1 only; mirrors worker/src/usage.ts
+// resetDailyUsage so cost_for_today restarts at zero). The seeded model
+// rates make one heavy E2E turn (06's 500-word + deck reply ≈ $0.51)
+// exceed even the level-2 daily cap ($0.161), so model-heavy specs reset
+// before sending — otherwise later turns get OVER_LIMIT_MESSAGE instead of
+// a stream and the Stop/cancel assertions can never observe streaming.
+// (Django bases throw the d1 hint; the seed command owns quota there.)
+// ---------------------------------------------------------------------------
+
+// Port of worker startOfTodayUtc (Intl-based; Workers have no pytz).
+function startOfTodayUtc(timezone, now = new Date()) {
+  const tz = timezone || 'UTC';
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = fmt.formatToParts(now);
+  const get = (t) => parts.find((p) => p.type === t)?.value ?? '01';
+  const asUtcGuess = Date.parse(`${get('year')}-${get('month')}-${get('day')}T00:00:00Z`);
+  const offFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const oparts = offFmt.formatToParts(new Date(asUtcGuess));
+  const oget = (t) => oparts.find((p) => p.type === t)?.value ?? '00';
+  const asIfUtc = Date.parse(
+    `${oget('year')}-${oget('month')}-${oget('day')}T${oget('hour') === '24' ? '00' : oget('hour')}:${oget('minute')}:${oget('second')}Z`
+  );
+  const offsetMs = asIfUtc - asUtcGuess;
+  return new Date(asUtcGuess - offsetMs);
+}
+
+async function resetDailyUsageD1(userId = E2E_PARENT_ID) {
+  const acct = await d1('SELECT timezone FROM bots_useraccount WHERE user_id = ?', [userId]);
+  check(acct.length > 0, `resetDailyUsageD1: no useraccount for user ${userId}`);
+  const timezone = acct[0].timezone || 'UTC';
+  const now = new Date();
+  const resetAt = now.toISOString();
+  const startIso = startOfTodayUtc(timezone, now).toISOString();
+
+  const models = await d1('SELECT model_id, input_token_cost, output_token_cost, is_default FROM bots_aimodel');
+  const byId = new Map(models.map((m) => [m.model_id, m]));
+  const def = models.find((m) => m.is_default === 1) || null;
+  const price = (mid) => {
+    const m = (mid && byId.get(mid)) || def;
+    if (!m) return [0, 0];
+    return [m.input_token_cost, m.output_token_cost];
+  };
+
+  // Raw cost in [startIso, resetAt), bucketed by effective model exactly
+  // like worker messageBucketsToday (stamp, else live bot model).
+  const buckets = await d1(
+    `SELECT CASE WHEN m.model_id IS NULL OR m.model_id = '' THEN am.model_id ELSE m.model_id END AS effective_model, COALESCE(SUM(m.input_tokens), 0) AS total_in, COALESCE(SUM(m.output_tokens), 0) AS total_out FROM bots_message m JOIN bots_chat c ON c.id = m.chat_id LEFT JOIN bots_bot b ON b.id = c.bot_id LEFT JOIN bots_aimodel am ON am.id = b.ai_model_id WHERE c.user_id = ? AND m.role = 'assistant' AND m.created_at >= ? AND m.created_at < ? GROUP BY effective_model`,
+    [userId, startIso, resetAt]
+  );
+  let total = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  for (const r of buckets) {
+    const [ri, ro] = price(r.effective_model || null);
+    total += (r.total_in || 0) * ri + (r.total_out || 0) * ro;
+    inputTokens += r.total_in || 0;
+    outputTokens += r.total_out || 0;
+  }
+
+  // Pricing snapshot over [startIso, resetAt), mirroring worker
+  // baselinePricingSnapshot. Serialized with sorted keys + compact
+  // separators to match worker canonicalJson (the worker voids the
+  // baseline when the stored snapshot differs from live).
+  const stampedRows = await d1(
+    `SELECT DISTINCT m.model_id AS mid FROM bots_message m JOIN bots_chat c ON c.id = m.chat_id WHERE c.user_id = ? AND m.role = 'assistant' AND m.created_at >= ? AND m.created_at < ? AND m.model_id IS NOT NULL AND m.model_id != ''`,
+    [userId, startIso, resetAt]
+  );
+  const unstampedRows = await d1(
+    `SELECT DISTINCT c.id AS chat_id, am.model_id AS mid FROM bots_message m JOIN bots_chat c ON c.id = m.chat_id LEFT JOIN bots_bot b ON b.id = c.bot_id LEFT JOIN bots_aimodel am ON am.id = b.ai_model_id WHERE c.user_id = ? AND m.role = 'assistant' AND m.created_at >= ? AND m.created_at < ? AND (m.model_id IS NULL OR m.model_id = '')`,
+    [userId, startIso, resetAt]
+  );
+  const stampedIds = [...new Set(stampedRows.map((r) => r.mid))];
+  const unstamped = {};
+  for (const r of unstampedRows) unstamped[String(r.chat_id)] = r.mid;
+  const mids = [...stampedIds, ...Object.values(unstamped).filter((m) => m !== null)];
+  const fallbackUsed = [...stampedIds, ...Object.values(unstamped)].some((m) => m === null || !(m && byId.has(m)));
+  const priced = new Set(mids.filter((m) => m !== null));
+  if (fallbackUsed && def) priced.add(def.model_id);
+  const rates = {};
+  for (const mid of [...priced].sort()) {
+    if (byId.has(mid)) {
+      const m = byId.get(mid);
+      rates[mid] = [m.input_token_cost, m.output_token_cost, m.is_default];
+    }
+  }
+  const unstampedSorted = {};
+  for (const k of Object.keys(unstamped).sort()) unstampedSorted[k] = unstamped[k];
+  const pricing = JSON.stringify({ rates, unstamped: unstampedSorted });
+
+  await d1(
+    `UPDATE bots_useraccount SET usage_reset_at = ?, usage_reset_timezone = ?, usage_reset_cost = ?, usage_reset_input_tokens = ?, usage_reset_output_tokens = ?, usage_reset_version = ?, usage_reset_pricing = ? WHERE user_id = ?`,
+    [resetAt, timezone, total, inputTokens, outputTokens, 2, pricing, userId]
+  );
+  return { total, inputTokens, outputTokens };
+}
+
 // Reset user 60 to onboarding-fresh state (no PIN, no lockout, no onboarding
 // flag, no profiles/bots/chats), then recreate the named profiles + bot via
 // the REST API so server defaults/validation apply. Matches the
@@ -422,8 +548,28 @@ const BUNDLE_ID_EXPORT = BUNDLE_ID;
 
 function tokensManifest(tokens, opts = {}) {
   const { profile = null, bot = null, initialRoute = null } = opts;
+  // The app keys stored tokens by EXPO_PUBLIC_API_BASE_URL (front/api/tokens.ts
+  // BASE_URL) while this helper keys by API_BASE_URL. A mismatch strands the
+  // app unauthenticated with no visible error — fail fast instead. Equal
+  // (after trailing-slash normalization) is fine.
+  const apiBaseNorm = apiBase();
+  // NOTE: read via a dynamically-built key — babel-preset-expo (which jest
+  // uses for e2e specs) statically rewrites `process.env.EXPO_PUBLIC_*`
+  // member expressions into `require("expo/virtual/env")`, which cannot
+  // resolve under jest (node_modules are not transformed). A computed key
+  // survives as a plain process.env read.
+  const expoBaseRaw = process.env['EXPO_PUBLIC_' + 'API_BASE_URL'];
+  if (expoBaseRaw) {
+    const expoBaseNorm = String(expoBaseRaw).replace(/\/+$/, '');
+    if (expoBaseNorm !== apiBaseNorm) {
+      throw new Error(
+        `tokensManifest: API_BASE_URL (${apiBaseNorm}) != EXPO_PUBLIC_API_BASE_URL (${expoBaseNorm}). ` +
+          `The app looks tokens up by the Expo base — align both (Metro EXPO_PUBLIC_API_BASE_URL + spec API_BASE_URL).`,
+      );
+    }
+  }
   const manifest = {
-    tokens: JSON.stringify({ [apiBase()]: tokens }),
+    tokens: JSON.stringify({ [apiBaseNorm]: tokens }),
     e2eTestMode: 'true',
   };
   if (profile) manifest.selectedProfile = typeof profile === 'string' ? profile : JSON.stringify(profile);
@@ -512,6 +658,7 @@ module.exports = {
   resetOnboardingFresh,
   deleteAllChatsD1,
   ensureSubscriptionLevel,
+  resetDailyUsageD1,
   tokensManifest,
   injectAsyncStorage,
   reinstallAndInject,

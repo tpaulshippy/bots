@@ -25,6 +25,7 @@
  */
 const {
   apiBase,
+  isWorkerBase,
   check,
   getParentTokens,
   getDefaultModelId,
@@ -33,6 +34,7 @@ const {
   completeOnboarding,
   listProfiles,
   ensureBot,
+  resetDailyUsageD1,
   authed,
   injectAsyncStorage,
   tokensManifest,
@@ -106,7 +108,8 @@ describe('Server-Side Safety E2E Flow (Real API)', () => {
 
   beforeAll(async () => {
     tokens = await getParentTokens();
-    await resetPinLockoutState();
+    // D1-only (throws on Django, where the seed command owns lockout state).
+    if (isWorkerBase()) await resetPinLockoutState();
     await ensureNoPin(tokens.access);
     await completeOnboarding(tokens.access);
     const { profile, bot } = await seedProfileAndSafetyBot(tokens.access);
@@ -126,6 +129,10 @@ describe('Server-Side Safety E2E Flow (Real API)', () => {
 
     await device.launchApp({ newInstance: true });
     await waitFor(element(by.id('camera-button'))).toBeVisible().withTimeout(30000);
+    // Quota hermeticity, post-launch (see 06): the seeded rates make a few
+    // model turns exceed the daily cap, and any account-timezone flip voids
+    // the worker's usage baseline — so reset after boot settles, not before.
+    if (isWorkerBase()) await resetDailyUsageD1();
     console.log(`safety demo seeded against ${apiBase()}`);
   }, 180000);
 
@@ -137,10 +144,11 @@ describe('Server-Side Safety E2E Flow (Real API)', () => {
     await waitFor(element(by.text(BLOCKED_MESSAGE))).toBeVisible().withTimeout(15000);
     // …and the fixed server refusal persists as the assistant turn
     // (back/bots/services/safety.py). Generous timeout: the block itself
-    // needs no model call, but worker-side persistence can lag.
+    // needs no model call, but worker-side persistence can lag. Poll budget
+    // is 150s, so the per-test timeout must exceed it (>=180s).
     await pollAssistantText(tokens.access, REFUSAL_SUBSTRING, 150000, 'server refusal');
     await device.takeScreenshot('safety-refusal-rendered');
-  }, 120000);
+  }, 180000);
 
   it('still answers normal homework messages after a block', async () => {
     // Timestamped so runs never collide with leftover probe messages; the

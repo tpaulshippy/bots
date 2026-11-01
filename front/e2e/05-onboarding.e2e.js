@@ -13,17 +13,18 @@
  *
  * NOTE on the Expo dev-warning banner: it used to cover the bottom-anchored
  * onboarding-get-started CTA (from `Route "./onboarding/WizardStep.tsx"
- * missing default export`). WizardStep now has a default export (one-line
- * app change), so the banner is gone; the spec still defensively scrolls
- * nothing and taps directly.
+ * missing default export`). WizardStep now lives outside the route tree
+ * (components/onboarding/WizardStep.tsx), so no route warning exists and the
+ * banner is gone; the spec still defensively scrolls nothing and taps
+ * directly.
  *
  * Run: API_BASE_URL=... npx detox test e2e/05-onboarding.e2e.js -c ios.sim.debug
  */
 const {
-  apiBase,
   check,
   getParentTokens,
   getDefaultModelId,
+  isWorkerBase,
   resetPinLockoutState,
   ensureNoPin,
   resetOnboardingFresh,
@@ -31,6 +32,7 @@ const {
   ensureProfile,
   ensureBot,
   deleteExtraBots,
+  resetDailyUsageD1,
   authed,
   injectAsyncStorage,
   tokensManifest,
@@ -52,17 +54,21 @@ describe('Onboarding E2E Flow (Real API)', () => {
 
   beforeAll(async () => {
     tokens = await getParentTokens();
-    await resetPinLockoutState();
-    await ensureNoPin(tokens.access);
-    // Fresh first-run state (Worker D1; Django: seed_e2e_onboarding). The
-    // Worker gates the wizard on (no flag AND no chats), so leftover chats
-    // from other suites must go too.
-    // PR102's resetOnboardingFresh(accessToken) wipes chats/decks/profiles/
-    // bots for user 60 and recreates kid profiles Jordan+Maya + Penelope via
-    // the REST API — so Jordan already exists below (no rename needed; the
-    // old rename-reuse-dirty-profiles step is subsumed by the wipe).
-    await resetOnboardingFresh(tokens.access);
-    await deleteAllChatsD1();
+    // Fresh first-run state: the D1 wipes below are Worker-only (on Django
+    // run `seed_e2e_onboarding` for the same fresh state); the REST ensures
+    // after them work on either backend. The Worker gates the wizard on (no
+    // flag AND no chats), so leftover chats from other suites must go too.
+    if (isWorkerBase()) {
+      await resetPinLockoutState();
+      // PR102's resetOnboardingFresh(accessToken) wipes chats/decks/profiles/
+      // bots for user 60 and recreates kid profiles Jordan+Maya + Penelope via
+      // the REST API — so Jordan already exists below (no rename needed; the
+      // old rename-reuse-dirty-profiles step is subsumed by the wipe).
+      await resetOnboardingFresh(tokens.access);
+      await deleteAllChatsD1();
+    } else {
+      await ensureNoPin(tokens.access);
+    }
     await ensureProfile(tokens.access, 'Jordan');
     await ensureProfile(tokens.access, 'Maya');
     // The onboarding chat must actually answer: wire the default model
@@ -84,6 +90,10 @@ describe('Onboarding E2E Flow (Real API)', () => {
     await waitFor(element(by.id('onboarding-get-started')))
       .toBeVisible()
       .withTimeout(30000);
+    // Quota hermeticity, post-launch (see 06): the onboarding chat answers
+    // for real, and any account-timezone flip voids the worker's usage
+    // baseline — so reset after boot settles, not before.
+    if (isWorkerBase()) await resetDailyUsageD1();
   }, 180000);
 
   it('walks through all five steps and lands in a working chat', async () => {

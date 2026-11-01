@@ -22,6 +22,8 @@
  * Run: API_BASE_URL=... npx detox test -c ios.sim.debug e2e/01-teen-login.e2e.js
  */
 const {
+  apiBase,
+  isWorkerBase,
   check,
   getParentTokens,
   getHelperTokens,
@@ -33,7 +35,6 @@ const {
   authed,
   injectAsyncStorage,
   tokensManifest,
-  enterKeypadPin,
   sleep,
 } = require('./seedHelpers');
 
@@ -42,7 +43,7 @@ const TEEN_EMAIL = 'maya@school.edu';
 /** Teen-delegated tokens via the parity path (helper -> GET /login?json=). */
 async function getDelegatedTokens() {
   const helper = await getHelperTokens();
-  const res = await fetch(`${process.env.API_BASE_URL || 'http://localhost:8000/api'}/login?json=`, {
+  const res = await fetch(`${apiBase()}/login?json=`, {
     headers: { Authorization: `Bearer ${helper.access}` },
   });
   if (!res.ok) throw new Error(`GET /login delegation failed: ${res.status}`);
@@ -87,7 +88,8 @@ describe('Teen delegated login (roadmap 01)', () => {
 
   beforeAll(async () => {
     parentTokens = await getParentTokens();
-    await resetPinLockoutState();
+    // D1-only (throws on Django, where the seed command owns lockout state).
+    if (isWorkerBase()) await resetPinLockoutState();
     // Profile writes need a PIN-free account; the teen binding flow has no
     // PIN gate, so leave it cleared.
     await ensureNoPin(parentTokens.access);

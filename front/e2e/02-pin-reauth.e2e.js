@@ -20,20 +20,21 @@
  *   API_BASE_URL=... npx detox test -c ios.sim.debug e2e/02-pin-reauth.e2e.js
  */
 const {
+  isWorkerBase,
   check,
   getParentTokens,
   listProfiles,
   listBots,
   resetPinLockoutState,
+  ensureNoPin,
   ensurePin,
   completeOnboarding,
   injectAsyncStorage,
   tokensManifest,
-  backToDrawer,
-  openDrawer,
   enterKeypadPin,
   sleep,
   authed,
+  d1,
 } = require('./seedHelpers');
 
 const E2E_PIN = '1234';
@@ -77,9 +78,18 @@ describe('PIN Security and Reauth E2E Flow (Real API)', () => {
     const tokens = await getParentTokens();
     // Lockout from a previous run would 423 the very first reauth, and a
     // fresh-onboarding flag (left by 05) would land on the wizard: reset both.
-    // (PR102's ensurePin does not clear lockouts itself, so reset D1 first.)
-    await resetPinLockoutState();
-    await ensurePin(tokens.access, E2E_PIN);
+    // resetPinLockoutState is D1-only (seed_e2e_pin_reauth owns this on
+    // Django); passing currentPin to ensurePin guarantees 1234 even if a
+    // previous run left a different PIN (ensurePin clears + re-sets). On
+    // Worker the PIN hash is cleared directly first so the guarantee holds
+    // even when the leftover PIN is unknown (ensureNoPin needs it).
+    if (isWorkerBase()) {
+      await resetPinLockoutState();
+      await d1('UPDATE bots_useraccount SET pin_hash = NULL, pin_failed_attempts = 0, pin_locked_until = NULL WHERE user_id = 60');
+    } else {
+      await ensureNoPin(tokens.access, E2E_PIN).catch(() => null);
+    }
+    await ensurePin(tokens.access, E2E_PIN, E2E_PIN);
     await completeOnboarding(tokens.access);
     const { profile, bot } = await seedProfileAndBot(tokens.access);
 

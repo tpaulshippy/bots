@@ -119,7 +119,9 @@ describe('Spaced Repetition Study E2E Flow (Real API)', () => {
 
   beforeAll(async () => {
     const tokens = await getParentTokens();
-    await resetPinLockoutState();
+    // resetPinLockoutState is D1-only (seed_e2e_spaced_repetition owns this
+    // on Django, where the D1 scheduling writes below are also skipped).
+    if (isWorkerBase()) await resetPinLockoutState();
     // Profile/bot writes need no reauth once the PIN is cleared (and the
     // study flow has no PIN gate, so leave it cleared).
     await ensureNoPin(tokens.access);
@@ -143,6 +145,10 @@ describe('Spaced Repetition Study E2E Flow (Real API)', () => {
     );
 
     await device.launchApp({ newInstance: true });
+    // Land on /chat before backing out: backToDrawer taps the chat screen's
+    // header back button, so the composer must be visible first (a slow boot
+    // that is still settling would mistap).
+    await waitFor(element(by.id('chat-input'))).toBeVisible().withTimeout(30000);
     // /chat has no drawer: back out to the chat list first (back-button
     // pattern), then open the drawer from there.
     await backToDrawer();

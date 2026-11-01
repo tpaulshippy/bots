@@ -23,6 +23,7 @@ const {
   listProfiles,
   listBots,
   ensureBot,
+  resetDailyUsageD1,
   authed,
   injectAsyncStorage,
   tokensManifest,
@@ -74,7 +75,8 @@ describe('Chat Image Upload E2E Flow (Real API)', () => {
 
   beforeAll(async () => {
     tokens = await getParentTokens();
-    await resetPinLockoutState();
+    // D1-only (throws on Django, where the seed command owns lockout state).
+    if (isWorkerBase()) await resetPinLockoutState();
     await ensureNoPin(tokens.access);
     await completeOnboarding(tokens.access);
     const { profile, bot } = await seedProfileAndBot(tokens.access);
@@ -94,6 +96,10 @@ describe('Chat Image Upload E2E Flow (Real API)', () => {
 
     await device.launchApp({ newInstance: true });
     await waitFor(element(by.id('camera-button'))).toBeVisible().withTimeout(30000);
+    // Quota hermeticity, post-launch (see 06): the assistant-reply tail
+    // answers for real, and any account-timezone flip voids the worker's
+    // usage baseline — so reset after boot settles, not before.
+    if (isWorkerBase()) await resetDailyUsageD1();
   }, 180000);
 
   it('should upload an image and send a message via real API', async () => {

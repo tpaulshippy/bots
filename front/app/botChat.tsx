@@ -131,8 +131,8 @@ export default function Chat() {
         // URI so the multipart upload reads real bytes. The old remote
         // picsum URL is kept only as a last-resort fallback: native XHR
         // form parts cannot fetch remote URLs, so uploads always failed.
-        // expo-asset/expo-file-system are already native-linked (via
-        // expo-image-picker), so no rebuild is needed for this branch.
+        // expo-asset is a declared dependency (package.json), so the require
+        // below is linked on every build — no extra native step needed.
         try {
           const { Asset } = require("expo-asset");
           const asset = Asset.fromModule(
@@ -143,7 +143,8 @@ export default function Chat() {
             setImage(asset.localUri);
             return;
           }
-        } catch {
+        } catch (e) {
+          console.warn("[e2e] bundled test-image download failed, falling back to remote URL", e);
           // Fall through to the legacy remote URL below.
         }
         setImage(E2E_TEST_IMAGE_URI);
