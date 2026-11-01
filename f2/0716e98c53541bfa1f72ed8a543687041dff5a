@@ -1,0 +1,14 @@
+worker/wrangler.toml
+  h_6bbd00fe0a456a 18-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f20716e98c53541bfa1f72ed8a543687041dff5a",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
