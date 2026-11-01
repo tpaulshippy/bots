@@ -19,6 +19,13 @@ export const PENELOPE_GREETING = "Hello! I'm Penelope, your writing assistant. H
 // Idempotent default content (port of signals.provision_default_content).
 export async function provisionDefaultContent(db: D1Database, userId: number, firstName: string): Promise<void> {
   const now = nowIso();
+  // Account row FIRST: the starter-chat INSERT below fires the chat_count
+  // trigger, which updates no row if the account doesn't exist yet (drift
+  // that never self-corrects - every new OAuth user hit this).
+  const acct = await first<{ id: number }>(db, "SELECT id FROM bots_useraccount WHERE user_id = ?", userId);
+  if (!acct) {
+    await run(db, "INSERT INTO bots_useraccount (user_id) VALUES (?)", userId);
+  }
   let profile = await first<{ id: number }>(
     db,
     "SELECT id FROM bots_profile WHERE user_id = ? AND deleted_at IS NULL ORDER BY id ASC",
@@ -96,10 +103,6 @@ export async function provisionDefaultContent(db: D1Database, userId: number, fi
         now,
       );
     }
-  }
-  const acct = await first<{ id: number }>(db, "SELECT id FROM bots_useraccount WHERE user_id = ?", userId);
-  if (!acct) {
-    await run(db, "INSERT INTO bots_useraccount (user_id) VALUES (?)", userId);
   }
 }
 

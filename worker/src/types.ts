@@ -57,6 +57,7 @@ export interface ProfileRow {
   deleted_at: string | null;
   created_at: string;
   modified_at: string;
+  chat_count: number;
 }
 
 export interface BotRow {
