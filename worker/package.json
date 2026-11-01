@@ -12,8 +12,8 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:migrate:local": "wrangler d1 execute syft-db --local --file=./migrations/0001_initial.sql",
-    "db:migrate:remote": "wrangler d1 execute syft-db --remote --file=./migrations/0001_initial.sql",
+    "db:migrate:local": "wrangler d1 migrations apply syft-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply syft-db --remote",
     "db:import": "node ./scripts/migrate-from-sqlite.mjs"
   },
   "dependencies": {

@@ -72,8 +72,12 @@ if (!existsSync(SRC)) {
   process.exit(1);
 }
 
+// NOTE: bots_useraccount comes right after auth_user (before bots_chat)
+// so the chat_count trigger finds the account row when chats are inserted.
+// (FK-safe: useraccount only references auth_user.)
 const TABLES = [
   "auth_user",
+  "bots_useraccount",
   "bots_aimodel",
   "bots_profile",
   "bots_bot",
@@ -85,7 +89,6 @@ const TABLES = [
   "bots_flashcardreview",
   "bots_htmlpage",
   "bots_safetyevent",
-  "bots_useraccount",
   "bots_usagelimithit",
   "bots_revenuecatwebhookevent",
 ];
@@ -179,4 +182,14 @@ if (nulledPins > 0) {
   console.error(`-- NOTE: nulled ${nulledPins} legacy pin_hash value(s) that Workers cannot verify (see above). Those accounts migrate PIN-less; re-run with --keep-legacy-pins to preserve them (their reauth will 500).`);
 }
 
+// Belt and braces: recompute denormalized counts after all rows land, so the
+// dump is correct even if trigger ordering changes or rows were inserted
+// while an account row was missing.
+// Missing account rows (e.g. OAuth users provisioned before the account-row
+// fix): chats may reference users with no bots_useraccount row, in which case
+// the trigger couldn't count them. Create the rows, then recompute.
+out.push("INSERT INTO bots_useraccount (user_id, chat_count) SELECT DISTINCT user_id, 0 FROM bots_chat WHERE user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM bots_useraccount WHERE bots_useraccount.user_id = bots_chat.user_id);");
+out.push("UPDATE bots_useraccount SET chat_count = (SELECT COUNT(*) FROM bots_chat WHERE bots_chat.user_id = bots_useraccount.user_id);");
+out.push("UPDATE bots_profile SET chat_count = (SELECT COUNT(*) FROM bots_chat WHERE bots_chat.profile_id = bots_profile.id);");
+out.push("UPDATE bots_chat SET message_count = (SELECT COUNT(*) FROM bots_message WHERE bots_message.chat_id = bots_chat.id);");
 process.stdout.write(out.join("\n") + "\n");
