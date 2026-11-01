@@ -14,7 +14,7 @@ import {
 import type { Bot } from "@/api/bots";
 import { fetchBots, tryFetchBot } from "@/api/bots";
 import { handleUnauthorized } from "@/hooks/useSelectedProfile";
-import { WizardStep } from "./WizardStep";
+import { WizardStep } from "../../components/onboarding/WizardStep";
 
 // Wizard defaults: Blank template, Penelope, teal, sparkles icon.
 const DEFAULTS = {

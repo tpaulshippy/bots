@@ -1,126 +1,82 @@
 /**
  * Teen Delegated Login E2E (docs/roadmap/01-teen-delegated-login.md)
  *
- * REQUIRED SEEDING
- *   cd back && venv/bin/python manage.py seed_e2e_teen_login
- *   Creates parent user 'e2e-test-user' / 'testpassword123' with teen
- *   profile 'Maya' bound to maya@school.edu and sibling profile 'Leo'.
+ * SEEDING (done in-spec, no manage.py needed on either backend):
+ *   Parent 'e2e-test-user' with teen profile 'Maya' (unbound) + sibling
+ *   'Leo', plus a bot for chat injection. The email binding itself is the
+ *   UI under test (bound then removed), so the setup leaves Maya unbound.
  *
- * REQUIRED ENV
- *   API_BASE_URL   Base URL of a RUNNING Django dev server, e.g.
- *                  http://localhost:8000/api (default below).
- *                  Start with: cd back && venv/bin/python manage.py runserver
+ * Teen-delegated JWTs come from the WORKER-PARITY path, which stock Django
+ * supports with the same shape (back/bots/views/get_jwt.py):
+ *   helper login (e2e-teen-helper / testpassword123, whose user email IS
+ *   maya@school.edu) -> GET /api/login?json= mints {access, refresh,
+ *   is_teen_delegated: true, active_profile_id} once Maya is bound.
+ * No Django-shell minting: the same spec passes on both backends.
  *
- * RUN
- *   cd front && npx detox test -c ios.sim.debug e2e/01-teen-login.e2e.js
+ * Auth pattern: parent tokens from POST ${API_BASE}/token/, injected into
+ * AsyncStorage via `xcrun simctl get_app_container ... data`, with a fresh
+ * selectedProfile/selectedBot (no e2eInitialRoute: it is dead — the app
+ * reads it only under isE2ETestMode(), which checks NSUserDefaults
+ * launchArgs that Detox never sets).
  *
- * Auth pattern (same as chatImageUpload.e2e.js): parent tokens come from
- * POST ${API_BASE}/token/, then tokens/profile are injected into the app's
- * AsyncStorage via `xcrun simctl get_app_container ... data`.
- * Teen-delegated JWTs cannot be obtained via /token/ (they only exist after
- * an OAuth login), so they are minted by shelling out to the backend venv
- * and calling SyftRefreshToken.for_delegated_profile directly - the exact
- * code path production uses.
+ * Run: API_BASE_URL=... npx detox test -c ios.sim.debug e2e/01-teen-login.e2e.js
  */
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const {
+  apiBase,
+  isWorkerBase,
+  check,
+  getParentTokens,
+  getHelperTokens,
+  resetPinLockoutState,
+  ensureNoPin,
+  completeOnboarding,
+  ensureProfile,
+  ensureBot,
+  authed,
+  injectAsyncStorage,
+  tokensManifest,
+  sleep,
+} = require('./seedHelpers');
 
-const API_BASE = process.env.API_BASE_URL || 'http://localhost:8000/api';
-const BUNDLE_ID = 'com.tpaulshippy.botsforkids';
-const BACK_DIR = path.join(__dirname, '..', '..', 'back');
 const TEEN_EMAIL = 'maya@school.edu';
 
-async function getParentTokens() {
-  const response = await fetch(`${API_BASE}/token/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'e2e-test-user', password: 'testpassword123' }),
+/** Teen-delegated tokens via the parity path (helper -> GET /login?json=). */
+async function getDelegatedTokens() {
+  const helper = await getHelperTokens();
+  const res = await fetch(`${apiBase()}/login?json=`, {
+    headers: { Authorization: `Bearer ${helper.access}` },
   });
-  if (!response.ok) {
-    throw new Error(
-      `Backend not available at ${API_BASE} (or seed missing). Status: ${response.status}`
-    );
-  }
-  const data = await response.json();
-  return { access: data.access, refresh: data.refresh };
+  if (!res.ok) throw new Error(`GET /login delegation failed: ${res.status}`);
+  const data = await res.json();
+  check(data.is_teen_delegated === true, 'expected is_teen_delegated delegation');
+  check(typeof data.active_profile_id === 'string' && data.active_profile_id, 'expected active_profile_id claim');
+  return { access: data.access, refresh: data.refresh, activeProfileId: data.active_profile_id };
 }
 
-async function fetchProfiles(accessToken) {
-  const response = await fetch(`${API_BASE}/profiles.json`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  return (await response.json()).results;
+async function fetchProfileById(access, profileId) {
+  // PR102 seedHelpers: authed(accessToken, endpoint, options) returns parsed JSON.
+  const data = await authed(access, '/profiles.json');
+  return (data.results || []).find((p) => p.profile_id === profileId);
 }
 
-async function fetchProfileById(accessToken, profileId) {
-  const profiles = await fetchProfiles(accessToken);
-  return profiles.find((p) => p.profile_id === profileId);
-}
-
-/**
- * Mint real teen-delegated tokens via the backend's own token machinery so
- * the claims (is_teen_delegated + active_profile_id) are signed correctly.
- */
-function mintDelegatedTokens(profileId) {
-  const script =
-    "from bots.models import Profile; " +
-    "from bots.tokens import SyftRefreshToken; " +
-    `p = Profile.objects.get(profile_id='${profileId}'); ` +
-    "r = SyftRefreshToken.for_delegated_profile(p.user, p); " +
-    "print(str(r.access_token)); print(str(r))";
-  const out = execSync(`venv/bin/python manage.py shell -c "${script}"`, {
-    cwd: BACK_DIR,
-    encoding: 'utf8',
-  });
-  const [access, refresh] = out.trim().split('\n');
-  if (!access || !refresh) {
-    throw new Error('Failed to mint delegated tokens from backend venv');
-  }
-  return { access, refresh };
-}
-
-function injectAsyncStorage(udid, { tokens, profile, initialRoute }) {
-  const containerPath = execSync(
-    `xcrun simctl get_app_container ${udid} ${BUNDLE_ID} data`,
-    { encoding: 'utf8' }
-  ).trim();
-
-  const asDir = path.join(
-    containerPath,
-    'Library',
-    'Application Support',
-    BUNDLE_ID,
-    'RCTAsyncLocalStorage_V1'
-  );
-
-  if (!fs.existsSync(asDir)) {
-    fs.mkdirSync(asDir, { recursive: true });
-  }
-
-  const manifest = {
-    tokens: JSON.stringify({ [API_BASE]: tokens }),
-    selectedProfile: profile ? JSON.stringify(profile) : '',
-    e2eTestMode: 'true',
-    ...(initialRoute ? { e2eInitialRoute: initialRoute } : {}),
-  };
-
-  fs.writeFileSync(path.join(asDir, 'manifest.json'), JSON.stringify(manifest), 'utf8');
-}
-
-async function launchAndInject(injection) {
+async function launchAndInject(manifest) {
   await device.installApp();
   await device.launchApp({ newInstance: true });
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await sleep(2000);
   await device.terminateApp();
 
-  injectAsyncStorage(device.id, injection);
+  injectAsyncStorage(device.id, manifest);
 
   await device.launchApp({ newInstance: true });
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  await sleep(3000);
 }
 
-async function openDrawer() {
+/** From a /chat screen to an open drawer (back-button pattern). */
+async function openDrawerFromChat() {
+  // First launch after install is slow (fonts/bootstrap/account fetch).
+  await waitFor(element(by.id('camera-button'))).toBeVisible().withTimeout(45000);
+  await element(by.id('header-back-button')).tap();
+  await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(10000);
   await element(by.id('drawer-menu-button')).tap();
   await waitFor(element(by.id('drawer-item-chats'))).toBeVisible().withTimeout(5000);
 }
@@ -128,91 +84,178 @@ async function openDrawer() {
 describe('Teen delegated login (roadmap 01)', () => {
   let parentTokens;
   let maya;
+  let bot;
 
   beforeAll(async () => {
     parentTokens = await getParentTokens();
-    maya = (await fetchProfiles(parentTokens.access)).find(
-      (p) => p.name === 'Maya'
-    );
-    if (!maya) throw new Error("Seed missing: no profile named 'Maya'");
-  }, 120000);
+    // D1-only (throws on Django, where the seed command owns lockout state).
+    if (isWorkerBase()) await resetPinLockoutState();
+    // Profile writes need a PIN-free account; the teen binding flow has no
+    // PIN gate, so leave it cleared.
+    await ensureNoPin(parentTokens.access);
+    await completeOnboarding(parentTokens.access);
+    // Maya starts UNBOUND: binding her email is the UI under test.
+    maya = await ensureProfile(parentTokens.access, 'Maya');
+    if ((maya.oauth_email || '').toLowerCase() === TEEN_EMAIL) {
+      const cleared = await authed(parentTokens.access, `/profiles/${maya.profile_id}/`, {
+        method: 'PUT',
+        body: { name: 'Maya', oauth_email: '' },
+      });
+      check(cleared && cleared.profile_id, 'could not unbind Maya for a clean start');
+      maya = cleared;
+    }
+    await ensureProfile(parentTokens.access, 'Leo');
+    bot = await ensureBot(parentTokens.access, 'Penelope');
+  }, 180000);
 
   it('parent drawer still shows Settings (parent session unchanged)', async () => {
-    const mayaFull = await fetchProfileById(parentTokens.access, maya.profile_id);
-    await launchAndInject({
-      tokens: parentTokens,
-      profile: mayaFull,
-      initialRoute: '/chatHistory',
-    });
+    await launchAndInject(
+      // PR102 tokensManifest takes {profile, bot} (mapped to selectedProfile/selectedBot).
+      tokensManifest(parentTokens, {
+        profile: JSON.stringify(maya),
+        bot: JSON.stringify(bot),
+      })
+    );
 
-    await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(15000);
-    await openDrawer();
-
-    await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(3000);
+    await openDrawerFromChat();
+    await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(5000);
   });
 
   it('parent binds a student sign-in email from the profile editor', async () => {
-    // Navigate: drawer -> Settings -> Profiles -> long-press Maya's card.
-    await openDrawer();
+    // Fresh launch: the previous test leaves the drawer open on the chat
+    // list, so re-inject parent state and start from /chat.
+    await launchAndInject(
+      tokensManifest(parentTokens, {
+        profile: JSON.stringify(maya),
+        bot: JSON.stringify(bot),
+      })
+    );
+    // Navigate: drawer -> Settings -> Profiles -> tap Maya's card.
+    await openDrawerFromChat();
     await element(by.id('drawer-item-settings')).tap();
-    await waitFor(element(by.id('menu-profiles'))).toBeVisible().withTimeout(5000);
+    await waitFor(element(by.id('menu-profiles'))).toBeVisible().withTimeout(10000);
     await element(by.id('menu-profiles')).tap();
     await waitFor(element(by.id('profile-card-Maya'))).toBeVisible().withTimeout(10000);
 
-    await element(by.id('profile-card-Maya')).longPress();
-    await waitFor(element(by.id('teen-signin-email-input'))).toBeVisible().withTimeout(5000);
+    // Tap (not long-press: cards only handle onPress) opens the editor.
+    await element(by.id('profile-card-Maya')).tap();
+    await waitFor(element(by.id('teen-signin-email-input'))).toBeVisible().withTimeout(10000);
+    await sleep(1500); // keyboard/layout settle before typing
 
-    // Bind the email and save (header checkmark).
+    // Bind the email and save (header checkmark). NOTE: the checkmark
+    // lives in the native header and its onPress commits asynchronously
+    // after each keystroke — tapping instantly after typing can fire a
+    // stale save without the email. Wait for the Remove button (proves the
+    // typed state committed) plus a settle beat before saving.
     await element(by.id('teen-signin-email-input')).replaceText(TEEN_EMAIL);
+    // replaceText can miss on the simulator keyboard: retry until the
+    // Remove button proves the typed state committed (max 3 attempts).
+    let typed = false;
+    for (let i = 0; i < 3 && !typed; i++) {
+      try {
+        await waitFor(element(by.id('remove-teen-signin-button'))).toBeVisible().withTimeout(8000);
+        typed = true;
+      } catch {
+        await element(by.id('teen-signin-email-input')).replaceText(TEEN_EMAIL);
+      }
+    }
+    check(typed, 'email input never committed the typed text');
+    await sleep(2500);
     await element(by.id('save-profile-button')).tap();
-    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Verify persistence through the API.
-    const stored = await fetchProfileById(parentTokens.access, maya.profile_id);
-    expect((stored.oauth_email || '').toLowerCase()).toBe(TEEN_EMAIL);
+    // Verify persistence through the API (plain check, not Detox expect),
+    // polling for the PUT to land.
+    let stored = null;
+    for (let i = 0; i < 12; i++) {
+      await sleep(1000);
+      stored = await fetchProfileById(parentTokens.access, maya.profile_id);
+      if ((stored.oauth_email || '').toLowerCase() === TEEN_EMAIL) break;
+    }
+    check((stored.oauth_email || '').toLowerCase() === TEEN_EMAIL, `email not persisted: ${stored.oauth_email}`);
 
-    // Re-open the editor: binding is shown, then removed.
+    // Re-open the editor: binding is shown, then removed. Settle first:
+    // the auto-focused keyboard shifts the layout, so tapping instantly
+    // can miss the button.
     await waitFor(element(by.id('profile-card-Maya'))).toBeVisible().withTimeout(10000);
-    await element(by.id('profile-card-Maya')).longPress();
-    await waitFor(element(by.id('teen-signin-email-input'))).toBeVisible().withTimeout(5000);
-    await element(by.id('remove-teen-signin-button')).tap();
+    await element(by.id('profile-card-Maya')).tap();
+    await waitFor(element(by.id('teen-signin-email-input'))).toBeVisible().withTimeout(10000);
+    await sleep(2000);
+    let removed = false;
+    for (let i = 0; i < 3 && !removed; i++) {
+      await element(by.id('remove-teen-signin-button')).tap();
+      await sleep(1500);
+      try {
+        await expect(element(by.id('remove-teen-signin-button'))).toBeNotVisible();
+        removed = true;
+      } catch {
+        // Button still there: tap again (missed during layout shift).
+      }
+    }
+    check(removed, 'Remove student sign-in never applied');
+    // Same header-staleness race as above: settle before saving.
+    await sleep(2500);
     await element(by.id('save-profile-button')).tap();
-    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    const cleared = await fetchProfileById(parentTokens.access, maya.profile_id);
-    expect(cleared.oauth_email === null || cleared.oauth_email === '').toBe(true);
+    let cleared = null;
+    for (let i = 0; i < 12; i++) {
+      await sleep(1000);
+      cleared = await fetchProfileById(parentTokens.access, maya.profile_id);
+      if (!cleared.oauth_email) break;
+    }
+    check(cleared.oauth_email === null || cleared.oauth_email === '', `email not cleared: ${cleared.oauth_email}`);
   });
 
   it('teen-delegated session shows the teen-safe Settings (study reminders only)', async () => {
-    const teenTokens = mintDelegatedTokens(maya.profile_id);
-    await launchAndInject({
-      tokens: teenTokens,
-      profile: { profile_id: maya.profile_id, name: 'Maya' },
-      initialRoute: '/chatHistory',
+    // Re-bind Maya so the helper login delegates to her (parity path).
+    const rebound = await authed(parentTokens.access, `/profiles/${maya.profile_id}/`, {
+      method: 'PUT',
+      body: { name: 'Maya', oauth_email: TEEN_EMAIL },
     });
+    check(
+      rebound && (rebound.oauth_email || '').toLowerCase() === TEEN_EMAIL,
+      `rebind failed: ${JSON.stringify(rebound)}`
+    );
 
-    await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(15000);
-    await openDrawer();
+    const teenTokens = await getDelegatedTokens();
+    check(teenTokens.activeProfileId === maya.profile_id, 'delegation locked to the wrong profile');
 
-    await waitFor(element(by.id('drawer-item-chats'))).toBeVisible().withTimeout(3000);
-    await waitFor(element(by.id('drawer-item-flashcards'))).toBeVisible().withTimeout(3000);
-    await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(3000);
+    await launchAndInject(
+      tokensManifest(teenTokens, {
+        profile: JSON.stringify({ profile_id: maya.profile_id, name: 'Maya' }),
+        bot: JSON.stringify(bot),
+      })
+    );
+
+    await openDrawerFromChat();
+
+    await waitFor(element(by.id('drawer-item-chats'))).toBeVisible().withTimeout(5000);
+    await waitFor(element(by.id('drawer-item-flashcards'))).toBeVisible().withTimeout(5000);
+    await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(5000);
 
     // Teen Settings exposes the study-reminder opt-in, never parent surfaces.
     await element(by.id('drawer-item-settings')).tap();
-    await waitFor(element(by.id('teen-study-due-switch'))).toBeVisible().withTimeout(5000);
+    await waitFor(element(by.id('teen-study-due-switch'))).toBeVisible().withTimeout(10000);
     await expect(element(by.id('menu-profiles'))).toNotExist();
+
+    // Leave Maya unbound so re-runs start clean.
+    await authed(parentTokens.access, `/profiles/${maya.profile_id}/`, {
+      method: 'PUT',
+      body: { name: 'Maya', oauth_email: '' },
+    });
   });
 
   it('teen deep link into /parent/* bounces off the parent area', async () => {
     await device.openURL({ url: 'botsforkids://parent/settings' });
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    await sleep(2500);
 
-    // The app is alive on a kid-safe screen and the drawer stays teen-scoped
-    // (teen-safe Settings visible, parent area unbounced-into).
+    // The guard bounces to /chat: the composer proves a kid-safe screen.
+    await waitFor(element(by.id('camera-button'))).toBeVisible().withTimeout(10000);
+    await element(by.id('header-back-button')).tap();
     await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(10000);
-    await openDrawer();
-    await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(3000);
+    await element(by.id('drawer-menu-button')).tap();
+    await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(5000);
+    await element(by.id('drawer-item-settings')).tap();
+    await waitFor(element(by.id('teen-study-due-switch'))).toBeVisible().withTimeout(10000);
     await expect(element(by.id('menu-profiles'))).toNotExist();
   });
 });

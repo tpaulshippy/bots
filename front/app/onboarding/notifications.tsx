@@ -32,7 +32,7 @@ import {
 } from "@/hooks/useSelectedProfile";
 import { isTeenDelegatedSession } from "@/api/tokens";
 import { registerForPushNotificationsAsync } from "../parent/notifications";
-import { WizardStep } from "./WizardStep";
+import { WizardStep } from "../../components/onboarding/WizardStep";
 
 export default function OnboardingNotifications() {
   const router = useRouter();

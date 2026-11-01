@@ -6,7 +6,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
 import { tryFetchProfile, tryFetchProfiles } from "@/api/profiles";
 import { getSelectedProfile, handleUnauthorized } from "@/hooks/useSelectedProfile";
-import { WizardStep } from "./WizardStep";
+import { WizardStep } from "../../components/onboarding/WizardStep";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

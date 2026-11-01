@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedButton } from "@/components/ThemedButton";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedTextInput } from "@/components/ThemedTextInput";
-import { WizardStep } from "./WizardStep";
+import { WizardStep } from "../../components/onboarding/WizardStep";
 
 const PIN_PATTERN = /^\d{4,8}$/;
 
