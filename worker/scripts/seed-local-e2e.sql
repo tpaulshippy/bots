@@ -70,19 +70,34 @@ ON CONFLICT(user_id) DO UPDATE SET
   timezone = excluded.timezone,
   onboarding_completed_at = excluded.onboarding_completed_at;
 
+-- Default-model invariant (explicit, idempotent): exactly one default
+-- row, and it is Nova Micro. A stale pre-existing default (e.g. Lite left
+-- as default by an older seed) would otherwise either violate the partial
+-- unique index on is_default = 1 at insert time or leave the wrong model
+-- as default, breaking bootstrap + ensureBot model wiring. Clear any old
+-- default first, then set Micro as default and force Lite non-default.
+UPDATE bots_aimodel SET is_default = 0 WHERE is_default != 0;
+
 INSERT INTO bots_aimodel (model_id, name, input_token_cost, output_token_cost, is_default, supported_input_modalities, created_at, modified_at)
 VALUES ('us.amazon.nova-micro-v1:0', 'Nova Micro', 0.000035, 0.00014, 1, '["text"]', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')
-ON CONFLICT(model_id) DO NOTHING;
+ON CONFLICT(model_id) DO UPDATE SET
+  name = excluded.name,
+  input_token_cost = excluded.input_token_cost,
+  output_token_cost = excluded.output_token_cost,
+  is_default = 1,
+  supported_input_modalities = excluded.supported_input_modalities,
+  modified_at = excluded.modified_at;
 
 -- Upserted by model_id (not OR IGNORE): a stale pre-existing Nova Lite row
 -- (e.g. text-only capabilities from an older seed) must converge to
--- text+image, or the photo bot's image turns 400. is_default is left alone
--- (partial unique index on is_default = 1).
+-- text+image, or the photo bot's image turns 400. is_default is forced to 0
+-- (never the default, per the invariant above).
 INSERT INTO bots_aimodel (model_id, name, input_token_cost, output_token_cost, is_default, supported_input_modalities, created_at, modified_at)
 VALUES ('us.amazon.nova-lite-v1:0', 'Nova Lite', 0.00006, 0.00024, 0, '["text", "image"]', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')
 ON CONFLICT(model_id) DO UPDATE SET
   name = excluded.name,
   input_token_cost = excluded.input_token_cost,
   output_token_cost = excluded.output_token_cost,
+  is_default = 0,
   supported_input_modalities = excluded.supported_input_modalities,
   modified_at = excluded.modified_at;

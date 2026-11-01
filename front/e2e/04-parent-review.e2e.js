@@ -219,7 +219,9 @@ describe('Parent Conversation Review E2E Flow (Real API)', () => {
     // rows on Django), never a Worker-only fixture string.
     const tokens = await getParentTokens();
     const inbox = await authed(tokens.access, '/activity/chats.json');
-    const rows = inbox.results || [];
+    // Same normalization as beforeAll: a Django response without a `results`
+    // wrapper reads as the array itself (an empty inbox, not a crash).
+    const rows = inbox.results || inbox || [];
     check(rows.length > 0, 'activity inbox empty after seeding');
     const detail = await authed(tokens.access, `/activity/chats/${rows[0].chat_id}.json`);
     check(detail && Array.isArray(detail.messages), `transcript fetch failed: ${JSON.stringify(detail).slice(0, 200)}`);
@@ -227,6 +229,11 @@ describe('Parent Conversation Review E2E Flow (Real API)', () => {
     const assistantTexts = (detail.messages || []).filter((m) => m.role === 'assistant').map((m) => m.text);
     check(userTexts.length > 0, 'opened chat has no user turns');
     check(assistantTexts.length > 0, 'opened chat has no assistant turns');
+    // The transcript screen renders its message count into the native
+    // subtitle ("Read only · N messages"), computed from the same fetch —
+    // asserting it ties the RENDERED history to the API state above.
+    const messageCount = (detail.messages || []).length;
+    const countLabel = `Read only · ${messageCount} message${messageCount === 1 ? '' : 's'}`;
 
     // Row 0 is the most recent chat (the fractions review on Worker).
     await element(by.id('activity-chat-row-0')).tap();
@@ -234,6 +241,15 @@ describe('Parent Conversation Review E2E Flow (Real API)', () => {
     await waitFor(element(by.id('activity-transcript-subtitle')))
       .toBeVisible()
       .withTimeout(30000);
+
+    // The opened transcript rendered the full history: exact API message
+    // count in the subtitle plus the mounted list. Assistant bubbles render
+    // in a WebView (never matchable — see 03), so the count + API assistant
+    // turns + unique user strings below are the stable proof (native
+    // elements only; the chat-message-* containers repeat per message and
+    // ambiguous matchers retry until timeout).
+    await waitFor(element(by.text(countLabel))).toBeVisible().withTimeout(15000);
+    await expect(element(by.id('activity-transcript-list'))).toBeVisible();
 
     // Full transcript renders both roles with the seeded content. NOTE:
     // the chat-message-* bubble containers repeat per message, and Detox

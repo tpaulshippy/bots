@@ -241,6 +241,12 @@ describe('Streaming chat and agent UI', () => {
       await waitFor(element(by.id('stop-button'))).not.toBeVisible().withTimeout(120000);
       await waitFor(element(by.id('send-button'))).toBeVisible().withTimeout(10000);
       await pollUserEcho(tokens.access, 'Warm-up ping', 60000, 'warm-up echo');
+      // The warm-up turn just spent quota: reset the baseline AGAIN before
+      // the measured prompt (P1 — on a level-0-seeded account the warm-up
+      // alone can push cost_for_today over the cap and the measured turn
+      // would instant-error with no Stop window). No relaunch since the
+      // warm-up, so the account timezone is unchanged and the baseline holds.
+      if (isWorkerBase()) await resetDailyUsageD1();
 
       // Tool-using prompt (web search + deck creation on this bot) stretches
       // server-side work so the streaming window is observable; the reply
