@@ -45,6 +45,7 @@ chats.get("/", async (c) => {
 
   let where = "c.user_id = ?";
   const params: unknown[] = [r.user.id];
+  var scopedProfile: ProfileRow | null = null;
   if (scope.teen) {
     if (!scope.profile) {
       {
@@ -55,6 +56,7 @@ chats.get("/", async (c) => {
     }
     where += " AND c.profile_id = ?";
     params.push(scope.profile.id);
+    var scopedProfile: ProfileRow | null = scope.profile;
   } else if (profileId) {
     const match = uuidMatch("profile_id", profileId);
     if (!match) {
@@ -64,7 +66,7 @@ chats.get("/", async (c) => {
       return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 20, limit: 20, offset: 0 }, 0, []));
     }
     }
-    const prof = await first<ProfileRow>(r.env.DB, `SELECT id FROM bots_profile WHERE ${match.sql} AND user_id = ?`, ...match.params, r.user.id);
+    const prof = await first<ProfileRow>(r.env.DB, `SELECT id, chat_count FROM bots_profile WHERE ${match.sql} AND user_id = ?`, ...match.params, r.user.id);
     if (!prof) {
       {
       const rawPage = sp.get("page");
@@ -74,6 +76,7 @@ chats.get("/", async (c) => {
     }
     where += " AND c.profile_id = ?";
     params.push(prof.id);
+    var scopedProfile: ProfileRow | null = prof;
   }
 
   // Totals come from denormalized counters (0008): the COUNT(*) rescan was
@@ -81,16 +84,18 @@ chats.get("/", async (c) => {
   // the selected profile) read bots_profile.chat_count; unfiltered lists
   // read bots_useraccount.chat_count. A missing counter row (drift) falls
   // back to a live COUNT rather than reporting 0.
+  // Totals come from denormalized counters (0008): the COUNT(*) rescan was
+  // the biggest per-visit cost. The app always scopes to the selected
+  // profile, so that counter is the hot path; unfiltered lists use the
+  // per-user counter with a live-COUNT fallback if the row is missing.
   let total: number;
-  const profId = params.length === 2 ? (params[1] as number) : null;
-  if (profId !== null) {
-    const prow = await first<{ chat_count: number }>(r.env.DB, "SELECT chat_count FROM bots_profile WHERE id = ?", profId);
-    total = prow ? prow.chat_count : await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_chat c WHERE ${where}`, ...params);
+  if (scopedProfile) {
+    total = scopedProfile.chat_count;
   } else {
     const urow = await first<{ chat_count: number }>(r.env.DB, "SELECT chat_count FROM bots_useraccount WHERE user_id = ?", r.user.id);
     total = urow ? urow.chat_count : await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_chat c WHERE ${where}`, ...params);
   }
-  const p = resolvePage(sp, total);
+  const p = resolvePage(sp, total, 20);
   if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<ChatRow & { message_count: number }>(
     r.env.DB,

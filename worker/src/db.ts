@@ -68,7 +68,7 @@ export function pageParams(searchParams: URLSearchParams, defaultSize = 50): Pag
 //   list which stays 200;
 // - "last" serves the final page (DRF's page=last);
 // - out-of-range numbers 404 (DRF EmptyPage).
-export function resolvePage(searchParams: URLSearchParams, total: number, defaultSize = 20): Page | null {
+export function resolvePage(searchParams: URLSearchParams, total: number, defaultSize = 50): Page | null {
   const raw = searchParams.get("page");
   if (raw !== null && raw !== "last" && (!/^\d+$/.test(raw.trim()) || parseInt(raw, 10) < 1)) return null;
   const pages = Math.max(1, Math.ceil(total / defaultSize));

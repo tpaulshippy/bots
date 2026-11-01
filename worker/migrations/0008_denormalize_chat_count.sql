@@ -4,16 +4,16 @@
 -- line item. bots_useraccount already has one row per user, so the count
 -- lives there, maintained by trigger (covers all writers).
 ALTER TABLE bots_useraccount ADD COLUMN chat_count INTEGER NOT NULL DEFAULT 0;
-UPDATE bots_useraccount
-  SET chat_count = (SELECT COUNT(*) FROM bots_chat WHERE bots_chat.user_id = bots_useraccount.user_id);
--- Repair any drift first (e.g. OAuth users provisioned before 0008, whose
--- starter chat fired the trigger with no account row present): ensure every
--- chat owner has an account row, then recompute all counts from scratch.
+-- Repair any drift (e.g. OAuth users provisioned before the account-row
+-- fix, whose starter chat fired the trigger with no account row present):
+-- ensure every chat owner has an account row — NULL user_ids can't own one —
+-- then recompute all counts from scratch in a single pass.
 INSERT INTO bots_useraccount (user_id, chat_count)
   SELECT DISTINCT user_id, 0 FROM bots_chat
-  WHERE NOT EXISTS (SELECT 1 FROM bots_useraccount WHERE bots_useraccount.user_id = bots_chat.user_id);
+  WHERE user_id IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM bots_useraccount WHERE bots_useraccount.user_id = bots_chat.user_id);
 UPDATE bots_useraccount
-  SET chat_count = (SELECT COUNT(*) FROM bots_chat WHERE bots_chat.user_id = bots_useraccount.user_id);
+  SET chat_count = (SELECT COUNT(*) FROM bots_chat WHERE bots_useraccount.user_id = bots_useraccount.user_id);
 CREATE TRIGGER IF NOT EXISTS bots_chat_count_insert
 AFTER INSERT ON bots_chat
 BEGIN
