@@ -20,9 +20,19 @@ export function makeTestDb(): D1Database {
   const db = new DatabaseSync(":memory:");
   for (const file of migrations) {
     const sql = readFileSync(join(here, "..", "migrations", file), "utf8");
-    for (const stmt of sql.split(/;\s*\n/)) {
+    // Split into statements, but keep CREATE TRIGGER ... END; blocks intact
+    // (their bodies contain semicolons the naive split would break on).
+    const triggerRe = /CREATE\s+TRIGGER[\s\S]*?END\s*;/gi;
+    const placeholders: string[] = [];
+    const hoisted = sql.replace(triggerRe, (m) => {
+      placeholders.push(m);
+      return `__TRIGGER_${placeholders.length - 1}__;`;
+    });
+    for (const stmt of hoisted.split(/;\s*\n/)) {
       const trimmed = stmt.trim();
-      if (trimmed) db.exec(trimmed);
+      if (!trimmed) continue;
+      const restored = trimmed.replace(/__TRIGGER_(\d+)__/, (_, i) => placeholders[Number(i)]);
+      db.exec(restored);
     }
   }
 

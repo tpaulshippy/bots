@@ -81,8 +81,7 @@ chats.get("/", async (c) => {
   if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<ChatRow & { message_count: number }>(
     r.env.DB,
-    `SELECT c.*, (SELECT COUNT(*) FROM bots_message m WHERE m.chat_id = c.id) AS message_count
-     FROM bots_chat c WHERE ${where} ORDER BY c.modified_at DESC LIMIT ? OFFSET ?`,
+    `SELECT c.* FROM bots_chat c WHERE ${where} ORDER BY c.modified_at DESC LIMIT ? OFFSET ?`,
     ...params,
     p.limit,
     p.offset,
