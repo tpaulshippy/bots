@@ -5,95 +5,77 @@
  * (welcome → kid name → first bot → PIN → notifications) ending at a
  * working chat, plus the header profile switcher flow.
  *
- * SEEDING (run before this suite):
- *   cd back && venv/bin/python manage.py seed_e2e_onboarding
- * Creates 'e2e-test-user' / 'testpassword123' with the signup-signal default
- * profile ('Jordan') + Penelope bot, a second profile ('Maya'), and NO pin /
- * onboarding flag — so the app gates to /onboarding. The command is
- * idempotent and resets that fresh state on every run.
+ * SEEDING (done in-spec):
+ *   PIN cleared, onboarding flag reset to NULL (Worker D1; on local Django
+ *   run `seed_e2e_onboarding`), profiles Jordan (+ second Maya), exactly
+ *   one Penelope bot — via the public API. No selectedProfile/selectedBot
+ *   is injected so first-run state is real.
  *
- * ENVIRONMENT:
- *   - Backend reachable at API_BASE_URL (default http://localhost:8000/api),
- *     e.g.: cd back && venv/bin/python manage.py runserver
- *   - iOS simulator with the app built via .detoxrc.js ('ios.sim.debug').
- *   - Auth works like e2e/chatImageUpload.e2e.js: tokens are fetched from
- *     ${API_BASE}/token/ and injected into AsyncStorage before launch; no
- *     selectedProfile / selectedBot is injected so first-run state is real.
+ * NOTE on the Expo dev-warning banner: it used to cover the bottom-anchored
+ * onboarding-get-started CTA (from `Route "./onboarding/WizardStep.tsx"
+ * missing default export`). WizardStep now has a default export (one-line
+ * app change), so the banner is gone; the spec still defensively scrolls
+ * nothing and taps directly.
  *
- * Run: npx detox test e2e/05-onboarding.e2e.js -c ios.sim.debug
+ * Run: API_BASE_URL=... npx detox test e2e/05-onboarding.e2e.js -c ios.sim.debug
  */
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const {
+  apiBase,
+  check,
+  getParentTokens,
+  getDefaultModelId,
+  resetPinLockoutState,
+  ensureNoPin,
+  resetOnboardingFresh,
+  deleteAllChatsD1,
+  ensureProfile,
+  ensureBot,
+  deleteExtraBots,
+  authed,
+  injectAsyncStorage,
+  tokensManifest,
+  enterKeypadPin,
+  sleep,
+} = require('./seedHelpers');
 
-const API_BASE = process.env.API_BASE_URL || 'http://localhost:8000/api';
-const BUNDLE_ID = 'com.tpaulshippy.botsforkids';
 const KID_NAME = 'Alex'; // Renames seeded profile 'Jordan'
 const PIN = '1234';
 
-async function getTestTokens() {
-  const response = await fetch(`${API_BASE}/token/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'e2e-test-user', password: 'testpassword123' }),
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Backend not available at ${API_BASE} (or seed_e2e_onboarding not run). Status: ${response.status}`
-    );
-  }
-  const data = await response.json();
-  return { access: data.access, refresh: data.refresh };
-}
-
-function authedFetch(accessToken, endpoint) {
-  return fetch(`${API_BASE}${endpoint}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  }).then((res) => res.json());
-}
-
 function injectFreshAsyncStorage(udid, tokens) {
-  const containerPath = execSync(
-    `xcrun simctl get_app_container ${udid} ${BUNDLE_ID} data`,
-    { encoding: 'utf8' }
-  ).trim();
-
-  const asDir = path.join(
-    containerPath,
-    'Library',
-    'Application Support',
-    BUNDLE_ID,
-    'RCTAsyncLocalStorage_V1'
-  );
-
-  if (!fs.existsSync(asDir)) {
-    fs.mkdirSync(asDir, { recursive: true });
-  }
-
-  const tokensWrapper = { [API_BASE]: tokens };
-
   // Deliberately NO selectedProfile / selectedBot: onboarding must start from
   // scratch and end with the wizard choosing them.
-  const manifest = {
-    tokens: JSON.stringify(tokensWrapper),
-    e2eTestMode: 'true',
-  };
-
-  const manifestPath = path.join(asDir, 'manifest.json');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
-
-  console.log(`Injected fresh AsyncStorage data at: ${manifestPath}`);
+  injectAsyncStorage(udid, tokensManifest(tokens));
 }
 
 describe('Onboarding E2E Flow (Real API)', () => {
   let tokens;
 
   beforeAll(async () => {
-    tokens = await getTestTokens();
+    tokens = await getParentTokens();
+    await resetPinLockoutState();
+    await ensureNoPin(tokens.access);
+    // Fresh first-run state (Worker D1; Django: seed_e2e_onboarding). The
+    // Worker gates the wizard on (no flag AND no chats), so leftover chats
+    // from other suites must go too.
+    // PR102's resetOnboardingFresh(accessToken) wipes chats/decks/profiles/
+    // bots for user 60 and recreates kid profiles Jordan+Maya + Penelope via
+    // the REST API — so Jordan already exists below (no rename needed; the
+    // old rename-reuse-dirty-profiles step is subsumed by the wipe).
+    await resetOnboardingFresh(tokens.access);
+    await deleteAllChatsD1();
+    await ensureProfile(tokens.access, 'Jordan');
+    await ensureProfile(tokens.access, 'Maya');
+    // The onboarding chat must actually answer: wire the default model
+    // (PR102's ensureBot takes extra fields via {params}).
+    await ensureBot(tokens.access, 'Penelope', {
+      params: { ai_model: await getDefaultModelId(tokens.access) },
+    });
+    // The wizard asserts a single Penelope bot afterwards.
+    await deleteExtraBots(tokens.access, ['Penelope']);
 
     await device.installApp();
     await device.launchApp({ newInstance: true });
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(2000);
     await device.terminateApp();
 
     injectFreshAsyncStorage(device.id, tokens);
@@ -101,67 +83,87 @@ describe('Onboarding E2E Flow (Real API)', () => {
     await device.launchApp({ newInstance: true });
     await waitFor(element(by.id('onboarding-get-started')))
       .toBeVisible()
-      .withTimeout(15000);
-  }, 120000);
+      .withTimeout(30000);
+  }, 180000);
 
   it('walks through all five steps and lands in a working chat', async () => {
     // Step 1: Welcome
     await element(by.id('onboarding-get-started')).tap();
     await waitFor(element(by.id('onboarding-profile-input')))
       .toBeVisible()
-      .withTimeout(5000);
+      .withTimeout(10000);
 
     // Step 2: Kid name — blank with a "Student name" placeholder.
+    await sleep(1000); // keyboard/layout settle before typing
     await element(by.id('onboarding-profile-input')).typeText(KID_NAME);
     await element(by.id('onboarding-profile-continue')).tap();
 
     // Step 3: First bot — defaults (Blank / Penelope) are already valid.
     await waitFor(element(by.id('onboarding-bot-continue')))
       .toBeVisible()
-      .withTimeout(5000);
+      .withTimeout(10000);
     await element(by.id('onboarding-bot-continue')).tap();
 
     // Step 4: Protect — PIN optional (PIN-less is supported).
     await waitFor(element(by.id('onboarding-pin-input')))
       .toBeVisible()
-      .withTimeout(5000);
+      .withTimeout(10000);
     await element(by.id('onboarding-pin-input')).typeText(PIN);
     await element(by.id('onboarding-pin-confirm')).typeText(PIN);
     await element(by.id('onboarding-pin-continue')).tap();
 
-    // Step 5: Notifications — toggles (new chat / each message /
-    // digest-only, PR 46) optional/off.
+    // Step 5: Notifications — toggles optional/off.
     await waitFor(element(by.id('onboarding-notifications-switch')))
       .toBeVisible()
-      .withTimeout(5000);
+      .withTimeout(10000);
     await element(by.id('onboarding-finish')).tap();
 
     // Finish → bootstrap → /chat with profile + bot pre-selected.
     await waitFor(element(by.id('chat-input')))
       .toBeVisible()
-      .withTimeout(20000);
-
-    // The chat actually works against the real API.
-    await element(by.id('chat-input')).typeText('Hello from onboarding e2e');
-    await element(by.id('send-button')).tap();
-    await waitFor(element(by.id('chat-message-assistant')))
-      .toBeVisible()
       .withTimeout(30000);
 
+    // The chat actually works against the real API. Timestamped so runs
+    // never collide with leftover probe messages.
+    const prompt = `Hello from onboarding e2e ${Date.now()}`;
+    await element(by.id('chat-input')).typeText(prompt);
+    await element(by.id('send-button')).tap();
+    // The user echo renders as plain text (unique); the assistant bubble
+    // renders in a WebView (by.text can never match it) inside a container
+    // whose testID does not match by.id on this RN build — so verify the
+    // assistant turn through the messages API and a screenshot instead.
+    await waitFor(element(by.text(prompt))).toBeVisible().withTimeout(30000);
+    await device.takeScreenshot('onboarding-working-chat');
+
     // Server state reflects the wizard: profile renamed, bot kept (not
-    // duplicated), PIN set, flag completed.
-    const profiles = await authedFetch(tokens.access, '/profiles.json');
-    const names = profiles.results.map((p) => p.name);
-    expect(names).toContain(KID_NAME);
+    // duplicated), PIN set, flag completed. Plain checks (Detox expect
+    // only matches elements).
+    const profiles = await authed(tokens.access, '/profiles.json');
+    const names = (profiles.results || []).map((p) => p.name);
+    check(names.includes(KID_NAME), `renamed profile missing: ${JSON.stringify(names)}`);
+    const alex = (profiles.results || []).find((p) => p.name === KID_NAME);
 
-    const bots = await authedFetch(tokens.access, '/bots.json');
-    expect(bots.results.length).toBe(1);
-    expect(bots.results[0].name).toBe('Penelope');
+    // The assistant turn persisted for Alex's chat (proof the model answered).
+    let assistantText = '';
+    for (let i = 0; i < 12 && !assistantText; i++) {
+      const chats = await authed(tokens.access, `/chats.json?1=1&profileId=${alex.profile_id}`);
+      const chatId = chats.results?.[0]?.chat_id;
+      if (chatId) {
+        const msgs = await authed(tokens.access, `/chats/${chatId}/messages.json`);
+        assistantText = (msgs.results || []).find((m) => m.role === 'assistant')?.text || '';
+      }
+      if (!assistantText) await sleep(5000);
+    }
+    check(assistantText.length > 0, 'no assistant turn persisted for the onboarding chat');
 
-    const account = await authedFetch(tokens.access, '/user?timezone=UTC');
-    expect(account.onboardingCompleted).toBe(true);
-    expect(account.hasPin).toBe(true);
-  }, 180000);
+    const bots = await authed(tokens.access, '/bots.json');
+    check(bots.results.length === 1, `expected 1 bot, got ${bots.results.length}`);
+    check(bots.results[0].name === 'Penelope', `bot renamed: ${bots.results[0].name}`);
+
+    const account = await authed(tokens.access, '/user?timezone=UTC');
+    check(account.onboardingCompleted === true, 'onboarding flag not completed');
+    check(account.hasPin === true, 'PIN not set by wizard');
+  }, 240000);
 
   it('never shows the wizard again to returning users', async () => {
     await device.terminateApp();
@@ -170,43 +172,71 @@ describe('Onboarding E2E Flow (Real API)', () => {
     // Straight to chat, not /onboarding.
     await waitFor(element(by.id('chat-input')))
       .toBeVisible()
-      .withTimeout(15000);
+      .withTimeout(20000);
     await expect(element(by.id('onboarding-get-started'))).toBeNotVisible();
   }, 60000);
 
   it('switches profiles from the header chip without opening Settings', async () => {
-    // The chip lives on the Chats list header and in the drawer.
-    await element(by.id('menu-button')).tap();
-    await element(by.id('drawer-item-chats')).tap();
-    await waitFor(element(by.id('profile-switcher-chip')))
+    // From /chat (botChat header) back out to the chat list. NOTE: the
+    // ProfileSwitcher chip exists TWICE (header + always-mounted drawer),
+    // so address the header instance with atIndex(0) — a bare chip matcher
+    // is ambiguous and times out.
+    await element(by.id('header-back-button')).tap();
+    await waitFor(element(by.id('profile-switcher-chip')).atIndex(0))
       .toBeVisible()
       .withTimeout(10000);
 
     // Current kid after onboarding is the renamed profile.
-    await element(by.id('profile-switcher-chip')).tap();
+    await element(by.id('profile-switcher-chip')).atIndex(0).tap();
     await waitFor(element(by.id(`profile-switcher-option-${KID_NAME}`)))
       .toBeVisible()
       .withTimeout(5000);
     await expect(element(by.id('profile-switcher-option-Maya'))).toBeVisible();
 
-    // Switch to the second kid.
+    // Switch to the second kid: her chat list is empty (Alex owns the one
+    // onboarding chat), which proves the switch without relying on the
+    // chip name text (rendered twice: header + drawer).
     await element(by.id('profile-switcher-option-Maya')).tap();
+    await waitFor(element(by.text('No chats yet'))).toBeVisible().withTimeout(10000);
 
-    // Chip now shows Maya; the sheet is closed so this text is unique.
-    await expect(element(by.text('Maya'))).toBeVisible();
-
-    // Manage profiles… stays available behind the PIN gate for parents.
-    await element(by.id('profile-switcher-chip')).tap();
+    // Manage profiles… stays available behind the PIN keypad for parents
+    // (PinWrapper keypad — never a pin-input field). The bottom sheet
+    // animates up: tapping while it settles hits the backdrop and dismisses
+    // the modal instead, so settle first, then tap once.
+    await element(by.id('profile-switcher-chip')).atIndex(0).tap();
     await waitFor(element(by.id('profile-switcher-manage')))
       .toBeVisible()
       .withTimeout(5000);
+    await sleep(2000);
     await element(by.id('profile-switcher-manage')).tap();
-    await waitFor(element(by.id('pin-input')))
+    // The keypad mounts inside the bottom sheet (dots visible even while
+    // the sheet finishes animating — the title can lag behind it). The
+    // sheet keys sit below the fold for Detox taps, so this only proves
+    // Manage leads to the PIN gate; full keypad entry is proven right
+    // after via the full-screen Settings gate (same PinWrapper).
+    try {
+      await waitFor(element(by.id('pin-dots'))).toBeVisible().withTimeout(15000);
+    } catch (e) {
+      await device.takeScreenshot('switcher-manage-no-keypad');
+      throw e;
+    }
+
+    // Fresh start out of the modal: relaunch (storage persists with Maya
+    // selected), then drawer -> Settings -> keypad -> Profiles.
+    await device.terminateApp();
+    await device.launchApp({ newInstance: true });
+    await waitFor(element(by.id('camera-button'))).toBeVisible().withTimeout(20000);
+    await element(by.id('header-back-button')).tap();
+    await waitFor(element(by.id('drawer-menu-button'))).toBeVisible().withTimeout(10000);
+    await element(by.id('drawer-menu-button')).tap();
+    await waitFor(element(by.id('drawer-item-settings'))).toBeVisible().withTimeout(5000);
+    await element(by.id('drawer-item-settings')).tap();
+    await waitFor(element(by.id('pin-title'))).toBeVisible().withTimeout(15000);
+    await enterKeypadPin(PIN);
+    await waitFor(element(by.id('menu-profiles'))).toBeVisible().withTimeout(10000);
+    await element(by.id('menu-profiles')).tap();
+    await waitFor(element(by.id('profile-card-Maya')))
       .toBeVisible()
-      .withTimeout(5000);
-    await element(by.id('pin-input')).typeText(PIN);
-    await waitFor(element(by.text('Profiles')))
-      .toBeVisible()
-      .withTimeout(10000);
-  }, 90000);
+      .withTimeout(20000);
+  }, 120000);
 });

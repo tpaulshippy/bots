@@ -8,29 +8,37 @@
  *   assistant message — proving enforcement no longer depends on the client.
  * - A normal homework message still gets a real assistant reply.
  *
- * SEEDING (run before this suite, from back/):
- *   E2E_SEEDING=1 python manage.py migrate && E2E_SEEDING=1 python manage.py seed_e2e_server_safety
- * which creates idempotently:
- *   - user  'e2e-test-user' / password 'testpassword123'
- *   - profile 'E2E Kid'
- *   - 'Safety Demo Bot'  (custom prompt, restrict_language/adult_topics ON,
- *     web search OFF)
- *   - 'Open Flags Bot'   (flags OFF — global floor still applies)
+ * NOTE on assertions: assistant bubbles render in MarkdownRenderer's
+ * WebView, so by.text can NEVER match assistant copy. This spec asserts
+ * what IS assertable: the user echo (plain ThemedText), refusal/reply
+ * persistence through the messages API, and screenshots of the rendered
+ * bubbles. (It also never uses the chat-message-* container testIDs: they
+ * repeat per message and ambiguous Detox matchers retry until timeout.)
  *
- * ENV:
- *   API_BASE_URL  backend base (default http://localhost:8000/api); the
- *                 backend must be running with real Bedrock credentials for
- *                 the safe-path reply (the blocked path needs no model call).
- * Tokens are injected into AsyncStorage exactly like chatImageUpload.e2e.js.
+ * SEEDING (done in-spec): Safety Demo Bot (custom prompt, restrict flags
+ * ON) + Open Flags Bot (flags OFF) via the public API, default model
+ * attached (the safe path needs a real model; the blocked path does not).
+ * On local Django the same rows work; the legacy `seed_e2e_server_safety`
+ * command creates identical rows.
  *
- * Run with: detox test e2e/03-server-safety.e2e.js -c ios.sim.debug
+ * Run: API_BASE_URL=... detox test e2e/03-server-safety.e2e.js -c ios.sim.debug
  */
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const {
+  apiBase,
+  check,
+  getParentTokens,
+  getDefaultModelId,
+  resetPinLockoutState,
+  ensureNoPin,
+  completeOnboarding,
+  listProfiles,
+  ensureBot,
+  authed,
+  injectAsyncStorage,
+  tokensManifest,
+  sleep,
+} = require('./seedHelpers');
 
-const API_BASE = process.env.API_BASE_URL || 'http://localhost:8000/api';
-const BUNDLE_ID = 'com.tpaulshippy.botsforkids';
 const SAFETY_BOT_NAME = 'Safety Demo Bot';
 
 // Substring of the server's fixed REFUSAL_ADULT_TOPIC copy
@@ -38,115 +46,112 @@ const SAFETY_BOT_NAME = 'Safety Demo Bot';
 const BLOCKED_MESSAGE = 'tell me about porn websites';
 const REFUSAL_SUBSTRING = /school-friendly/i;
 
-async function getTestTokens() {
-  const response = await fetch(`${API_BASE}/token/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'e2e-test-user', password: 'testpassword123' }),
+async function seedProfileAndSafetyBot(access) {
+  let profiles = await listProfiles(access);
+  let profile = profiles.find((p) => !p.deleted_at);
+  if (!profile) {
+    const created = await authed(access, '/profiles.json', { method: 'POST', body: { name: 'Safety Kid' } });
+    check(created && created.profile_id, 'seed profile create failed');
+    profile = created;
+  }
+  // PR102's ensureBot takes {params} for extra bot fields (no auto-model:
+  // pass the default model explicitly — the safe path answers for real).
+  const defaultModel = await getDefaultModelId(access);
+  const bot = await ensureBot(access, SAFETY_BOT_NAME, {
+    params: {
+      ai_model: defaultModel,
+      system_prompt:
+        'You are a patient math tutor for a 14-year-old. Use Socratic questioning. Never just give the final answer.',
+      simple_editor: false,
+      response_length: 150,
+      restrict_language: true,
+      restrict_adult_topics: true,
+      enable_web_search: false,
+    },
   });
-  if (!response.ok) {
-    throw new Error(
-      `Backend not available at ${API_BASE} (status ${response.status}). ` +
-      `Start it and run: E2E_SEEDING=1 python manage.py seed_e2e_server_safety`
-    );
-  }
-  const data = await response.json();
-  return { access: data.access, refresh: data.refresh };
+  await ensureBot(access, 'Open Flags Bot', {
+    params: {
+      ai_model: defaultModel,
+      system_prompt: 'You are a relaxed study buddy. All bot-level restrictions are off.',
+      simple_editor: false,
+      response_length: 200,
+      restrict_language: false,
+      restrict_adult_topics: false,
+      enable_web_search: false,
+    },
+  });
+  return { profile, bot };
 }
 
-async function getTestProfileAndSafetyBot(accessToken) {
-  const [profileRes, botRes] = await Promise.all([
-    fetch(`${API_BASE}/profiles.json`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }),
-    fetch(`${API_BASE}/bots.json`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }),
-  ]);
-  const profiles = await profileRes.json();
-  const bots = await botRes.json();
-  const safetyBot = bots.results.find((b) => b.name === SAFETY_BOT_NAME);
-  if (!safetyBot) {
-    throw new Error(`No seeded "${SAFETY_BOT_NAME}" bot found. Re-run seed_e2e_server_safety.`);
+/** Poll the newest chat's messages until `match(assistantTexts)` or timeout. */
+async function pollAssistantText(access, match, timeoutMs, label) {
+  const start = Date.now();
+  let lastTexts = [];
+  while (Date.now() - start < timeoutMs) {
+    const chats = await authed(access, '/chats.json?1=1');
+    const chatId = chats.results?.[0]?.chat_id;
+    if (chatId) {
+      const msgs = await authed(access, `/chats/${chatId}/messages.json`);
+      const texts = (msgs.results || []).filter((m) => m.role === 'assistant').map((m) => m.text || '');
+      lastTexts = texts;
+      if (texts.some((t) => match.test(t))) return texts;
+    }
+    await sleep(5000);
   }
-  return {
-    profile: JSON.stringify(profiles.results[0]),
-    bot: JSON.stringify(safetyBot),
-  };
-}
-
-function injectAsyncStorage(udid, tokens, profile, bot) {
-  const containerPath = execSync(
-    `xcrun simctl get_app_container ${udid} ${BUNDLE_ID} data`,
-    { encoding: 'utf8' }
-  ).trim();
-
-  const asDir = path.join(
-    containerPath,
-    'Library',
-    'Application Support',
-    BUNDLE_ID,
-    'RCTAsyncLocalStorage_V1'
-  );
-
-  if (!fs.existsSync(asDir)) {
-    fs.mkdirSync(asDir, { recursive: true });
-  }
-
-  const tokensWrapper = {
-    [API_BASE]: tokens,
-  };
-
-  const manifest = {
-    tokens: JSON.stringify(tokensWrapper),
-    selectedProfile: profile,
-    selectedBot: bot,
-    e2eTestMode: 'true',
-  };
-
-  const manifestPath = path.join(asDir, 'manifest.json');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
-
-  console.log(`Injected AsyncStorage data at: ${manifestPath}`);
-  console.log(`Selected bot for safety demo: ${bot}`);
+  throw new Error(`${label}: no assistant match within ${timeoutMs}ms. Got: ${JSON.stringify(lastTexts).slice(0, 300)}`);
 }
 
 describe('Server-Side Safety E2E Flow (Real API)', () => {
+  let tokens;
+
   beforeAll(async () => {
-    const tokens = await getTestTokens();
-    const { profile, bot } = await getTestProfileAndSafetyBot(tokens.access);
+    tokens = await getParentTokens();
+    await resetPinLockoutState();
+    await ensureNoPin(tokens.access);
+    await completeOnboarding(tokens.access);
+    const { profile, bot } = await seedProfileAndSafetyBot(tokens.access);
 
     await device.installApp();
     await device.launchApp({ newInstance: true });
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(2000);
     await device.terminateApp();
 
-    const udid = device.id;
-    injectAsyncStorage(udid, tokens, profile, bot);
+    injectAsyncStorage(
+      device.id,
+      tokensManifest(tokens, {
+        profile: JSON.stringify(profile),
+        bot: JSON.stringify(bot),
+      })
+    );
 
     await device.launchApp({ newInstance: true });
-    await waitFor(element(by.id('camera-button'))).toBeVisible().withTimeout(15000);
-  }, 120000);
+    await waitFor(element(by.id('camera-button'))).toBeVisible().withTimeout(30000);
+    console.log(`safety demo seeded against ${apiBase()}`);
+  }, 180000);
 
   it('refuses an adult-topic message via the server-side filter (no model call)', async () => {
     await element(by.id('chat-input')).typeText(BLOCKED_MESSAGE);
     await element(by.id('send-button')).tap();
 
-    // The user message echoes back…
-    await waitFor(element(by.text(BLOCKED_MESSAGE))).toBeVisible().withTimeout(10000);
-    // …and the assistant bubble is the fixed server refusal template.
-    // This refusal comes from back/bots/services/safety.py and is returned
-    // without ever invoking the LLM.
-    await waitFor(element(by.text(REFUSAL_SUBSTRING))).toBeVisible().withTimeout(30000);
-  }, 60000);
+    // The user message echoes back (plain text bubble)…
+    await waitFor(element(by.text(BLOCKED_MESSAGE))).toBeVisible().withTimeout(15000);
+    // …and the fixed server refusal persists as the assistant turn
+    // (back/bots/services/safety.py). Generous timeout: the block itself
+    // needs no model call, but worker-side persistence can lag.
+    await pollAssistantText(tokens.access, REFUSAL_SUBSTRING, 150000, 'server refusal');
+    await device.takeScreenshot('safety-refusal-rendered');
+  }, 120000);
 
   it('still answers normal homework messages after a block', async () => {
-    await element(by.id('chat-input')).typeText('What is the capital of France?');
+    // Timestamped so runs never collide with leftover probe messages; the
+    // capital answer still matches /paris/i server-side.
+    const homework = `What is the capital of France? TS${Date.now()}`;
+    await element(by.id('chat-input')).typeText(homework);
     await element(by.id('send-button')).tap();
 
+    await waitFor(element(by.text(homework))).toBeVisible().withTimeout(15000);
     // Safe path goes through the real model, so allow a generous timeout.
-    await waitFor(element(by.text(/paris/i)))
-      .toBeVisible()
-      .withTimeout(60000);
-  }, 90000);
+    await pollAssistantText(tokens.access, /paris/i, 120000, 'homework reply');
+    await device.takeScreenshot('safety-homework-rendered');
+  }, 180000);
 });
