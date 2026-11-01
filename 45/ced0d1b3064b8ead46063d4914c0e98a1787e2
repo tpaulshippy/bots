@@ -1,0 +1,18 @@
+front/e2e/04-parent-review.e2e.js
+  h_6bbd00fe0a456a 222-224,232-236,245-253
+front/e2e/06-streaming-chat.e2e.js
+  h_6bbd00fe0a456a 244-249
+worker/scripts/seed-local-e2e.sql
+  h_6bbd00fe0a456a 73-80,83-89,93-94,101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "45ced0d1b3064b8ead46063d4914c0e98a1787e2",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
