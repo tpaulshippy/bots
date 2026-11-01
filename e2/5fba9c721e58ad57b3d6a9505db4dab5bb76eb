@@ -1,0 +1,14 @@
+worker/src/oauth.ts
+  h_6bbd00fe0a456a 358-366
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e25fba9c721e58ad57b3d6a9505db4dab5bb76eb",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
