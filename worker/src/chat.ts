@@ -130,16 +130,15 @@ export async function inputRefusal(
   if (subject.safety_blocked !== 1) {
     await run(db, "UPDATE bots_message SET safety_blocked = 1, modified_at = ? WHERE id = ?", now, subject.id);
   }
-  const orderRow = await first<{ message_count: number }>(db, "SELECT message_count FROM bots_chat WHERE id = ?", graph.chat.id);
   await run(
     db,
-    "INSERT INTO bots_message (chat_id, message_id, text, role, \"order\", created_at, modified_at) VALUES (?, ?, ?, 'assistant', ?, ?, ?)",
+    "INSERT INTO bots_message (chat_id, message_id, text, role, \"order\", created_at, modified_at) SELECT ?, ?, ?, 'assistant', message_count, ?, ? FROM bots_chat WHERE id = ?",
     graph.chat.id,
     assistantMessageId ?? newUuid(),
     refusal,
-    orderRow?.message_count ?? 0,
     now,
     now,
+    graph.chat.id,
   );
   const assistantRow = await first<{ id: number }>(
     db,
@@ -164,18 +163,17 @@ export async function createUserMessage(
   imageFilename: string | null,
 ): Promise<MessageRow> {
   const now = nowIso();
-  const orderRow = await first<{ message_count: number }>(db, "SELECT message_count FROM bots_chat WHERE id = ?", chatId);
   const messageId = newUuid();
   await run(
     db,
-    "INSERT INTO bots_message (chat_id, message_id, text, role, \"order\", image_filename, created_at, modified_at) VALUES (?, ?, ?, 'user', ?, ?, ?, ?)",
+    "INSERT INTO bots_message (chat_id, message_id, text, role, \"order\", image_filename, created_at, modified_at) SELECT ?, ?, ?, 'user', message_count, ?, ?, ? FROM bots_chat WHERE id = ?",
     chatId,
     messageId,
     text ?? "",
-    orderRow?.message_count ?? 0,
     imageFilename,
     now,
     now,
+    chatId,
   );
   return (await first<MessageRow>(db, "SELECT * FROM bots_message WHERE message_id = ?", messageId))!;
 }
@@ -190,21 +188,20 @@ export async function persistAssistantMessage(
   messageId?: string,
 ): Promise<MessageRow> {
   const now = nowIso();
-  const orderRow = await first<{ message_count: number }>(db, "SELECT message_count FROM bots_chat WHERE id = ?", graph.chat.id);
   const mid = messageId ?? newUuid();
   await run(
     db,
-    "INSERT INTO bots_message (chat_id, message_id, text, role, \"order\", input_tokens, output_tokens, agent_events, model_id, created_at, modified_at) VALUES (?, ?, ?, 'assistant', ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO bots_message (chat_id, message_id, text, role, \"order\", input_tokens, output_tokens, agent_events, model_id, created_at, modified_at) SELECT ?, ?, ?, 'assistant', message_count, ?, ?, ?, ?, ?, ? FROM bots_chat WHERE id = ?",
     graph.chat.id,
     mid,
     text,
-    orderRow?.message_count ?? 0,
     usage.input_tokens,
     usage.output_tokens,
     agentEventsJson,
     modelId,
     now,
     now,
+    graph.chat.id,
   );
   await run(
     db,
