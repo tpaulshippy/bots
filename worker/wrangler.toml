@@ -1,10 +1,11 @@
 # Cloudflare Workers + D1 port of the Syft Learning Django backend (back/).
 #
-# What runs where after cutover:
-#   Worker (this dir) : all /api/* JSON endpoints, SSE chat streaming,
-#                       OAuth callbacks, RevenueCat webhook, media URLs, crons.
-#   Django (back/)    : retired from request serving; kept for reference until
-#                       cutover is verified. Admin site has no equivalent here.
+# What runs where (ROLLBACK 2026-11-01: live /api/* is Django again after D1
+# free-tier row-read limit blocked Worker reads; Worker + D1 idle until paid
+# D1 + read budget):
+#   Django (VPS)      : all live serving (API + web + marketing + cron).
+#   Worker (this dir) : idle; code + D1 seed preserved for re-cutover.
+#   (Admin site has no Worker equivalent.)
 
 name = "syft-api"
 main = "src/index.ts"
@@ -15,10 +16,10 @@ compatibility_flags = ["nodejs_compat"]
 # Expo app only needs EXPO_PUBLIC_API_BASE_URL pointed at the Worker.
 # wrangler dev serves at http://localhost:8787 by default.
 
-# Custom domain for the API (zone managed in this account): route
-# syftlearning.app/api/* to this Worker so the baked-in
-# EXPO_PUBLIC_API_BASE_URL keeps working for web + native builds.
-routes = [{ pattern = "syftlearning.app/api/*", zone_name = "syftlearning.app" }]
+# Custom domain for the API (HELD BACK 2026-11-01: route removed for rollback
+# to Django after D1 free-tier row-read limit blocked Worker reads; re-add
+# only with paid D1 + verified read budget): syftlearning.app/api/* -> Worker.
+# routes = [{ pattern = "syftlearning.app/api/*", zone_name = "syftlearning.app" }]
 
 [[d1_databases]]
 binding = "DB"
@@ -30,8 +31,10 @@ migrations_dir = "migrations"
 binding = "IMAGES"
 bucket_name = "syft-images" # TODO: create with `wrangler r2 bucket create syft-images`
 
-[triggers]
-crons = ["30 12 * * *", "0 1 * * *"]
+# HELD BACK 2026-11-01 (rollback): crons disabled so the idle Worker stops
+# burning D1 row reads while blocked; restore with the api route on re-cutover.
+# [triggers]
+# crons = ["30 12 * * *", "0 1 * * *"]
 # 12:30 UTC ~= morning US study-reminder window; 01:00 UTC parent digests.
 
 [vars]
