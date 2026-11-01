@@ -1,0 +1,16 @@
+worker/migrations/0008_denormalize_chat_count.sql
+  h_6bbd00fe0a456a 1-18
+worker/src/routes/chats.ts
+  h_6bbd00fe0a456a 79-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fceb209312410b4b750f10109f7f3578969c5f8a",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
