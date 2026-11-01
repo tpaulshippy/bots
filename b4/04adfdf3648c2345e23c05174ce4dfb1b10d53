@@ -1,0 +1,54 @@
+front/app.json
+  h_6bbd00fe0a456a 69-70
+front/app/__tests__/wizardStep-test.tsx
+  h_6bbd00fe0a456a 5
+front/app/botChat.tsx
+  h_6bbd00fe0a456a 134-135,146-147
+front/app/onboarding/bot.tsx
+  h_6bbd00fe0a456a 17
+front/app/onboarding/notifications.tsx
+  h_6bbd00fe0a456a 35
+front/app/onboarding/profile.tsx
+  h_6bbd00fe0a456a 9
+front/app/onboarding/protect.tsx
+  h_6bbd00fe0a456a 7
+front/e2e/01-teen-login.e2e.js
+  h_6bbd00fe0a456a 25-26,46,91-92
+front/e2e/02-pin-reauth.e2e.js
+  h_6bbd00fe0a456a 23,29,37,81-92
+front/e2e/03-server-safety.e2e.js
+  h_6bbd00fe0a456a 28,37,111-112,132-135,147-148,151
+front/e2e/04-parent-review.e2e.js
+  h_6bbd00fe0a456a 148-150,156,217-230,241-247
+front/e2e/05-onboarding.e2e.js
+  h_6bbd00fe0a456a 16-19,27,35,57-71,93-96
+front/e2e/06-streaming-chat.e2e.js
+  h_6bbd00fe0a456a 38,62-63,65,121-122,144-152,231-244,283-287,290,303-313,316
+front/e2e/07-spaced-repetition.e2e.js
+  h_6bbd00fe0a456a 122-124,148-151
+front/e2e/chatImageUpload.e2e.js
+  h_6bbd00fe0a456a 26,78-79,99-102
+front/e2e/seedHelpers.js
+  h_6bbd00fe0a456a 184-187,191,258-270,347,351,405-515,551-570,572,661
+front/eslint.config.js
+  h_6bbd00fe0a456a 29,42-47
+front/package-lock.json
+  h_6bbd00fe0a456a 18,1701-1703,1706,2128-2130,2138,8327-8329,8332-8333,8367-8369
+front/package.json
+  h_6bbd00fe0a456a 32
+worker/package-lock.json
+  h_6bbd00fe0a456a 19-21
+worker/scripts/seed-local-e2e.sql
+  h_6bbd00fe0a456a 40-43,45,48-59,61,64-71,73-75,77-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b404adfdf3648c2345e23c05174ce4dfb1b10d53",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
