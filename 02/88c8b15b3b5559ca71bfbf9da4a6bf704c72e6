@@ -1,0 +1,14 @@
+worker/tests/d1shim.ts
+  h_6bbd00fe0a456a 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0288c8b15b3b5559ca71bfbf9da4a6bf704c72e6",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
