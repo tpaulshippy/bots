@@ -1,0 +1,14 @@
+worker/migrations/0009_fix_chat_count_backfill.sql
+  h_6bbd00fe0a456a 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0417543087f7227376f44f4144a2a37c8c8f364f",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
