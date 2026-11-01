@@ -1,0 +1,14 @@
+worker/package.json
+  h_6bbd00fe0a456a 15-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "972f0a7ab93f5c6f9fe78f3ad50974dba3dcb451",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
