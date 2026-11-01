@@ -1,0 +1,14 @@
+worker/scripts/migrate-from-sqlite.mjs
+  h_6bbd00fe0a456a 75-77,80,185-194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "249be34906f48408b02bedb04539439ebca4c915",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
