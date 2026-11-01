@@ -1,0 +1,14 @@
+worker/migrations/0006_chat_list_sort.sql
+  h_6bbd00fe0a456a 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c355e29fb3af180a6c20932ee3058d51a9871444",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
