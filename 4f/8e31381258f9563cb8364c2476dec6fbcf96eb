@@ -1,0 +1,14 @@
+worker/src/chat.ts
+  h_6bbd00fe0a456a 135,141,169,176,194,204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f8e31381258f9563cb8364c2476dec6fbcf96eb",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
