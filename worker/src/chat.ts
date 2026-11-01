@@ -130,14 +130,14 @@ export async function inputRefusal(
   if (subject.safety_blocked !== 1) {
     await run(db, "UPDATE bots_message SET safety_blocked = 1, modified_at = ? WHERE id = ?", now, subject.id);
   }
-  const count = await first<{ n: number }>(db, "SELECT COUNT(*) AS n FROM bots_message WHERE chat_id = ?", graph.chat.id);
+  const orderRow = await first<{ message_count: number }>(db, "SELECT message_count FROM bots_chat WHERE id = ?", graph.chat.id);
   await run(
     db,
     "INSERT INTO bots_message (chat_id, message_id, text, role, \"order\", created_at, modified_at) VALUES (?, ?, ?, 'assistant', ?, ?, ?)",
     graph.chat.id,
     assistantMessageId ?? newUuid(),
     refusal,
-    count?.n ?? 0,
+    orderRow?.message_count ?? 0,
     now,
     now,
   );
@@ -164,7 +164,7 @@ export async function createUserMessage(
   imageFilename: string | null,
 ): Promise<MessageRow> {
   const now = nowIso();
-  const count = await first<{ n: number }>(db, "SELECT COUNT(*) AS n FROM bots_message WHERE chat_id = ?", chatId);
+  const orderRow = await first<{ message_count: number }>(db, "SELECT message_count FROM bots_chat WHERE id = ?", chatId);
   const messageId = newUuid();
   await run(
     db,
@@ -172,7 +172,7 @@ export async function createUserMessage(
     chatId,
     messageId,
     text ?? "",
-    count?.n ?? 0,
+    orderRow?.message_count ?? 0,
     imageFilename,
     now,
     now,
@@ -190,7 +190,7 @@ export async function persistAssistantMessage(
   messageId?: string,
 ): Promise<MessageRow> {
   const now = nowIso();
-  const count = await first<{ n: number }>(db, "SELECT COUNT(*) AS n FROM bots_message WHERE chat_id = ?", graph.chat.id);
+  const orderRow = await first<{ message_count: number }>(db, "SELECT message_count FROM bots_chat WHERE id = ?", graph.chat.id);
   const mid = messageId ?? newUuid();
   await run(
     db,
@@ -198,7 +198,7 @@ export async function persistAssistantMessage(
     graph.chat.id,
     mid,
     text,
-    count?.n ?? 0,
+    orderRow?.message_count ?? 0,
     usage.input_tokens,
     usage.output_tokens,
     agentEventsJson,
