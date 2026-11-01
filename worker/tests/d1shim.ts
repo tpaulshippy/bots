@@ -25,7 +25,7 @@ export function makeTestDb(): D1Database {
     // The terminator must start a line, so an expression-level END (e.g. a
     // CASE ... END mid-line, should one ever appear in a trigger body)
     // does not cut the block short.
-    const triggerRe = /^CREATE\s+TRIGGER[\s\S]*?^\s*END\s*;/gim;
+    const triggerRe = /^[ \t]*CREATE\s+TRIGGER[\s\S]*?^\s*END\s*;/gim;
     const placeholders: string[] = [];
     const hoisted = sql.replace(triggerRe, (m) => {
       placeholders.push(m);
