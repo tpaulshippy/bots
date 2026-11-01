@@ -76,7 +76,13 @@ chats.get("/", async (c) => {
     params.push(prof.id);
   }
 
-  const total = await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_chat c WHERE ${where}`, ...params);
+  // Unfiltered total comes from the denormalized per-user counter (0008):
+  // the COUNT(*) rescan was the biggest per-visit cost. Any profile scoping
+  // still needs a live COUNT.
+  const total =
+    where === "c.user_id = ?"
+      ? ((await first<{ chat_count: number }>(r.env.DB, "SELECT chat_count FROM bots_useraccount WHERE user_id = ?", r.user.id))?.chat_count ?? 0)
+      : await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_chat c WHERE ${where}`, ...params);
   const p = resolvePage(sp, total);
   if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<ChatRow & { message_count: number }>(
