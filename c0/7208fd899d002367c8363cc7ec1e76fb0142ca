@@ -1,0 +1,16 @@
+worker/migrations/0005_denormalize_message_count.sql
+  h_6bbd00fe0a456a 14-21
+worker/tests/d1shim.ts
+  h_6bbd00fe0a456a 25-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c07208fd899d002367c8363cc7ec1e76fb0142ca",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
