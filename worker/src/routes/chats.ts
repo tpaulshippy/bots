@@ -50,7 +50,7 @@ chats.get("/", async (c) => {
       {
       const rawPage = sp.get("page");
       if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
-      return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+      return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 20, limit: 20, offset: 0 }, 0, []));
     }
     }
     where += " AND c.profile_id = ?";
@@ -61,7 +61,7 @@ chats.get("/", async (c) => {
       {
       const rawPage = sp.get("page");
       if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
-      return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+      return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 20, limit: 20, offset: 0 }, 0, []));
     }
     }
     const prof = await first<ProfileRow>(r.env.DB, `SELECT id FROM bots_profile WHERE ${match.sql} AND user_id = ?`, ...match.params, r.user.id);
@@ -69,20 +69,27 @@ chats.get("/", async (c) => {
       {
       const rawPage = sp.get("page");
       if (rawPage !== null && rawPage !== "1" && rawPage !== "last") return c.json({ detail: "Invalid page." }, 404);
-      return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 50, limit: 50, offset: 0 }, 0, []));
+      return c.json(paginated(r.base + "/chats/", sp, { page: 1, pageSize: 20, limit: 20, offset: 0 }, 0, []));
     }
     }
     where += " AND c.profile_id = ?";
     params.push(prof.id);
   }
 
-  // Unfiltered total comes from the denormalized per-user counter (0008):
-  // the COUNT(*) rescan was the biggest per-visit cost. Any profile scoping
-  // still needs a live COUNT.
-  const total =
-    where === "c.user_id = ?"
-      ? ((await first<{ chat_count: number }>(r.env.DB, "SELECT chat_count FROM bots_useraccount WHERE user_id = ?", r.user.id))?.chat_count ?? 0)
-      : await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_chat c WHERE ${where}`, ...params);
+  // Totals come from denormalized counters (0008): the COUNT(*) rescan was
+  // the biggest per-visit cost. Profile-scoped lists (the app always sends
+  // the selected profile) read bots_profile.chat_count; unfiltered lists
+  // read bots_useraccount.chat_count. A missing counter row (drift) falls
+  // back to a live COUNT rather than reporting 0.
+  let total: number;
+  const profId = params.length === 2 ? (params[1] as number) : null;
+  if (profId !== null) {
+    const prow = await first<{ chat_count: number }>(r.env.DB, "SELECT chat_count FROM bots_profile WHERE id = ?", profId);
+    total = prow ? prow.chat_count : await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_chat c WHERE ${where}`, ...params);
+  } else {
+    const urow = await first<{ chat_count: number }>(r.env.DB, "SELECT chat_count FROM bots_useraccount WHERE user_id = ?", r.user.id);
+    total = urow ? urow.chat_count : await dbCount(r.env.DB, `SELECT COUNT(*) AS n FROM bots_chat c WHERE ${where}`, ...params);
+  }
   const p = resolvePage(sp, total);
   if (!p) return c.json({ detail: "Invalid page." }, 404);
   const rows = await all<ChatRow & { message_count: number }>(
