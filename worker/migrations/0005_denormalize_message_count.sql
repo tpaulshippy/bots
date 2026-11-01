@@ -11,3 +11,11 @@ AFTER INSERT ON bots_message
 BEGIN
   UPDATE bots_chat SET message_count = message_count + 1 WHERE id = NEW.chat_id;
 END;
+-- Defensive: no prod path deletes messages or moves them between chats
+-- (messages are insert-only; verified by grep — the only deletes are E2E
+-- direct-D1 resets on test users), but keep the count exact if one appears.
+CREATE TRIGGER IF NOT EXISTS bots_message_count_delete
+AFTER DELETE ON bots_message
+BEGIN
+  UPDATE bots_chat SET message_count = message_count - 1 WHERE id = OLD.chat_id;
+END;

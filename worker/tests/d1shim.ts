@@ -22,7 +22,10 @@ export function makeTestDb(): D1Database {
     const sql = readFileSync(join(here, "..", "migrations", file), "utf8");
     // Split into statements, but keep CREATE TRIGGER ... END; blocks intact
     // (their bodies contain semicolons the naive split would break on).
-    const triggerRe = /CREATE\s+TRIGGER[\s\S]*?END\s*;/gi;
+    // The terminator must start a line, so an expression-level END (e.g. a
+    // CASE ... END mid-line, should one ever appear in a trigger body)
+    // does not cut the block short.
+    const triggerRe = /^CREATE\s+TRIGGER[\s\S]*?^\s*END\s*;/gim;
     const placeholders: string[] = [];
     const hoisted = sql.replace(triggerRe, (m) => {
       placeholders.push(m);
