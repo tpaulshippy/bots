@@ -355,8 +355,15 @@ export async function exchangeAppleCode(env: Env, reqUrl: string, code: string):
   });
   if (!resp.ok) {
     // Apple returns {error, error_description} — no secrets, safe to log.
-    // invalid_client = signing key mismatch; invalid_grant = redirect/code issue.
-    console.warn("apple token exchange failed", resp.status, (await resp.text()).slice(0, 300));
+    // invalid_client usually means the signing key/client_id (sub/iss/aud
+    // mismatch); invalid_grant usually means redirect/code issues.
+    let detail = "";
+    try {
+      detail = (await resp.text()).slice(0, 300);
+    } catch {
+      detail = "<unreadable>";
+    }
+    console.warn("apple token exchange failed", resp.status, detail);
     return null;
   }
   const body = (await resp.json()) as { id_token?: string };
