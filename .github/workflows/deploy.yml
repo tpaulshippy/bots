@@ -47,7 +47,9 @@ jobs:
         run: |
           node site/build.mjs --from-main
           cd worker
-          npx wrangler pages deploy ../site/dist --project-name syft-site
+          # --branch main (= production branch): without it every deploy
+          # lands as preview and syftlearning.app never updates.
+          npx wrangler pages deploy ../site/dist --project-name syft-site --branch main
 
       - name: Setup Node.js (worker)
         uses: actions/setup-node@v4
