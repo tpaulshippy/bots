@@ -141,17 +141,6 @@ function buildApp() {
   cpSync(src, dest, { recursive: true });
   console.log("app: front/dist -> /app/");
   relocateWranglerIgnoredAssets(dest);
-  // Collect expo static-export pages (*.html) for per-route _redirects.
-  const pages = [];
-  const walk = (dir, base = "") => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const rel = base ? `${base}/${entry.name}` : entry.name;
-      if (entry.isDirectory()) walk(join(dir, entry.name), rel);
-      else if (entry.isFile() && entry.name.endsWith(".html")) pages.push(rel);
-    }
-  };
-  walk(dest);
-  return pages.sort();
 }
 
 // `wrangler pages deploy` silently skips every file under a `node_modules/`
@@ -194,25 +183,27 @@ function relocateWranglerIgnoredAssets(appDir) {
   console.log(`assets: node_modules/ -> vendor/ (${toDir}), refs rewritten in ${rewritten} file(s)`);
 }
 
-function buildRedirects(appPages) {
+function buildRedirects() {
+  // NOTE: intentionally NO per-page rules. A 200-rewrite whose *target* is
+  // an *.html path re-triggers Pages' .html-stripping canonical redirect,
+  // producing a self-referencing 308 loop
+  // (e.g. /app/login -> /app/login.html -> /app/login -> ...), which mobile
+  // Safari surfaces as a load failure. The single catch-all below only fires
+  // for otherwise-unmatched paths (static files take precedence), booting
+  // the expo SPA shell whose client router renders the right screen.
   const lines = [
     "# /api/* is NOT handled here: the syftlearning.app/api/* Worker route owns it.",
-    "# /app/* fallback mirrors Django web_app: /app/foo -> /app/foo.html -> /app/index.html.",
+    "# /app/* fallback: unknown paths boot the expo SPA shell (/app/index.html).",
+    "/app/*  /app/index.html  200",
   ];
-  for (const page of appPages) {
-    if (page === "index.html") continue; // /app/ served natively
-    const route = "/app/" + page.slice(0, -".html".length).split(sep).join(posix.sep);
-    if (route.endsWith("/index")) continue; // /app/foo/ served natively
-    lines.push(`${route}  /app/${page.split(sep).join(posix.sep)}  200`);
-  }
-  lines.push("/app/*  /app/index.html  200");
   writeFile(join(DIST, "_redirects"), lines.join("\n") + "\n");
-  console.log(`redirects: ${lines.length - 2} page rule(s) + /app/* fallback`);
+  console.log(`redirects: /app/* SPA fallback`);
 }
 
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 buildPages();
 buildStatic();
-buildRedirects(buildApp());
+buildApp();
+buildRedirects();
 console.log(`done: ${DIST} (source: site/source/)`);
