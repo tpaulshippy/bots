@@ -8,33 +8,10 @@ import { newUuid } from "../crypto";
 import { nowIso, type BotRow, type Env } from "../types";
 import { botRow } from "../serializers";
 import { findByUuidOrId, forbidden, routeCtx, teenScope, type TC, makeRouter } from "./helpers";
+import { botListEpoch, getBotList, invalidateBotListCache, setBotList } from "../botListCache";
 
 const bots = makeRouter();
 bots.use("*", authenticate);
-
-// Per-user list cache (single-isolate memory: invalidation on write is
-// sufficient, so entries live until invalidated or evicted by the size cap
-// below. If traffic ever spreads across isolates, re-add a TTL — a write on
-// one isolate can't clear another's entries.)
-interface ListCacheEntry {
-  total: number;
-  rows: BotRow[];
-  models: Map<number, string | null>;
-}
-const listCache = new Map<string, ListCacheEntry>();
-
-export function invalidateBotListCache(userId: number): void {
-  const prefix = `${userId}:`;
-  for (const key of listCache.keys()) {
-    if (key.startsWith(prefix)) listCache.delete(key);
-  }
-}
-
-// Full reset for tests, which seed a fresh DB per case (module state
-// outlives the DB in the same worker).
-export function clearBotListCache(): void {
-  listCache.clear();
-}
 
 async function serializeBot(r: ReturnType<typeof routeCtx>, bot: BotRow) {
   let aiModel: string | null = null;
@@ -55,7 +32,8 @@ bots.get("/", async (c) => {
   const r = routeCtx(c);
     const sp = new URLSearchParams(c.req.query() as Record<string, string>);
   const cacheKey = `${r.user.id}:${sp.get("page") ?? "1"}`;
-  const cached = listCache.get(cacheKey) ?? null;
+  const seenEpoch = botListEpoch();
+  const cached = getBotList(cacheKey);
   const total = cached
     ? cached.total
     : await dbCount(r.env.DB, "SELECT COUNT(*) AS n FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL", r.user.id);
@@ -85,8 +63,8 @@ bots.get("/", async (c) => {
       );
       for (const m of mrows) models.set(m.id, m.model_id);
     }
-    listCache.set(cacheKey, { total, rows, models });
-    if (listCache.size > 1000) listCache.delete(listCache.keys().next().value!);
+    // setBotList drops the entry if a write landed mid-read (epoch guard).
+    setBotList(cacheKey, { total, rows, models }, seenEpoch);
   }
   const results = [];
   for (const b of rows) results.push(serializeBotWithModels(r, b, models));

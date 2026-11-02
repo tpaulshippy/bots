@@ -13,7 +13,7 @@ import { first, run } from "./db";
 import { newUuid } from "./crypto";
 import { nowIso } from "./types";
 import type { Env } from "./types";
-import { invalidateBotListCache } from "./routes/bots";
+import { invalidateBotListCache } from "./botListCache";
 
 export const PENELOPE_GREETING = "Hello! I'm Penelope, your writing assistant. How can I help you with writing today?";
 

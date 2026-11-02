@@ -7,7 +7,7 @@ import type { Env } from "../src/types";
 
 import { buildHistory } from "../src/chat";
 import { costForToday, invalidateModelsCache } from "../src/usage";
-import { clearBotListCache } from "../src/routes/bots";
+import { clearBotListCache } from "../src/botListCache";
 
 let db: D1Database;
 let env: Env;

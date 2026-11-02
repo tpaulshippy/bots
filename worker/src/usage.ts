@@ -34,7 +34,11 @@ let modelRowsCache: AiModelRow[] | null = null;
 async function loadModels(db: D1Database): Promise<AiModelRow[]> {
   if (!modelRowsCache) {
     const res = await db.prepare("SELECT model_id, input_token_cost, output_token_cost, is_default FROM bots_aimodel").all<AiModelRow>();
-    modelRowsCache = (res.results ?? []) as AiModelRow[];
+    const rows = (res.results ?? []) as AiModelRow[];
+    // Never cache an empty table: with no pricing every cost computes as 0
+    // and the daily cap silently stops being enforced.
+    if (rows.length > 0) modelRowsCache = rows;
+    return rows;
   }
   return modelRowsCache;
 }

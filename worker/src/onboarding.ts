@@ -4,7 +4,7 @@ import { first } from "./db";
 import { newUuid } from "./crypto";
 import { nowIso } from "./types";
 import { hashPin, validatePin } from "./pin";
-import { invalidateBotListCache } from "./routes/bots";
+import { invalidateBotListCache } from "./botListCache";
 
 export const DEFAULT_TEMPLATE_NAME = "Blank";
 export const DEFAULT_BOT_COLOR = "#2A9D8F";
