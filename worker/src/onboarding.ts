@@ -4,6 +4,7 @@ import { first } from "./db";
 import { newUuid } from "./crypto";
 import { nowIso } from "./types";
 import { hashPin, validatePin } from "./pin";
+import { invalidateBotListCache } from "./botListCache";
 
 export const DEFAULT_TEMPLATE_NAME = "Blank";
 export const DEFAULT_BOT_COLOR = "#2A9D8F";
@@ -154,6 +155,7 @@ export async function bootstrapOnboarding(
 
   const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
   let botUuid: string | null = null; // set when THIS request inserts
+  let botTouched = false; // any bot insert/update queued below
   if (!bot) {
     const defModel = await first<{ id: number }>(db, "SELECT id FROM bots_aimodel WHERE is_default = 1");
     const newBotId = newUuid();
@@ -188,6 +190,7 @@ export async function bootstrapOnboarding(
     }
     botUuid = newBotId;
     bot = { id: 0, bot_id: newBotId };
+    botTouched = true;
   } else {
     const sets: string[] = ["modified_at = ?"];
     const params: unknown[] = [now];
@@ -208,6 +211,7 @@ export async function bootstrapOnboarding(
     if (sets.length > 1) {
       params.push(bot.id);
       stmts.push(db.prepare(`UPDATE bots_bot SET ${sets.join(", ")} WHERE id = ?`).bind(...params));
+      botTouched = true;
     }
   }
 
@@ -237,6 +241,7 @@ export async function bootstrapOnboarding(
 
   try {
     if (stmts.length > 0) await db.batch(stmts);
+    if (botTouched) invalidateBotListCache(userId);
   } catch (e) {
     const msg = String(e);
     if (msg.includes("UNIQUE") && (msg.includes("oauth_email") || msg.includes("bots_profile"))) {

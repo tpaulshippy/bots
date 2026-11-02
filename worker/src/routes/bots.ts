@@ -8,6 +8,7 @@ import { newUuid } from "../crypto";
 import { nowIso, type BotRow, type Env } from "../types";
 import { botRow } from "../serializers";
 import { findByUuidOrId, forbidden, routeCtx, teenScope, type TC, makeRouter } from "./helpers";
+import { botListEpoch, getBotList, invalidateBotListCache, setBotList } from "../botListCache";
 
 const bots = makeRouter();
 bots.use("*", authenticate);
@@ -21,22 +22,52 @@ async function serializeBot(r: ReturnType<typeof routeCtx>, bot: BotRow) {
   return botRow(bot as unknown as Record<string, unknown>, aiModel, `${r.base}/bots/${bot.id}/`);
 }
 
+function serializeBotWithModels(r: ReturnType<typeof routeCtx>, bot: BotRow, models: Map<number, string | null>) {
+  const aiModel = bot.ai_model_id != null ? (models.get(bot.ai_model_id) ?? null) : null;
+  return botRow(bot as unknown as Record<string, unknown>, aiModel, `${r.base}/bots/${bot.id}/`);
+}
+
 // GET /api/bots/
 bots.get("/", async (c) => {
   const r = routeCtx(c);
     const sp = new URLSearchParams(c.req.query() as Record<string, string>);
-  const total = await dbCount(r.env.DB, "SELECT COUNT(*) AS n FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL", r.user.id);
+  const cacheKey = `${r.user.id}:${sp.get("page") ?? "1"}`;
+  const seenEpoch = botListEpoch();
+  const cached = getBotList(cacheKey);
+  const total = cached
+    ? cached.total
+    : await dbCount(r.env.DB, "SELECT COUNT(*) AS n FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL", r.user.id);
   const p = resolvePage(sp, total);
   if (!p) return c.json({ detail: "Invalid page." }, 404);
-  const rows = await all<BotRow>(
-    r.env.DB,
-    "SELECT * FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL ORDER BY name ASC LIMIT ? OFFSET ?",
-    r.user.id,
-    p.limit,
-    p.offset,
-  );
+  let rows: BotRow[];
+  let models: Map<number, string | null>;
+  if (cached) {
+    ({ rows, models } = cached);
+  } else {
+    rows = await all<BotRow>(
+      r.env.DB,
+      "SELECT * FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL ORDER BY name ASC LIMIT ? OFFSET ?",
+      r.user.id,
+      p.limit,
+      p.offset,
+    );
+    // One batched aimodel lookup instead of N per-bot queries.
+    models = new Map<number, string | null>();
+    const ids = [...new Set(rows.map((b) => b.ai_model_id).filter((v): v is number => v != null))];
+    if (ids.length > 0) {
+      const inClause = `(${ids.map(() => "?").join(",")})`;
+      const mrows = await all<{ id: number; model_id: string }>(
+        r.env.DB,
+        `SELECT id, model_id FROM bots_aimodel WHERE id IN ${inClause}`,
+        ...ids,
+      );
+      for (const m of mrows) models.set(m.id, m.model_id);
+    }
+    // setBotList drops the entry if a write landed mid-read (epoch guard).
+    setBotList(cacheKey, { total, rows, models }, seenEpoch);
+  }
   const results = [];
-  for (const b of rows) results.push(await serializeBot(r, b));
+  for (const b of rows) results.push(serializeBotWithModels(r, b, models));
   return c.json(paginated(r.base + "/bots/", sp, p, total, results));
 });
 
@@ -102,6 +133,7 @@ bots.post("/", async (c) => {
     now,
   );
   const bot = (await first<BotRow>(r.env.DB, "SELECT * FROM bots_bot WHERE bot_id = ?", botId))!;
+  invalidateBotListCache(r.user.id);
   return c.json(await serializeBot(r, bot), 201);
 });
 
@@ -168,6 +200,7 @@ async function updateBot(c: TC, partial: boolean) {
   }
   params.push(found.bot.id);
   await run(r.env.DB, `UPDATE bots_bot SET ${sets.join(", ")} WHERE id = ?`, ...params);
+  invalidateBotListCache(r.user.id);
   const bot = (await first<BotRow>(r.env.DB, "SELECT * FROM bots_bot WHERE id = ?", found.bot.id))!;
   return c.json(await serializeBot(r, bot));
 }
@@ -184,6 +217,7 @@ bots.delete("/:pk/", async (c) => {
   if ("error" in found) return found.error;
   // Django parity: hard-delete the row (Bot has no soft-delete override).
   await run(r.env.DB, "DELETE FROM bots_bot WHERE id = ?", found.bot.id);
+  invalidateBotListCache(r.user.id);
   return c.body(null, 204);
 });
 

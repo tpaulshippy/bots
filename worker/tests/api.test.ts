@@ -6,7 +6,8 @@ import { makeTestDb, testEnv } from "./d1shim";
 import type { Env } from "../src/types";
 
 import { buildHistory } from "../src/chat";
-import { costForToday } from "../src/usage";
+import { costForToday, invalidateModelsCache } from "../src/usage";
+import { clearBotListCache } from "../src/botListCache";
 
 let db: D1Database;
 let env: Env;
@@ -64,6 +65,10 @@ async function api(
 beforeEach(() => {
   db = makeTestDb();
   env = testEnv(db) as unknown as Env;
+  // Module-level caches outlive the per-test DB: reset so one case's rows
+  // never leak into the next.
+  invalidateModelsCache();
+  clearBotListCache();
 });
 
 describe("auth + bots", () => {
