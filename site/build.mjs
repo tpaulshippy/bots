@@ -140,6 +140,7 @@ function buildApp() {
   }
   cpSync(src, dest, { recursive: true });
   console.log("app: front/dist -> /app/");
+  relocateWranglerIgnoredAssets(dest);
   // Collect expo static-export pages (*.html) for per-route _redirects.
   const pages = [];
   const walk = (dir, base = "") => {
@@ -151,6 +152,46 @@ function buildApp() {
   };
   walk(dest);
   return pages.sort();
+}
+
+// `wrangler pages deploy` silently skips every file under a `node_modules/`
+// directory — but `expo export` emits vector-icon fonts and expo-router
+// images under `assets/node_modules/…`, referenced by absolute URL from the
+// web bundle. Move that tree to `assets/vendor/` (same layout, new prefix)
+// and rewrite the references, or icons/images 404 back to index.html.
+function relocateWranglerIgnoredAssets(appDir) {
+  const fromDir = join(appDir, "assets", "node_modules");
+  if (!existsSync(fromDir)) return;
+  const toDir = join(appDir, "assets", "vendor");
+  rmSync(toDir, { recursive: true, force: true });
+  const assetsDir = join(appDir, "assets");
+  const tmpDir = join(assetsDir, ".relocate-tmp");
+  rmSync(tmpDir, { recursive: true, force: true });
+  mkdirSync(tmpDir, { recursive: true });
+  // Copy aside first so files that merely move within assets/ are safe.
+  cpSync(fromDir, join(tmpDir, "node_modules"), { recursive: true });
+  rmSync(fromDir, { recursive: true, force: true });
+  cpSync(join(tmpDir, "node_modules"), toDir, { recursive: true });
+  rmSync(tmpDir, { recursive: true, force: true });
+
+  const fromPrefix = "/app/assets/node_modules/";
+  const toPrefix = "/app/assets/vendor/";
+  let rewritten = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) walk(p);
+      else if (entry.isFile() && /\.(js|map|html|css|json)$/.test(entry.name)) {
+        const content = readFileSync(p, "utf8");
+        if (content.includes(fromPrefix)) {
+          writeFileSync(p, content.split(fromPrefix).join(toPrefix));
+          rewritten++;
+        }
+      }
+    }
+  };
+  walk(appDir);
+  console.log(`assets: node_modules/ -> vendor/ (${toDir}), refs rewritten in ${rewritten} file(s)`);
 }
 
 function buildRedirects(appPages) {
