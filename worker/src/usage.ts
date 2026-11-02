@@ -25,6 +25,26 @@ interface AiModelRow {
   is_default: number;
 }
 
+// Pricing table is runtime-static: no worker route writes bots_aimodel
+// (only migrations/seed do), so load it once per isolate and keep it.
+// Deploys recycle isolates, which refreshes the rows. Any future runtime
+// writer must call invalidateModelsCache().
+let modelRowsCache: AiModelRow[] | null = null;
+
+async function loadModels(db: D1Database): Promise<AiModelRow[]> {
+  if (!modelRowsCache) {
+    const res = await db.prepare("SELECT model_id, input_token_cost, output_token_cost, is_default FROM bots_aimodel").all<AiModelRow>();
+    modelRowsCache = (res.results ?? []) as AiModelRow[];
+  }
+  return modelRowsCache;
+}
+
+// Tests seed a fresh DB per case: reset so one case's pricing never leaks
+// into the next (module state outlives the DB in the same worker).
+export function invalidateModelsCache(): void {
+  modelRowsCache = null;
+}
+
 export function isValidTimezone(tz: string): boolean {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: tz });
@@ -137,8 +157,7 @@ export async function rawCostForToday(
   beforeIso?: string,
   now = new Date(),
 ): Promise<CostToday> {
-  const models = await db.prepare("SELECT model_id, input_token_cost, output_token_cost, is_default FROM bots_aimodel").all<AiModelRow>();
-  const { price } = parseModels((models.results ?? []) as AiModelRow[]);
+  const { price } = parseModels(await loadModels(db));
   const { stamped, unstamped } = await messageBucketsToday(db, userId, startOfTodayUtc(timezone, now).toISOString(), beforeIso);
   let total = 0;
   let inputTokens = 0;
@@ -190,11 +209,11 @@ async function baselinePricingSnapshot(
     )
     .bind(userId, startIso, cutoffIso)
     .all<{ chat_id: number; mid: string | null }>();
-  const models = await db.prepare("SELECT model_id, input_token_cost, output_token_cost, is_default FROM bots_aimodel").all<AiModelRow>();
+  const modelRows = await loadModels(db);
   const all = Object.fromEntries(
-    ((models.results ?? []) as AiModelRow[]).map((m) => [m.model_id, [m.input_token_cost, m.output_token_cost, m.is_default]]),
+    modelRows.map((m) => [m.model_id, [m.input_token_cost, m.output_token_cost, m.is_default]]),
   ) as Record<string, [number, number, number]>;
-  const defaultId = ((models.results ?? []) as AiModelRow[]).find((m) => m.is_default === 1)?.model_id ?? null;
+  const defaultId = modelRows.find((m) => m.is_default === 1)?.model_id ?? null;
   const stampedIds = new Set(((stampedRows.results ?? []) as { mid: string }[]).map((r) => r.mid));
   const unstamped: Record<string, string | null> = {};
   for (const r of (unstampedRows.results ?? []) as { chat_id: number; mid: string | null }[]) {

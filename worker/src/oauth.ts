@@ -13,6 +13,7 @@ import { first, run } from "./db";
 import { newUuid } from "./crypto";
 import { nowIso } from "./types";
 import type { Env } from "./types";
+import { invalidateBotListCache } from "./routes/bots";
 
 export const PENELOPE_GREETING = "Hello! I'm Penelope, your writing assistant. How can I help you with writing today?";
 
@@ -67,6 +68,7 @@ export async function provisionDefaultContent(db: D1Database, userId: number, fi
         now,
         now,
       );
+      invalidateBotListCache(userId);
       bot = await first<{ id: number }>(
         db,
         "SELECT id FROM bots_bot WHERE user_id = ? AND deleted_at IS NULL ORDER BY id ASC",
