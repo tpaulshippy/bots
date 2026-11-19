@@ -4,191 +4,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Syft Learning - Getting Started Tutorial</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="description" content="Follow a clear, step-by-step guide to set up Syft Learning for parents and students.">
+    <meta name="theme-color" content="#02161d">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Getting started with Syft Learning">
+    <meta property="og:description" content="Follow a clear, step-by-step guide to set up Syft Learning for parents and students.">
+    <meta property="og:url" content="https://syftlearning.app/tutorial/">
+    <meta name="twitter:card" content="summary">
+    <link rel="canonical" href="https://syftlearning.app/tutorial/">
+    <title>Getting started with Syft Learning</title>
     <link rel="icon" href="{% static 'favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'styles.css' %}">
+    <link rel="stylesheet" href="{% static 'design.css' %}">
 </head>
-<body class="font-sans text-gray-100">
-    <!-- Logo (wordless bot mark on dark tint #0a7ea4, matches app splash) -->
-    <div class="header-logo" style="width: 100%; height: 100px;">
-        <div class="flex justify-center items-center content-center h-full gap-3">
-            <img src="{% static 'splash-icon.png' %}" alt="Syft Logo" style="height: 80px">
-            <span class="text-3xl font-bold tracking-wide text-white">SYFT LEARNING</span>
+<body class="page">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+    <header class="nav">
+        <div class="nav-inner">
+            <a class="brand" href="/" aria-label="Syft Learning home">
+                <img src="{% static 'splash-icon.png' %}" alt="" width="32" height="32">
+                <span>SYFT LEARNING</span>
+            </a>
+            <button class="nav-toggle" type="button" data-nav-toggle aria-controls="primary-nav" aria-expanded="false" aria-label="Open navigation">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+            </button>
+            <nav class="nav-links" id="primary-nav" data-nav-menu aria-label="Main navigation">
+                <a class="nav-hide-sm" href="/#families">For families</a>
+                <a class="nav-hide-sm" href="/#plans">Plans</a>
+                <a href="/tutorial/" aria-current="page">Getting started</a>
+                <a href="/support/">Support</a>
+            </nav>
+            <a class="btn btn-primary btn-sm nav-cta" href="/app"><span class="cta-long">Try the web app</span><span class="cta-short">Try free</span><span aria-hidden="true">→</span></a>
+        </div>
+    </header>
+
+    <div class="tutorial-topbar">
+        <div class="progress" role="progressbar" aria-label="Tutorial reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+        <div class="progress-meta">
+            <span data-step-current aria-live="polite">Step 1 of 10 · Install the parent app</span>
+            <a href="#step-index">Jump to steps</a>
         </div>
     </div>
-    <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
-        <div class="text-center mb-12">
-            <h1 class="text-3xl font-bold mb-4">Getting Started</h1>
-            <p class="text-lg text-gray-300 max-w-2xl mx-auto">Follow these simple steps to set up Syft Learning for your family.</p>
+
+    <main id="main">
+        <section class="tut-hero wrap" aria-labelledby="tutorial-title">
+            <span class="eyebrow">A simple family setup guide</span>
+            <h1 class="title-xl" id="tutorial-title">Getting started</h1>
+            <p class="lede">A clear path from a parent's first sign-in to a student's first conversation. Follow the steps in order or jump to the part you need.</p>
+            <div class="hero-actions tutorial-actions">
+                <a class="btn btn-primary" href="/app">Open the web app <span aria-hidden="true">→</span></a>
+                <a class="btn btn-ghost" href="/support/">Get help</a>
+            </div>
+        </section>
+
+        <nav class="step-nav wrap" id="step-index" aria-label="Jump to a tutorial step">
+            <ol>
+                <li><a href="#step-1" data-step-link aria-current="step" aria-label="Step 1: Install the parent app"><span>01</span><small>Install</small></a></li>
+                <li><a href="#step-2" data-step-link aria-label="Step 2: Sign in as a parent"><span>02</span><small>Sign in</small></a></li>
+                <li><a href="#step-3" data-step-link aria-label="Step 3: Create bots"><span>03</span><small>Bots</small></a></li>
+                <li><a href="#step-4" data-step-link aria-label="Step 4: Add student profiles"><span>04</span><small>Profiles</small></a></li>
+                <li><a href="#step-5" data-step-link aria-label="Step 5: Set notifications"><span>05</span><small>Alerts</small></a></li>
+                <li><a href="#step-6" data-step-link aria-label="Step 6: Install the student app"><span>06</span><small>Install</small></a></li>
+                <li><a href="#step-7" data-step-link aria-label="Step 7: Student sign-in"><span>07</span><small>Student</small></a></li>
+                <li><a href="#step-8" data-step-link aria-label="Step 8: Start a chat"><span>08</span><small>Chat</small></a></li>
+            </ol>
+        </nav>
+
+        <section class="wrap tutorial-content" aria-label="Setup steps">
+            <div class="timeline" id="tutorial-steps">
+                <h2 class="tut-group" id="parent-setup">Set up as a parent</h2>
+
+                <article class="tut-step reveal" id="step-1" data-tutorial-step data-step-label="Install the parent app">
+                    <span class="node" aria-hidden="true">1</span>
+                    <span class="tag parent">Parent setup</span>
+                    <h2>Install the app on the parent's device</h2>
+                    <p>Choose the iPhone app or open Syft Learning in a browser to get started.</p>
+                    <div class="cta-actions">
+                        <a class="store-badge" href="https://apps.apple.com/us/app/syft-learning/id6742674793" aria-label="Download Syft Learning on the App Store"><img src="{% static 'app_store.svg' %}" alt="Download on the App Store" width="120" height="40"></a>
+                        <a class="btn btn-primary btn-sm" href="/app">Open the web app <span aria-hidden="true">→</span></a>
+                    </div>
+                </article>
+
+                <article class="tut-step reveal" id="step-2" data-tutorial-step data-step-label="Sign in as a parent">
+                    <span class="node" aria-hidden="true">2</span>
+                    <span class="tag parent">Parent setup</span>
+                    <h2>Sign in with the parent's account</h2>
+                    <p>Use the adult account that will manage bots, student profiles and family settings.</p>
+                    <div class="step-note">
+                        <span class="note-icon" aria-hidden="true">i</span>
+                        <div><strong>Start with the adult account.</strong><p>Sign in with your Google or Apple account, then use this account to set up the family.</p></div>
+                    </div>
+                </article>
+
+                <article class="tut-step reveal" id="step-3" data-tutorial-step data-step-label="Create bots">
+                    <span class="node" aria-hidden="true">3</span>
+                    <span class="tag parent">Parent setup</span>
+                    <h2>Create bots for your student</h2>
+                    <p>Open the bot editor to create assistants for different subjects, interests or learning styles.</p>
+                    <div class="shots">
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/settings-bots.png' %}" alt="Settings menu with Bots selected" width="780" height="1688" loading="lazy" decoding="async">
+                            <figcaption>Open Settings → Bots.</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Bot editor with content restriction switches enabled" width="360" height="1106" loading="lazy" decoding="async">
+                            <figcaption>Set the bot's content restrictions.</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/bot-editor-advanced.png' %}" alt="Bot editor with a custom model and instructions" width="360" height="1018" loading="lazy" decoding="async">
+                            <figcaption>Customize its instructions and model.</figcaption>
+                        </figure>
+                    </div>
+                </article>
+
+                <article class="tut-step reveal" id="step-4" data-tutorial-step data-step-label="Add student profiles">
+                    <span class="node" aria-hidden="true">4</span>
+                    <span class="tag parent">Parent setup</span>
+                    <h2>Add a profile for each student</h2>
+                    <p>Create a separate profile for every student who will use the family account. Give the profile the student's name and add their Google or Apple sign-in email — that email is the invite. The student signs in with it on their own device, so there is no PIN to set or share.</p>
+                    <div class="shots">
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/settings-profiles.png' %}" alt="Profiles option highlighted in Settings" width="780" height="1688" loading="lazy" decoding="async">
+                            <figcaption>Open Profiles from Settings.</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/new-profile.png' %}" alt="New student profile form" width="780" height="1688" loading="lazy" decoding="async">
+                            <figcaption>Enter the student's name and sign-in email.</figcaption>
+                        </figure>
+                    </div>
+                </article>
+
+                <article class="tut-step reveal" id="step-5" data-tutorial-step data-step-label="Set notifications">
+                    <span class="node" aria-hidden="true">5</span>
+                    <span class="tag parent">Parent setup</span>
+                    <h2>Choose your notification settings</h2>
+                    <p>Open Notifications in Settings and enable the conversation updates you want to receive. If your device asks, allow notifications for Syft Learning there too.</p>
+                    <div class="shots">
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/settings-notifications.png' %}" alt="Notifications option highlighted in Settings" width="780" height="1688" loading="lazy" decoding="async">
+                            <figcaption>Open Notifications from Settings.</figcaption>
+                        </figure>
+                    </div>
+                </article>
+
+                <article class="tut-step reveal" id="step-6" data-tutorial-step data-step-label="Install the student app">
+                    <span class="node" aria-hidden="true">6</span>
+                    <span class="tag parent">Parent setup</span>
+                    <h2>Install Syft on the student's device</h2>
+                    <p>The student can use the iPhone app or sign in through the web app.</p>
+                    <div class="cta-actions">
+                        <a class="store-badge" href="https://apps.apple.com/us/app/syft-learning/id6742674793" aria-label="Download Syft Learning on the App Store"><img src="{% static 'app_store.svg' %}" alt="Download on the App Store" width="120" height="40"></a>
+                        <a class="btn btn-primary btn-sm" href="/app">Open the web app <span aria-hidden="true">→</span></a>
+                    </div>
+                </article>
+
+                <h2 class="tut-group" id="student-setup">Set up as a student</h2>
+
+                <article class="tut-step reveal" id="step-7" data-tutorial-step data-step-label="Student sign-in">
+                    <span class="node" aria-hidden="true">7</span>
+                    <span class="tag student">Student setup</span>
+                    <h2>Sign in with the student's own account</h2>
+                    <p>On the student's device, sign in with the same Google or Apple email the parent added to the student's profile. Syft opens the student's own space directly — no parent login, no PIN, no profile picker.</p>
+                    <ul class="instruction-list">
+                        <li>Check which email the parent added to the profile.</li>
+                        <li>Choose Google or Apple sign-in with that same email.</li>
+                        <li>Continue straight into the student's learning area.</li>
+                    </ul>
+                    <div class="step-note">
+                        <span class="note-icon" aria-hidden="true">!</span>
+                        <div><strong>Don't use Apple's hidden relay address.</strong><p>If the student chooses "Hide My Email" with Apple sign-in, Syft sees a private relay address instead of the invited email and treats them as a brand-new parent (known issue). Use the real email address that matches the profile.</p></div>
+                    </div>
+                </article>
+
+                <article class="tut-step reveal" id="step-8" data-tutorial-step data-step-label="Start a chat">
+                    <span class="node" aria-hidden="true">8</span>
+                    <span class="tag student">Student setup</span>
+                    <h2>Choose a bot and start chatting</h2>
+                    <p>Select a bot and ask a question, explore an idea or start a study session.</p>
+                    <div class="step-complete">
+                        <span class="complete-mark" aria-hidden="true">✓</span>
+                        <div><strong>You're ready to learn.</strong><p>Pick a bot, start a conversation and ask it to help you think through your next question.</p></div>
+                        <a class="btn btn-primary btn-sm" href="/app">Open the web app <span aria-hidden="true">→</span></a>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="wrap help-card" aria-labelledby="help-title">
+            <span class="eyebrow">Good to know</span>
+            <h2 class="title-lg" id="help-title">A few quick answers</h2>
+            <div class="faq tutorial-faq">
+                <details>
+                    <summary>My student can't sign in. What should I check?</summary>
+                    <div class="answer">Confirm the email entered in the student's profile matches the Google or Apple account they are using to sign in.</div>
+                </details>
+                <details>
+                    <summary>Why aren't notifications showing up?</summary>
+                    <div class="answer">Check that notifications are enabled in Syft's Settings and allowed for the app in the device's notification settings.</div>
+                </details>
+                <details>
+                    <summary>Does the student need the parent's login?</summary>
+                    <div class="answer">No. The student signs in on their own device with the Google or Apple email the parent added to their profile, and lands straight in their own learning area.</div>
+                </details>
+            </div>
+            <div class="cta-actions">
+                <a class="btn btn-primary" href="/support/">Contact support <span aria-hidden="true">→</span></a>
+                <a class="btn btn-ghost" href="/app">Open the web app</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="wrap footer-inner">
+            <span class="foot-copy">© 2026 Syft Learning. All rights reserved.</span>
+            <nav aria-label="Footer navigation">
+                <a href="/">Home</a>
+                <a href="/tutorial/" aria-current="page">Getting started</a>
+                <a href="/support/">Support</a>
+                <a href="https://github.com/tpaulshippy/bots">GitHub</a>
+            </nav>
         </div>
-
-        <!-- Tutorial Steps -->
-        <div class="max-w-3xl mx-auto space-y-6">
-            <!-- Step 1 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">1</div>
-                    <h2 class="text-xl font-bold">Install the app on the parent's phone</h2>
-                </div>
-                <div class="flex flex-col sm:flex-row justify-center items-center gap-4 mt-4">
-                    <a href="https://apps.apple.com/us/app/syft-learning/id6742674793">
-                        <img src="{% static 'app_store.svg' %}" alt="App Store" class="w-40">
-                    </a>
-                    <a href="https://syftlearning.app/app" class="button text-white text-center font-bold py-2 px-6 rounded-full shadow-lg whitespace-nowrap">Open Web App</a>
-                </div>
-            </div>
-
-            <!-- Step 2 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">2</div>
-                    <h2 class="text-xl font-bold">Login with the parent's account</h2>
-                </div>
-                <div class="flex justify-center mt-4">
-                    <img src="/static/screenshots/blank-home.png" alt="App home after sign-in" class="max-w-full shadow-lg">
-                </div>
-            </div>
-
-            <!-- Step 3 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">3</div>
-                    <h2 class="text-xl font-bold">Create the bots</h2>
-                </div>
-                <p class="text-gray-300 mb-4">Go to the bot editor and create a few bots.</p>
-                <div class="flex justify-center mb-4">
-                    <img src="/static/screenshots/settings-bots.png" alt="Bots" class="max-w-full shadow-lg">
-                </div>
-                <div class="space-y-4">
-                    <div class="flex justify-center">
-                        <img src="/static/screenshots/bot-editor-basic.png" alt="Basic bot editor" class="max-w-full shadow-lg">
-                    </div>
-                    <div class="flex justify-center">
-                        <img src="/static/screenshots/bot-editor-advanced.png" alt="Advanced bot editor" class="max-w-full shadow-lg">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 4 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">4</div>
-                    <h2 class="text-xl font-bold">Set a pin</h2>
-                </div>
-                <p class="text-gray-300 mb-4">Tap on the gear icon in the top right corner and choose Set Pin.</p>
-                <div class="space-y-4">
-                    <div class="flex justify-center">
-                        <img src="/static/screenshots/settings-icon.png" alt="Settings icon" class="shadow-lg">
-                    </div>
-                    <div class="flex justify-center">
-                        <img src="/static/screenshots/settings-set-pin.png" alt="Set pin" class="shadow-lg">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 5 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">5</div>
-                    <h2 class="text-xl font-bold">Add a profile for each student</h2>
-                </div>
-                <div class="space-y-4">
-                    <div class="flex justify-center">
-                        <img src="/static/screenshots/settings-profiles.png" alt="Profiles" class="shadow-lg">
-                    </div>
-                    <div class="flex justify-center">
-                        <img src="/static/screenshots/new-profile.png" alt="Add profile" class="shadow-lg">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 6 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">6</div>
-                    <h2 class="text-xl font-bold">Turn on notifications</h2>
-                </div>
-                <div class="space-y-4">
-                    <div class="flex justify-center">
-                        <img src="/static/screenshots/settings-notifications.png" alt="Notifications" class="shadow-lg">
-                    </div>
-                    <div class="flex justify-center">
-                        <img src="/static/screenshots/notifications.png" alt="Turn on notifications" class="shadow-lg">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 7 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">7</div>
-                    <h2 class="text-xl font-bold">Install the app on the student's phone</h2>
-                </div>
-                <div class="flex flex-col sm:flex-row justify-center items-center gap-4 mt-4">
-                    <a href="https://apps.apple.com/us/app/syft-learning/id6742674793">
-                        <img src="{% static 'app_store.svg' %}" alt="App Store" class="w-40">
-                    </a>
-                    <a href="https://syftlearning.app/app" class="button text-white text-center font-bold py-2 px-6 rounded-full shadow-lg whitespace-nowrap">Open Web App</a>
-                </div>
-            </div>
-
-            <!-- Step 8 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">8</div>
-                    <h2 class="text-xl font-bold">Invite your student to sign in</h2>
-                </div>
-                <p class="text-gray-300 mb-4">Open the profile editor and enter your student's Google or Apple email under "Student sign-in email". They will only see their own chats and flashcards — never Settings, bots, or billing.</p>
-                <div class="flex justify-center mt-4">
-                    <img src="/static/screenshots/new-profile.png" alt="Profile editor for student sign-in email" class="max-w-full shadow-lg">
-                </div>
-            </div>
-
-            <!-- Step 9 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">9</div>
-                    <h2 class="text-xl font-bold">Student - Sign in with their own Google or Apple account</h2>
-                </div>
-                <p class="text-gray-300 mb-4">On the student's device, install the app and tap Google or Apple sign-in using the invited email. The app locks to their profile automatically — no PIN, no profile picker.</p>
-                <div class="space-y-4">
-                    <div class="flex justify-center">
-                        <img src="/static/screenshots/settings-profiles.png" alt="Student profile" class="shadow-lg">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 10 -->
-            <div class="card p-6">
-                <div class="flex items-center mb-4">
-                    <div class="step-number mr-4">10</div>
-                    <h2 class="text-xl font-bold">Student - Select a bot and start chatting</h2>
-                </div>
-                <div class="flex justify-center mt-4">
-                    <img src="/static/screenshots/start-chat.png" alt="Student select bot" class="max-w-full shadow-lg">
-                </div>
-            </div>
-        </div>
-
-        <!-- Need Help Section -->
-        <div class="mt-12 text-center">
-            <h2 class="text-2xl font-bold mb-4">Need Help?</h2>
-            <p class="text-gray-300 mb-6">Our support team is here to assist you with any questions.</p>
-            <a href="/support" class="button py-3 px-8 rounded inline-block text-lg">Contact Support</a>
-        </div>
-
-        <!-- Footer -->
-        <div class="mt-16 text-center">
-            <div class="flex flex-wrap justify-center gap-4 mb-6">
-                <a href="/" class="text-sm hover:text-cyan-300 transition">Home</a>
-                <a href="/tutorial" class="text-sm hover:text-cyan-300 transition">Getting Started</a>
-                <a href="/support" class="text-sm hover:text-cyan-300 transition">Support</a>
-            </div>
-            <p class="text-xs text-gray-400 mb-2">Check the source code on <a href="https://github.com/tpaulshippy/bots" class="underline hover:text-cyan-300 transition">GitHub</a></p>
-            <p class="text-xs text-gray-400">&copy; 2025 Syft Learning. All rights reserved.</p>
-        </div>
-    </div>
+    </footer>
+    <script src="{% static 'site.js' %}"></script>
 </body>
 </html>

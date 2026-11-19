@@ -6,3 +6,5 @@ __pycache__/
 /back/
 # Generated Pages output (rebuilt in CI: expo export + node site/build.mjs).
 /site/dist/
+# Local PR screenshot scratch (before/after captures for gh pr edit --attach).
+/.pr-shots/

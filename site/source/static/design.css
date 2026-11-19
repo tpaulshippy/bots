@@ -25,9 +25,13 @@ html {
     scroll-padding-top: 76px;
 }
 
+html {
+    background: var(--deep);
+}
+
 body.page {
     margin: 0;
-    background: var(--deep);
+    background: transparent;
     color: var(--ink);
     min-height: 100vh;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -964,9 +968,7 @@ summary:focus-visible,
 }
 
 .progress {
-    position: sticky;
-    top: 57px;
-    z-index: 30;
+    position: static;
     height: 3px;
     background: rgba(255, 255, 255, 0.08);
 }
@@ -1310,13 +1312,8 @@ html:not(.js) .reveal {
 /* ---------- shared accessibility and compact navigation ---------- */
 
 body.page > .aurora {
-    z-index: 0;
+    z-index: -1;
     pointer-events: none;
-}
-
-body.page > :not(.aurora):not(.nav):not(.skip-link) {
-    position: relative;
-    z-index: 1;
 }
 
 .skip-link {
@@ -1342,8 +1339,8 @@ body.page > :not(.aurora):not(.nav):not(.skip-link) {
 
 .nav-toggle {
     display: none;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     flex: none;
     align-items: center;
     justify-content: center;
@@ -1437,8 +1434,8 @@ body.page > :not(.aurora):not(.nav):not(.skip-link) {
     }
 
     .nav-toggle {
-        width: 36px;
-        height: 36px;
+        width: 44px;
+        height: 44px;
     }
 
     .nav-cta {
@@ -1518,6 +1515,277 @@ body.page > :not(.aurora):not(.nav):not(.skip-link) {
     }
 }
 
+
+
+/* ---------- tutorial wayfinding ---------- */
+
+.tutorial-topbar {
+    position: sticky;
+    /* Desktop nav height: 12px x 2 inner padding + ~37px tallest item
+       (nav-cta button) + 1px border. Keeps the 3px progress strip visible. */
+    top: 64px;
+    z-index: 35;
+    background: rgba(2, 16, 24, 0.92);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.progress-meta {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 7px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    color: var(--ink-dim);
+    font-size: 12px;
+}
+
+.progress-meta [data-step-current] {
+    color: #eaf8fd;
+    font-weight: 700;
+}
+
+.progress-meta a {
+    color: var(--cyan);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.step-nav {
+    max-width: var(--max);
+    margin: 8px auto 24px;
+    padding: 0 20px;
+}
+
+.step-nav ol {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.step-nav a {
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 4px;
+    border-radius: 12px;
+    color: var(--ink-dim);
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--line);
+    text-decoration: none;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.step-nav a span {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.step-nav a small {
+    font-size: 10px;
+    line-height: 1.2;
+}
+
+.step-nav a:hover,
+.step-nav a[aria-current="step"] {
+    color: #fff;
+    background: rgba(0, 194, 234, 0.14);
+    border-color: rgba(0, 194, 234, 0.5);
+}
+
+.tut-step {
+    scroll-margin-top: 126px;
+}
+
+.tut-hero h1 {
+    margin-top: 18px;
+}
+
+.tutorial-actions {
+    margin-top: 22px;
+}
+
+.tut-step .cta-actions {
+    margin-top: 18px;
+}
+
+.tut-step > .shot.wide {
+    width: max-content;
+    max-width: 100%;
+    margin: 18px auto 0;
+}
+
+.tut-step .shots .shot {
+    margin: 0;
+}
+
+@media (max-width: 720px) {
+    /* Mobile nav height: 10px x 2 inner padding + 42px toggle + 1px border. */
+    .tutorial-topbar {
+        top: 64px;
+    }
+
+    .step-nav ol {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .step-nav a {
+        min-height: 50px;
+    }
+
+    .step-nav a small {
+        font-size: 9px;
+    }
+
+    .progress-meta {
+        padding: 7px 16px;
+    }
+
+    .tut-step {
+        scroll-margin-top: 116px;
+    }
+}
+
+
+/* ---------- tutorial guidance and completion states ---------- */
+
+.step-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 14px;
+    background: rgba(0, 194, 234, 0.08);
+    border: 1px solid rgba(0, 194, 234, 0.2);
+}
+
+.note-icon {
+    flex: none;
+    width: 25px;
+    height: 25px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #04222c;
+    background: var(--cyan);
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.step-note strong,
+.step-complete strong {
+    color: #fff;
+    font-size: 14px;
+}
+
+.tut-step .step-note p,
+.tut-step .step-complete p {
+    margin: 4px 0 0;
+    color: var(--ink-dim);
+    font-size: 13.5px;
+}
+
+.instruction-list {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: instruction;
+}
+
+.instruction-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    color: #dceef6;
+    font-size: 14px;
+    line-height: 1.5;
+    counter-increment: instruction;
+}
+
+.instruction-list li::before {
+    content: counter(instruction);
+    flex: none;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    color: var(--cyan);
+    background: rgba(0, 194, 234, 0.12);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.step-complete {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    margin-top: 18px;
+    padding: 18px;
+    border-radius: 16px;
+    background: rgba(86, 224, 176, 0.08);
+    border: 1px solid rgba(86, 224, 176, 0.24);
+}
+
+.complete-mark {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    color: #04222c;
+    background: linear-gradient(135deg, #8ef7c9, #34d399);
+    font-weight: 900;
+}
+
+.tutorial-faq .answer {
+    text-align: left;
+}
+
+@media (max-width: 720px) {
+    .step-complete {
+        grid-template-columns: auto 1fr;
+    }
+
+    .step-complete .btn {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+}
+
+.cta-short {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    .cta-short {
+        display: inline;
+    }
+
+    .cta-long {
+        display: none;
+    }
+}
+
+@media (max-width: 390px) {
+    /* Compact nav height: 10px x 2 inner padding + 36px toggle + 1px border. */
+    .tutorial-topbar {
+        top: 58px;
 /* ---------- support ---------- */
 .nav-links a[aria-current="page"] {
     color: #fff;

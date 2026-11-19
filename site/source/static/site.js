@@ -57,13 +57,42 @@
         });
     }
 
-    /* ---- tutorial reading progress ---- */
+    /* ---- tutorial reading progress and active step ---- */
     var progress = document.querySelector(".progress > span");
-    if (progress) {
+    var progressBar = document.querySelector(".progress[role='progressbar']");
+    var tutorialSteps = Array.prototype.slice.call(document.querySelectorAll("[data-tutorial-step]"));
+    var stepLinks = Array.prototype.slice.call(document.querySelectorAll("[data-step-link]"));
+    var stepStatus = document.querySelector("[data-step-current]");
+
+    if (progress && tutorialSteps.length) {
+        var activeStep = -1;
         var updateProgress = function () {
             var scrollable = document.documentElement.scrollHeight - window.innerHeight;
             var ratio = scrollable > 0 ? window.scrollY / scrollable : 0;
-            progress.style.width = Math.min(100, Math.max(0, ratio * 100)).toFixed(2) + "%";
+            var percentage = Math.min(100, Math.max(0, ratio * 100));
+            progress.style.width = percentage.toFixed(2) + "%";
+            if (progressBar) progressBar.setAttribute("aria-valuenow", Math.round(percentage).toString());
+
+            var activeIndex = 0;
+            var marker = window.innerHeight * 0.34;
+            tutorialSteps.forEach(function (step, index) {
+                if (step.getBoundingClientRect().top <= marker) activeIndex = index;
+            });
+            if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2) {
+                activeIndex = tutorialSteps.length - 1;
+            }
+
+            if (activeIndex !== activeStep) {
+                activeStep = activeIndex;
+                var current = tutorialSteps[activeIndex];
+                if (stepStatus) {
+                    stepStatus.textContent = "Step " + (activeIndex + 1) + " of " + tutorialSteps.length + " · " + current.getAttribute("data-step-label");
+                }
+                stepLinks.forEach(function (link, index) {
+                    if (index === activeIndex) link.setAttribute("aria-current", "step");
+                    else link.removeAttribute("aria-current");
+                });
+            }
         };
         updateProgress();
         window.addEventListener("scroll", updateProgress, { passive: true });
