@@ -22,6 +22,7 @@
 
 html {
     scroll-behavior: smooth;
+    scroll-padding-top: 76px;
 }
 
 body.page {
@@ -1295,6 +1296,13 @@ html:not(.js) .reveal {
         background: #fff;
         color: #111;
     }
+
+    body.page h1,
+    body.page h2,
+    body.page h3,
+    body.page h4 {
+        color: #111;
+    }
 }
 
 
@@ -1306,7 +1314,7 @@ body.page > .aurora {
     pointer-events: none;
 }
 
-body.page > :not(.aurora) {
+body.page > :not(.aurora):not(.nav):not(.skip-link) {
     position: relative;
     z-index: 1;
 }
@@ -1357,9 +1365,18 @@ body.page > :not(.aurora) {
 }
 
 @media (max-width: 720px) {
-    .nav-toggle {
+    html.js .nav-toggle {
         display: inline-flex;
         order: 2;
+    }
+
+    html:not(.js) .nav-toggle {
+        display: none;
+    }
+
+    html:not(.js) .nav-links {
+        flex-wrap: wrap;
+        row-gap: 8px;
     }
 
     .nav-cta {
@@ -1367,7 +1384,7 @@ body.page > :not(.aurora) {
         order: 3;
     }
 
-    .nav-links {
+    html.js .nav-links {
         display: none;
         position: absolute;
         top: calc(100% + 1px);
@@ -1385,7 +1402,7 @@ body.page > :not(.aurora) {
         box-shadow: 0 20px 35px rgba(0, 0, 0, 0.35);
     }
 
-    .nav-links.is-open {
+    html.js .nav-links.is-open {
         display: flex;
     }
 
@@ -1448,8 +1465,12 @@ body.page > :not(.aurora) {
     line-height: 1.45;
 }
 
+.shot figcaption {
+    padding: 0 14px 14px;
+}
+
 .panel .shot {
-    width: min(100%, 270px);
+    width: min(100%, 230px);
     justify-self: center;
     margin: 0;
 }
