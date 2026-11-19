@@ -63,13 +63,11 @@
                 <li><a href="#step-1" data-step-link aria-current="step" aria-label="Step 1: Install the parent app"><span>01</span><small>Install</small></a></li>
                 <li><a href="#step-2" data-step-link aria-label="Step 2: Sign in as a parent"><span>02</span><small>Sign in</small></a></li>
                 <li><a href="#step-3" data-step-link aria-label="Step 3: Create bots"><span>03</span><small>Bots</small></a></li>
-                <li><a href="#step-4" data-step-link aria-label="Step 4: Set a parent PIN"><span>04</span><small>PIN</small></a></li>
-                <li><a href="#step-5" data-step-link aria-label="Step 5: Add student profiles"><span>05</span><small>Profiles</small></a></li>
-                <li><a href="#step-6" data-step-link aria-label="Step 6: Set notifications"><span>06</span><small>Alerts</small></a></li>
-                <li><a href="#step-7" data-step-link aria-label="Step 7: Install the student app"><span>07</span><small>Install</small></a></li>
-                <li><a href="#step-8" data-step-link aria-label="Step 8: Invite your student"><span>08</span><small>Invite</small></a></li>
-                <li><a href="#step-9" data-step-link aria-label="Step 9: Student sign-in"><span>09</span><small>Student</small></a></li>
-                <li><a href="#step-10" data-step-link aria-label="Step 10: Start a chat"><span>10</span><small>Chat</small></a></li>
+                <li><a href="#step-4" data-step-link aria-label="Step 4: Add student profiles"><span>04</span><small>Profiles</small></a></li>
+                <li><a href="#step-5" data-step-link aria-label="Step 5: Set notifications"><span>05</span><small>Alerts</small></a></li>
+                <li><a href="#step-6" data-step-link aria-label="Step 6: Install the student app"><span>06</span><small>Install</small></a></li>
+                <li><a href="#step-7" data-step-link aria-label="Step 7: Student sign-in"><span>07</span><small>Student</small></a></li>
+                <li><a href="#step-8" data-step-link aria-label="Step 8: Start a chat"><span>08</span><small>Chat</small></a></li>
             </ol>
         </nav>
 
@@ -120,24 +118,11 @@
                     </div>
                 </article>
 
-                <article class="tut-step reveal" id="step-4" data-tutorial-step data-step-label="Set a parent PIN">
+                <article class="tut-step reveal" id="step-4" data-tutorial-step data-step-label="Add student profiles">
                     <span class="node" aria-hidden="true">4</span>
                     <span class="tag parent">Parent setup</span>
-                    <h2>Set a parent PIN</h2>
-                    <p>From Settings, choose Set PIN to help keep parent-only controls separate from a student's session.</p>
-                    <div class="shots">
-                        <figure class="shot">
-                            <img src="{% static 'screenshots/settings-set-pin.png' %}" alt="Set PIN option highlighted in Settings" width="360" height="779" loading="lazy" decoding="async">
-                            <figcaption>Choose Set PIN from Settings.</figcaption>
-                        </figure>
-                    </div>
-                </article>
-
-                <article class="tut-step reveal" id="step-5" data-tutorial-step data-step-label="Add student profiles">
-                    <span class="node" aria-hidden="true">5</span>
-                    <span class="tag parent">Parent setup</span>
                     <h2>Add a profile for each student</h2>
-                    <p>Create a separate profile for every student who will use the family account. Give the profile the student's name and add their Google or Apple sign-in email so they can sign in later.</p>
+                    <p>Create a separate profile for every student who will use the family account. Give the profile the student's name and add their Google or Apple sign-in email — that email is the invite. The student signs in with it on their own device, so there is no PIN to set or share.</p>
                     <div class="shots">
                         <figure class="shot">
                             <img src="{% static 'screenshots/settings-profiles.png' %}" alt="Profiles option highlighted in Settings" width="360" height="779" loading="lazy" decoding="async">
@@ -150,8 +135,8 @@
                     </div>
                 </article>
 
-                <article class="tut-step reveal" id="step-6" data-tutorial-step data-step-label="Set notifications">
-                    <span class="node" aria-hidden="true">6</span>
+                <article class="tut-step reveal" id="step-5" data-tutorial-step data-step-label="Set notifications">
+                    <span class="node" aria-hidden="true">5</span>
                     <span class="tag parent">Parent setup</span>
                     <h2>Choose your notification settings</h2>
                     <p>Open Notifications in Settings and enable the conversation updates you want to receive. If your device asks, allow notifications for Syft Learning there too.</p>
@@ -163,8 +148,8 @@
                     </div>
                 </article>
 
-                <article class="tut-step reveal" id="step-7" data-tutorial-step data-step-label="Install the student app">
-                    <span class="node" aria-hidden="true">7</span>
+                <article class="tut-step reveal" id="step-6" data-tutorial-step data-step-label="Install the student app">
+                    <span class="node" aria-hidden="true">6</span>
                     <span class="tag parent">Parent setup</span>
                     <h2>Install Syft on the student's device</h2>
                     <p>The student can use the iPhone app or sign in through the web app.</p>
@@ -174,33 +159,22 @@
                     </div>
                 </article>
 
-                <article class="tut-step reveal" id="step-8" data-tutorial-step data-step-label="Invite your student">
-                    <span class="node" aria-hidden="true">8</span>
-                    <span class="tag parent">Parent setup</span>
-                    <h2>Invite your student to sign in</h2>
-                    <p>In the student's profile, enter the email address they will use with Google or Apple sign-in. The student session is limited to their learning area.</p>
-                    <div class="step-note">
-                        <span class="note-icon" aria-hidden="true">i</span>
-                        <div><strong>Use the email they will sign in with.</strong><p>Enter the student's Google or Apple email in the Student sign-in email field in their profile.</p></div>
-                    </div>
-                </article>
-
                 <h2 class="tut-group" id="student-setup">Set up as a student</h2>
 
-                <article class="tut-step reveal" id="step-9" data-tutorial-step data-step-label="Student sign-in">
-                    <span class="node" aria-hidden="true">9</span>
+                <article class="tut-step reveal" id="step-7" data-tutorial-step data-step-label="Student sign-in">
+                    <span class="node" aria-hidden="true">7</span>
                     <span class="tag student">Student setup</span>
-                    <h2>Sign in with the invited Google or Apple account</h2>
-                    <p>On the student's device, choose the sign-in option that matches the invited email. Syft opens the student's profile without the parent PIN or profile picker.</p>
+                    <h2>Sign in with the student's own account</h2>
+                    <p>On the student's device, sign in with the same Google or Apple email the parent added to the student's profile. Syft opens the student's own space directly — no parent login, no PIN, no profile picker.</p>
                     <ul class="instruction-list">
                         <li>Check which email the parent added to the profile.</li>
                         <li>Choose Google or Apple sign-in with that same email.</li>
-                        <li>Continue into the student's learning area.</li>
+                        <li>Continue straight into the student's learning area.</li>
                     </ul>
                 </article>
 
-                <article class="tut-step reveal" id="step-10" data-tutorial-step data-step-label="Start a chat">
-                    <span class="node" aria-hidden="true">10</span>
+                <article class="tut-step reveal" id="step-8" data-tutorial-step data-step-label="Start a chat">
+                    <span class="node" aria-hidden="true">8</span>
                     <span class="tag student">Student setup</span>
                     <h2>Choose a bot and start chatting</h2>
                     <p>Select a bot and ask a question, explore an idea or start a study session.</p>
@@ -226,8 +200,8 @@
                     <div class="answer">Check that notifications are enabled in Syft's Settings and allowed for the app in the device's notification settings.</div>
                 </details>
                 <details>
-                    <summary>Where can I get help with a parent PIN?</summary>
-                    <div class="answer">Contact support and tell us what you need help with. Do not include your PIN in the message.</div>
+                    <summary>Does the student need the parent's login?</summary>
+                    <div class="answer">No. The student signs in on their own device with the Google or Apple email the parent added to their profile, and lands straight in their own learning area.</div>
                 </details>
             </div>
             <div class="cta-actions">
