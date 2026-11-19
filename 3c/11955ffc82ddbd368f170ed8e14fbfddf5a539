@@ -1,0 +1,18 @@
+site/source/static/design.css
+  h_6bbd00fe0a456a 1334-1335,1420-1421,1747-1762
+site/source/templates/marketing.html
+  h_6bbd00fe0a456a 9-13,26,38,55-58,62,143,145,149,171
+site/source/templates/tutorial.html
+  h_6bbd00fe0a456a 9-13,26,38,109,113,117,130,143,147,160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3c11955ffc82ddbd368f170ed8e14fbfddf5a539",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
