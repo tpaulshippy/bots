@@ -22,6 +22,7 @@
 
 html {
     scroll-behavior: smooth;
+    scroll-padding-top: 76px;
 }
 
 html {
@@ -1297,6 +1298,13 @@ html:not(.js) .reveal {
         background: #fff;
         color: #111;
     }
+
+    body.page h1,
+    body.page h2,
+    body.page h3,
+    body.page h4 {
+        color: #111;
+    }
 }
 
 
@@ -1354,9 +1362,18 @@ body.page > .aurora {
 }
 
 @media (max-width: 720px) {
-    .nav-toggle {
+    html.js .nav-toggle {
         display: inline-flex;
         order: 2;
+    }
+
+    html:not(.js) .nav-toggle {
+        display: none;
+    }
+
+    html:not(.js) .nav-links {
+        flex-wrap: wrap;
+        row-gap: 8px;
     }
 
     .nav-cta {
@@ -1364,7 +1381,7 @@ body.page > .aurora {
         order: 3;
     }
 
-    .nav-links {
+    html.js .nav-links {
         display: none;
         position: absolute;
         top: calc(100% + 1px);
@@ -1382,7 +1399,7 @@ body.page > .aurora {
         box-shadow: 0 20px 35px rgba(0, 0, 0, 0.35);
     }
 
-    .nav-links.is-open {
+    html.js .nav-links.is-open {
         display: flex;
     }
 
@@ -1445,8 +1462,12 @@ body.page > .aurora {
     line-height: 1.45;
 }
 
+.shot figcaption {
+    padding: 0 14px 14px;
+}
+
 .panel .shot {
-    width: min(100%, 270px);
+    width: min(100%, 230px);
     justify-self: center;
     margin: 0;
 }
@@ -1500,7 +1521,9 @@ body.page > .aurora {
 
 .tutorial-topbar {
     position: sticky;
-    top: 57px;
+    /* Desktop nav height: 12px x 2 inner padding + ~37px tallest item
+       (nav-cta button) + 1px border. Keeps the 3px progress strip visible. */
+    top: 64px;
     z-index: 35;
     background: rgba(2, 16, 24, 0.92);
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
@@ -1607,8 +1630,9 @@ body.page > .aurora {
 }
 
 @media (max-width: 720px) {
+    /* Mobile nav height: 10px x 2 inner padding + 42px toggle + 1px border. */
     .tutorial-topbar {
-        top: 56px;
+        top: 64px;
     }
 
     .step-nav ol {
@@ -1632,7 +1656,6 @@ body.page > .aurora {
         scroll-margin-top: 116px;
     }
 }
-
 
 
 /* ---------- tutorial guidance and completion states ---------- */
@@ -1742,5 +1765,12 @@ body.page > .aurora {
     .step-complete .btn {
         grid-column: 1 / -1;
         width: 100%;
+    }
+}
+
+@media (max-width: 390px) {
+    /* Compact nav height: 10px x 2 inner padding + 36px toggle + 1px border. */
+    .tutorial-topbar {
+        top: 58px;
     }
 }
