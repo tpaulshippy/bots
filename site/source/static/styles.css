@@ -30,3 +30,12 @@ body {
 .button:hover {
     background-color: #0a7ea4;
 }
+
+
+.button:focus-visible,
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 3px;
+}
