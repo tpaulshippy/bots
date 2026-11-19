@@ -6,11 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Thoughtful AI tutoring for students, with customizable bots and parent tools to help shape a safer learning experience.">
     <meta name="theme-color" content="#02161d">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Syft Learning — AI tutoring with parents in the loop">
+    <meta property="og:description" content="Thoughtful AI tutoring for students, with customizable bots and parent tools.">
+    <meta property="og:url" content="https://syftlearning.app/">
+    <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://syftlearning.app/">
     <title>Syft Learning — AI tutoring with parents in the loop</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" href="{% static 'favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'styles.css' %}">
     <link rel="stylesheet" href="{% static 'design.css' %}">
 </head>
 <body class="page">
@@ -20,7 +23,7 @@
     <header class="nav">
         <div class="nav-inner">
             <a class="brand" href="/" aria-label="Syft Learning home">
-                <img src="{% static 'splash-icon.png' %}" alt="">
+                <img src="{% static 'splash-icon.png' %}" alt="" width="32" height="32">
                 <span>SYFT LEARNING</span>
             </a>
             <button class="nav-toggle" type="button" data-nav-toggle aria-controls="primary-nav" aria-expanded="false" aria-label="Open navigation">
@@ -32,7 +35,7 @@
                 <a href="/tutorial/">Getting started</a>
                 <a href="/support/">Support</a>
             </nav>
-            <a class="btn btn-primary btn-sm nav-cta" href="/app">Try the web app <span aria-hidden="true">→</span></a>
+            <a class="btn btn-primary btn-sm nav-cta" href="/app"><span class="cta-long">Try the web app</span><span class="cta-short">Try free</span><span aria-hidden="true">→</span></a>
         </div>
     </header>
 
@@ -49,14 +52,14 @@
                             <img src="{% static 'app_store.svg' %}" alt="Download on the App Store" width="120" height="40">
                         </a>
                     </div>
-                    <div class="hero-meta" aria-label="Highlights">
-                        <span><span class="dot" aria-hidden="true"></span> Parent-managed bots</span>
-                        <span>Custom student profiles</span>
-                        <span>Free plan available</span>
+                    <div class="hero-meta" role="list" aria-label="Highlights">
+                        <span role="listitem"><span class="dot" aria-hidden="true"></span> Parent-managed bots</span>
+                        <span role="listitem">Custom student profiles</span>
+                        <span role="listitem">Free plan available</span>
                     </div>
                 </div>
 
-                <div class="hero-visual reveal" aria-label="Illustration of a student learning with an AI tutor">
+                <div class="hero-visual reveal" role="img" aria-label="Illustration of a student learning with an AI tutor">
                     <div class="phone" aria-hidden="true">
                         <div class="phone-screen">
                             <div class="chat-head">
@@ -137,13 +140,13 @@
                             <p>Choose bot names, behavior and settings that make sense for the student using them. Start simple and refine the setup over time.</p>
                             <a class="btn btn-ghost btn-sm" href="/tutorial/">Explore the setup guide <span aria-hidden="true">→</span></a>
                         </div>
-                        <div class="tile-phone" aria-label="Screenshots of profile and bot settings">
+                        <div class="tile-phone" role="group" aria-label="Screenshots of profile and bot settings">
                             <figure>
-                                <img src="{% static 'screenshots/select-profile.png' %}" alt="Student profiles in the Syft app" width="360" height="779" loading="lazy">
+                                <img src="{% static 'screenshots/select-profile.png' %}" alt="Student profiles in the Syft app" width="360" height="779" loading="lazy" decoding="async">
                                 <figcaption>Student profiles</figcaption>
                             </figure>
                             <figure>
-                                <img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Bot editor with content restrictions enabled" width="360" height="618" loading="lazy">
+                                <img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Bot editor with content restrictions enabled" width="360" height="618" loading="lazy" decoding="async">
                                 <figcaption>Bot settings</figcaption>
                             </figure>
                         </div>
@@ -165,7 +168,7 @@
                     </ul>
                 </div>
                 <figure class="shot reveal">
-                    <img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Syft bot editor showing content restriction controls" width="360" height="618" loading="lazy">
+                    <img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Syft bot editor showing content restriction controls" width="360" height="618" loading="lazy" decoding="async">
                     <figcaption>Parents can configure a bot's instructions and content restrictions.</figcaption>
                 </figure>
             </div>

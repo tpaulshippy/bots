@@ -6,11 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Follow a clear, step-by-step guide to set up Syft Learning for parents and students.">
     <meta name="theme-color" content="#02161d">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Getting started with Syft Learning">
+    <meta property="og:description" content="Follow a clear, step-by-step guide to set up Syft Learning for parents and students.">
+    <meta property="og:url" content="https://syftlearning.app/tutorial/">
+    <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://syftlearning.app/tutorial/">
     <title>Getting started with Syft Learning</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" href="{% static 'favicon.png' %}">
-    <link rel="stylesheet" href="{% static 'styles.css' %}">
     <link rel="stylesheet" href="{% static 'design.css' %}">
 </head>
 <body class="page">
@@ -20,7 +23,7 @@
     <header class="nav">
         <div class="nav-inner">
             <a class="brand" href="/" aria-label="Syft Learning home">
-                <img src="{% static 'splash-icon.png' %}" alt="">
+                <img src="{% static 'splash-icon.png' %}" alt="" width="32" height="32">
                 <span>SYFT LEARNING</span>
             </a>
             <button class="nav-toggle" type="button" data-nav-toggle aria-controls="primary-nav" aria-expanded="false" aria-label="Open navigation">
@@ -32,7 +35,7 @@
                 <a href="/tutorial/" aria-current="page">Getting started</a>
                 <a href="/support/">Support</a>
             </nav>
-            <a class="btn btn-primary btn-sm nav-cta" href="/app">Try the web app <span aria-hidden="true">→</span></a>
+            <a class="btn btn-primary btn-sm nav-cta" href="/app"><span class="cta-long">Try the web app</span><span class="cta-short">Try free</span><span aria-hidden="true">→</span></a>
         </div>
     </header>
 
@@ -103,15 +106,15 @@
                     <p>Open the bot editor to create assistants for different subjects, interests or learning styles.</p>
                     <div class="shots">
                         <figure class="shot">
-                            <img src="{% static 'screenshots/settings-bots.png' %}" alt="Settings menu with Bots selected" width="360" height="779" loading="lazy">
+                            <img src="{% static 'screenshots/settings-bots.png' %}" alt="Settings menu with Bots selected" width="360" height="779" loading="lazy" decoding="async">
                             <figcaption>Open Settings → Bots.</figcaption>
                         </figure>
                         <figure class="shot">
-                            <img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Bot editor with content restriction switches enabled" width="360" height="618" loading="lazy">
+                            <img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Bot editor with content restriction switches enabled" width="360" height="618" loading="lazy" decoding="async">
                             <figcaption>Set the bot's content restrictions.</figcaption>
                         </figure>
                         <figure class="shot">
-                            <img src="{% static 'screenshots/bot-editor-advanced.png' %}" alt="Bot editor with a custom model and instructions" width="360" height="620" loading="lazy">
+                            <img src="{% static 'screenshots/bot-editor-advanced.png' %}" alt="Bot editor with a custom model and instructions" width="360" height="620" loading="lazy" decoding="async">
                             <figcaption>Customize its instructions and model.</figcaption>
                         </figure>
                     </div>
@@ -124,7 +127,7 @@
                     <p>From Settings, choose Set PIN to help keep parent-only controls separate from a student's session.</p>
                     <div class="shots">
                         <figure class="shot">
-                            <img src="{% static 'screenshots/settings-set-pin.png' %}" alt="Set PIN option highlighted in Settings" width="360" height="779" loading="lazy">
+                            <img src="{% static 'screenshots/settings-set-pin.png' %}" alt="Set PIN option highlighted in Settings" width="360" height="779" loading="lazy" decoding="async">
                             <figcaption>Choose Set PIN from Settings.</figcaption>
                         </figure>
                     </div>
@@ -137,11 +140,11 @@
                     <p>Create a separate profile for every student who will use the family account.</p>
                     <div class="shots">
                         <figure class="shot">
-                            <img src="{% static 'screenshots/settings-profiles.png' %}" alt="Profiles option highlighted in Settings" width="360" height="779" loading="lazy">
+                            <img src="{% static 'screenshots/settings-profiles.png' %}" alt="Profiles option highlighted in Settings" width="360" height="779" loading="lazy" decoding="async">
                             <figcaption>Open Profiles from Settings.</figcaption>
                         </figure>
                         <figure class="shot">
-                            <img src="{% static 'screenshots/select-profile.png' %}" alt="Student profile choices in the app" width="360" height="779" loading="lazy">
+                            <img src="{% static 'screenshots/select-profile.png' %}" alt="Student profile choices in the app" width="360" height="779" loading="lazy" decoding="async">
                             <figcaption>Profiles keep each student's learning separate.</figcaption>
                         </figure>
                     </div>
@@ -154,7 +157,7 @@
                     <p>Open Notifications in Settings and enable the conversation updates you want to receive. If your device asks, allow notifications for Syft Learning there too.</p>
                     <div class="shots">
                         <figure class="shot">
-                            <img src="{% static 'screenshots/settings-notifications.png' %}" alt="Notifications option highlighted in Settings" width="360" height="779" loading="lazy">
+                            <img src="{% static 'screenshots/settings-notifications.png' %}" alt="Notifications option highlighted in Settings" width="360" height="779" loading="lazy" decoding="async">
                             <figcaption>Open Notifications from Settings.</figcaption>
                         </figure>
                     </div>

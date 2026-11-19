@@ -1331,8 +1331,8 @@ body.page > .aurora {
 
 .nav-toggle {
     display: none;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     flex: none;
     align-items: center;
     justify-content: center;
@@ -1417,8 +1417,8 @@ body.page > .aurora {
     }
 
     .nav-toggle {
-        width: 36px;
-        height: 36px;
+        width: 44px;
+        height: 44px;
     }
 
     .nav-cta {
@@ -1742,5 +1742,21 @@ body.page > .aurora {
     .step-complete .btn {
         grid-column: 1 / -1;
         width: 100%;
+    }
+}
+
+
+
+.cta-short {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    .cta-short {
+        display: inline;
+    }
+
+    .cta-long {
+        display: none;
     }
 }
