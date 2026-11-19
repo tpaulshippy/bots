@@ -79,81 +79,97 @@
             </div>
         </section>
 
-        <!-- Card Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto px-4" id="families">
-            <!-- For Teens Card -->
-            <div class="card card-static p-6 flex flex-col">
-                <h3 class="text-lg font-bold mb-4">For Students</h3>
-                <p class="text-sm text-gray-300 mb-6">Access to an AI-powered bot to answer questions, write stories, and learn how to sift through results.</p>
-            </div>
-
-            <!-- For Parents Card -->
-            <div class="card card-static p-6 flex flex-col">
-                <h3 class="text-lg font-bold mb-4">For Parents</h3>
-                <p class="text-sm text-gray-300 mb-6">Give your students access to customizable bots, filter unwanted content, and access conversations with notifications.</p>
-            </div>
-
-            <!-- Safe Interactions Card -->
-            <div class="card card-static p-6 flex flex-col">
-                <h3 class="text-lg font-bold mb-4">Safe Interactions</h3>
-                <p class="text-sm text-gray-300 mb-6">Built-in content filters and moderation tools ensure appropriate AI responses for student users.</p>
-                <div class="mt-auto">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs">Safety Level</span>
-                        <span class="text-xs">High</span>
-                    </div>
-                    <div class="w-full bg-gray-700 rounded-full h-2 mb-4">
-                        <div class="h-2 rounded-full" style="width: 90%; background-color: #00a4c9"></div>
-                    </div>
+        <section class="section" id="how-it-works" aria-labelledby="how-title">
+            <div class="wrap">
+                <div class="section-head reveal">
+                    <span class="eyebrow">A thoughtful start</span>
+                    <h2 class="title-lg" id="how-title">A better learning rhythm for your family</h2>
+                    <p class="lede">Start with the adults, make the space yours, then let students explore with guidance that fits your family.</p>
+                </div>
+                <div class="steps3">
+                    <article class="step3 reveal">
+                        <span class="num" aria-hidden="true">01</span>
+                        <h3>Set up as a parent</h3>
+                        <p>Create your account and choose the bots and settings your family wants to use.</p>
+                    </article>
+                    <article class="step3 reveal" style="--d:.08s">
+                        <span class="num" aria-hidden="true">02</span>
+                        <h3>Make a student profile</h3>
+                        <p>Give each student a profile and, if you choose, invite them to sign in on their own device.</p>
+                    </article>
+                    <article class="step3 reveal" style="--d:.16s">
+                        <span class="num" aria-hidden="true">03</span>
+                        <h3>Keep learning together</h3>
+                        <p>Students can chat and study while parents can review activity and receive notifications.</p>
+                    </article>
                 </div>
             </div>
+        </section>
 
-            <!-- Custom AI Assistants -->
-            <div class="card card-static p-6 flex flex-col">
-                <h3 class="text-lg font-bold mb-4">Custom AI Assistants</h3>
-                <p class="text-sm text-gray-300 mb-6">Create personalized AI bots specialized for different subjects and learning styles.</p>
-            </div>
+        <section class="section" id="families" aria-labelledby="families-title">
+            <div class="wrap">
+                <div class="section-head reveal">
+                    <span class="eyebrow">Made for both sides of learning</span>
+                    <h2 class="title-lg" id="families-title">Independent curiosity. Thoughtful oversight.</h2>
+                    <p class="lede">Students get helpful tools to explore. Parents stay in control of the setup and can check in on activity.</p>
+                </div>
+                <div class="tiles">
+                    <article class="tile reveal">
+                        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 5.5v15M8 7h8M8 10h8"/></svg></span>
+                        <h3>Build a bot for the moment</h3>
+                        <p>Set up custom assistants for different subjects, interests or ways of learning.</p>
+                    </article>
+                    <article class="tile reveal" style="--d:.08s">
+                        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3 19 6v5c0 4.5-3 7.8-7 10-4-2.2-7-5.5-7-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
+                        <h3>Choose the guardrails</h3>
+                        <p>Configure bot instructions and content restrictions to fit the experience you want to provide.</p>
+                    </article>
+                    <article class="tile reveal" style="--d:.16s">
+                        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16v12H8l-4 3z"/><path d="M8 9h8M8 13h5"/></svg></span>
+                        <h3>Stay connected</h3>
+                        <p>Review student activity and use notifications to keep up with conversations.</p>
+                    </article>
 
-            <!-- Subscription Options -->
-            <div class="card card-static p-6 flex flex-col" id="plans">
-                <h3 class="text-lg font-bold mb-4">Subscription Options</h3>
-                <ul class="text-sm text-gray-300 mb-6 space-y-2">
-                    <li>• Free: ~3K tokens per day*</li>
-                    <li>• Basic ($1/mo): ~312K tokens per day*</li>
-                    <li>• Plus ($5/mo): ~1.67M tokens per day*</li>
-                </ul>
-                <p class="text-xs text-gray-400 mt-auto">*Token estimates based on Nova 2 Lite, the default model. Heavier models such as Claude consume the allowance faster. Figures match the in-app subscription screen.</p>
-            </div>
-
-            <!-- Administrator Controls -->
-            <div class="card card-static p-6 flex flex-col">
-                <h3 class="text-lg font-bold mb-4">Administrator Controls</h3>
-                <p class="text-sm text-gray-300 mb-6">Comprehensive settings for parents to monitor and customize their student's AI learning experience.</p>
-                <div class="mt-auto space-y-2">
-                    <div class="w-full bg-gray-700 rounded p-2 text-xs">Content filtering</div>
-                    <div class="w-full bg-gray-700 rounded p-2 text-xs">Topic restrictions</div>
+                    <article class="tile tile-wide reveal">
+                        <div>
+                            <span class="eyebrow">Your family, your setup</span>
+                            <h3>Make the learning space feel personal</h3>
+                            <p>Choose bot names, behavior and settings that make sense for the student using them. Start simple and refine the setup over time.</p>
+                            <a class="btn btn-ghost btn-sm" href="/tutorial/">Explore the setup guide <span aria-hidden="true">→</span></a>
+                        </div>
+                        <div class="tile-phone" role="group" aria-label="Screenshots of profile and bot settings">
+                            <figure>
+                                <img src="{% static 'screenshots/select-profile.png' %}" alt="Student profiles in the Syft app" width="360" height="779" loading="lazy">
+                                <figcaption>Student profiles</figcaption>
+                            </figure>
+                            <figure>
+                                <img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Bot editor with content restrictions enabled" width="360" height="618" loading="lazy">
+                                <figcaption>Bot settings</figcaption>
+                            </figure>
+                        </div>
+                    </article>
                 </div>
             </div>
+        </section>
 
-            <!-- Getting Started Card -->
-            <div class="card p-6 flex flex-col">
-                <h3 class="text-lg font-bold mb-4">Getting Started</h3>
-                <p class="text-sm text-gray-300 mb-6">Learn how to set up our product effectively.</p>
-                <a href="/tutorial/" class="button text-white text-center font-bold py-2 px-6 rounded-full text-lg shadow-lg whitespace-nowrap">View Tutorial</a>
-            </div>
-
-            <!-- Download Now Card -->
-            <div class="card p-6 flex flex-col">
-                <h3 class="text-lg font-bold mb-4">Download Now</h3>
-                <p class="text-sm text-gray-300 mb-6">Get the Syft Learning app today — or use it right in your browser!</p>
-                <div class="flex flex-col justify-center items-center gap-3 mt-4">
-                    <a href="https://apps.apple.com/us/app/syft-learning/id6742674793">
-                        <img src="{% static 'app_store.svg' %}" alt="Download on the App Store" class="w-40">
-                    </a>
-                    <a href="/app" class="button text-white text-center font-bold py-2 px-6 rounded-full w-40 whitespace-nowrap">Open Web App</a>
+        <section class="section" aria-labelledby="safety-title">
+            <div class="wrap panel panel-grid">
+                <div class="reveal">
+                    <span class="eyebrow">Designed for family-managed learning</span>
+                    <h2 class="title-lg" id="safety-title">Set expectations before the first chat.</h2>
+                    <p class="lede">Syft gives parents tools to customize the AI experience and keep an eye on how students use it.</p>
+                    <ul class="checks">
+                        <li><span class="tick" aria-hidden="true">✓</span><span>Customize bots and their instructions.</span></li>
+                        <li><span class="tick" aria-hidden="true">✓</span><span>Set content restrictions for student-facing bots.</span></li>
+                        <li><span class="tick" aria-hidden="true">✓</span><span>Review conversations and manage student profiles.</span></li>
+                    </ul>
                 </div>
+                <figure class="shot reveal">
+                    <img src="{% static 'screenshots/bot-editor-advanced.png' %}" alt="Syft advanced bot editor settings" width="360" height="618" loading="lazy">
+                    <figcaption>Parents can configure a bot's instructions and content restrictions.</figcaption>
+                </figure>
             </div>
-        </div>
+        </section>
     </main>
 
     <footer class="footer">

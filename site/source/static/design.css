@@ -1446,3 +1446,31 @@ body.page > :not(.aurora):not(.nav):not(.skip-link) {
         font-size: 12px;
     }
 }
+
+
+
+/* ---------- product screenshot captions ---------- */
+
+.tile-phone figure {
+    flex: 0 1 148px;
+    margin: 0;
+    text-align: center;
+}
+
+.tile-phone figcaption,
+.shot figcaption {
+    margin-top: 9px;
+    color: var(--ink-dim);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.shot figcaption {
+    padding: 0 14px 14px;
+}
+
+.panel .shot {
+    width: min(100%, 230px);
+    justify-self: center;
+    margin: 0;
+}
