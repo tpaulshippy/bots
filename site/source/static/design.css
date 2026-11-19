@@ -1531,6 +1531,12 @@ body.page > :not(.aurora):not(.nav):not(.skip-link) {
     text-align: center;
 }
 
+.hero-center .hero-copy .lede {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}
+
 .support-grid {
     align-items: start;
 }
