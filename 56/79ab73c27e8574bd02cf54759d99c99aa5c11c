@@ -1,0 +1,14 @@
+site/source/templates/marketing.html
+  h_6bbd00fe0a456a 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5679ab73c27e8574bd02cf54759d99c99aa5c11c",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
