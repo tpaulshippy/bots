@@ -175,7 +175,7 @@ export default function SubscriptionScreen() {
       >
         <ThemedText style={styles.subscribeButtonText}>Restore Purchases</ThemedText>
       </ThemedButton>
-      <ThemedText style={styles.footnote}>* Token estimates based on Nova Lite, priced the same as the default Nova 2 Lite. Heavier models consume the allowance faster.</ThemedText>
+      <ThemedText style={styles.footnote}>* Token estimates based on Nova 2 Lite, the default model. Heavier models consume the allowance faster.</ThemedText>
     </ScrollView>
     )}
     </>
