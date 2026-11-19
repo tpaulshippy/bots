@@ -1,0 +1,14 @@
+site/source/static/styles.css
+  h_6bbd00fe0a456a 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "600570594e98d97416691d69e83cb53f8ffddc70",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
