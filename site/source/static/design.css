@@ -1786,5 +1786,119 @@ body.page > .aurora {
     /* Compact nav height: 10px x 2 inner padding + 36px toggle + 1px border. */
     .tutorial-topbar {
         top: 58px;
+/* ---------- support ---------- */
+.nav-links a[aria-current="page"] {
+    color: #fff;
+    background: rgba(127, 227, 255, 0.14);
+    border-color: rgba(127, 227, 255, 0.35);
+}
+
+.hero-center {
+    max-width: 760px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.hero-center .hero-copy .lede {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}
+
+.support-grid {
+    align-items: start;
+}
+
+.support-grid a,
+.support-alt a {
+    color: var(--cyan);
+    text-underline-offset: 3px;
+}
+
+.support-note {
+    margin: 20px 0 0;
+    color: var(--ink-dim);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.form-panel {
+    padding: 28px;
+    border-radius: var(--radius);
+    background: rgba(2, 16, 24, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.field {
+    display: grid;
+    gap: 8px;
+    margin: 0 0 14px;
+}
+
+.field label {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+}
+
+.field input,
+.field textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(2, 22, 29, 0.8);
+    color: var(--ink);
+    font: inherit;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.field input:focus-visible,
+.field textarea:focus-visible {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(127, 227, 255, 0.25);
+}
+
+.field textarea {
+    min-height: 140px;
+    resize: vertical;
+}
+
+.btn-block {
+    width: 100%;
+    justify-content: center;
+}
+
+.form-panel .form-status {
+    margin: 14px 0 0;
+    min-height: 1.5em;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-dim);
+}
+
+.support-alt {
+    margin-top: 22px;
+    text-align: center;
+    color: var(--ink-dim);
+    font-size: 15px;
+}
+
+@media (max-width: 720px) {
+    .field-row {
+        grid-template-columns: 1fr;
+    }
+
+    .form-panel {
+        padding: 22px;
     }
 }
