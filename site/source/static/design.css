@@ -1632,3 +1632,115 @@ body.page > .aurora {
         scroll-margin-top: 116px;
     }
 }
+
+
+
+/* ---------- tutorial guidance and completion states ---------- */
+
+.step-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 14px;
+    background: rgba(0, 194, 234, 0.08);
+    border: 1px solid rgba(0, 194, 234, 0.2);
+}
+
+.note-icon {
+    flex: none;
+    width: 25px;
+    height: 25px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #04222c;
+    background: var(--cyan);
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.step-note strong,
+.step-complete strong {
+    color: #fff;
+    font-size: 14px;
+}
+
+.tut-step .step-note p,
+.tut-step .step-complete p {
+    margin: 4px 0 0;
+    color: var(--ink-dim);
+    font-size: 13.5px;
+}
+
+.instruction-list {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: instruction;
+}
+
+.instruction-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    color: #dceef6;
+    font-size: 14px;
+    line-height: 1.5;
+    counter-increment: instruction;
+}
+
+.instruction-list li::before {
+    content: counter(instruction);
+    flex: none;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    color: var(--cyan);
+    background: rgba(0, 194, 234, 0.12);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.step-complete {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    margin-top: 18px;
+    padding: 18px;
+    border-radius: 16px;
+    background: rgba(86, 224, 176, 0.08);
+    border: 1px solid rgba(86, 224, 176, 0.24);
+}
+
+.complete-mark {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    color: #04222c;
+    background: linear-gradient(135deg, #8ef7c9, #34d399);
+    font-weight: 900;
+}
+
+.tutorial-faq .answer {
+    text-align: left;
+}
+
+@media (max-width: 720px) {
+    .step-complete {
+        grid-template-columns: auto 1fr;
+    }
+
+    .step-complete .btn {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+}

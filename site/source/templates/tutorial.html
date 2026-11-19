@@ -90,9 +90,10 @@
                     <span class="tag parent">Parent setup</span>
                     <h2>Sign in with the parent's account</h2>
                     <p>Use the adult account that will manage bots, student profiles and family settings.</p>
-                    <figure class="shot wide">
-                        <img src="{% static 'screenshots/blank-home.png' %}" alt="Syft Learning home screen after sign-in" width="360" height="779" loading="lazy">
-                    </figure>
+                    <div class="step-note">
+                        <span class="note-icon" aria-hidden="true">i</span>
+                        <div><strong>Start with the adult account.</strong><p>Sign in with your Google or Apple account, then use this account to set up the family.</p></div>
+                    </div>
                 </article>
 
                 <article class="tut-step reveal" id="step-3" data-tutorial-step data-step-label="Create bots">
@@ -101,9 +102,18 @@
                     <h2>Create bots for your student</h2>
                     <p>Open the bot editor to create assistants for different subjects, interests or learning styles.</p>
                     <div class="shots">
-                        <figure class="shot"><img src="{% static 'screenshots/settings-bots.png' %}" alt="Settings menu with Bots selected" width="360" height="779" loading="lazy"></figure>
-                        <figure class="shot"><img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Basic bot editor with content restrictions" width="360" height="618" loading="lazy"></figure>
-                        <figure class="shot"><img src="{% static 'screenshots/bot-editor-advanced.png' %}" alt="Advanced bot editor with custom instructions" width="360" height="620" loading="lazy"></figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/settings-bots.png' %}" alt="Settings menu with Bots selected" width="360" height="779" loading="lazy">
+                            <figcaption>Open Settings → Bots.</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/bot-editor-basic.png' %}" alt="Bot editor with content restriction switches enabled" width="360" height="618" loading="lazy">
+                            <figcaption>Set the bot's content restrictions.</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/bot-editor-advanced.png' %}" alt="Bot editor with a custom model and instructions" width="360" height="620" loading="lazy">
+                            <figcaption>Customize its instructions and model.</figcaption>
+                        </figure>
                     </div>
                 </article>
 
@@ -113,8 +123,10 @@
                     <h2>Set a parent PIN</h2>
                     <p>From Settings, choose Set PIN to help keep parent-only controls separate from a student's session.</p>
                     <div class="shots">
-                        <figure class="shot"><img src="{% static 'screenshots/settings-icon.png' %}" alt="Settings entry point in the app" width="360" height="94" loading="lazy"></figure>
-                        <figure class="shot"><img src="{% static 'screenshots/settings-set-pin.png' %}" alt="Set PIN option in Settings" width="360" height="779" loading="lazy"></figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/settings-set-pin.png' %}" alt="Set PIN option highlighted in Settings" width="360" height="779" loading="lazy">
+                            <figcaption>Choose Set PIN from Settings.</figcaption>
+                        </figure>
                     </div>
                 </article>
 
@@ -124,8 +136,14 @@
                     <h2>Add a profile for each student</h2>
                     <p>Create a separate profile for every student who will use the family account.</p>
                     <div class="shots">
-                        <figure class="shot"><img src="{% static 'screenshots/settings-profiles.png' %}" alt="Profiles option in Settings" width="360" height="779" loading="lazy"></figure>
-                        <figure class="shot"><img src="{% static 'screenshots/new-profile.png' %}" alt="New student profile form" width="360" height="779" loading="lazy"></figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/settings-profiles.png' %}" alt="Profiles option highlighted in Settings" width="360" height="779" loading="lazy">
+                            <figcaption>Open Profiles from Settings.</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/select-profile.png' %}" alt="Student profile choices in the app" width="360" height="779" loading="lazy">
+                            <figcaption>Profiles keep each student's learning separate.</figcaption>
+                        </figure>
                     </div>
                 </article>
 
@@ -133,10 +151,12 @@
                     <span class="node" aria-hidden="true">6</span>
                     <span class="tag parent">Parent setup</span>
                     <h2>Choose your notification settings</h2>
-                    <p>Open Notifications in Settings and choose whether to receive conversation updates.</p>
+                    <p>Open Notifications in Settings and enable the conversation updates you want to receive. If your device asks, allow notifications for Syft Learning there too.</p>
                     <div class="shots">
-                        <figure class="shot"><img src="{% static 'screenshots/settings-notifications.png' %}" alt="Notifications option in Settings" width="360" height="779" loading="lazy"></figure>
-                        <figure class="shot"><img src="{% static 'screenshots/notifications.png' %}" alt="Notification setting, currently disabled" width="360" height="779" loading="lazy"></figure>
+                        <figure class="shot">
+                            <img src="{% static 'screenshots/settings-notifications.png' %}" alt="Notifications option highlighted in Settings" width="360" height="779" loading="lazy">
+                            <figcaption>Open Notifications from Settings.</figcaption>
+                        </figure>
                     </div>
                 </article>
 
@@ -156,7 +176,10 @@
                     <span class="tag parent">Parent setup</span>
                     <h2>Invite your student to sign in</h2>
                     <p>In the student's profile, enter the email address they will use with Google or Apple sign-in. The student session is limited to their learning area.</p>
-                    <figure class="shot wide"><img src="{% static 'screenshots/new-profile.png' %}" alt="New profile form" width="360" height="779" loading="lazy"></figure>
+                    <div class="step-note">
+                        <span class="note-icon" aria-hidden="true">i</span>
+                        <div><strong>Use the email they will sign in with.</strong><p>Enter the student's Google or Apple email in the Student sign-in email field in their profile.</p></div>
+                    </div>
                 </article>
 
                 <h2 class="tut-group" id="student-setup">Set up as a student</h2>
@@ -166,7 +189,11 @@
                     <span class="tag student">Student setup</span>
                     <h2>Sign in with the invited Google or Apple account</h2>
                     <p>On the student's device, choose the sign-in option that matches the invited email. Syft opens the student's profile without the parent PIN or profile picker.</p>
-                    <figure class="shot wide"><img src="{% static 'screenshots/settings-profiles.png' %}" alt="Profiles entry in Settings" width="360" height="779" loading="lazy"></figure>
+                    <ul class="instruction-list">
+                        <li>Check which email the parent added to the profile.</li>
+                        <li>Choose Google or Apple sign-in with that same email.</li>
+                        <li>Continue into the student's learning area.</li>
+                    </ul>
                 </article>
 
                 <article class="tut-step reveal" id="step-10" data-tutorial-step data-step-label="Start a chat">
@@ -174,15 +201,32 @@
                     <span class="tag student">Student setup</span>
                     <h2>Choose a bot and start chatting</h2>
                     <p>Select a bot and ask a question, explore an idea or start a study session.</p>
-                    <figure class="shot wide"><img src="{% static 'screenshots/start-chat.png' %}" alt="Student app home with the chat button" width="360" height="779" loading="lazy"></figure>
+                    <div class="step-complete">
+                        <span class="complete-mark" aria-hidden="true">✓</span>
+                        <div><strong>You're ready to learn.</strong><p>Pick a bot, start a conversation and ask it to help you think through your next question.</p></div>
+                        <a class="btn btn-primary btn-sm" href="/app">Open the web app <span aria-hidden="true">→</span></a>
+                    </div>
                 </article>
             </div>
         </section>
 
         <section class="wrap help-card" aria-labelledby="help-title">
-            <span class="eyebrow">We're here if you need a hand</span>
-            <h2 class="title-lg" id="help-title">Need help getting set up?</h2>
-            <p class="lede">Contact support and we'll help you get your family started.</p>
+            <span class="eyebrow">Good to know</span>
+            <h2 class="title-lg" id="help-title">A few quick answers</h2>
+            <div class="faq tutorial-faq">
+                <details>
+                    <summary>My student can't sign in. What should I check?</summary>
+                    <div class="answer">Confirm the email entered in the student's profile matches the Google or Apple account they are using to sign in.</div>
+                </details>
+                <details>
+                    <summary>Why aren't notifications showing up?</summary>
+                    <div class="answer">Check that notifications are enabled in Syft's Settings and allowed for the app in the device's notification settings.</div>
+                </details>
+                <details>
+                    <summary>Where can I get help with a parent PIN?</summary>
+                    <div class="answer">Contact support and tell us what you need help with. Do not include your PIN in the message.</div>
+                </details>
+            </div>
             <div class="cta-actions">
                 <a class="btn btn-primary" href="/support/">Contact support <span aria-hidden="true">→</span></a>
                 <a class="btn btn-ghost" href="/app">Open the web app</a>
