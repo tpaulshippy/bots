@@ -4,50 +4,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Support</title>
+    <meta name="description" content="Contact Syft Learning support — help with setup, student profiles, bots, and billing.">
+    <meta name="theme-color" content="#02161d">
+    <link rel="canonical" href="https://syftlearning.app/support/">
+    <title>Support — Syft Learning</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" href="{% static 'favicon.png' %}">
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="{% static 'styles.css' %}">
+    <link rel="stylesheet" href="{% static 'design.css' %}">
 </head>
-<body class="font-sans text-gray-100">
-    <!-- Logo (wordless bot mark on dark tint #0a7ea4, matches app splash) -->
-    <div class="header-logo" style="width: 100%; height: 100px;">
-        <div class="flex justify-center items-center content-center h-full gap-3">
-            <img src="{% static 'splash-icon.png' %}" alt="Syft Logo" style="height: 80px">
-            <span class="text-3xl font-bold tracking-wide text-white">SYFT LEARNING</span>
-        </div>
-    </div>
-    <div class="container mx-auto px-4 py-8">
-    <form method="post" class="bg-gray-800 p-6 rounded-lg shadow-md">
-        {% csrf_token %}
-        <div class="mb-4">
-            <label for="id_name" class="block text-gray-300 font-bold mb-2">Name</label>
-            <input type="text" name="name" id="id_name" class="w-full p-3 border border-gray-600 rounded text-gray-900 focus:outline-none focus:ring focus:ring-teal-500" required>
-        </div>
-        <div class="mb-4">
-            <label for="id_email" class="block text-gray-300 font-bold mb-2">Email</label>
-            <input type="email" name="email" id="id_email" class="w-full p-3 border border-gray-600 rounded text-gray-900 focus:outline-none focus:ring focus:ring-teal-500" required>
-        </div>
-        <div class="mb-4">
-            <label for="id_subject" class="block text-gray-300 font-bold mb-2">Subject</label>
-            <input type="text" name="subject" id="id_subject" class="w-full p-3 border border-gray-600 rounded text-gray-900 focus:outline-none focus:ring focus:ring-teal-500" required>
-        </div>
-        <div class="mb-4">
-            <label for="id_message" class="block text-gray-300 font-bold mb-2">Message</label>
-            <textarea name="message" id="id_message" class="w-full p-3 border border-gray-600 rounded text-gray-900 focus:outline-none focus:ring focus:ring-teal-500" rows="5" required></textarea>
-        </div>
-        <button type="submit" class="bg-teal-700 text-white py-2 px-4 rounded hover:bg-teal-600 w-full">Send Message</button>
-    </form>
+<body class="page">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
 
-    <!-- Footer -->
-    <div class="mt-16 text-center">
-        <div class="flex flex-wrap justify-center gap-4 mb-6">
-            <a href="/" class="text-sm hover:text-cyan-300 transition">Home</a>
-            <a href="/tutorial" class="text-sm hover:text-cyan-300 transition">Getting Started</a>
-            <a href="/support" class="text-sm hover:text-cyan-300 transition">Support</a>
+    <header class="nav">
+        <div class="nav-inner">
+            <a class="brand" href="/" aria-label="Syft Learning home">
+                <img src="{% static 'splash-icon.png' %}" alt="">
+                <span>SYFT LEARNING</span>
+            </a>
+            <button class="nav-toggle" type="button" data-nav-toggle aria-controls="primary-nav" aria-expanded="false" aria-label="Open navigation">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+            </button>
+            <nav class="nav-links" id="primary-nav" data-nav-menu aria-label="Main navigation">
+                <a class="nav-hide-sm" href="/#families">For families</a>
+                <a class="nav-hide-sm" href="/#plans">Plans</a>
+                <a href="/tutorial/">Getting started</a>
+                <a href="/support/" aria-current="page">Support</a>
+            </nav>
+            <a class="btn btn-primary btn-sm nav-cta" href="/app">Try the web app <span aria-hidden="true">→</span></a>
         </div>
-    <p class="text-xs text-gray-400 mb-2">Check the source code on <a href="https://github.com/tpaulshippy/bots" class="underline hover:text-cyan-300 transition">GitHub</a></p>
-    <p class="text-xs text-gray-400">&copy; 2025 Syft Learning. All rights reserved.</p>
-    </div>
+    </header>
+
+    <main id="main">
+        <section class="hero" aria-labelledby="support-title">
+            <div class="wrap hero-center">
+                <div class="hero-copy reveal">
+                    <span class="eyebrow"><span class="dot" aria-hidden="true"></span> Support</span>
+                    <h1 class="title-xl" id="support-title">Questions? <br><span class="grad-text">We're here to help.</span></h1>
+                    <p class="lede">Tell us what's happening and we'll get back to you. Most messages get a reply within one school day.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" aria-labelledby="before-title">
+            <div class="wrap panel panel-grid support-grid">
+                <div class="reveal">
+                    <span class="eyebrow">Before you write</span>
+                    <h2 class="title-lg" id="before-title">A quick check saves a round trip.</h2>
+                    <p class="lede">Most setup questions are answered in the getting-started guide.</p>
+                    <ul class="checks">
+                        <li><span class="tick" aria-hidden="true">✓</span><span>Setting up profiles or bots? Start with the <a href="/tutorial/">setup guide</a>.</span></li>
+                        <li><span class="tick" aria-hidden="true">✓</span><span>Student sign-in trouble? Include the profile name and sign-in email.</span></li>
+                        <li><span class="tick" aria-hidden="true">✓</span><span>Billing or plan question? Put "Billing" in the subject line.</span></li>
+                    </ul>
+                    <p class="support-note">We read every message ourselves. Replies go to the email you provide.</p>
+                </div>
+                <div class="form-panel reveal">
+                    <form id="support-form" aria-label="Contact support">
+                        <div class="field-row">
+                            <div class="field">
+                                <label for="id_name">Name</label>
+                                <input type="text" name="name" id="id_name" required>
+                            </div>
+                            <div class="field">
+                                <label for="id_email">Email</label>
+                                <input type="email" name="email" id="id_email" required>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="id_subject">Subject</label>
+                            <input type="text" name="subject" id="id_subject" list="support-subjects" required>
+                            <datalist id="support-subjects">
+                                <option value="Setup help"></option>
+                                <option value="Student sign-in"></option>
+                                <option value="Bots and profiles"></option>
+                                <option value="Billing"></option>
+                                <option value="Something else"></option>
+                            </datalist>
+                        </div>
+                        <div class="field">
+                            <label for="id_message">Message</label>
+                            <textarea name="message" id="id_message" rows="5" required></textarea>
+                        </div>
+                        <button class="btn btn-primary btn-block" type="submit">Send message <span aria-hidden="true">→</span></button>
+                        <p id="support-status" class="form-status" role="status" aria-live="polite"></p>
+                    </form>
+                </div>
+            </div>
+            <div class="wrap support-alt reveal">
+                <p>Prefer to browse? <a href="/tutorial/">Tutorial</a> · <a href="/#plans">Plans on the home page</a></p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="wrap footer-inner">
+            <span class="foot-copy">© 2026 Syft Learning. All rights reserved.</span>
+            <nav aria-label="Footer navigation">
+                <a href="/">Home</a>
+                <a href="/tutorial/">Getting started</a>
+                <a href="/support/">Support</a>
+                <a href="https://github.com/tpaulshippy/bots">GitHub</a>
+            </nav>
+        </div>
+    </footer>
+    <script>
+    (function () {
+        var form = document.getElementById("support-form");
+        var status = document.getElementById("support-status");
+        if (!form) return;
+        form.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            var data = {
+                name: form.name.value.trim(),
+                email: form.email.value.trim(),
+                subject: form.subject.value.trim(),
+                message: form.message.value.trim()
+            };
+            if (status) { status.textContent = "Sending…"; }
+            try {
+                var res = await fetch("/api/support", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) throw new Error("bad status " + res.status);
+                form.reset();
+                if (status) { status.textContent = "Thank you for your message. We will be in touch shortly."; }
+            } catch (err) {
+                if (status) { status.textContent = "Sorry — something went wrong. Please try again later."; }
+            }
+        });
+    })();
+    </script>
+    <script src="{% static 'site.js' %}"></script>
 </body>
 </html>
