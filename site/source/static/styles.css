@@ -19,6 +19,9 @@ body {
 .card:hover {
     transform: translateY(-5px);
 }
+.card-static:hover {
+    transform: none;
+}
 .button {
     background-color: #00708c;
     transition: background-color 0.3s ease;
