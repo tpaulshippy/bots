@@ -1429,3 +1429,27 @@ body.page > :not(.aurora) {
         font-size: 12px;
     }
 }
+
+
+
+/* ---------- product screenshot captions ---------- */
+
+.tile-phone figure {
+    flex: 0 1 148px;
+    margin: 0;
+    text-align: center;
+}
+
+.tile-phone figcaption,
+.shot figcaption {
+    margin-top: 9px;
+    color: var(--ink-dim);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.panel .shot {
+    width: min(100%, 270px);
+    justify-self: center;
+    margin: 0;
+}
