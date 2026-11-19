@@ -1453,3 +1453,46 @@ body.page > :not(.aurora) {
     justify-self: center;
     margin: 0;
 }
+
+
+
+/* ---------- plan details and flexible footer navigation ---------- */
+
+.plan-list {
+    list-style: none;
+    display: grid;
+    gap: 12px;
+    margin: 0 0 24px;
+    padding: 0;
+    color: #dceef6;
+    font-size: 14px;
+}
+
+.plan-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    line-height: 1.45;
+}
+
+.plan-list li::before {
+    content: "✓";
+    flex: none;
+    color: #7ff0c5;
+    font-weight: 800;
+}
+
+.plan-list strong {
+    font-weight: 700;
+}
+
+.footer nav {
+    flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+    .footer nav {
+        width: 100%;
+        gap: 12px 18px;
+    }
+}
