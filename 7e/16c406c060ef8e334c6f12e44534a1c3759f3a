@@ -1,0 +1,18 @@
+site/source/static/design.css
+  h_6bbd00fe0a456a 27-30,33,970,1307,1496-1634
+site/source/static/site.js
+  h_6bbd00fe0a456a 60,62-68,72-95
+site/source/templates/tutorial.html
+  h_6bbd00fe0a456a 7-10,14,16-35,37-43,45,47-54,56,58-71,73-75,77-84,86-106,108,110-117,119-128,130,132-139,141-150,152,154-160,162,164-170,172-178,180,182-188,190-201,203-204,206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7e16c406c060ef8e334c6f12e44534a1c3759f3a",
+  "prompts": {},
+  "humans": {
+    "h_6bbd00fe0a456a": {
+      "author": "Paul Shippy <pshippy@gmail.com>"
+    }
+  }
+}
