@@ -18,6 +18,7 @@
 // No dependencies: node stdlib only.
 
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname, join, posix, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -108,11 +109,34 @@ function writeFile(path, content) {
   writeFileSync(path, content);
 }
 
+// Cache-bust local static assets: /static/app.css -> /static/app.css?v=<hash8>.
+// Without this, browsers/CDN edges can serve a stale design.css against
+// fresh HTML (unstyled form, wrong layout) with no way to recover except
+// a manual cache clear. Hashes come from file contents, so a URL only
+// changes when the file does (safe with immutable caching in _headers).
+const hashCache = new Map();
+function staticVersioned(html) {
+  return html.replace(/\/static\/([A-Za-z0-9_./-]+\.(?:css|js|png|svg|ico|webp|woff2?))\b(?!\?)/g, (m, rel) => {
+    if (!hashCache.has(rel)) {
+      const p = join(STATIC_SRC, rel);
+      if (!existsSync(p)) {
+        console.warn(`warning: /static/${rel} has no source file (leaving URL unversioned)`);
+        hashCache.set(rel, null);
+      } else {
+        const h = createHash("sha256").update(readFileSync(p)).digest("hex").slice(0, 8);
+        hashCache.set(rel, h);
+      }
+    }
+    const h = hashCache.get(rel);
+    return h ? `/static/${rel}?v=${h}` : m;
+  });
+}
+
 function buildPages() {
-  const marketing = deDjango(readSourceFile(join(TEMPLATES_DIR, "marketing.html")).toString("utf8"));
-  const tutorial = deDjango(readSourceFile(join(TEMPLATES_DIR, "tutorial.html")).toString("utf8"));
+  const marketing = staticVersioned(deDjango(readSourceFile(join(TEMPLATES_DIR, "marketing.html")).toString("utf8")));
+  const tutorial = staticVersioned(deDjango(readSourceFile(join(TEMPLATES_DIR, "tutorial.html")).toString("utf8")));
   const supportRaw = readSourceFile(join(TEMPLATES_DIR, "support.html")).toString("utf8");
-  const support = staticSupportForm(deDjango(supportRaw));
+  const support = staticVersioned(staticSupportForm(deDjango(supportRaw)));
 
   writeFile(join(DIST, "index.html"), marketing);
   writeFile(join(DIST, "tutorial", "index.html"), tutorial);
@@ -200,10 +224,28 @@ function buildRedirects() {
   console.log(`redirects: /app/* SPA fallback`);
 }
 
+function buildHeaders() {
+  // Versioned /static/* URLs (?v=contenthash) are immutable; HTML must
+  // revalidate so clients never pair fresh markup with stale CSS/JS.
+  const lines = [
+    "/static/*",
+    "  Cache-Control: public, max-age=31536000, immutable",
+    "/",
+    "  Cache-Control: public, max-age=0, must-revalidate",
+    "/tutorial/",
+    "  Cache-Control: public, max-age=0, must-revalidate",
+    "/support/",
+    "  Cache-Control: public, max-age=0, must-revalidate",
+  ];
+  writeFile(join(DIST, "_headers"), lines.join("\n") + "\n");
+  console.log(`headers: immutable /static/*, revalidate HTML`);
+}
+
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 buildPages();
 buildStatic();
 buildApp();
 buildRedirects();
+buildHeaders();
 console.log(`done: ${DIST} (source: site/source/)`);
