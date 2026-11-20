@@ -1800,6 +1800,9 @@ body.page > .aurora {
     /* Compact nav height: 10px x 2 inner padding + 36px toggle + 1px border. */
     .tutorial-topbar {
         top: 58px;
+    }
+}
+
 /* ---------- support ---------- */
 
 /* The support page does not load the Tailwind browser build (nothing on it
