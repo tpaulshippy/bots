@@ -8,12 +8,14 @@
     <meta name="theme-color" content="#02161d">
     <link rel="canonical" href="https://syftlearning.app/support/">
     <title>Support — Syft Learning</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- No Tailwind browser build on this page: nothing here uses its
+         utilities, and the form CSS below owns its reset. This also keeps
+         the page working when a content blocker stops the CDN. -->
     <link rel="icon" href="{% static 'favicon.png' %}">
     <link rel="stylesheet" href="{% static 'styles.css' %}">
     <link rel="stylesheet" href="{% static 'design.css' %}">
 </head>
-<body class="page">
+<body class="page page-support">
     <a class="skip-link" href="#main">Skip to content</a>
     <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
 
