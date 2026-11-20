@@ -633,10 +633,15 @@ summary:focus-visible,
     justify-self: center;
     display: flex;
     gap: 14px;
+    align-items: start;
+    min-width: 0;
 }
 
 .tile-phone img {
-    width: 148px;
+    width: 100%;
+    height: 320px;
+    object-fit: cover;
+    object-position: top center;
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow: 0 26px 50px -28px rgba(0, 0, 0, 0.9);
@@ -1186,7 +1191,7 @@ html:not(.js) .reveal {
     }
 
     .tile-phone img {
-        width: 132px;
+        height: 300px;
     }
 }
 
@@ -1222,7 +1227,7 @@ html:not(.js) .reveal {
     }
 
     .tile-phone img {
-        width: 42vw;
+        height: 280px;
     }
 
     .timeline {
@@ -1450,6 +1455,7 @@ body.page > .aurora {
 
 .tile-phone figure {
     flex: 0 1 148px;
+    min-width: 0;
     margin: 0;
     text-align: center;
 }
