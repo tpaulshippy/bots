@@ -1123,7 +1123,7 @@ summary:focus-visible,
 }
 
 .help-card {
-    margin: 46px 0 0;
+    margin: 46px auto 0;
     padding: 32px;
     border-radius: 24px;
     text-align: center;
@@ -1131,6 +1131,14 @@ summary:focus-visible,
         radial-gradient(520px 200px at 50% 0%, rgba(0, 194, 234, 0.22), transparent 72%),
         linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
     border: 1px solid rgba(255, 255, 255, 0.13);
+}
+
+.help-card .title-lg {
+    margin: 14px 0 22px;
+}
+
+.help-card .faq {
+    text-align: left;
 }
 
 .help-card .cta-actions {
